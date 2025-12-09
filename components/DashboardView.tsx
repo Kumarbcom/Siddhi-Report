@@ -35,12 +35,14 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     // Pending SO
     const soBalValue = pendingSO.reduce((acc, i) => acc + (i.balanceQty * i.rate), 0);
     const soBalQty = pendingSO.reduce((acc, i) => acc + i.balanceQty, 0);
-    const soCount = pendingSO.length;
+    // Unique SO Count
+    const soCount = new Set(pendingSO.map(i => i.orderNo.trim()).filter(Boolean)).size;
 
     // Pending PO
     const poBalValue = pendingPO.reduce((acc, i) => acc + (i.balanceQty * i.rate), 0);
     const poBalQty = pendingPO.reduce((acc, i) => acc + i.balanceQty, 0);
-    const poCount = pendingPO.length;
+    // Unique PO Count
+    const poCount = new Set(pendingPO.map(i => i.orderNo.trim()).filter(Boolean)).size;
 
     return { invValue, invQty, totalSalesValue, totalSalesQty, soBalValue, soBalQty, soCount, poBalValue, poBalQty, poCount };
   }, [closingStock, pendingSO, pendingPO, sales1Year, sales3Months]);

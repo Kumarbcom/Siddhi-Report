@@ -178,13 +178,19 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
 
   // Calculate Totals
   const totals = useMemo(() => {
-      return items.reduce((acc, item) => ({
-          // STRICT CALCULATION: Balance * Rate for Total Value
-          value: acc.value + ((item.balanceQty || 0) * (item.rate || 0)),
-          orderedValue: acc.orderedValue + ((item.orderedQty || 0) * (item.rate || 0)),
-          ordered: acc.ordered + (item.orderedQty || 0),
-          balance: acc.balance + (item.balanceQty || 0)
-      }), { value: 0, orderedValue: 0, ordered: 0, balance: 0 });
+      const uniqueOrders = new Set<string>();
+      const result = items.reduce((acc, item) => {
+          if (item.orderNo) uniqueOrders.add(item.orderNo);
+          return {
+              // STRICT CALCULATION: Balance * Rate for Total Value
+              value: acc.value + ((item.balanceQty || 0) * (item.rate || 0)),
+              orderedValue: acc.orderedValue + ((item.orderedQty || 0) * (item.rate || 0)),
+              ordered: acc.ordered + (item.orderedQty || 0),
+              balance: acc.balance + (item.balanceQty || 0)
+          };
+      }, { value: 0, orderedValue: 0, ordered: 0, balance: 0 });
+      
+      return { ...result, uniqueOrderCount: uniqueOrders.size };
   }, [items]);
 
   return (
@@ -193,7 +199,7 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
       {/* 1. Summary Dashboard */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-shrink-0">
           <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-             <p className="text-xs text-gray-500 font-medium uppercase mb-1">Total Ordered</p>
+             <p className="text-xs text-gray-500 font-medium uppercase mb-1">Total Ordered ({totals.uniqueOrderCount} Orders)</p>
              <div className="flex flex-col">
                 <span className="text-xl font-bold text-blue-600">Qty: {totals.ordered.toLocaleString()}</span>
                 <span className="text-sm font-bold text-gray-800">{formatCurrency(totals.orderedValue)}</span>

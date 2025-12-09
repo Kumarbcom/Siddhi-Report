@@ -166,10 +166,12 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
           value: 0,
           allocated: 0,
           toArrange: 0,
-          uniqueInventory: 0
+          uniqueInventory: 0,
+          uniqueOrderCount: 0
       };
 
       const uniqueItemsSet = new Set<string>();
+      const uniqueOrders = new Set<string>();
 
       processedItems.forEach(item => {
           t.ordered += item.orderedQty || 0;
@@ -183,6 +185,8 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
           t.allocated += item.allocated || 0;
           t.toArrange += item.shortage || 0;
 
+          if (item.orderNo) uniqueOrders.add(item.orderNo);
+
           const normName = item.itemName.toLowerCase().trim();
           if (!uniqueItemsSet.has(normName)) {
               uniqueItemsSet.add(normName);
@@ -190,6 +194,7 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
               t.uniqueInventory += stock ? stock.quantity : 0;
           }
       });
+      t.uniqueOrderCount = uniqueOrders.size;
       return t;
   }, [processedItems, closingStockItems]);
 
@@ -288,7 +293,7 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
       {/* 1. Summary Dashboard */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 flex-shrink-0">
           <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-             <p className="text-xs text-gray-500 font-medium uppercase mb-1">Total Ordered</p>
+             <p className="text-xs text-gray-500 font-medium uppercase mb-1">Total Ordered ({totals.uniqueOrderCount} Orders)</p>
              <div className="flex flex-col">
                 <span className="text-sm font-bold text-blue-600">Qty: {totals.ordered.toLocaleString()}</span>
                 <span className="text-sm font-bold text-gray-800">{formatCurrency(totals.orderedValue)}</span>
