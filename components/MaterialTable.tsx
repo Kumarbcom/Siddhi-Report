@@ -1,71 +1,151 @@
-import React from 'react';
+
+import React, { useState, useMemo } from 'react';
 import { Material } from '../types';
-import { Trash2, PackageOpen } from 'lucide-react';
+import { Trash2, PackageOpen, Search, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 
 interface MaterialTableProps {
   materials: Material[];
   onDelete: (id: string) => void;
 }
 
+type SortKey = keyof Material;
+
 const MaterialTable: React.FC<MaterialTableProps> = ({ materials, onDelete }) => {
-  if (materials.length === 0) {
-    return (
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center flex flex-col items-center justify-center">
-        <div className="bg-blue-50 p-4 rounded-full mb-4">
-          <PackageOpen className="w-8 h-8 text-blue-500" />
-        </div>
-        <h3 className="text-lg font-medium text-gray-900">No Materials Found</h3>
-        <p className="text-gray-500 mt-2 max-w-sm">
-          Your database is currently empty. Add a new material manually or use the AI generator to populate sample data.
-        </p>
-      </div>
-    );
-  }
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' } | null>(null);
+
+  const handleSort = (key: SortKey) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const processedMaterials = useMemo(() => {
+    let data = [...materials];
+
+    // Filter
+    if (searchTerm) {
+      const lowerSearch = searchTerm.toLowerCase();
+      data = data.filter(item => 
+        item.description.toLowerCase().includes(lowerSearch) ||
+        item.partNo.toLowerCase().includes(lowerSearch) ||
+        item.make.toLowerCase().includes(lowerSearch) ||
+        item.materialGroup.toLowerCase().includes(lowerSearch)
+      );
+    }
+
+    // Sort
+    if (sortConfig) {
+      data.sort((a, b) => {
+        if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (a[sortConfig.key] > b[sortConfig.key]) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return data;
+  }, [materials, searchTerm, sortConfig]);
+
+  const renderSortIcon = (key: SortKey) => {
+    if (!sortConfig || sortConfig.key !== key) return <ArrowUpDown className="w-3 h-3 text-gray-400" />;
+    return sortConfig.direction === 'asc' 
+      ? <ArrowUp className="w-3 h-3 text-blue-500" /> 
+      : <ArrowDown className="w-3 h-3 text-blue-500" />;
+  };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-gray-50 border-b border-gray-200">
-              <th className="py-4 px-6 text-xs font-semibold text-gray-500 uppercase tracking-wider">Description</th>
-              <th className="py-4 px-6 text-xs font-semibold text-gray-500 uppercase tracking-wider">Part No</th>
-              <th className="py-4 px-6 text-xs font-semibold text-gray-500 uppercase tracking-wider">Make</th>
-              <th className="py-4 px-6 text-xs font-semibold text-gray-500 uppercase tracking-wider">Material Group</th>
-              <th className="py-4 px-6 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {materials.map((material) => (
-              <tr 
-                key={material.id} 
-                className="hover:bg-blue-50/50 transition-colors duration-150 group"
-              >
-                <td className="py-4 px-6 text-sm font-medium text-gray-900">{material.description}</td>
-                <td className="py-4 px-6 text-sm text-gray-600 font-mono">{material.partNo}</td>
-                <td className="py-4 px-6 text-sm text-gray-600">
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                    {material.make}
-                  </span>
-                </td>
-                <td className="py-4 px-6 text-sm text-gray-600">{material.materialGroup}</td>
-                <td className="py-4 px-6 text-right">
-                  <button
-                    onClick={() => onDelete(material.id)}
-                    className="text-gray-400 hover:text-red-600 transition-colors p-1 rounded-md hover:bg-red-50"
-                    title="Delete Material"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <div className="flex flex-col gap-4 h-full">
+      {/* Search Bar */}
+      <div className="relative flex-shrink-0">
+        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <Search className="h-4 w-4 text-gray-400" />
+        </div>
+        <input
+          type="text"
+          placeholder="Search materials by Description, Part No, Make..."
+          className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all shadow-sm"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
       </div>
-      <div className="bg-gray-50 px-6 py-3 border-t border-gray-200 text-xs text-gray-500 flex justify-between items-center">
-        <span>Showing {materials.length} records</span>
-        <span>Local Database (Persisted)</span>
+
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex-1 flex flex-col min-h-0">
+        <div className="overflow-auto flex-1 h-[calc(100vh-280px)]">
+          <table className="w-full text-left border-collapse">
+            <thead className="sticky top-0 z-10 bg-gray-50 shadow-sm">
+              <tr className="border-b border-gray-200">
+                <th 
+                  className="py-4 px-6 text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                  onClick={() => handleSort('description')}
+                >
+                  <div className="flex items-center gap-1">Description {renderSortIcon('description')}</div>
+                </th>
+                <th 
+                  className="py-4 px-6 text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                  onClick={() => handleSort('partNo')}
+                >
+                  <div className="flex items-center gap-1">Part No {renderSortIcon('partNo')}</div>
+                </th>
+                <th 
+                  className="py-4 px-6 text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                  onClick={() => handleSort('make')}
+                >
+                  <div className="flex items-center gap-1">Make {renderSortIcon('make')}</div>
+                </th>
+                <th 
+                  className="py-4 px-6 text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                  onClick={() => handleSort('materialGroup')}
+                >
+                  <div className="flex items-center gap-1">Group {renderSortIcon('materialGroup')}</div>
+                </th>
+                <th className="py-4 px-6 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {processedMaterials.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center text-gray-500">
+                    <div className="flex flex-col items-center justify-center">
+                        <PackageOpen className="w-8 h-8 text-gray-300 mb-2" />
+                        <p>No matching materials found.</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                  processedMaterials.map((material) => (
+                    <tr 
+                      key={material.id} 
+                      className="hover:bg-blue-50/50 transition-colors duration-150 group"
+                    >
+                      <td className="py-4 px-6 text-sm font-medium text-gray-900">{material.description}</td>
+                      <td className="py-4 px-6 text-sm text-gray-600 font-mono">{material.partNo}</td>
+                      <td className="py-4 px-6 text-sm text-gray-600">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
+                          {material.make}
+                        </span>
+                      </td>
+                      <td className="py-4 px-6 text-sm text-gray-600">{material.materialGroup}</td>
+                      <td className="py-4 px-6 text-right">
+                        <button
+                          onClick={() => onDelete(material.id)}
+                          className="text-gray-400 hover:text-red-600 transition-colors p-1 rounded-md hover:bg-red-50"
+                          title="Delete Material"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+              )}
+            </tbody>
+          </table>
+        </div>
+        <div className="bg-gray-50 px-6 py-3 border-t border-gray-200 text-xs text-gray-500 flex justify-between items-center flex-shrink-0">
+          <span>Showing {processedMaterials.length} of {materials.length} records</span>
+          <span>Local Database</span>
+        </div>
       </div>
     </div>
   );

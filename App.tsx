@@ -7,7 +7,7 @@ import PendingSOView from './components/PendingSOView';
 import PendingPOView from './components/PendingPOView';
 import SalesHistoryView from './components/SalesHistoryView';
 import ClosingStockView from './components/ClosingStockView';
-import { Database, AlertCircle, ClipboardList, ShoppingCart, TrendingUp, Package } from 'lucide-react';
+import { Database, AlertCircle, ClipboardList, ShoppingCart, TrendingUp, Package, Layers } from 'lucide-react';
 
 const STORAGE_KEY_MASTER = 'material_master_db_v1';
 const STORAGE_KEY_STOCK = 'closing_stock_db_v1';
@@ -28,6 +28,7 @@ const App: React.FC = () => {
   const [sales1Year, setSales1Year] = useState<SalesRecord[]>([]);
   const [sales3Months, setSales3Months] = useState<SalesRecord[]>([]);
   
+  const [selectedMake, setSelectedMake] = useState<string | 'ALL'>('ALL');
   const [error, setError] = useState<string | null>(null);
 
   // Load Master Data
@@ -186,17 +187,24 @@ const App: React.FC = () => {
     }
   };
 
+  // Stats for "Records by Make"
   const makeStats = useMemo(() => {
     const counts: Record<string, number> = {};
     materials.forEach(m => { const make = m.make?.trim() || 'Unspecified'; counts[make] = (counts[make] || 0) + 1; });
     return Object.entries(counts).sort((a, b) => b[1] - a[1]);
   }, [materials]);
 
+  // Filtered materials based on selection
+  const filteredMaterials = useMemo(() => {
+    if (selectedMake === 'ALL') return materials;
+    return materials.filter(m => (m.make?.trim() || 'Unspecified') === selectedMake);
+  }, [materials, selectedMake]);
+
   return (
     <div className="min-h-screen bg-gray-100 font-sans text-gray-900 pb-20">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-30 shadow-sm">
+        <div className="w-full px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="bg-blue-600 p-2 rounded-lg text-white">
               <Database className="w-5 h-5" />
@@ -220,7 +228,7 @@ const App: React.FC = () => {
         </div>
         
         {/* Navigation Tabs */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex space-x-6 md:space-x-8 -mb-px overflow-x-auto">
+        <div className="w-full px-6 flex space-x-6 md:space-x-8 -mb-px overflow-x-auto">
           <button
             onClick={() => setActiveTab('master')}
             className={`pb-3 pt-3 px-1 border-b-2 font-medium text-sm flex items-center gap-2 whitespace-nowrap transition-colors ${
@@ -269,7 +277,7 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="w-full px-6 py-6 h-[calc(100vh-64px)] overflow-hidden">
         {error && (
           <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3 text-red-700">
             <AlertCircle className="w-5 h-5 flex-shrink-0" />
@@ -279,90 +287,138 @@ const App: React.FC = () => {
 
         {/* --- MATERIAL MASTER TAB --- */}
         {activeTab === 'master' && (
-          <>
-            <div className="flex flex-col gap-6 mb-8">
+          <div className="flex flex-col lg:flex-row gap-6 items-start h-full">
+            
+            {/* Left Column: Interactive Vertical Tabs (Make Filter) */}
+            <div className="w-full lg:w-72 flex-shrink-0 flex flex-col gap-4 h-full">
+              
               {/* Total Materials Summary */}
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex items-center justify-between">
-                <div>
-                   <p className="text-sm font-medium text-gray-500 mb-1">Total Materials</p>
-                   <p className="text-3xl font-bold text-gray-900">{materials.length}</p>
-                </div>
-                <div className="bg-blue-50 p-4 rounded-full">
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex flex-col items-center text-center flex-shrink-0">
+                 <div className="bg-blue-50 p-4 rounded-full mb-3">
                     <Database className="w-8 h-8 text-blue-600" />
                 </div>
+                 <p className="text-sm font-medium text-gray-500">Total Materials</p>
+                 <p className="text-4xl font-bold text-gray-900 mt-2">{materials.length}</p>
               </div>
               
-              {/* Records by Make Statistics */}
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex flex-col">
-                <p className="text-sm font-medium text-gray-500 mb-4 pb-2 border-b border-gray-100 flex justify-between items-center">
-                    <span>Records by Make</span>
-                    <span className="text-xs font-normal text-gray-400">Scroll to see all</span>
-                </p>
-                <div className="overflow-y-auto pr-2 space-y-2 max-h-64 custom-scrollbar">
+              {/* Vertical Tabs for Makes */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col flex-1 overflow-hidden min-h-0">
+                <div className="p-4 border-b border-gray-100 bg-gray-50 flex-shrink-0">
+                  <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                    <Layers className="w-4 h-4" />
+                    Filter by Make
+                  </h3>
+                </div>
+                <div className="overflow-y-auto custom-scrollbar p-2 space-y-1 flex-1">
+                  <button
+                    onClick={() => setSelectedMake('ALL')}
+                    className={`w-full text-left px-3 py-2 rounded-lg text-sm flex justify-between items-center transition-colors ${
+                      selectedMake === 'ALL' 
+                        ? 'bg-blue-600 text-white shadow-md' 
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <span className="font-medium">All Makes</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${selectedMake === 'ALL' ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'}`}>
+                      {materials.length}
+                    </span>
+                  </button>
+                  
                   {makeStats.length > 0 ? (
                     makeStats.map(([make, count]) => (
-                      <div key={make} className="flex justify-between items-center text-sm py-2 px-2 hover:bg-gray-50 rounded-lg transition-colors border-b border-gray-50 last:border-0 last:pb-0">
-                        <span className="text-gray-700 font-medium truncate" title={make}>{make}</span>
-                        <span className="font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-full text-xs">{count}</span>
-                      </div>
+                      <button
+                        key={make}
+                        onClick={() => setSelectedMake(make)}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-sm flex justify-between items-center transition-colors ${
+                          selectedMake === make 
+                            ? 'bg-blue-600 text-white shadow-md' 
+                            : 'text-gray-700 hover:bg-gray-100'
+                        }`}
+                      >
+                        <span className="truncate font-medium w-3/4" title={make}>{make}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${selectedMake === make ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'}`}>
+                          {count}
+                        </span>
+                      </button>
                     ))
-                  ) : <div className="py-8 text-center text-gray-400 text-sm italic">No data available</div>}
+                  ) : (
+                    <div className="text-center text-gray-400 text-sm italic py-4">No data</div>
+                  )}
                 </div>
               </div>
             </div>
 
-            <AddMaterialForm 
-                onBulkAdd={handleBulkAddMaterial} 
-                onClear={handleClearMaterials}
-            />
-            <MaterialTable materials={materials} onDelete={handleDeleteMaterial} />
-          </>
+            {/* Right Column: Main Content */}
+            <div className="flex-1 w-full min-w-0 flex flex-col gap-4 h-full overflow-hidden">
+               <AddMaterialForm 
+                  onBulkAdd={handleBulkAddMaterial} 
+                  onClear={handleClearMaterials}
+               />
+               <div className="flex-1 min-h-0">
+                   <MaterialTable 
+                      materials={filteredMaterials} 
+                      onDelete={handleDeleteMaterial} 
+                   />
+               </div>
+            </div>
+          </div>
         )}
 
         {/* --- CLOSING STOCK TAB --- */}
         {activeTab === 'closingStock' && (
-          <ClosingStockView
-            items={closingStockItems}
-            onBulkAdd={handleBulkAddStock}
-            onDelete={handleDeleteStock}
-            onClear={handleClearStock}
-          />
+          <div className="h-full overflow-y-auto">
+             <ClosingStockView
+               items={closingStockItems}
+               materials={materials} // Passed for Pivot functionality
+               onBulkAdd={handleBulkAddStock}
+               onDelete={handleDeleteStock}
+               onClear={handleClearStock}
+             />
+          </div>
         )}
 
         {/* --- PENDING SO TAB --- */}
         {activeTab === 'pendingSO' && (
-          <PendingSOView 
-            items={pendingSOItems} 
-            materials={materials} 
-            onBulkAdd={handleBulkAddPendingSO} 
-            onDelete={handleDeletePendingSO}
-            onClear={handleClearPendingSO} 
-          />
+          <div className="h-full overflow-y-auto">
+             <PendingSOView 
+               items={pendingSOItems} 
+               materials={materials} 
+               closingStockItems={closingStockItems}
+               onBulkAdd={handleBulkAddPendingSO} 
+               onDelete={handleDeletePendingSO}
+               onClear={handleClearPendingSO} 
+             />
+          </div>
         )}
 
         {/* --- PENDING PO TAB --- */}
         {activeTab === 'pendingPO' && (
-          <PendingPOView 
-            items={pendingPOItems} 
-            materials={materials} 
-            onBulkAdd={handleBulkAddPendingPO} 
-            onDelete={handleDeletePendingPO}
-            onClear={handleClearPendingPO}
-          />
+          <div className="h-full overflow-y-auto">
+             <PendingPOView 
+               items={pendingPOItems} 
+               materials={materials} 
+               closingStockItems={closingStockItems}
+               onBulkAdd={handleBulkAddPendingPO} 
+               onDelete={handleDeletePendingPO}
+               onClear={handleClearPendingPO}
+             />
+          </div>
         )}
 
         {/* --- SALES HISTORY TAB --- */}
         {activeTab === 'salesHistory' && (
-          <SalesHistoryView 
-            sales1Year={sales1Year} 
-            sales3Months={sales3Months} 
-            onBulkAdd1Year={handleBulkAddSales1Y} 
-            onBulkAdd3Months={handleBulkAddSales3M} 
-            onDelete1Year={handleDeleteSales1Y}
-            onDelete3Months={handleDeleteSales3M}
-            onClear1Year={handleClearSales1Y}
-            onClear3Months={handleClearSales3M}
-          />
+          <div className="h-full overflow-y-auto">
+             <SalesHistoryView 
+               sales1Year={sales1Year} 
+               sales3Months={sales3Months} 
+               onBulkAdd1Year={handleBulkAddSales1Y} 
+               onBulkAdd3Months={handleBulkAddSales3M} 
+               onDelete1Year={handleDeleteSales1Y}
+               onDelete3Months={handleDeleteSales3M}
+               onClear1Year={handleClearSales1Y}
+               onClear3Months={handleClearSales3M}
+             />
+          </div>
         )}
       </main>
     </div>
