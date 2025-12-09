@@ -288,63 +288,63 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full gap-6">
+    <div className="flex flex-col h-full gap-4">
       
       {/* 1. Summary Dashboard */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 flex-shrink-0">
-          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-             <p className="text-xs text-gray-500 font-medium uppercase mb-1">Total Ordered ({totals.uniqueOrderCount} Orders)</p>
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 flex-shrink-0">
+          <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200">
+             <p className="text-[10px] text-gray-500 font-medium uppercase mb-0.5">Total Ordered ({totals.uniqueOrderCount} Orders)</p>
              <div className="flex flex-col">
                 <span className="text-sm font-bold text-blue-600">Qty: {totals.ordered.toLocaleString()}</span>
-                <span className="text-sm font-bold text-gray-800">{formatCurrency(totals.orderedValue)}</span>
+                <span className="text-xs font-bold text-gray-800">{formatCurrency(totals.orderedValue)}</span>
              </div>
           </div>
-          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-             <p className="text-xs text-gray-500 font-medium uppercase mb-1">Total Balance</p>
+          <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200">
+             <p className="text-[10px] text-gray-500 font-medium uppercase mb-0.5">Total Balance</p>
              <div className="flex flex-col">
                 <span className="text-sm font-bold text-orange-600">Qty: {totals.balance.toLocaleString()}</span>
-                <span className="text-sm font-bold text-gray-800">{formatCurrency(totals.value)}</span>
+                <span className="text-xs font-bold text-gray-800">{formatCurrency(totals.value)}</span>
              </div>
           </div>
-          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-             <p className="text-xs text-gray-500 font-medium uppercase mb-1">Inventory (Ref)</p>
-             <p className="text-lg font-bold text-gray-600">{totals.uniqueInventory.toLocaleString()}</p>
+          <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200">
+             <p className="text-[10px] text-gray-500 font-medium uppercase mb-0.5">Inventory (Ref)</p>
+             <p className="text-base font-bold text-gray-600">{totals.uniqueInventory.toLocaleString()}</p>
           </div>
-          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-             <p className="text-xs text-gray-500 font-medium uppercase mb-1">Allocated (FIFO)</p>
-             <p className="text-lg font-bold text-emerald-600">{totals.allocated.toLocaleString()}</p>
+          <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200">
+             <p className="text-[10px] text-gray-500 font-medium uppercase mb-0.5">Allocated (FIFO)</p>
+             <p className="text-base font-bold text-emerald-600">{totals.allocated.toLocaleString()}</p>
           </div>
           {/* Show To Arrange only if stock < balance (shortage exists) */}
           {totals.toArrange > 0 ? (
-             <div className="bg-red-50 p-4 rounded-xl shadow-sm border border-red-200">
-                <p className="text-xs text-red-700 font-medium uppercase mb-1">Need To Arrange</p>
-                <p className="text-lg font-bold text-red-700">{totals.toArrange.toLocaleString()}</p>
+             <div className="bg-red-50 p-3 rounded-xl shadow-sm border border-red-200">
+                <p className="text-[10px] text-red-700 font-medium uppercase mb-0.5">Need To Arrange</p>
+                <p className="text-base font-bold text-red-700">{totals.toArrange.toLocaleString()}</p>
              </div>
           ) : (
-             <div className="bg-green-50 p-4 rounded-xl shadow-sm border border-green-200 opacity-50">
-                <p className="text-xs text-green-700 font-medium uppercase mb-1">Stock Status</p>
-                <p className="text-sm font-bold text-green-700 flex items-center gap-1 mt-1"><CheckCircle2 className="w-4 h-4" /> Sufficient</p>
+             <div className="bg-green-50 p-3 rounded-xl shadow-sm border border-green-200 opacity-50">
+                <p className="text-[10px] text-green-700 font-medium uppercase mb-0.5">Stock Status</p>
+                <p className="text-xs font-bold text-green-700 flex items-center gap-1 mt-1"><CheckCircle2 className="w-3.5 h-3.5" /> Sufficient</p>
              </div>
           )}
       </div>
 
       {/* 2. Actions Toolbar */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex flex-col gap-4 flex-shrink-0">
-         <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-            <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                <ClipboardList className="w-5 h-5 text-purple-600" /> Pending Orders
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 flex flex-col gap-3 flex-shrink-0">
+         <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
+            <h2 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+                <ClipboardList className="w-4 h-4 text-purple-600" /> Pending Orders
             </h2>
-            <div className="flex flex-wrap gap-3">
-                <button onClick={handleDownloadTemplate} className="flex items-center gap-2 px-4 py-2 bg-white text-gray-600 rounded-lg text-sm border hover:bg-gray-50 transition-colors"><Download className="w-4 h-4" /> Template</button>
+            <div className="flex flex-wrap gap-2">
+                <button onClick={handleDownloadTemplate} className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-600 rounded-lg text-xs border hover:bg-gray-50 transition-colors"><Download className="w-3.5 h-3.5" /> Template</button>
                 <input type="file" ref={fileInputRef} className="hidden" accept=".xlsx, .xls" onChange={handleFileUpload} />
-                <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 rounded-lg text-sm border border-emerald-100 hover:bg-emerald-100 transition-colors"><Upload className="w-4 h-4" /> Import Excel</button>
-                <div className="w-px h-8 bg-gray-200 mx-1 hidden sm:block"></div>
-                <button onClick={onClear} className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg text-sm border border-red-100 hover:bg-red-100 transition-colors"><Trash2 className="w-4 h-4" /> Clear Data</button>
+                <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-xs border border-emerald-100 hover:bg-emerald-100 transition-colors"><Upload className="w-3.5 h-3.5" /> Import Excel</button>
+                <div className="w-px h-6 bg-gray-200 mx-0.5 hidden sm:block"></div>
+                <button onClick={onClear} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs border border-red-100 hover:bg-red-100 transition-colors"><Trash2 className="w-3.5 h-3.5" /> Clear Data</button>
             </div>
          </div>
          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Search className="h-4 w-4 text-gray-400" /></div>
-            <input type="text" placeholder="Search orders by No, Party, Item or Part No..." className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Search className="h-3.5 w-3.5 text-gray-400" /></div>
+            <input type="text" placeholder="Search orders by No, Party, Item or Part No..." className="pl-9 pr-3 py-1.5 w-full border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
          </div>
       </div>
 
@@ -352,75 +352,75 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col flex-1 min-h-0">
          <div className="overflow-auto h-full">
             <table className="w-full text-left border-collapse min-w-full">
-                <thead className="sticky top-0 z-10 bg-gray-50 shadow-sm text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                <thead className="sticky top-0 z-10 bg-gray-50 shadow-sm text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
                     <tr className="border-b border-gray-200">
-                        <th className="py-3 px-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('date')}>Date {renderSortIcon('date')}</th>
-                        <th className="py-3 px-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('orderNo')}>Order {renderSortIcon('orderNo')}</th>
-                        <th className="py-3 px-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('partyName')}>Party's Name {renderSortIcon('partyName')}</th>
-                        <th className="py-3 px-3 cursor-pointer hover:bg-gray-100 w-64" onClick={() => handleSort('itemName')}>Name of Item {renderSortIcon('itemName')}</th>
-                        <th className="py-3 px-3 hidden md:table-cell">Mat Code</th>
-                        <th className="py-3 px-3 hidden md:table-cell">Part No</th>
-                        <th className="py-3 px-3 text-right">Ordered</th>
-                        <th className="py-3 px-3 text-right cursor-pointer hover:bg-gray-100" onClick={() => handleSort('balanceQty')}>Balance {renderSortIcon('balanceQty')}</th>
-                        <th className="py-3 px-3 text-right hidden lg:table-cell">Rate</th>
-                        <th className="py-3 px-3 text-right hidden lg:table-cell">Disc</th>
-                        <th className="py-3 px-3 text-right">Value</th>
-                        <th className="py-3 px-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('dueDate')}>Due On {renderSortIcon('dueDate')}</th>
-                        <th className="py-3 px-3 text-center">OD</th>
+                        <th className="py-2 px-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('date')}>Date {renderSortIcon('date')}</th>
+                        <th className="py-2 px-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('orderNo')}>Order {renderSortIcon('orderNo')}</th>
+                        <th className="py-2 px-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('partyName')}>Party's Name {renderSortIcon('partyName')}</th>
+                        <th className="py-2 px-3 cursor-pointer hover:bg-gray-100 w-56" onClick={() => handleSort('itemName')}>Name of Item {renderSortIcon('itemName')}</th>
+                        <th className="py-2 px-3 hidden md:table-cell">Mat Code</th>
+                        <th className="py-2 px-3 hidden md:table-cell">Part No</th>
+                        <th className="py-2 px-3 text-right">Ordered</th>
+                        <th className="py-2 px-3 text-right cursor-pointer hover:bg-gray-100" onClick={() => handleSort('balanceQty')}>Balance {renderSortIcon('balanceQty')}</th>
+                        <th className="py-2 px-3 text-right hidden lg:table-cell">Rate</th>
+                        <th className="py-2 px-3 text-right hidden lg:table-cell">Disc</th>
+                        <th className="py-2 px-3 text-right">Value</th>
+                        <th className="py-2 px-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('dueDate')}>Due On {renderSortIcon('dueDate')}</th>
+                        <th className="py-2 px-3 text-center">OD</th>
                         
-                        <th className="py-3 px-3 text-center bg-gray-50 border-l border-gray-100">Stock</th>
-                        <th className="py-3 px-3 text-center bg-gray-50">Alloc</th>
-                        <th className="py-3 px-3 text-center bg-gray-50 border-r border-gray-100 text-red-600">Arrange</th>
+                        <th className="py-2 px-3 text-center bg-gray-50 border-l border-gray-100">Stock</th>
+                        <th className="py-2 px-3 text-center bg-gray-50">Alloc</th>
+                        <th className="py-2 px-3 text-center bg-gray-50 border-r border-gray-100 text-red-600">Arrange</th>
                         
-                        <th className="py-3 px-3 text-right">Act</th>
+                        <th className="py-2 px-3 text-right">Act</th>
                     </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200 text-sm">
+                <tbody className="divide-y divide-gray-200 text-xs">
                     {processedItems.length === 0 ? (
-                        <tr><td colSpan={17} className="py-12 text-center text-gray-500">No matching orders found.</td></tr>
+                        <tr><td colSpan={17} className="py-8 text-center text-gray-500">No matching orders found.</td></tr>
                     ) : (
                         processedItems.map(item => {
                             const inMaster = materials.some(m => m.description.toLowerCase().trim() === item.itemName.toLowerCase().trim());
                             
                             return (
                                 <tr key={item.id} className="hover:bg-purple-50/20 transition-colors">
-                                    <td className="py-3 px-3 text-gray-600 whitespace-nowrap">{formatDateDisplay(item.date)}</td>
-                                    <td className="py-3 px-3 font-medium text-gray-800 whitespace-nowrap">{item.orderNo}</td>
-                                    <td className="py-3 px-3 text-gray-700 max-w-[150px] truncate" title={item.partyName}>{item.partyName}</td>
-                                    <td className="py-3 px-3 text-gray-800 max-w-[250px]">
+                                    <td className="py-2 px-3 text-gray-600 whitespace-nowrap">{formatDateDisplay(item.date)}</td>
+                                    <td className="py-2 px-3 font-medium text-gray-800 whitespace-nowrap">{item.orderNo}</td>
+                                    <td className="py-2 px-3 text-gray-700 max-w-[120px] truncate" title={item.partyName}>{item.partyName}</td>
+                                    <td className="py-2 px-3 text-gray-800 max-w-[200px]">
                                         <div className="flex flex-col">
-                                            <span className="font-medium line-clamp-2" title={item.itemName}>{item.itemName}</span>
+                                            <span className="font-medium line-clamp-1" title={item.itemName}>{item.itemName}</span>
                                             {!inMaster && (
-                                                <span className="inline-flex items-center gap-0.5 mt-0.5 text-[10px] text-red-600 bg-red-50 px-1 py-px rounded border border-red-100 w-fit whitespace-nowrap">
-                                                    <AlertTriangle className="w-2.5 h-2.5" /> Not in Master
+                                                <span className="inline-flex items-center gap-0.5 mt-0.5 text-[9px] text-red-600 bg-red-50 px-1 py-px rounded border border-red-100 w-fit whitespace-nowrap">
+                                                    <AlertTriangle className="w-2 h-2" /> Not in Master
                                                 </span>
                                             )}
                                         </div>
                                     </td>
-                                    <td className="py-3 px-3 text-gray-500 hidden md:table-cell text-xs">{item.materialCode}</td>
-                                    <td className="py-3 px-3 text-gray-500 hidden md:table-cell text-xs font-mono">{item.partNo}</td>
-                                    <td className="py-3 px-3 text-right text-gray-600">{item.orderedQty}</td>
-                                    <td className="py-3 px-3 text-right font-medium text-orange-600 bg-orange-50/30 rounded">{item.balanceQty}</td>
-                                    <td className="py-3 px-3 text-right text-gray-500 hidden lg:table-cell">{item.rate}</td>
-                                    <td className="py-3 px-3 text-right text-gray-500 hidden lg:table-cell">{item.discount}</td>
-                                    <td className="py-3 px-3 text-right font-semibold text-gray-800">{formatCurrency(item.value)}</td>
-                                    <td className="py-3 px-3 whitespace-nowrap text-gray-600">{formatDateDisplay(item.dueDate)}</td>
-                                    <td className="py-3 px-3 text-center">
-                                        {item.overDueDays > 0 ? <span className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700 whitespace-nowrap">{item.overDueDays} D</span> : <span className="text-gray-300">-</span>}
+                                    <td className="py-2 px-3 text-gray-500 hidden md:table-cell text-[10px]">{item.materialCode}</td>
+                                    <td className="py-2 px-3 text-gray-500 hidden md:table-cell text-[10px] font-mono">{item.partNo}</td>
+                                    <td className="py-2 px-3 text-right text-gray-600">{item.orderedQty}</td>
+                                    <td className="py-2 px-3 text-right font-medium text-orange-600 bg-orange-50/30 rounded">{item.balanceQty}</td>
+                                    <td className="py-2 px-3 text-right text-gray-500 hidden lg:table-cell">{item.rate}</td>
+                                    <td className="py-2 px-3 text-right text-gray-500 hidden lg:table-cell">{item.discount}</td>
+                                    <td className="py-2 px-3 text-right font-semibold text-gray-800">{formatCurrency(item.value)}</td>
+                                    <td className="py-2 px-3 whitespace-nowrap text-gray-600">{formatDateDisplay(item.dueDate)}</td>
+                                    <td className="py-2 px-3 text-center">
+                                        {item.overDueDays > 0 ? <span className="inline-flex px-1 py-px rounded text-[9px] font-bold bg-red-100 text-red-700 whitespace-nowrap">{item.overDueDays} D</span> : <span className="text-gray-300">-</span>}
                                     </td>
                                     
                                     {/* FIFO Logic Columns */}
-                                    <td className="py-3 px-3 text-center border-l border-gray-100 bg-gray-50/40">
+                                    <td className="py-2 px-3 text-center border-l border-gray-100 bg-gray-50/40">
                                         <span className="text-gray-600 font-medium">{item.totalStock}</span>
                                     </td>
                                     
-                                    <td className="py-3 px-3 text-center bg-gray-50/40">
+                                    <td className="py-2 px-3 text-center bg-gray-50/40">
                                         {item.status === 'future' ? (
-                                            <span className="inline-flex items-center gap-1 text-[10px] text-blue-500 font-medium" title="Future Requirement">
-                                                <Clock className="w-3 h-3" /> Future
+                                            <span className="inline-flex items-center gap-0.5 text-[9px] text-blue-500 font-medium" title="Future Requirement">
+                                                <Clock className="w-2.5 h-2.5" /> Fut
                                             </span>
                                         ) : (
-                                            <span className={`inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded font-bold whitespace-nowrap ${
+                                            <span className={`inline-flex items-center gap-1 text-[10px] px-1 py-px rounded font-bold whitespace-nowrap ${
                                                 item.status === 'full' 
                                                 ? 'text-emerald-700 bg-emerald-100' 
                                                 : item.status === 'partial' 
@@ -432,16 +432,16 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
                                         )}
                                     </td>
 
-                                    <td className="py-3 px-3 text-center border-r border-gray-100 bg-gray-50/40">
+                                    <td className="py-2 px-3 text-center border-r border-gray-100 bg-gray-50/40">
                                          {item.shortage > 0 ? (
-                                             <span className="font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">{item.shortage}</span>
+                                             <span className="font-bold text-red-600 bg-red-50 px-1 py-px rounded">{item.shortage}</span>
                                          ) : (
                                              <span className="text-gray-300">-</span>
                                          )}
                                     </td>
 
-                                    <td className="py-3 px-3 text-right">
-                                        <button onClick={() => onDelete(item.id)} className="text-gray-400 hover:text-red-600 transition-colors p-1 rounded hover:bg-red-50"><Trash2 className="w-4 h-4" /></button>
+                                    <td className="py-2 px-3 text-right">
+                                        <button onClick={() => onDelete(item.id)} className="text-gray-400 hover:text-red-600 transition-colors p-0.5 rounded hover:bg-red-50"><Trash2 className="w-3.5 h-3.5" /></button>
                                     </td>
                                 </tr>
                             );

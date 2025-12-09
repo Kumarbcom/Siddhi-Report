@@ -194,43 +194,43 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
   }, [items]);
 
   return (
-    <div className="flex flex-col h-full gap-6">
+    <div className="flex flex-col h-full gap-4">
       
       {/* 1. Summary Dashboard */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-shrink-0">
-          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-             <p className="text-xs text-gray-500 font-medium uppercase mb-1">Total Ordered ({totals.uniqueOrderCount} Orders)</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 flex-shrink-0">
+          <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200">
+             <p className="text-[10px] text-gray-500 font-medium uppercase mb-0.5">Total Ordered ({totals.uniqueOrderCount} Orders)</p>
              <div className="flex flex-col">
-                <span className="text-xl font-bold text-blue-600">Qty: {totals.ordered.toLocaleString()}</span>
-                <span className="text-sm font-bold text-gray-800">{formatCurrency(totals.orderedValue)}</span>
+                <span className="text-base font-bold text-blue-600">Qty: {totals.ordered.toLocaleString()}</span>
+                <span className="text-xs font-bold text-gray-800">{formatCurrency(totals.orderedValue)}</span>
              </div>
           </div>
-          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-             <p className="text-xs text-gray-500 font-medium uppercase mb-1">Total Balance</p>
+          <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200">
+             <p className="text-[10px] text-gray-500 font-medium uppercase mb-0.5">Total Balance</p>
              <div className="flex flex-col">
-                <span className="text-xl font-bold text-orange-600">Qty: {totals.balance.toLocaleString()}</span>
-                <span className="text-sm font-bold text-gray-800">{formatCurrency(totals.value)}</span>
+                <span className="text-base font-bold text-orange-600">Qty: {totals.balance.toLocaleString()}</span>
+                <span className="text-xs font-bold text-gray-800">{formatCurrency(totals.value)}</span>
              </div>
           </div>
       </div>
 
       {/* 2. Actions Toolbar */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex flex-col gap-4 flex-shrink-0">
-         <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-            <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                <ShoppingCart className="w-5 h-5 text-orange-600" /> Pending PO Actions
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 flex flex-col gap-3 flex-shrink-0">
+         <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
+            <h2 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+                <ShoppingCart className="w-4 h-4 text-orange-600" /> Pending PO Actions
             </h2>
-            <div className="flex flex-wrap gap-3">
-                <button onClick={handleDownloadTemplate} className="flex items-center gap-2 px-4 py-2 bg-white text-gray-600 rounded-lg text-sm border hover:bg-gray-50 transition-colors"><Download className="w-4 h-4" /> Template</button>
+            <div className="flex flex-wrap gap-2">
+                <button onClick={handleDownloadTemplate} className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-600 rounded-lg text-xs border hover:bg-gray-50 transition-colors"><Download className="w-3.5 h-3.5" /> Template</button>
                 <input type="file" ref={fileInputRef} className="hidden" accept=".xlsx, .xls" onChange={handleFileUpload} />
-                <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 rounded-lg text-sm border border-emerald-100 hover:bg-emerald-100 transition-colors"><Upload className="w-4 h-4" /> Import Excel</button>
-                <div className="w-px h-8 bg-gray-200 mx-1 hidden sm:block"></div>
-                <button onClick={onClear} className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg text-sm border border-red-100 hover:bg-red-100 transition-colors"><Trash2 className="w-4 h-4" /> Clear Data</button>
+                <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-xs border border-emerald-100 hover:bg-emerald-100 transition-colors"><Upload className="w-3.5 h-3.5" /> Import Excel</button>
+                <div className="w-px h-6 bg-gray-200 mx-0.5 hidden sm:block"></div>
+                <button onClick={onClear} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs border border-red-100 hover:bg-red-100 transition-colors"><Trash2 className="w-3.5 h-3.5" /> Clear Data</button>
             </div>
          </div>
          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Search className="h-4 w-4 text-gray-400" /></div>
-            <input type="text" placeholder="Search POs..." className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Search className="h-3.5 w-3.5 text-gray-400" /></div>
+            <input type="text" placeholder="Search POs..." className="pl-9 pr-3 py-1.5 w-full border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-orange-500 outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
          </div>
       </div>
 
@@ -239,27 +239,27 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
          <div className="overflow-auto h-full">
             <table className="w-full text-left border-collapse min-w-full">
                 <thead className="sticky top-0 z-10 bg-gray-50 shadow-sm">
-                    <tr className="border-b border-gray-200 text-xs text-gray-500 uppercase">
-                        <th className="py-3 px-3 font-semibold cursor-pointer" onClick={() => handleSort('date')}>Date {renderSortIcon('date')}</th>
-                        <th className="py-3 px-3 font-semibold cursor-pointer" onClick={() => handleSort('orderNo')}>Order {renderSortIcon('orderNo')}</th>
-                        <th className="py-3 px-3 font-semibold cursor-pointer" onClick={() => handleSort('partyName')}>Party's Name {renderSortIcon('partyName')}</th>
-                        <th className="py-3 px-3 font-semibold w-64 cursor-pointer" onClick={() => handleSort('itemName')}>Name of Item {renderSortIcon('itemName')}</th>
-                        <th className="py-3 px-3 font-semibold text-center bg-gray-100 text-gray-700 border-l border-r border-gray-200">Stock</th>
-                        <th className="py-3 px-3 font-semibold hidden md:table-cell">Mat Code</th>
-                        <th className="py-3 px-3 font-semibold hidden md:table-cell">Part No</th>
-                        <th className="py-3 px-3 font-semibold text-right">Ordered</th>
-                        <th className="py-3 px-3 font-semibold text-right cursor-pointer" onClick={() => handleSort('balanceQty')}>Balance {renderSortIcon('balanceQty')}</th>
-                        <th className="py-3 px-3 font-semibold text-right hidden lg:table-cell">Rate</th>
-                        <th className="py-3 px-3 font-semibold text-right hidden lg:table-cell">Disc</th>
-                        <th className="py-3 px-3 font-semibold text-right">Value</th>
-                        <th className="py-3 px-3 font-semibold cursor-pointer" onClick={() => handleSort('dueDate')}>Due on {renderSortIcon('dueDate')}</th>
-                        <th className="py-3 px-3 font-semibold text-center">OD</th>
-                        <th className="py-3 px-3 font-semibold text-right">Act</th>
+                    <tr className="border-b border-gray-200 text-[10px] text-gray-500 uppercase">
+                        <th className="py-2 px-3 font-semibold cursor-pointer" onClick={() => handleSort('date')}>Date {renderSortIcon('date')}</th>
+                        <th className="py-2 px-3 font-semibold cursor-pointer" onClick={() => handleSort('orderNo')}>Order {renderSortIcon('orderNo')}</th>
+                        <th className="py-2 px-3 font-semibold cursor-pointer" onClick={() => handleSort('partyName')}>Party's Name {renderSortIcon('partyName')}</th>
+                        <th className="py-2 px-3 font-semibold w-56 cursor-pointer" onClick={() => handleSort('itemName')}>Name of Item {renderSortIcon('itemName')}</th>
+                        <th className="py-2 px-3 font-semibold text-center bg-gray-100 text-gray-700 border-l border-r border-gray-200">Stock</th>
+                        <th className="py-2 px-3 font-semibold hidden md:table-cell">Mat Code</th>
+                        <th className="py-2 px-3 font-semibold hidden md:table-cell">Part No</th>
+                        <th className="py-2 px-3 font-semibold text-right">Ordered</th>
+                        <th className="py-2 px-3 font-semibold text-right cursor-pointer" onClick={() => handleSort('balanceQty')}>Balance {renderSortIcon('balanceQty')}</th>
+                        <th className="py-2 px-3 font-semibold text-right hidden lg:table-cell">Rate</th>
+                        <th className="py-2 px-3 font-semibold text-right hidden lg:table-cell">Disc</th>
+                        <th className="py-2 px-3 font-semibold text-right">Value</th>
+                        <th className="py-2 px-3 font-semibold cursor-pointer" onClick={() => handleSort('dueDate')}>Due on {renderSortIcon('dueDate')}</th>
+                        <th className="py-2 px-3 font-semibold text-center">OD</th>
+                        <th className="py-2 px-3 font-semibold text-right">Act</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                     {processedItems.length === 0 ? (
-                        <tr><td colSpan={15} className="py-8 text-center text-gray-500 text-sm">No matching purchase orders found.</td></tr>
+                        <tr><td colSpan={15} className="py-8 text-center text-gray-500 text-xs">No matching purchase orders found.</td></tr>
                     ) : (
                         processedItems.map(item => {
                             const inMaster = materials.some(m => m.description.toLowerCase().trim() === item.itemName.toLowerCase().trim());
@@ -267,39 +267,39 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
                             const currentStock = stockItem ? stockItem.quantity : 0;
 
                             return (
-                                <tr key={item.id} className="hover:bg-orange-50/20 transition-colors text-sm text-gray-700">
-                                    <td className="py-3 px-3 whitespace-nowrap">{formatDateDisplay(item.date)}</td>
-                                    <td className="py-3 px-3 font-medium whitespace-nowrap">{item.orderNo}</td>
-                                    <td className="py-3 px-3 max-w-[150px]">{item.partyName}</td>
-                                    <td className="py-3 px-3 max-w-[200px]">
+                                <tr key={item.id} className="hover:bg-orange-50/20 transition-colors text-xs text-gray-700">
+                                    <td className="py-2 px-3 whitespace-nowrap">{formatDateDisplay(item.date)}</td>
+                                    <td className="py-2 px-3 font-medium whitespace-nowrap">{item.orderNo}</td>
+                                    <td className="py-2 px-3 max-w-[120px] truncate">{item.partyName}</td>
+                                    <td className="py-2 px-3 max-w-[200px]">
                                         <div className="flex flex-col">
-                                            <span className="font-medium text-gray-900" title={item.itemName}>{item.itemName}</span>
+                                            <span className="font-medium text-gray-900 line-clamp-1" title={item.itemName}>{item.itemName}</span>
                                             {!inMaster && (
-                                                <span className="inline-flex items-center gap-0.5 mt-1 text-[10px] text-red-600 bg-red-50 px-1 py-0.5 rounded border border-red-100 w-fit whitespace-nowrap">
-                                                    <AlertTriangle className="w-2.5 h-2.5" /> Not in Master
+                                                <span className="inline-flex items-center gap-0.5 mt-0.5 text-[9px] text-red-600 bg-red-50 px-1 py-px rounded border border-red-100 w-fit whitespace-nowrap">
+                                                    <AlertTriangle className="w-2 h-2" /> Not in Master
                                                 </span>
                                             )}
                                         </div>
                                     </td>
                                     {/* Stock Column */}
-                                    <td className="py-3 px-3 text-center border-l border-r border-gray-100 bg-gray-50/40">
-                                        <span className="inline-flex items-center gap-0.5 text-[10px] text-gray-700 bg-white px-2 py-1 rounded-full border border-gray-200 shadow-sm font-medium whitespace-nowrap" title="Current Stock">
-                                            <Package className="w-3 h-3 text-gray-500" /> {currentStock}
+                                    <td className="py-2 px-3 text-center border-l border-r border-gray-100 bg-gray-50/40">
+                                        <span className="inline-flex items-center gap-0.5 text-[9px] text-gray-700 bg-white px-1.5 py-0.5 rounded-full border border-gray-200 shadow-sm font-medium whitespace-nowrap" title="Current Stock">
+                                            <Package className="w-2.5 h-2.5 text-gray-500" /> {currentStock}
                                         </span>
                                     </td>
-                                    <td className="py-3 px-3 hidden md:table-cell text-xs">{item.materialCode}</td>
-                                    <td className="py-3 px-3 hidden md:table-cell text-xs font-mono">{item.partNo}</td>
-                                    <td className="py-3 px-3 text-right text-gray-500">{item.orderedQty}</td>
-                                    <td className="py-3 px-3 text-right font-medium text-blue-600 bg-blue-50/30 rounded">{item.balanceQty}</td>
-                                    <td className="py-3 px-3 text-right text-gray-500 hidden lg:table-cell">{item.rate}</td>
-                                    <td className="py-3 px-3 text-right text-gray-500 hidden lg:table-cell">{item.discount}</td>
-                                    <td className="py-3 px-3 text-right font-semibold text-gray-900 whitespace-nowrap">{formatCurrency(item.value)}</td>
-                                    <td className="py-3 px-3 whitespace-nowrap">{formatDateDisplay(item.dueDate)}</td>
-                                    <td className="py-3 px-3 text-center">
-                                        {item.overDueDays > 0 ? <span className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700 whitespace-nowrap">{item.overDueDays} D</span> : <span className="text-gray-300">-</span>}
+                                    <td className="py-2 px-3 hidden md:table-cell text-[10px]">{item.materialCode}</td>
+                                    <td className="py-2 px-3 hidden md:table-cell text-[10px] font-mono">{item.partNo}</td>
+                                    <td className="py-2 px-3 text-right text-gray-500">{item.orderedQty}</td>
+                                    <td className="py-2 px-3 text-right font-medium text-blue-600 bg-blue-50/30 rounded">{item.balanceQty}</td>
+                                    <td className="py-2 px-3 text-right text-gray-500 hidden lg:table-cell">{item.rate}</td>
+                                    <td className="py-2 px-3 text-right text-gray-500 hidden lg:table-cell">{item.discount}</td>
+                                    <td className="py-2 px-3 text-right font-semibold text-gray-900 whitespace-nowrap">{formatCurrency(item.value)}</td>
+                                    <td className="py-2 px-3 whitespace-nowrap">{formatDateDisplay(item.dueDate)}</td>
+                                    <td className="py-2 px-3 text-center">
+                                        {item.overDueDays > 0 ? <span className="inline-flex px-1 py-px rounded text-[9px] font-bold bg-red-100 text-red-700 whitespace-nowrap">{item.overDueDays} D</span> : <span className="text-gray-300">-</span>}
                                     </td>
-                                    <td className="py-3 px-3 text-right">
-                                        <button onClick={() => onDelete(item.id)} className="text-gray-400 hover:text-red-600 p-1 rounded hover:bg-red-50"><Trash2 className="w-4 h-4" /></button>
+                                    <td className="py-2 px-3 text-right">
+                                        <button onClick={() => onDelete(item.id)} className="text-gray-400 hover:text-red-600 p-0.5 rounded hover:bg-red-50"><Trash2 className="w-3.5 h-3.5" /></button>
                                     </td>
                                 </tr>
                             );

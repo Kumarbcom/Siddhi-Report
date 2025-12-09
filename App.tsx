@@ -205,20 +205,20 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-gray-100 font-sans text-gray-900 pb-0 flex flex-col">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-30 shadow-sm flex-shrink-0">
-        <div className="w-full px-6 h-16 flex items-center justify-between">
+        <div className="w-full px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="bg-blue-600 p-2 rounded-lg text-white">
-              <Database className="w-5 h-5" />
+            <div className="bg-blue-600 p-1.5 rounded-lg text-white">
+              <Database className="w-4 h-4" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-900 leading-tight">Material Master</h1>
-              <p className="text-xs text-gray-500 font-medium">Database & Management System</p>
+              <h1 className="text-lg font-bold text-gray-900 leading-tight">Material Master</h1>
+              <p className="text-[10px] text-gray-500 font-medium">Database & Management System</p>
             </div>
           </div>
           <div className="flex items-center gap-4">
-             <div className="hidden md:flex items-center gap-2 text-sm text-gray-500 bg-gray-50 px-3 py-1 rounded-full border border-gray-200">
-                <div className="w-2 h-2 rounded-full bg-green-50 animate-pulse"></div>
-                Database Connected
+             <div className="hidden md:flex items-center gap-2 text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded-full border border-gray-200">
+                <div className="w-1.5 h-1.5 rounded-full bg-green-50 animate-pulse"></div>
+                Connected
              </div>
              {(materials.length > 0 || closingStockItems.length > 0 || pendingSOItems.length > 0 || pendingPOItems.length > 0) && (
                <button onClick={handleClearDatabase} className="text-xs text-red-500 hover:text-red-700 font-medium underline">
@@ -229,68 +229,68 @@ const App: React.FC = () => {
         </div>
         
         {/* Navigation Tabs */}
-        <div className="w-full px-6 flex space-x-6 md:space-x-8 -mb-px overflow-x-auto">
+        <div className="w-full px-4 flex space-x-6 -mb-px overflow-x-auto">
           <button
             onClick={() => setActiveTab('dashboard')}
-            className={`pb-3 pt-3 px-1 border-b-2 font-medium text-sm flex items-center gap-2 whitespace-nowrap transition-colors ${
+            className={`pb-2 pt-2 px-1 border-b-2 font-medium text-xs flex items-center gap-1.5 whitespace-nowrap transition-colors ${
               activeTab === 'dashboard' ? 'border-gray-800 text-gray-900' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            <LayoutDashboard className="w-4 h-4" /> Dashboard
+            <LayoutDashboard className="w-3.5 h-3.5" /> Dashboard
           </button>
           <button
             onClick={() => setActiveTab('master')}
-            className={`pb-3 pt-3 px-1 border-b-2 font-medium text-sm flex items-center gap-2 whitespace-nowrap transition-colors ${
+            className={`pb-2 pt-2 px-1 border-b-2 font-medium text-xs flex items-center gap-1.5 whitespace-nowrap transition-colors ${
               activeTab === 'master' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            <Database className="w-4 h-4" /> Material Master
-            <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs">{materials.length}</span>
+            <Database className="w-3.5 h-3.5" /> Material Master
+            <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full text-[10px]">{materials.length}</span>
           </button>
           <button
             onClick={() => setActiveTab('closingStock')}
-            className={`pb-3 pt-3 px-1 border-b-2 font-medium text-sm flex items-center gap-2 whitespace-nowrap transition-colors ${
+            className={`pb-2 pt-2 px-1 border-b-2 font-medium text-xs flex items-center gap-1.5 whitespace-nowrap transition-colors ${
               activeTab === 'closingStock' ? 'border-emerald-500 text-emerald-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            <Package className="w-4 h-4" /> Closing Stock
-            <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs">{closingStockItems.length}</span>
+            <Package className="w-3.5 h-3.5" /> Closing Stock
+            <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full text-[10px]">{closingStockItems.length}</span>
           </button>
           <button
             onClick={() => setActiveTab('pendingSO')}
-            className={`pb-3 pt-3 px-1 border-b-2 font-medium text-sm flex items-center gap-2 whitespace-nowrap transition-colors ${
+            className={`pb-2 pt-2 px-1 border-b-2 font-medium text-xs flex items-center gap-1.5 whitespace-nowrap transition-colors ${
               activeTab === 'pendingSO' ? 'border-purple-500 text-purple-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            <ClipboardList className="w-4 h-4" /> Pending SO
-            <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs">{pendingSOItems.length}</span>
+            <ClipboardList className="w-3.5 h-3.5" /> Pending SO
+            <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full text-[10px]">{pendingSOItems.length}</span>
           </button>
           <button
             onClick={() => setActiveTab('pendingPO')}
-            className={`pb-3 pt-3 px-1 border-b-2 font-medium text-sm flex items-center gap-2 whitespace-nowrap transition-colors ${
+            className={`pb-2 pt-2 px-1 border-b-2 font-medium text-xs flex items-center gap-1.5 whitespace-nowrap transition-colors ${
               activeTab === 'pendingPO' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            <ShoppingCart className="w-4 h-4" /> Pending PO
-            <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs">{pendingPOItems.length}</span>
+            <ShoppingCart className="w-3.5 h-3.5" /> Pending PO
+            <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full text-[10px]">{pendingPOItems.length}</span>
           </button>
           <button
             onClick={() => setActiveTab('salesHistory')}
-            className={`pb-3 pt-3 px-1 border-b-2 font-medium text-sm flex items-center gap-2 whitespace-nowrap transition-colors ${
+            className={`pb-2 pt-2 px-1 border-b-2 font-medium text-xs flex items-center gap-1.5 whitespace-nowrap transition-colors ${
               activeTab === 'salesHistory' ? 'border-teal-500 text-teal-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            <TrendingUp className="w-4 h-4" /> Sales History
-            <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs">{sales1Year.length + sales3Months.length}</span>
+            <TrendingUp className="w-3.5 h-3.5" /> Sales History
+            <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full text-[10px]">{sales1Year.length + sales3Months.length}</span>
           </button>
         </div>
       </header>
 
-      <main className="flex-1 w-full px-6 py-6 overflow-hidden flex flex-col h-[calc(100vh-64px)]">
+      <main className="flex-1 w-full px-4 py-4 overflow-hidden flex flex-col h-[calc(100vh-56px)]">
         {error && (
-          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3 text-red-700 flex-shrink-0">
-            <AlertCircle className="w-5 h-5 flex-shrink-0" />
-            <p className="text-sm font-medium">{error}</p>
+          <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-3 text-red-700 flex-shrink-0">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            <p className="text-xs font-medium">{error}</p>
           </div>
         )}
 
@@ -309,39 +309,39 @@ const App: React.FC = () => {
 
         {/* --- MATERIAL MASTER TAB --- */}
         {activeTab === 'master' && (
-          <div className="flex flex-col lg:flex-row gap-6 items-start h-full">
+          <div className="flex flex-col lg:flex-row gap-4 items-start h-full">
             
             {/* Left Column: Interactive Vertical Tabs (Make Filter) */}
-            <div className="w-full lg:w-72 flex-shrink-0 flex flex-col gap-4 h-full">
+            <div className="w-full lg:w-64 flex-shrink-0 flex flex-col gap-3 h-full">
               
               {/* Total Materials Summary */}
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex flex-col items-center text-center flex-shrink-0">
-                 <div className="bg-blue-50 p-4 rounded-full mb-3">
-                    <Database className="w-8 h-8 text-blue-600" />
+              <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col items-center text-center flex-shrink-0">
+                 <div className="bg-blue-50 p-3 rounded-full mb-2">
+                    <Database className="w-6 h-6 text-blue-600" />
                 </div>
-                 <p className="text-sm font-medium text-gray-500">Total Materials</p>
-                 <p className="text-4xl font-bold text-gray-900 mt-2">{materials.length}</p>
+                 <p className="text-xs font-medium text-gray-500">Total Materials</p>
+                 <p className="text-2xl font-bold text-gray-900 mt-1">{materials.length}</p>
               </div>
               
               {/* Vertical Tabs for Makes */}
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col flex-1 overflow-hidden min-h-0">
-                <div className="p-4 border-b border-gray-100 bg-gray-50 flex-shrink-0">
-                  <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                    <Layers className="w-4 h-4" />
+                <div className="p-3 border-b border-gray-100 bg-gray-50 flex-shrink-0">
+                  <h3 className="text-xs font-bold text-gray-700 flex items-center gap-2">
+                    <Layers className="w-3.5 h-3.5" />
                     Filter by Make
                   </h3>
                 </div>
-                <div className="overflow-y-auto custom-scrollbar p-2 space-y-1 flex-1">
+                <div className="overflow-y-auto custom-scrollbar p-1 space-y-0.5 flex-1">
                   <button
                     onClick={() => setSelectedMake('ALL')}
-                    className={`w-full text-left px-3 py-2 rounded-lg text-sm flex justify-between items-center transition-colors ${
+                    className={`w-full text-left px-3 py-1.5 rounded-md text-xs flex justify-between items-center transition-colors ${
                       selectedMake === 'ALL' 
                         ? 'bg-blue-600 text-white shadow-md' 
                         : 'text-gray-700 hover:bg-gray-100'
                     }`}
                   >
                     <span className="font-medium">All Makes</span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${selectedMake === 'ALL' ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'}`}>
+                    <span className={`text-[10px] px-1.5 py-px rounded-full ${selectedMake === 'ALL' ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'}`}>
                       {materials.length}
                     </span>
                   </button>
@@ -351,27 +351,27 @@ const App: React.FC = () => {
                       <button
                         key={make}
                         onClick={() => setSelectedMake(make)}
-                        className={`w-full text-left px-3 py-2 rounded-lg text-sm flex justify-between items-center transition-colors ${
+                        className={`w-full text-left px-3 py-1.5 rounded-md text-xs flex justify-between items-center transition-colors ${
                           selectedMake === make 
                             ? 'bg-blue-600 text-white shadow-md' 
                             : 'text-gray-700 hover:bg-gray-100'
                         }`}
                       >
                         <span className="truncate font-medium w-3/4" title={make}>{make}</span>
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${selectedMake === make ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'}`}>
+                        <span className={`text-[10px] px-1.5 py-px rounded-full ${selectedMake === make ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'}`}>
                           {count}
                         </span>
                       </button>
                     ))
                   ) : (
-                    <div className="text-center text-gray-400 text-sm italic py-4">No data</div>
+                    <div className="text-center text-gray-400 text-xs italic py-4">No data</div>
                   )}
                 </div>
               </div>
             </div>
 
             {/* Right Column: Main Content */}
-            <div className="flex-1 w-full min-w-0 flex flex-col gap-4 h-full overflow-hidden">
+            <div className="flex-1 w-full min-w-0 flex flex-col gap-3 h-full overflow-hidden">
                <AddMaterialForm 
                   onBulkAdd={handleBulkAddMaterial} 
                   onClear={handleClearMaterials}
@@ -391,7 +391,7 @@ const App: React.FC = () => {
           <div className="h-full w-full">
              <ClosingStockView
                items={closingStockItems}
-               materials={materials} // Passed for Pivot functionality
+               materials={materials} 
                onBulkAdd={handleBulkAddStock}
                onDelete={handleDeleteStock}
                onClear={handleClearStock}

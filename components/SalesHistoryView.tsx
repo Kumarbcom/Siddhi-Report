@@ -113,43 +113,43 @@ const SalesHistoryView: React.FC<SalesHistoryViewProps> = ({
     };
 
     return (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3">
             <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Search className="h-4 w-4 text-gray-400" /></div>
-                <input type="text" placeholder="Search particulars..." className={`pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-${color}-500 outline-none`} value={search} onChange={(e) => setSearch(e.target.value)} />
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Search className="h-3.5 w-3.5 text-gray-400" /></div>
+                <input type="text" placeholder="Search particulars..." className={`pl-9 pr-3 py-1.5 w-full border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-${color}-500 outline-none`} value={search} onChange={(e) => setSearch(e.target.value)} />
             </div>
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
-                <div className="overflow-auto max-h-[50vh]">
+                <div className="overflow-auto max-h-[45vh]">
                     <table className="w-full text-left border-collapse">
                         <thead className="sticky top-0 z-10 bg-gray-50 shadow-sm">
                         <tr className="border-b border-gray-200">
-                            <th className="py-4 px-6 text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('particulars')}>
+                            <th className="py-2 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('particulars')}>
                                 <div className="flex items-center gap-1">Particulars {renderSortIcon(sort, 'particulars', color)}</div>
                             </th>
-                            <th className="py-4 px-6 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right cursor-pointer" onClick={() => handleSort('quantity')}>
+                            <th className="py-2 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider text-right cursor-pointer" onClick={() => handleSort('quantity')}>
                                 <div className="flex items-center justify-end gap-1">Quantity {renderSortIcon(sort, 'quantity', color)}</div>
                             </th>
-                            <th className="py-4 px-6 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right cursor-pointer" onClick={() => handleSort('rate')}>
+                            <th className="py-2 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider text-right cursor-pointer" onClick={() => handleSort('rate')}>
                                 <div className="flex items-center justify-end gap-1">Rate {renderSortIcon(sort, 'rate', color)}</div>
                             </th>
-                            <th className="py-4 px-6 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right cursor-pointer" onClick={() => handleSort('value')}>
+                            <th className="py-2 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider text-right cursor-pointer" onClick={() => handleSort('value')}>
                                 <div className="flex items-center justify-end gap-1">Value {renderSortIcon(sort, 'value', color)}</div>
                             </th>
-                            <th className="py-4 px-6 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Actions</th>
+                            <th className="py-2 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider text-right">Actions</th>
                         </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
                         {processed.length === 0 ? (
-                            <tr><td colSpan={5} className="py-8 text-center text-gray-500 text-sm">{emptyMessage}</td></tr>
+                            <tr><td colSpan={5} className="py-8 text-center text-gray-500 text-xs">{emptyMessage}</td></tr>
                         ) : (
                             processed.map((item) => (
                             <tr key={item.id} className="hover:bg-gray-50/50 transition-colors">
-                                <td className="py-4 px-6 text-sm font-medium text-gray-900">{item.particulars}</td>
-                                <td className="py-4 px-6 text-sm text-gray-600 text-right">{item.quantity}</td>
-                                <td className="py-4 px-6 text-sm text-gray-600 text-right">{item.rate.toFixed(2)}</td>
-                                <td className="py-4 px-6 text-sm font-semibold text-gray-900 text-right">{formatCurrency(item.value)}</td>
-                                <td className="py-4 px-6 text-right">
-                                <button onClick={() => onDelete(item.id)} className="text-gray-400 hover:text-red-600 transition-colors p-1 rounded-md hover:bg-red-50"><Trash2 className="w-4 h-4" /></button>
+                                <td className="py-2 px-3 text-xs font-medium text-gray-900">{item.particulars}</td>
+                                <td className="py-2 px-3 text-xs text-gray-600 text-right">{item.quantity}</td>
+                                <td className="py-2 px-3 text-xs text-gray-600 text-right">{item.rate.toFixed(2)}</td>
+                                <td className="py-2 px-3 text-xs font-semibold text-gray-900 text-right">{formatCurrency(item.value)}</td>
+                                <td className="py-2 px-3 text-right">
+                                <button onClick={() => onDelete(item.id)} className="text-gray-400 hover:text-red-600 transition-colors p-0.5 rounded-md hover:bg-red-50"><Trash2 className="w-3.5 h-3.5" /></button>
                                 </td>
                             </tr>
                             ))
@@ -163,15 +163,15 @@ const SalesHistoryView: React.FC<SalesHistoryViewProps> = ({
   };
 
   return (
-    <div className="space-y-12">
-      <div className="space-y-4">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div className="flex items-center gap-3"><div className="bg-teal-100 p-2 rounded-lg text-teal-700"><TrendingUp className="w-5 h-5" /></div><div><h2 className="text-lg font-bold text-gray-800">Sales Last 3 Months</h2><p className="text-xs text-gray-500">Recent performance metrics</p></div></div>
+    <div className="space-y-8">
+      <div className="space-y-3">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+            <div className="flex items-center gap-2"><div className="bg-teal-100 p-1.5 rounded-lg text-teal-700"><TrendingUp className="w-4 h-4" /></div><div><h2 className="text-sm font-bold text-gray-800">Sales Last 3 Months</h2><p className="text-[10px] text-gray-500">Recent performance metrics</p></div></div>
             <div className="flex gap-2">
-                <button onClick={onClear3Months} className="flex items-center gap-2 px-3 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-medium hover:bg-red-100 border border-red-100"><Trash2 className="w-4 h-4" /> Clear Data</button>
-                <button onClick={() => handleDownloadTemplate("Sales_3Months_Template.xlsx")} className="flex items-center gap-2 px-3 py-2 bg-white text-gray-600 rounded-lg text-sm border hover:bg-gray-50"><Download className="w-4 h-4" /> Template</button>
+                <button onClick={onClear3Months} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-medium hover:bg-red-100 border border-red-100"><Trash2 className="w-3.5 h-3.5" /> Clear Data</button>
+                <button onClick={() => handleDownloadTemplate("Sales_3Months_Template.xlsx")} className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-600 rounded-lg text-xs border hover:bg-gray-50"><Download className="w-3.5 h-3.5" /> Template</button>
                 <input type="file" ref={fileInputRef3Months} className="hidden" accept=".xlsx, .xls" onChange={(e) => handleFileUpload(e, '3months')} />
-                <button onClick={() => fileInputRef3Months.current?.click()} className="flex items-center gap-2 px-3 py-2 bg-teal-50 text-teal-700 rounded-lg text-sm border border-teal-100 hover:bg-teal-100"><Upload className="w-4 h-4" /> Import Excel</button>
+                <button onClick={() => fileInputRef3Months.current?.click()} className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-50 text-teal-700 rounded-lg text-xs border border-teal-100 hover:bg-teal-100"><Upload className="w-3.5 h-3.5" /> Import Excel</button>
             </div>
         </div>
         {renderTable(sales3Months, onDelete3Months, "No recent sales records found.", search3M, setSearch3M, sort3M, setSort3M, 'teal')}
@@ -179,14 +179,14 @@ const SalesHistoryView: React.FC<SalesHistoryViewProps> = ({
 
       <div className="border-t border-gray-200"></div>
 
-      <div className="space-y-4">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-             <div className="flex items-center gap-3"><div className="bg-indigo-100 p-2 rounded-lg text-indigo-700"><History className="w-5 h-5" /></div><div><h2 className="text-lg font-bold text-gray-800">Sales Last 1 Year</h2><p className="text-xs text-gray-500">Annual performance overview</p></div></div>
+      <div className="space-y-3">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+             <div className="flex items-center gap-2"><div className="bg-indigo-100 p-1.5 rounded-lg text-indigo-700"><History className="w-4 h-4" /></div><div><h2 className="text-sm font-bold text-gray-800">Sales Last 1 Year</h2><p className="text-[10px] text-gray-500">Annual performance overview</p></div></div>
             <div className="flex gap-2">
-                <button onClick={onClear1Year} className="flex items-center gap-2 px-3 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-medium hover:bg-red-100 border border-red-100"><Trash2 className="w-4 h-4" /> Clear Data</button>
-                <button onClick={() => handleDownloadTemplate("Sales_1Year_Template.xlsx")} className="flex items-center gap-2 px-3 py-2 bg-white text-gray-600 rounded-lg text-sm border hover:bg-gray-50"><Download className="w-4 h-4" /> Template</button>
+                <button onClick={onClear1Year} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-medium hover:bg-red-100 border border-red-100"><Trash2 className="w-3.5 h-3.5" /> Clear Data</button>
+                <button onClick={() => handleDownloadTemplate("Sales_1Year_Template.xlsx")} className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-600 rounded-lg text-xs border hover:bg-gray-50"><Download className="w-3.5 h-3.5" /> Template</button>
                 <input type="file" ref={fileInputRef1Year} className="hidden" accept=".xlsx, .xls" onChange={(e) => handleFileUpload(e, '1year')} />
-                <button onClick={() => fileInputRef1Year.current?.click()} className="flex items-center gap-2 px-3 py-2 bg-indigo-50 text-indigo-700 rounded-lg text-sm border border-indigo-100 hover:bg-indigo-100"><Upload className="w-4 h-4" /> Import Excel</button>
+                <button onClick={() => fileInputRef1Year.current?.click()} className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg text-xs border border-indigo-100 hover:bg-indigo-100"><Upload className="w-3.5 h-3.5" /> Import Excel</button>
             </div>
         </div>
         {renderTable(sales1Year, onDelete1Year, "No annual sales records found.", search1Y, setSearch1Y, sort1Y, setSort1Y, 'indigo')}
