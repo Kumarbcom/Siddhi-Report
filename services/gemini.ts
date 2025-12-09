@@ -1,11 +1,26 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Material } from "../types";
 
-// Initialize the client directly using process.env.API_KEY as per guidelines
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Lazy initialization to prevent crash on startup if API key is undefined
+let aiInstance: GoogleGenAI | null = null;
+
+const getAiClient = () => {
+  if (!aiInstance) {
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) {
+      console.warn("API_KEY is missing. AI features will not work.");
+      // Initialize with a dummy key to prevent immediate crash, but calls will fail gracefully
+      aiInstance = new GoogleGenAI({ apiKey: "missing-key" });
+    } else {
+      aiInstance = new GoogleGenAI({ apiKey });
+    }
+  }
+  return aiInstance;
+};
 
 export const generateMockMaterials = async (count: number = 5): Promise<Omit<Material, 'id' | 'createdAt'>[]> => {
   try {
+    const ai = getAiClient();
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: `Generate ${count} realistic industrial material master records. 
@@ -37,6 +52,7 @@ export const generateMockMaterials = async (count: number = 5): Promise<Omit<Mat
     return [];
   } catch (error) {
     console.error("Failed to generate materials:", error);
-    throw error;
+    // Return empty array instead of throwing to prevent UI break
+    return [];
   }
 };
