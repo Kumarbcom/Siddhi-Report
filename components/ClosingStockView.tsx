@@ -15,52 +15,114 @@ interface ClosingStockViewProps {
 type SortKey = keyof ClosingStockItem;
 type Metric = 'quantity' | 'value';
 
-const COLORS = ['#10B981', '#3B82F6', '#6366F1', '#8B5CF6', '#EC4899', '#F59E0B', '#EF4444', '#6B7280'];
+const COLORS = ['#10B981', '#3B82F6', '#6366F1', '#8B5CF6', '#EC4899', '#F59E0B', '#EF4444', '#6B7280', '#059669', '#2563EB'];
 
-const SimplePieChart: React.FC<{ data: { label: string; value: number; color: string }[] }> = ({ data }) => {
-  const total = data.reduce((acc, item) => acc + item.value, 0);
+const Toggle: React.FC<{ value: Metric; onChange: (m: Metric) => void; colorClass: string }> = ({ value, onChange, colorClass }) => (
+  <div className="flex bg-gray-100 p-0.5 rounded-lg border border-gray-200">
+    <button 
+      onClick={() => onChange('quantity')} 
+      className={`px-3 py-1 text-[10px] font-semibold rounded-md transition-all ${value === 'quantity' ? `bg-white shadow-sm ${colorClass}` : 'text-gray-500 hover:text-gray-700'}`}
+    >
+      Qty
+    </button>
+    <button 
+      onClick={() => onChange('value')} 
+      className={`px-3 py-1 text-[10px] font-semibold rounded-md transition-all ${value === 'value' ? `bg-white shadow-sm ${colorClass}` : 'text-gray-500 hover:text-gray-700'}`}
+    >
+      Value
+    </button>
+  </div>
+);
+
+const ModernDonutChart: React.FC<{ 
+  data: { label: string; value: number; color: string; displayValue: string }[], 
+  metric: Metric,
+  total: number 
+}> = ({ data, metric, total }) => {
   let cumulativePercent = 0;
 
-  if (total === 0) return <div className="flex items-center justify-center h-40 text-gray-400 text-xs">No Data</div>;
+  if (total === 0) return <div className="flex items-center justify-center h-48 text-gray-400 text-xs">No Data</div>;
+
+  // Calculate paths for donut segments
+  const slices = data.map(slice => {
+    const percent = slice.value / total;
+    const startPercent = cumulativePercent;
+    cumulativePercent += percent;
+    return { ...slice, percent, startPercent };
+  });
+
+  const getCoordinatesForPercent = (percent: number) => {
+    const x = Math.cos(2 * Math.PI * percent);
+    const y = Math.sin(2 * Math.PI * percent);
+    return [x, y];
+  };
 
   return (
-    <div className="flex flex-row items-center gap-6">
-      <div className="relative w-32 h-32 flex-shrink-0">
-        <svg viewBox="0 0 32 32" className="w-full h-full transform -rotate-90">
-          {data.map((slice, i) => {
-            const percent = slice.value / total;
-            const dashArray = `${percent * 100} 100`;
-            const dashOffset = -cumulativePercent * 100;
-            cumulativePercent += percent;
+    <div className="flex flex-col items-center gap-4 h-full">
+      {/* Chart */}
+      <div className="relative w-40 h-40 flex-shrink-0">
+        <svg viewBox="-1 -1 2 2" style={{ transform: 'rotate(-90deg)' }} className="w-full h-full">
+          {slices.map((slice, i) => {
+            if (slice.percent === 1) {
+              return <circle key={i} cx="0" cy="0" r="0.8" fill="transparent" stroke={slice.color} strokeWidth="0.3" pathLength="100" />;
+            }
+            const [startX, startY] = getCoordinatesForPercent(slice.startPercent);
+            const [endX, endY] = getCoordinatesForPercent(slice.startPercent + slice.percent);
+            const largeArcFlag = slice.percent > 0.5 ? 1 : 0;
+            const pathData = [
+              `M ${startX} ${startY}`,
+              `A 1 1 0 ${largeArcFlag} 1 ${endX} ${endY}`,
+              `L ${endX * 0.6} ${endY * 0.6}`, // Inner radius 0.6
+              `A 0.6 0.6 0 ${largeArcFlag} 0 ${startX * 0.6} ${startY * 0.6}`,
+              'Z'
+            ].join(' ');
 
             return (
-              <circle
+              <path
                 key={i}
-                r="16"
-                cx="16"
-                cy="16"
-                fill="transparent"
-                stroke={slice.color}
-                strokeWidth="32"
-                strokeDasharray={dashArray}
-                strokeDashoffset={dashOffset}
-                pathLength="100"
-                className="transition-all duration-300 hover:opacity-90"
-              />
+                d={pathData}
+                fill={slice.color}
+                className="transition-all duration-300 hover:opacity-80 cursor-pointer"
+              >
+                <title>{`${slice.label}: ${Math.round(slice.percent * 100)}%`}</title>
+              </path>
             );
           })}
         </svg>
+        {/* Center Text */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+          <span className="text-[10px] text-gray-400 uppercase font-medium tracking-wider">Total {metric === 'value' ? 'Val' : 'Qty'}</span>
+          <span className="text-xs font-bold text-gray-800">
+             {metric === 'value' ? 
+               (total > 1000000 ? `${(total/1000000).toFixed(2)}M` : (total > 1000 ? `${(total/1000).toFixed(1)}k` : Math.round(total))) 
+               : Math.round(total).toLocaleString()}
+          </span>
+        </div>
       </div>
-      <div className="flex flex-col gap-1 max-h-40 overflow-y-auto custom-scrollbar flex-1">
-        {data.map((item, i) => (
-          <div key={i} className="flex items-center justify-between text-xs">
-            <div className="flex items-center gap-2">
-               <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }}></span>
-               <span className="text-gray-600 truncate max-w-[80px]" title={item.label}>{item.label}</span>
+
+      {/* Legend Table */}
+      <div className="flex-1 w-full overflow-hidden flex flex-col min-h-0">
+         <div className="flex items-center justify-between text-[10px] uppercase font-semibold text-gray-400 pb-2 border-b border-gray-100 mb-2">
+            <span>Make</span>
+            <div className="flex gap-2">
+                <span className="w-8 text-right">%</span>
+                <span className="w-16 text-right">{metric === 'value' ? 'Val' : 'Qty'}</span>
             </div>
-            <span className="font-medium text-gray-900">{Math.round((item.value / total) * 100)}%</span>
-          </div>
-        ))}
+         </div>
+         <div className="overflow-y-auto custom-scrollbar flex-1 space-y-1 pr-1">
+            {data.map((item, i) => (
+              <div key={i} className="flex items-center justify-between text-xs group hover:bg-gray-50 p-1 rounded transition-colors">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }}></span>
+                  <span className="text-gray-700 font-medium truncate" title={item.label}>{item.label}</span>
+                </div>
+                <div className="flex gap-2 items-center">
+                    <span className="w-8 text-right text-gray-500 font-mono text-[10px]">{(item.value / total * 100).toFixed(0)}%</span>
+                    <span className="w-16 text-right font-medium text-gray-900 truncate" title={item.displayValue}>{item.displayValue}</span>
+                </div>
+              </div>
+            ))}
+         </div>
       </div>
     </div>
   );
@@ -77,9 +139,12 @@ const ClosingStockView: React.FC<ClosingStockViewProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' } | null>(null);
   
-  // Dashboard State
+  // Dashboard State - Independent Metrics
   const [selectedMake, setSelectedMake] = useState<string>('ALL');
-  const [metric, setMetric] = useState<Metric>('value');
+  
+  const [makeMetric, setMakeMetric] = useState<Metric>('value');
+  const [groupMetric, setGroupMetric] = useState<Metric>('value');
+  const [topMetric, setTopMetric] = useState<Metric>('value');
 
   // --- Data Enrichment (Join with Master) ---
   const enrichedItems = useMemo(() => {
@@ -101,70 +166,83 @@ const ClosingStockView: React.FC<ClosingStockViewProps> = ({
       return enrichedItems.filter(i => i.make === selectedMake);
   }, [enrichedItems, selectedMake]);
 
-  // --- Aggregations for Dashboard ---
+  // --- Helpers ---
+  const formatVal = (val: number, type: Metric) => {
+      const rounded = Math.round(val);
+      return type === 'value' ? `Rs. ${rounded.toLocaleString('en-IN')}` : rounded.toLocaleString('en-IN');
+  };
+
+  // --- Aggregations ---
   const stats = useMemo(() => {
+    // Global Totals
     const totalQty = filteredData.reduce((acc, i) => acc + i.quantity, 0);
     const totalVal = filteredData.reduce((acc, i) => acc + i.value, 0);
     const count = filteredData.length;
-    
-    // Count unmatched items (in the total dataset, not just filtered)
     const totalUnmatched = enrichedItems.filter(i => !i.isLinked).length;
 
-    // Aggregate by Make
-    const makeMap = new Map<string, number>();
+    // 1. Aggregation for Make (Calculate both Qty and Value)
+    const makeMap = new Map<string, { qty: number, val: number }>();
     filteredData.forEach(i => {
-        const val = metric === 'value' ? i.value : i.quantity;
-        makeMap.set(i.make, (makeMap.get(i.make) || 0) + val);
+        const m = makeMap.get(i.make) || { qty: 0, val: 0 };
+        m.qty += i.quantity;
+        m.val += i.value;
+        makeMap.set(i.make, m);
     });
-    
-    // Sort makes: Unspecified last usually, or purely by value
+
     const byMake = Array.from(makeMap.entries())
-        .map(([label, value], i) => ({ label, value, color: label === 'Unspecified' ? '#9CA3AF' : COLORS[i % COLORS.length] }))
+        .map(([label, data], i) => ({ 
+            label, 
+            value: makeMetric === 'value' ? data.val : data.qty,
+            displayValue: formatVal(makeMetric === 'value' ? data.val : data.qty, makeMetric),
+            color: label === 'Unspecified' ? '#9CA3AF' : COLORS[i % COLORS.length] 
+        }))
         .sort((a, b) => b.value - a.value);
 
-    // Aggregate by Group
-    const groupMap = new Map<string, number>();
+    // 2. Aggregation for Group
+    const groupMap = new Map<string, { qty: number, val: number }>();
     filteredData.forEach(i => {
-         const val = metric === 'value' ? i.value : i.quantity;
-         groupMap.set(i.group, (groupMap.get(i.group) || 0) + val);
+         const g = groupMap.get(i.group) || { qty: 0, val: 0 };
+         g.qty += i.quantity;
+         g.val += i.value;
+         groupMap.set(i.group, g);
     });
-    const byGroup = Array.from(groupMap.entries())
-        .map(([label, value]) => ({ label, value }))
-        .sort((a, b) => b.value - a.value)
-        .filter(g => g.label !== 'Unspecified'); // Optional: hide unspecified groups in chart to keep it clean
 
-    // Top 5 Articles
+    const byGroup = Array.from(groupMap.entries())
+        .map(([label, data]) => ({ 
+            label, 
+            value: groupMetric === 'value' ? data.val : data.qty 
+        }))
+        .sort((a, b) => b.value - a.value)
+        .filter(g => g.label !== 'Unspecified');
+
+    // 3. Top 5 Articles
     const topArticles = [...filteredData]
         .sort((a, b) => {
-            const valA = metric === 'value' ? a.value : a.quantity;
-            const valB = metric === 'value' ? b.value : b.quantity;
+            const valA = topMetric === 'value' ? a.value : a.quantity;
+            const valB = topMetric === 'value' ? b.value : b.quantity;
             return valB - valA;
         })
         .slice(0, 5)
         .map(i => ({ 
             label: i.description, 
-            value: metric === 'value' ? i.value : i.quantity,
-            subVal: metric === 'value' ? i.quantity : i.value 
+            value: topMetric === 'value' ? i.value : i.quantity,
+            subVal: topMetric === 'value' ? i.quantity : i.value 
         }));
 
-    return { totalQty, totalVal, count, totalUnmatched, byMake, byGroup, topArticles };
-  }, [filteredData, enrichedItems, metric]);
+    // Specific Totals based on metric selection for donut center
+    const currentMakeTotal = byMake.reduce((acc, item) => acc + item.value, 0);
+
+    return { totalQty, totalVal, count, totalUnmatched, byMake, byGroup, topArticles, currentMakeTotal };
+  }, [filteredData, enrichedItems, makeMetric, groupMetric, topMetric]);
 
   // --- Unique Makes for Slicer ---
   const uniqueMakes = useMemo(() => {
      const makes = new Set(enrichedItems.map(i => i.make));
      const list = Array.from(makes).sort();
-     // Ensure 'Unspecified' is at the end if present
      const hasUnspecified = list.includes('Unspecified');
      const sorted = list.filter(m => m !== 'Unspecified');
      return ['ALL', ...sorted, ...(hasUnspecified ? ['Unspecified'] : [])];
   }, [enrichedItems]);
-
-  // --- Helpers ---
-  const formatVal = (val: number) => {
-      const rounded = Math.round(val);
-      return metric === 'value' ? `Rs. ${rounded.toLocaleString('en-IN')}` : rounded.toLocaleString('en-IN');
-  };
 
   const handleDownloadTemplate = () => {
     const headers = [
@@ -241,10 +319,10 @@ const ClosingStockView: React.FC<ClosingStockViewProps> = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col h-full gap-6">
       
       {/* 1. Header Stats & Slicer */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 space-y-5">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 space-y-5 flex-shrink-0">
         
         {/* Top Summary Labels */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
@@ -256,12 +334,10 @@ const ClosingStockView: React.FC<ClosingStockViewProps> = ({
                 <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-1">Total Items</p>
                 <p className="text-2xl font-bold text-gray-900">{stats.count.toLocaleString()}</p>
             </div>
-            
             <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
                 <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Total Quantity</p>
                 <p className="text-2xl font-bold text-gray-900">{stats.totalQty.toLocaleString()}</p>
             </div>
-
             <div className={`rounded-lg p-4 border ${stats.totalUnmatched > 0 ? 'bg-orange-50 border-orange-100' : 'bg-green-50 border-green-100'}`}>
                 <div className="flex items-center gap-1.5 mb-1">
                    {stats.totalUnmatched > 0 ? <Link2Off className="w-3 h-3 text-orange-600" /> : <Package className="w-3 h-3 text-green-600" />}
@@ -298,43 +374,45 @@ const ClosingStockView: React.FC<ClosingStockViewProps> = ({
         </div>
       </div>
 
-      {/* 2. Charts Dashboard */}
+      {/* 2. Charts Dashboard (Side-by-Side) */}
       {items.length > 0 && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-shrink-0">
               
-              {/* Make Distribution (Pie) */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex flex-col">
-                  <div className="flex justify-between items-center mb-4 border-b border-gray-100 pb-2">
+              {/* Make Distribution (Donut) */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 flex flex-col h-[350px]">
+                  <div className="flex justify-between items-center mb-4 border-b border-gray-100 pb-3 flex-shrink-0">
                       <div className="flex items-center gap-2">
-                          <PieChartIcon className="w-4 h-4 text-purple-600" />
-                          <h3 className="text-sm font-semibold text-gray-800">Make Wise Distribution</h3>
+                          <PieChartIcon className="w-5 h-5 text-purple-600" />
+                          <h3 className="text-sm font-bold text-gray-800">Make Distribution</h3>
                       </div>
-                      <div className="flex bg-gray-100 p-0.5 rounded-lg">
-                          <button onClick={() => setMetric('quantity')} className={`px-2 py-0.5 text-[10px] font-medium rounded-md transition-all ${metric === 'quantity' ? 'bg-white shadow text-purple-700' : 'text-gray-500'}`}>Qty</button>
-                          <button onClick={() => setMetric('value')} className={`px-2 py-0.5 text-[10px] font-medium rounded-md transition-all ${metric === 'value' ? 'bg-white shadow text-purple-700' : 'text-gray-500'}`}>Val</button>
-                      </div>
+                      <Toggle value={makeMetric} onChange={setMakeMetric} colorClass="text-purple-700" />
                   </div>
-                  <SimplePieChart data={stats.byMake} />
+                  <div className="flex-1 min-h-0">
+                    <ModernDonutChart data={stats.byMake} metric={makeMetric} total={stats.currentMakeTotal} />
+                  </div>
               </div>
 
               {/* Group Distribution (Bar/List) */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex flex-col">
-                  <div className="flex items-center gap-2 mb-4 border-b border-gray-100 pb-2">
-                      <BarChart3 className="w-4 h-4 text-blue-600" />
-                      <h3 className="text-sm font-semibold text-gray-800">Stock by Group ({metric === 'value' ? 'Value' : 'Qty'})</h3>
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 flex flex-col h-[350px]">
+                  <div className="flex justify-between items-center mb-4 border-b border-gray-100 pb-3 flex-shrink-0">
+                      <div className="flex items-center gap-2">
+                          <BarChart3 className="w-4 h-4 text-blue-600" />
+                          <h3 className="text-sm font-bold text-gray-800">Stock by Group</h3>
+                      </div>
+                      <Toggle value={groupMetric} onChange={setGroupMetric} colorClass="text-blue-700" />
                   </div>
-                  <div className="overflow-y-auto max-h-48 custom-scrollbar space-y-3 flex-1">
-                      {stats.byGroup.map((group, idx) => {
+                  <div className="overflow-y-auto custom-scrollbar space-y-3 flex-1 pr-2">
+                      {stats.byGroup.map((group) => {
                           const maxVal = stats.byGroup[0]?.value || 1;
                           const percent = (group.value / maxVal) * 100;
                           return (
                               <div key={group.label} className="text-xs">
                                   <div className="flex justify-between mb-1">
                                       <span className="text-gray-700 font-medium truncate w-24">{group.label}</span>
-                                      <span className="text-gray-900 font-bold">{formatVal(group.value)}</span>
+                                      <span className="text-gray-900 font-bold">{formatVal(group.value, groupMetric)}</span>
                                   </div>
                                   <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
-                                      <div className="bg-blue-500 h-1.5 rounded-full" style={{ width: `${percent}%` }}></div>
+                                      <div className="bg-blue-500 h-1.5 rounded-full transition-all duration-500" style={{ width: `${percent}%` }}></div>
                                   </div>
                               </div>
                           )
@@ -344,26 +422,28 @@ const ClosingStockView: React.FC<ClosingStockViewProps> = ({
               </div>
 
               {/* Top 5 Articles */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex flex-col">
-                  <div className="flex items-center gap-2 mb-4 border-b border-gray-100 pb-2">
-                      <Layers className="w-4 h-4 text-emerald-600" />
-                      <h3 className="text-sm font-semibold text-gray-800">Top 5 Articles ({metric === 'value' ? 'Value' : 'Qty'})</h3>
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 flex flex-col h-[350px]">
+                  <div className="flex justify-between items-center mb-4 border-b border-gray-100 pb-3 flex-shrink-0">
+                      <div className="flex items-center gap-2">
+                          <Layers className="w-4 h-4 text-emerald-600" />
+                          <h3 className="text-sm font-bold text-gray-800">Top 5 Articles</h3>
+                      </div>
+                      <Toggle value={topMetric} onChange={setTopMetric} colorClass="text-emerald-700" />
                   </div>
-                  <div className="space-y-4 flex-1">
+                  <div className="space-y-3 flex-1 overflow-y-auto custom-scrollbar pr-2">
                       {stats.topArticles.map((item, idx) => (
                           <div key={idx} className="flex items-center gap-3">
-                              <span className={`flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full text-[10px] font-bold ${idx === 0 ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-500'}`}>
+                              <span className={`flex-shrink-0 w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-bold ${idx === 0 ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-500'}`}>
                                   {idx + 1}
                               </span>
                               <div className="flex-1 min-w-0">
                                   <p className="text-xs font-medium text-gray-800 truncate" title={item.label}>{item.label}</p>
                                   <div className="w-full bg-gray-100 rounded-full h-1 mt-1">
-                                      <div className={`h-1 rounded-full ${idx === 0 ? 'bg-emerald-500' : 'bg-emerald-300'}`} style={{ width: `${(item.value / stats.topArticles[0].value) * 100}%` }}></div>
+                                      <div className={`h-1 rounded-full ${idx === 0 ? 'bg-emerald-500' : 'bg-emerald-300'} transition-all duration-500`} style={{ width: `${(item.value / stats.topArticles[0].value) * 100}%` }}></div>
                                   </div>
                               </div>
                               <div className="text-right">
-                                  <p className="text-xs font-bold text-gray-900">{formatVal(item.value)}</p>
-                                  <p className="text-[10px] text-gray-400">{metric === 'value' ? `Qty: ${item.subVal}` : `Val: Rs. ${item.subVal.toLocaleString()}`}</p>
+                                  <p className="text-xs font-bold text-gray-900">{formatVal(item.value, topMetric)}</p>
                               </div>
                           </div>
                       ))}
@@ -374,7 +454,7 @@ const ClosingStockView: React.FC<ClosingStockViewProps> = ({
       )}
 
       {/* 3. Actions Toolbar */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex flex-col gap-4">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex flex-col gap-4 flex-shrink-0">
         <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
             <h2 className="text-lg font-semibold text-gray-800">Detailed Stock List</h2>
             <div className="flex flex-wrap gap-3">
@@ -398,8 +478,8 @@ const ClosingStockView: React.FC<ClosingStockViewProps> = ({
       </div>
 
       {/* 4. Data Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
-        <div className="overflow-auto h-[calc(100vh-420px)]">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col flex-1 min-h-0">
+        <div className="overflow-auto h-full">
           <table className="w-full text-left border-collapse">
             <thead className="sticky top-0 z-10 bg-gray-50 shadow-sm">
               <tr className="border-b border-gray-200">

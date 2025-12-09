@@ -7,7 +7,8 @@ import PendingSOView from './components/PendingSOView';
 import PendingPOView from './components/PendingPOView';
 import SalesHistoryView from './components/SalesHistoryView';
 import ClosingStockView from './components/ClosingStockView';
-import { Database, AlertCircle, ClipboardList, ShoppingCart, TrendingUp, Package, Layers } from 'lucide-react';
+import DashboardView from './components/DashboardView';
+import { Database, AlertCircle, ClipboardList, ShoppingCart, TrendingUp, Package, Layers, LayoutDashboard } from 'lucide-react';
 
 const STORAGE_KEY_MASTER = 'material_master_db_v1';
 const STORAGE_KEY_STOCK = 'closing_stock_db_v1';
@@ -16,10 +17,10 @@ const STORAGE_KEY_PENDING_PO = 'pending_po_db_v1';
 const STORAGE_KEY_SALES_1Y = 'sales_1year_db_v1';
 const STORAGE_KEY_SALES_3M = 'sales_3months_db_v1';
 
-type ActiveTab = 'master' | 'closingStock' | 'pendingSO' | 'pendingPO' | 'salesHistory';
+type ActiveTab = 'dashboard' | 'master' | 'closingStock' | 'pendingSO' | 'pendingPO' | 'salesHistory';
 
 const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<ActiveTab>('master');
+  const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   
   const [materials, setMaterials] = useState<Material[]>([]);
   const [closingStockItems, setClosingStockItems] = useState<ClosingStockItem[]>([]);
@@ -201,9 +202,9 @@ const App: React.FC = () => {
   }, [materials, selectedMake]);
 
   return (
-    <div className="min-h-screen bg-gray-100 font-sans text-gray-900 pb-20">
+    <div className="min-h-screen bg-gray-100 font-sans text-gray-900 pb-0 flex flex-col">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-30 shadow-sm">
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-30 shadow-sm flex-shrink-0">
         <div className="w-full px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="bg-blue-600 p-2 rounded-lg text-white">
@@ -216,7 +217,7 @@ const App: React.FC = () => {
           </div>
           <div className="flex items-center gap-4">
              <div className="hidden md:flex items-center gap-2 text-sm text-gray-500 bg-gray-50 px-3 py-1 rounded-full border border-gray-200">
-                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                <div className="w-2 h-2 rounded-full bg-green-50 animate-pulse"></div>
                 Database Connected
              </div>
              {(materials.length > 0 || closingStockItems.length > 0 || pendingSOItems.length > 0 || pendingPOItems.length > 0) && (
@@ -229,6 +230,14 @@ const App: React.FC = () => {
         
         {/* Navigation Tabs */}
         <div className="w-full px-6 flex space-x-6 md:space-x-8 -mb-px overflow-x-auto">
+          <button
+            onClick={() => setActiveTab('dashboard')}
+            className={`pb-3 pt-3 px-1 border-b-2 font-medium text-sm flex items-center gap-2 whitespace-nowrap transition-colors ${
+              activeTab === 'dashboard' ? 'border-gray-800 text-gray-900' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <LayoutDashboard className="w-4 h-4" /> Dashboard
+          </button>
           <button
             onClick={() => setActiveTab('master')}
             className={`pb-3 pt-3 px-1 border-b-2 font-medium text-sm flex items-center gap-2 whitespace-nowrap transition-colors ${
@@ -277,12 +286,25 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      <main className="w-full px-6 py-6 h-[calc(100vh-64px)] overflow-hidden">
+      <main className="flex-1 w-full px-6 py-6 overflow-hidden flex flex-col h-[calc(100vh-64px)]">
         {error && (
-          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3 text-red-700">
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3 text-red-700 flex-shrink-0">
             <AlertCircle className="w-5 h-5 flex-shrink-0" />
             <p className="text-sm font-medium">{error}</p>
           </div>
+        )}
+
+        {/* --- DASHBOARD TAB --- */}
+        {activeTab === 'dashboard' && (
+           <DashboardView 
+              materials={materials}
+              closingStock={closingStockItems}
+              pendingSO={pendingSOItems}
+              pendingPO={pendingPOItems}
+              sales1Year={sales1Year}
+              sales3Months={sales3Months}
+              setActiveTab={setActiveTab}
+           />
         )}
 
         {/* --- MATERIAL MASTER TAB --- */}
@@ -366,7 +388,7 @@ const App: React.FC = () => {
 
         {/* --- CLOSING STOCK TAB --- */}
         {activeTab === 'closingStock' && (
-          <div className="h-full overflow-y-auto">
+          <div className="h-full w-full">
              <ClosingStockView
                items={closingStockItems}
                materials={materials} // Passed for Pivot functionality
@@ -379,7 +401,7 @@ const App: React.FC = () => {
 
         {/* --- PENDING SO TAB --- */}
         {activeTab === 'pendingSO' && (
-          <div className="h-full overflow-y-auto">
+          <div className="h-full w-full">
              <PendingSOView 
                items={pendingSOItems} 
                materials={materials} 
@@ -393,7 +415,7 @@ const App: React.FC = () => {
 
         {/* --- PENDING PO TAB --- */}
         {activeTab === 'pendingPO' && (
-          <div className="h-full overflow-y-auto">
+          <div className="h-full w-full">
              <PendingPOView 
                items={pendingPOItems} 
                materials={materials} 
