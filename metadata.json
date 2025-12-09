@@ -1,0 +1,5 @@
+{
+  "name": "Material Master AI",
+  "description": "A comprehensive Material Master management system with a client-side database and Gemini AI-powered data generation.",
+  "requestFramePermissions": []
+}
