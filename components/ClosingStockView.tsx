@@ -39,6 +39,7 @@ const ModernDonutChart: React.FC<{
   metric: Metric,
   total: number 
 }> = ({ data, metric, total }) => {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   let cumulativePercent = 0;
 
   if (total === 0) return <div className="flex items-center justify-center h-32 text-gray-400 text-[10px]">No Data</div>;
@@ -57,6 +58,15 @@ const ModernDonutChart: React.FC<{
     return [x, y];
   };
 
+  // Determine center text content based on hover state
+  const centerLabel = hoveredIndex !== null ? data[hoveredIndex].label : `Total ${metric === 'value' ? 'Val' : 'Qty'}`;
+  const centerValue = hoveredIndex !== null 
+    ? data[hoveredIndex].displayValue 
+    : (metric === 'value' 
+        ? (total > 1000000 ? `${(total/1000000).toFixed(2)}M` : (total > 1000 ? `${(total/1000).toFixed(1)}k` : Math.round(total))) 
+        : Math.round(total).toLocaleString());
+  const centerSubtext = hoveredIndex !== null ? `${(data[hoveredIndex].value / total * 100).toFixed(1)}%` : '';
+
   return (
     <div className="flex flex-col items-center gap-3 h-full">
       {/* Chart */}
@@ -64,7 +74,8 @@ const ModernDonutChart: React.FC<{
         <svg viewBox="-1 -1 2 2" style={{ transform: 'rotate(-90deg)' }} className="w-full h-full">
           {slices.map((slice, i) => {
             if (slice.percent === 1) {
-              return <circle key={i} cx="0" cy="0" r="0.8" fill="transparent" stroke={slice.color} strokeWidth="0.3" pathLength="100" />;
+              return <circle key={i} cx="0" cy="0" r="0.8" fill="transparent" stroke={slice.color} strokeWidth="0.3" pathLength="100" 
+                onMouseEnter={() => setHoveredIndex(i)} onMouseLeave={() => setHoveredIndex(null)} />;
             }
             const [startX, startY] = getCoordinatesForPercent(slice.startPercent);
             const [endX, endY] = getCoordinatesForPercent(slice.startPercent + slice.percent);
@@ -82,7 +93,9 @@ const ModernDonutChart: React.FC<{
                 key={i}
                 d={pathData}
                 fill={slice.color}
-                className="transition-all duration-300 hover:opacity-80 cursor-pointer"
+                className={`transition-all duration-200 cursor-pointer ${hoveredIndex === i ? 'opacity-100 scale-105 stroke-2 stroke-white' : 'opacity-90 hover:opacity-100'}`}
+                onMouseEnter={() => setHoveredIndex(i)}
+                onMouseLeave={() => setHoveredIndex(null)}
               >
                 <title>{`${slice.label}: ${Math.round(slice.percent * 100)}%`}</title>
               </path>
@@ -90,13 +103,14 @@ const ModernDonutChart: React.FC<{
           })}
         </svg>
         {/* Center Text */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-          <span className="text-[8px] text-gray-400 uppercase font-medium tracking-wider">Total {metric === 'value' ? 'Val' : 'Qty'}</span>
-          <span className="text-[10px] font-bold text-gray-800">
-             {metric === 'value' ? 
-               (total > 1000000 ? `${(total/1000000).toFixed(2)}M` : (total > 1000 ? `${(total/1000).toFixed(1)}k` : Math.round(total))) 
-               : Math.round(total).toLocaleString()}
+        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none px-1">
+          <span className="text-[9px] text-gray-400 uppercase font-medium tracking-wider truncate w-full text-center">
+            {centerLabel === 'Unspecified' ? 'Unknown' : centerLabel}
           </span>
+          <span className="text-[11px] font-bold text-gray-800 leading-tight">
+             {centerValue}
+          </span>
+          {centerSubtext && <span className="text-[9px] text-gray-500 font-medium">{centerSubtext}</span>}
         </div>
       </div>
 
@@ -105,20 +119,25 @@ const ModernDonutChart: React.FC<{
          <div className="flex items-center justify-between text-[9px] uppercase font-semibold text-gray-400 pb-1 border-b border-gray-100 mb-1">
             <span>Make</span>
             <div className="flex gap-2">
-                <span className="w-6 text-right">%</span>
-                <span className="w-12 text-right">{metric === 'value' ? 'Val' : 'Qty'}</span>
+                <span className="w-8 text-right">%</span>
+                <span className="w-20 text-right">{metric === 'value' ? 'Val' : 'Qty'}</span>
             </div>
          </div>
          <div className="overflow-y-auto custom-scrollbar flex-1 space-y-0.5 pr-1">
             {data.map((item, i) => (
-              <div key={i} className="flex items-center justify-between text-[10px] group hover:bg-gray-50 p-0.5 rounded transition-colors">
-                <div className="flex items-center gap-1.5 min-w-0">
+              <div 
+                key={i} 
+                className={`flex items-center justify-between text-[10px] p-0.5 rounded transition-colors cursor-pointer ${hoveredIndex === i ? 'bg-gray-100' : 'hover:bg-gray-50'}`}
+                onMouseEnter={() => setHoveredIndex(i)}
+                onMouseLeave={() => setHoveredIndex(null)}
+              >
+                <div className="flex items-center gap-1.5 min-w-0 flex-1">
                   <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }}></span>
                   <span className="text-gray-700 font-medium truncate" title={item.label}>{item.label}</span>
                 </div>
-                <div className="flex gap-2 items-center">
-                    <span className="w-6 text-right text-gray-500 font-mono text-[9px]">{(item.value / total * 100).toFixed(0)}%</span>
-                    <span className="w-12 text-right font-medium text-gray-900 truncate" title={item.displayValue}>{item.displayValue}</span>
+                <div className="flex gap-2 items-center flex-shrink-0">
+                    <span className="w-8 text-right text-gray-500 font-mono text-[9px]">{(item.value / total * 100).toFixed(0)}%</span>
+                    <span className="w-20 text-right font-medium text-gray-900 truncate" title={item.displayValue}>{item.displayValue}</span>
                 </div>
               </div>
             ))}
