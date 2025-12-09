@@ -1,14 +1,15 @@
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 
+// https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
-  // Cast process to any to avoid TypeScript error regarding cwd
+  // Load env file based on `mode` in the current working directory.
+  // Set the third parameter to '' to load all env regardless of the `VITE_` prefix.
   const env = loadEnv(mode, (process as any).cwd(), '');
   return {
     plugins: [react()],
     define: {
-      // Maps Vercel/System environment variable API_KEY to process.env.API_KEY in the code
-      // Uses empty string fallback to prevent "undefined" stringification issues
+      // Polyfill process.env.API_KEY for the GenAI SDK
       'process.env.API_KEY': JSON.stringify(env.API_KEY || '')
     }
   };

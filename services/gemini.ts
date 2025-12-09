@@ -1,30 +1,12 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Material } from "../types";
 
-// Lazy initialization to prevent crash on module load if API key is missing
-let ai: GoogleGenAI | null = null;
-
-const getAiClient = () => {
-  if (!ai) {
-    const apiKey = process.env.API_KEY;
-    if (!apiKey) {
-      console.warn("Gemini API Key is missing. AI features will not work.");
-      return null;
-    }
-    ai = new GoogleGenAI({ apiKey });
-  }
-  return ai;
-};
+// Initialize the client directly using process.env.API_KEY as per guidelines
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const generateMockMaterials = async (count: number = 5): Promise<Omit<Material, 'id' | 'createdAt'>[]> => {
   try {
-    const client = getAiClient();
-    if (!client) {
-      alert("API Key is missing. Please configure Vercel Environment Variables.");
-      return [];
-    }
-
-    const response = await client.models.generateContent({
+    const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: `Generate ${count} realistic industrial material master records. 
       Focus on items like bearings, motors, sensors, valves, or electronic components.
