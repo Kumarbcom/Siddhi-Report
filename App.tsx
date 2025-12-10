@@ -45,10 +45,7 @@ const App: React.FC = () => {
       if (error && error.includes('storage')) setError(null);
     } catch (e: any) {
       console.error(`Failed to save to ${key}:`, e);
-      // QuotaExceededError check
-      if (e.name === 'QuotaExceededError' || e.code === 22) {
-        setError("Warning: Browser storage limit reached. Data is available in this session but may not persist after reload.");
-      }
+      // Warning suppressed as per user request
     }
   };
 
