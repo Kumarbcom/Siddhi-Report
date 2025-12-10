@@ -1,7 +1,7 @@
 
 import React, { useRef, useState, useMemo } from 'react';
 import { SalesReportItem, Material, CustomerMasterItem } from '../types';
-import { Trash2, Download, Upload, Search, ArrowUpDown, ArrowUp, ArrowDown, FileBarChart, AlertTriangle, UserX, PackageX, Users, Package, FileWarning } from 'lucide-react';
+import { Trash2, Download, Upload, Search, ArrowUpDown, ArrowUp, ArrowDown, FileBarChart, AlertTriangle, UserX, PackageX, Users, Package, FileWarning, FileDown } from 'lucide-react';
 import { read, utils, writeFile } from 'xlsx';
 
 interface SalesReportViewProps {
@@ -153,8 +153,16 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
   // --- Enrichment Logic ---
   const enrichedItems: EnrichedSalesItem[] = useMemo(() => {
     return items.map(item => {
-        const customer = customers.find(c => c.customerName.toLowerCase().trim() === item.customerName.toLowerCase().trim());
-        const material = materials.find(m => m.description.toLowerCase().trim() === item.particulars.toLowerCase().trim());
+        const cleanCust = item.customerName.toLowerCase().trim();
+        const cleanPart = item.particulars.toLowerCase().trim();
+
+        const customer = customers.find(c => c.customerName.toLowerCase().trim() === cleanCust);
+        
+        // Match against Part No first, then Description
+        const material = materials.find(m => 
+            m.partNo.toLowerCase().trim() === cleanPart || 
+            m.description.toLowerCase().trim() === cleanPart
+        );
 
         return {
             ...item,
@@ -229,6 +237,40 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
     writeFile(wb, "Sales_Report_Discrepancies.xlsx");
   };
 
+  // --- Export All Data ---
+  const handleExportAll = () => {
+    if (enrichedItems.length === 0) {
+      alert("No data to export.");
+      return;
+    }
+
+    // Map to a clean structure for Excel
+    const exportData = enrichedItems.map(item => ({
+      "Date": formatDateDisplay(item.date),
+      "Customer Name": item.customerName,
+      "Customer Group": item.custGroup,
+      "Sales Rep": item.salesRep,
+      "Customer Status": item.custStatus,
+      "Particulars": item.particulars,
+      "Make": item.make,
+      "Material Group": item.matGroup,
+      "Consignee": item.consignee,
+      "Voucher No.": item.voucherNo,
+      "Voucher Ref. No.": item.voucherRefNo,
+      "Quantity": item.quantity,
+      "Value": item.value,
+      "Data Quality": (item.isCustUnknown ? "Unknown Customer; " : "") + (item.isMatUnknown ? "Unknown Item" : "")
+    }));
+
+    const ws = utils.json_to_sheet(exportData);
+    const wb = utils.book_new();
+    utils.book_append_sheet(wb, ws, "Sales_Report_Full");
+    
+    // Generates file name with timestamp to avoid overwrites
+    const fileName = `Sales_Report_Full_${new Date().toISOString().split('T')[0]}.xlsx`;
+    writeFile(wb, fileName);
+  };
+
   const renderSortIcon = (key: SortKey) => {
     if (!sortConfig || sortConfig.key !== key) return <ArrowUpDown className="w-3 h-3 text-gray-400" />;
     return sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 text-blue-500" /> : <ArrowDown className="w-3 h-3 text-blue-500" />;
@@ -287,6 +329,13 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                 <FileBarChart className="w-4 h-4 text-blue-600" /> Sales Report
             </h2>
             <div className="flex flex-wrap gap-2">
+                <button 
+                    onClick={handleExportAll} 
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-700 rounded-lg text-xs font-medium border border-gray-300 hover:bg-gray-50 transition-colors shadow-sm"
+                    title="Export Full Report to Excel"
+                >
+                    <FileDown className="w-3.5 h-3.5" /> Export All Data
+                </button>
                 {(stats.unknownCustomers > 0 || stats.unknownItems > 0) && (
                     <button 
                         onClick={handleExportUnknowns} 

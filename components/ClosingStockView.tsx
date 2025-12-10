@@ -168,8 +168,9 @@ const ClosingStockView: React.FC<ClosingStockViewProps> = ({
   // --- Data Enrichment (Join with Master) ---
   const enrichedItems = useMemo(() => {
     return items.map(item => {
-        // Fuzzy match description
-        const mat = materials.find(m => m.description.toLowerCase().trim() === item.description.toLowerCase().trim());
+        // Strict fuzzy match description
+        const itemDesc = item.description.toLowerCase().trim();
+        const mat = materials.find(m => m.description.toLowerCase().trim() === itemDesc);
         return {
             ...item,
             make: mat ? mat.make : 'Unspecified',
@@ -288,20 +289,34 @@ const ClosingStockView: React.FC<ClosingStockViewProps> = ({
       data.forEach((row) => {
          const getVal = (keys: string[]) => {
              for (const k of keys) {
-                 const foundKey = Object.keys(row).find(rk => rk.toLowerCase() === k.toLowerCase());
+                 // Use trim to handle headers like "Value " from Excel
+                 const foundKey = Object.keys(row).find(rk => rk.trim().toLowerCase() === k.toLowerCase());
                  if (foundKey) return row[foundKey];
              }
-             return '';
+             return undefined;
          };
-         const description = String(getVal(['description', 'desc']) || '');
-         const quantity = parseFloat(getVal(['quantity', 'qty'])) || 0;
-         const rate = parseFloat(getVal(['rate', 'price'])) || 0;
-         let value = parseFloat(getVal(['value', 'val'])) || 0;
+
+         // Robust parsing for numbers (handles commas "1,500")
+         const parseNum = (val: any) => {
+            if (typeof val === 'number') return val;
+            if (typeof val === 'string') {
+                const clean = val.replace(/[,Rs. ]/g, '').trim();
+                return parseFloat(clean) || 0;
+            }
+            return 0;
+         };
+
+         const description = String(getVal(['description', 'desc', 'particulars']) || '').trim();
+         const quantity = parseNum(getVal(['quantity', 'qty', 'stock']));
+         const rate = parseNum(getVal(['rate', 'price', 'unit price']));
+         let value = parseNum(getVal(['value', 'val', 'amount', 'total']));
+         
          if (value === 0 && quantity !== 0 && rate !== 0) value = quantity * rate;
+         
          if (description) newItems.push({ description, quantity, rate, value });
       });
       if (newItems.length > 0) { onBulkAdd(newItems); alert(`Imported ${newItems.length} records.`); }
-      else alert("No valid stock records found.");
+      else alert("No valid stock records found. Check columns: Description, Quantity, Rate, Value.");
     } catch (err) { alert("Failed to parse Excel file."); }
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
