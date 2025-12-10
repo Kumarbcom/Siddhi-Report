@@ -10,6 +10,18 @@ export default defineConfig(({ mode }) => {
     define: {
       // Polyfill process.env.API_KEY for the GenAI SDK
       'process.env.API_KEY': JSON.stringify(env.API_KEY || '')
+    },
+    build: {
+      chunkSizeWarningLimit: 1500,
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            vendor: ['react', 'react-dom', 'lucide-react'],
+            xlsx: ['xlsx'],
+            genai: ['@google/genai']
+          }
+        }
+      }
     }
   };
 });
