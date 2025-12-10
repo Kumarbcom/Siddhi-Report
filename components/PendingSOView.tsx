@@ -1,7 +1,7 @@
 
 import React, { useRef, useMemo, useState } from 'react';
 import { PendingSOItem, Material, ClosingStockItem } from '../types';
-import { Trash2, Download, Upload, ClipboardList, Search, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, Package, Clock, AlertCircle, CheckCircle2, TrendingUp, AlertOctagon, Layers } from 'lucide-react';
+import { Trash2, Download, Upload, ClipboardList, Search, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, Package, Clock, AlertCircle, CheckCircle2, TrendingUp, AlertOctagon, Layers, FileDown } from 'lucide-react';
 import { read, utils, writeFile } from 'xlsx';
 
 interface PendingSOViewProps {
@@ -222,6 +222,32 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
     writeFile(wb, "Pending_SO_Template.xlsx");
   };
 
+  const handleExport = () => {
+    if (items.length === 0) {
+      alert("No data to export.");
+      return;
+    }
+    const data = items.map(i => ({
+      "Date": formatDateDisplay(i.date),
+      "Order": i.orderNo,
+      "Party's Name": i.partyName,
+      "Name of Item": i.itemName,
+      "Material Code": i.materialCode,
+      "Part No": i.partNo,
+      "Ordered": i.orderedQty,
+      "Balance": i.balanceQty,
+      "Rate": i.rate,
+      "Discount": i.discount,
+      "Value": i.value,
+      "Due on": formatDateDisplay(i.dueDate),
+      "OverDue": i.overDueDays
+    }));
+    const ws = utils.json_to_sheet(data);
+    const wb = utils.book_new();
+    utils.book_append_sheet(wb, ws, "Pending_SO");
+    writeFile(wb, "Pending_SO_Export.xlsx");
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -335,6 +361,13 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
                 <ClipboardList className="w-4 h-4 text-purple-600" /> Pending Orders
             </h2>
             <div className="flex flex-wrap gap-2">
+                <button
+                    onClick={handleExport}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-50 border border-gray-200 shadow-sm"
+                    title="Export All Pending SO"
+                >
+                    <FileDown className="w-3.5 h-3.5" /> Export All
+                </button>
                 <button onClick={handleDownloadTemplate} className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-600 rounded-lg text-xs border hover:bg-gray-50 transition-colors"><Download className="w-3.5 h-3.5" /> Template</button>
                 <input type="file" ref={fileInputRef} className="hidden" accept=".xlsx, .xls" onChange={handleFileUpload} />
                 <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-xs border border-emerald-100 hover:bg-emerald-100 transition-colors"><Upload className="w-3.5 h-3.5" /> Import Excel</button>

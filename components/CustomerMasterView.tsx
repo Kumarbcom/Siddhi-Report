@@ -1,6 +1,7 @@
+
 import React, { useRef, useState, useMemo } from 'react';
 import { CustomerMasterItem } from '../types';
-import { Trash2, Download, Upload, Search, ArrowUpDown, ArrowUp, ArrowDown, Users, UserCheck } from 'lucide-react';
+import { Trash2, Download, Upload, Search, ArrowUpDown, ArrowUp, ArrowDown, Users, UserCheck, FileDown } from 'lucide-react';
 import { read, utils, writeFile } from 'xlsx';
 
 interface CustomerMasterViewProps {
@@ -43,6 +44,24 @@ const CustomerMasterView: React.FC<CustomerMasterViewProps> = ({
     const wb = utils.book_new();
     utils.book_append_sheet(wb, ws, "Customer_Master_Template");
     writeFile(wb, "Customer_Master_Template.xlsx");
+  };
+
+  const handleExport = () => {
+    if (items.length === 0) {
+      alert("No data to export.");
+      return;
+    }
+    const data = items.map(i => ({
+      "Customer Name": i.customerName,
+      "Group": i.group,
+      "Sales Rep": i.salesRep,
+      "Status": i.status,
+      "Customer Group": i.customerGroup
+    }));
+    const ws = utils.json_to_sheet(data);
+    const wb = utils.book_new();
+    utils.book_append_sheet(wb, ws, "Customer_Master");
+    writeFile(wb, "Customer_Master_Export.xlsx");
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -151,6 +170,13 @@ const CustomerMasterView: React.FC<CustomerMasterViewProps> = ({
                 <Users className="w-4 h-4 text-blue-600" /> Customer Master
             </h2>
             <div className="flex flex-wrap gap-2">
+                <button
+                    onClick={handleExport}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-700 rounded-lg text-xs font-medium border border-gray-300 transition-colors shadow-sm hover:bg-gray-50"
+                    title="Export All Customers"
+                >
+                    <FileDown className="w-3.5 h-3.5" /> Export All
+                </button>
                 <button onClick={handleDownloadTemplate} className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-600 rounded-lg text-xs border hover:bg-gray-50 transition-colors"><Download className="w-3.5 h-3.5" /> Template</button>
                 <input type="file" ref={fileInputRef} className="hidden" accept=".xlsx, .xls" onChange={handleFileUpload} />
                 <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs border border-blue-100 hover:bg-blue-100 transition-colors"><Upload className="w-3.5 h-3.5" /> Import Excel</button>

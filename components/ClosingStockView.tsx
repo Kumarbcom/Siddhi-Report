@@ -1,7 +1,7 @@
 
 import React, { useRef, useState, useMemo } from 'react';
 import { ClosingStockItem, Material } from '../types';
-import { Trash2, Download, Upload, Package, Search, ArrowUpDown, ArrowUp, ArrowDown, Filter, PieChart as PieChartIcon, BarChart3, Layers, AlertTriangle, Link2Off } from 'lucide-react';
+import { Trash2, Download, Upload, Package, Search, ArrowUpDown, ArrowUp, ArrowDown, Filter, PieChart as PieChartIcon, BarChart3, Layers, AlertTriangle, Link2Off, FileDown } from 'lucide-react';
 import { read, utils, writeFile } from 'xlsx';
 
 interface ClosingStockViewProps {
@@ -275,6 +275,23 @@ const ClosingStockView: React.FC<ClosingStockViewProps> = ({
     writeFile(wb, "Closing_Stock_Template.xlsx");
   };
 
+  const handleExport = () => {
+    if (items.length === 0) {
+      alert("No data to export.");
+      return;
+    }
+    const data = items.map(i => ({
+      "Description": i.description,
+      "Quantity": i.quantity,
+      "Rate": i.rate,
+      "Value": i.value
+    }));
+    const ws = utils.json_to_sheet(data);
+    const wb = utils.book_new();
+    utils.book_append_sheet(wb, ws, "Closing_Stock");
+    writeFile(wb, "Closing_Stock_Export.xlsx");
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -492,6 +509,13 @@ const ClosingStockView: React.FC<ClosingStockViewProps> = ({
         <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
             <h2 className="text-sm font-semibold text-gray-800">Detailed Stock List</h2>
             <div className="flex flex-wrap gap-2">
+                <button
+                    onClick={handleExport}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-50 border border-gray-200 shadow-sm"
+                    title="Export All Stock"
+                >
+                    <FileDown className="w-3.5 h-3.5" /> Export All
+                </button>
                 <button onClick={handleDownloadTemplate} className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-50 border border-gray-200 shadow-sm">
                     <Download className="w-3.5 h-3.5" /> Template
                 </button>

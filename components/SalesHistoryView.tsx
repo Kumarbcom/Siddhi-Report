@@ -1,7 +1,7 @@
 
 import React, { useRef, useState, useMemo } from 'react';
 import { SalesRecord } from '../types';
-import { Trash2, Download, Upload, History, TrendingUp, Search, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Trash2, Download, Upload, History, TrendingUp, Search, ArrowUpDown, ArrowUp, ArrowDown, FileDown } from 'lucide-react';
 import { read, utils, writeFile } from 'xlsx';
 
 interface SalesHistoryViewProps {
@@ -39,6 +39,23 @@ const SalesHistoryView: React.FC<SalesHistoryViewProps> = ({
     const ws = utils.json_to_sheet(headers);
     const wb = utils.book_new();
     utils.book_append_sheet(wb, ws, "Template");
+    writeFile(wb, filename);
+  };
+
+  const handleExport = (data: SalesRecord[], filename: string) => {
+    if (data.length === 0) {
+      alert("No data to export.");
+      return;
+    }
+    const exportData = data.map(i => ({
+      "Particulars": i.particulars,
+      "Quantity": i.quantity,
+      "Eff. Rate": i.rate,
+      "Value": i.value
+    }));
+    const ws = utils.json_to_sheet(exportData);
+    const wb = utils.book_new();
+    utils.book_append_sheet(wb, ws, "Sales_History");
     writeFile(wb, filename);
   };
 
@@ -168,6 +185,12 @@ const SalesHistoryView: React.FC<SalesHistoryViewProps> = ({
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
             <div className="flex items-center gap-2"><div className="bg-teal-100 p-1.5 rounded-lg text-teal-700"><TrendingUp className="w-4 h-4" /></div><div><h2 className="text-sm font-bold text-gray-800">Sales Last 3 Months</h2><p className="text-[10px] text-gray-500">Recent performance metrics</p></div></div>
             <div className="flex gap-2">
+                <button
+                    onClick={() => handleExport(sales3Months, "Sales_History_3Months.xlsx")}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-600 rounded-lg text-xs font-medium border border-gray-200 hover:bg-gray-50 transition-colors shadow-sm"
+                >
+                    <FileDown className="w-3.5 h-3.5" /> Export
+                </button>
                 <button onClick={onClear3Months} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-medium hover:bg-red-100 border border-red-100"><Trash2 className="w-3.5 h-3.5" /> Clear Data</button>
                 <button onClick={() => handleDownloadTemplate("Sales_3Months_Template.xlsx")} className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-600 rounded-lg text-xs border hover:bg-gray-50"><Download className="w-3.5 h-3.5" /> Template</button>
                 <input type="file" ref={fileInputRef3Months} className="hidden" accept=".xlsx, .xls" onChange={(e) => handleFileUpload(e, '3months')} />
@@ -183,6 +206,12 @@ const SalesHistoryView: React.FC<SalesHistoryViewProps> = ({
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
              <div className="flex items-center gap-2"><div className="bg-indigo-100 p-1.5 rounded-lg text-indigo-700"><History className="w-4 h-4" /></div><div><h2 className="text-sm font-bold text-gray-800">Sales Last 1 Year</h2><p className="text-[10px] text-gray-500">Annual performance overview</p></div></div>
             <div className="flex gap-2">
+                <button
+                    onClick={() => handleExport(sales1Year, "Sales_History_1Year.xlsx")}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-600 rounded-lg text-xs font-medium border border-gray-200 hover:bg-gray-50 transition-colors shadow-sm"
+                >
+                    <FileDown className="w-3.5 h-3.5" /> Export
+                </button>
                 <button onClick={onClear1Year} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-medium hover:bg-red-100 border border-red-100"><Trash2 className="w-3.5 h-3.5" /> Clear Data</button>
                 <button onClick={() => handleDownloadTemplate("Sales_1Year_Template.xlsx")} className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-600 rounded-lg text-xs border hover:bg-gray-50"><Download className="w-3.5 h-3.5" /> Template</button>
                 <input type="file" ref={fileInputRef1Year} className="hidden" accept=".xlsx, .xls" onChange={(e) => handleFileUpload(e, '1year')} />

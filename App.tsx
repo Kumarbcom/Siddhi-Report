@@ -467,6 +467,7 @@ const App: React.FC = () => {
             {/* Right Column: Main Content */}
             <div className="flex-1 w-full min-w-0 flex flex-col gap-3 h-full overflow-hidden">
                <AddMaterialForm 
+                  materials={materials}
                   onBulkAdd={handleBulkAddMaterial} 
                   onClear={handleClearMaterials}
                />

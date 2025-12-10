@@ -1,14 +1,16 @@
+
 import React, { useRef } from 'react';
-import { MaterialFormData } from '../types';
-import { Upload, Download, Trash2 } from 'lucide-react';
+import { Material, MaterialFormData } from '../types';
+import { Upload, Download, Trash2, FileDown } from 'lucide-react';
 import { read, utils, writeFile } from 'xlsx';
 
 interface AddMaterialFormProps {
+  materials: Material[];
   onBulkAdd: (data: MaterialFormData[]) => void;
   onClear: () => void;
 }
 
-const AddMaterialForm: React.FC<AddMaterialFormProps> = ({ onBulkAdd, onClear }) => {
+const AddMaterialForm: React.FC<AddMaterialFormProps> = ({ materials, onBulkAdd, onClear }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDownloadTemplate = () => {
@@ -30,6 +32,23 @@ const AddMaterialForm: React.FC<AddMaterialFormProps> = ({ onBulkAdd, onClear })
     const wb = utils.book_new();
     utils.book_append_sheet(wb, ws, "Template");
     writeFile(wb, "Material_Master_Template.xlsx");
+  };
+
+  const handleExport = () => {
+    if (materials.length === 0) {
+      alert("No data to export.");
+      return;
+    }
+    const data = materials.map(m => ({
+      "Description": m.description,
+      "Part No": m.partNo,
+      "Make": m.make,
+      "Material Group": m.materialGroup
+    }));
+    const ws = utils.json_to_sheet(data);
+    const wb = utils.book_new();
+    utils.book_append_sheet(wb, ws, "Material_Master");
+    writeFile(wb, "Material_Master_Export.xlsx");
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -78,6 +97,15 @@ const AddMaterialForm: React.FC<AddMaterialFormProps> = ({ onBulkAdd, onClear })
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
         <h2 className="text-lg font-semibold text-gray-800">Actions</h2>
         <div className="flex flex-wrap gap-3">
+            <button
+                type="button"
+                onClick={handleExport}
+                className="flex items-center gap-2 px-4 py-2 bg-white text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors border border-gray-200 shadow-sm"
+                title="Export All Materials"
+            >
+                <FileDown className="w-4 h-4" />
+                Export All
+            </button>
             <button
                 type="button"
                 onClick={handleDownloadTemplate}
