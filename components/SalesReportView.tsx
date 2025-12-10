@@ -1,7 +1,7 @@
 
 import React, { useRef, useState, useMemo } from 'react';
 import { SalesReportItem, Material, CustomerMasterItem } from '../types';
-import { Trash2, Download, Upload, Search, ArrowUpDown, ArrowUp, ArrowDown, FileBarChart, AlertTriangle, UserX, PackageX, Users, Package, FileWarning, FileDown } from 'lucide-react';
+import { Trash2, Download, Upload, Search, ArrowUpDown, ArrowUp, ArrowDown, FileBarChart, AlertTriangle, UserX, PackageX, Users, Package, FileWarning, FileDown, Loader2 } from 'lucide-react';
 import { read, utils, writeFile } from 'xlsx';
 
 interface SalesReportViewProps {
@@ -38,6 +38,7 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' } | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   // Robust Date Formatter
   const formatDateDisplay = (dateVal: string | Date | number) => {
@@ -113,6 +114,18 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
         return String(val || '');
       };
 
+      // Robust parsing for numbers (handles commas "1,500")
+      const parseNum = (val: any) => {
+        if (typeof val === 'number') return val;
+        if (typeof val === 'string') {
+            // Remove commas, spaces, currency symbols
+            const clean = val.replace(/[,Rs. ₹$]/g, '').trim();
+            const num = parseFloat(clean);
+            return isNaN(num) ? 0 : num;
+        }
+        return 0;
+      };
+
       data.forEach((row) => {
          const getVal = (keys: string[]) => {
              for (const k of keys) {
@@ -128,8 +141,9 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
          const consignee = String(getVal(['consignee', 'ship to']) || '');
          const voucherNo = String(getVal(['voucher no', 'voucher no.', 'inv no', 'invoice']) || '');
          const voucherRefNo = String(getVal(['voucher ref. no.', 'voucher ref no', 'ref no']) || '');
-         const quantity = parseFloat(getVal(['quantity', 'qty'])) || 0;
-         const value = parseFloat(getVal(['value', 'amount', 'total'])) || 0;
+         
+         const quantity = parseNum(getVal(['quantity', 'qty']));
+         const value = parseNum(getVal(['value', 'amount', 'total', 'net amount']));
 
          if (customerName || particulars || voucherNo) {
              newItems.push({
@@ -238,37 +252,48 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
   };
 
   // --- Export All Data ---
-  const handleExportAll = () => {
+  const handleExportAll = async () => {
     if (enrichedItems.length === 0) {
       alert("No data to export.");
       return;
     }
 
-    // Map to a clean structure for Excel
-    const exportData = enrichedItems.map(item => ({
-      "Date": formatDateDisplay(item.date),
-      "Customer Name": item.customerName,
-      "Customer Group": item.custGroup,
-      "Sales Rep": item.salesRep,
-      "Customer Status": item.custStatus,
-      "Particulars": item.particulars,
-      "Make": item.make,
-      "Material Group": item.matGroup,
-      "Consignee": item.consignee,
-      "Voucher No.": item.voucherNo,
-      "Voucher Ref. No.": item.voucherRefNo,
-      "Quantity": item.quantity,
-      "Value": item.value,
-      "Data Quality": (item.isCustUnknown ? "Unknown Customer; " : "") + (item.isMatUnknown ? "Unknown Item" : "")
-    }));
+    setIsExporting(true);
 
-    const ws = utils.json_to_sheet(exportData);
-    const wb = utils.book_new();
-    utils.book_append_sheet(wb, ws, "Sales_Report_Full");
-    
-    // Generates file name with timestamp to avoid overwrites
-    const fileName = `Sales_Report_Full_${new Date().toISOString().split('T')[0]}.xlsx`;
-    writeFile(wb, fileName);
+    // Use setTimeout to allow the UI to update with the spinner before the heavy sync operation blocks the thread
+    setTimeout(() => {
+        try {
+            // Map to a clean structure for Excel
+            const exportData = enrichedItems.map(item => ({
+              "Date": formatDateDisplay(item.date),
+              "Customer Name": item.customerName,
+              "Customer Group": item.custGroup,
+              "Sales Rep": item.salesRep,
+              "Customer Status": item.custStatus,
+              "Particulars": item.particulars,
+              "Make": item.make,
+              "Material Group": item.matGroup,
+              "Consignee": item.consignee,
+              "Voucher No.": item.voucherNo,
+              "Voucher Ref. No.": item.voucherRefNo,
+              "Quantity": item.quantity,
+              "Value": item.value,
+              "Data Quality": (item.isCustUnknown ? "Unknown Customer; " : "") + (item.isMatUnknown ? "Unknown Item" : "")
+            }));
+        
+            const ws = utils.json_to_sheet(exportData);
+            const wb = utils.book_new();
+            utils.book_append_sheet(wb, ws, "Sales_Report_Full");
+            
+            const fileName = `Sales_Report_Full_${new Date().toISOString().split('T')[0]}.xlsx`;
+            writeFile(wb, fileName);
+        } catch (error) {
+            console.error("Export failed:", error);
+            alert("Failed to export data. The dataset might be too large.");
+        } finally {
+            setIsExporting(false);
+        }
+    }, 100);
   };
 
   const renderSortIcon = (key: SortKey) => {
@@ -331,10 +356,12 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
             <div className="flex flex-wrap gap-2">
                 <button 
                     onClick={handleExportAll} 
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-700 rounded-lg text-xs font-medium border border-gray-300 hover:bg-gray-50 transition-colors shadow-sm"
+                    disabled={isExporting}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-700 rounded-lg text-xs font-medium border border-gray-300 transition-colors shadow-sm ${isExporting ? 'opacity-50 cursor-wait' : 'hover:bg-gray-50'}`}
                     title="Export Full Report to Excel"
                 >
-                    <FileDown className="w-3.5 h-3.5" /> Export All Data
+                    {isExporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileDown className="w-3.5 h-3.5" />}
+                    {isExporting ? 'Exporting...' : 'Export All Data'}
                 </button>
                 {(stats.unknownCustomers > 0 || stats.unknownItems > 0) && (
                     <button 
