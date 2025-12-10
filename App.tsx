@@ -1,14 +1,17 @@
 
+
 import React, { useState, useEffect, useMemo } from 'react';
-import { Material, MaterialFormData, PendingSOItem, PendingPOItem, SalesRecord, ClosingStockItem } from './types';
+import { Material, MaterialFormData, PendingSOItem, PendingPOItem, SalesRecord, ClosingStockItem, SalesReportItem, CustomerMasterItem } from './types';
 import MaterialTable from './components/MaterialTable';
 import AddMaterialForm from './components/AddMaterialForm';
 import PendingSOView from './components/PendingSOView';
 import PendingPOView from './components/PendingPOView';
 import SalesHistoryView from './components/SalesHistoryView';
 import ClosingStockView from './components/ClosingStockView';
+import SalesReportView from './components/SalesReportView';
+import CustomerMasterView from './components/CustomerMasterView';
 import DashboardView from './components/DashboardView';
-import { Database, AlertCircle, ClipboardList, ShoppingCart, TrendingUp, Package, Layers, LayoutDashboard } from 'lucide-react';
+import { Database, AlertCircle, ClipboardList, ShoppingCart, TrendingUp, Package, Layers, LayoutDashboard, FileBarChart, Users } from 'lucide-react';
 
 const STORAGE_KEY_MASTER = 'material_master_db_v1';
 const STORAGE_KEY_STOCK = 'closing_stock_db_v1';
@@ -16,8 +19,10 @@ const STORAGE_KEY_PENDING_SO = 'pending_so_db_v1';
 const STORAGE_KEY_PENDING_PO = 'pending_po_db_v1';
 const STORAGE_KEY_SALES_1Y = 'sales_1year_db_v1';
 const STORAGE_KEY_SALES_3M = 'sales_3months_db_v1';
+const STORAGE_KEY_SALES_REPORT = 'sales_report_db_v1';
+const STORAGE_KEY_CUSTOMER_MASTER = 'customer_master_db_v1';
 
-type ActiveTab = 'dashboard' | 'master' | 'closingStock' | 'pendingSO' | 'pendingPO' | 'salesHistory';
+type ActiveTab = 'dashboard' | 'master' | 'customerMaster' | 'closingStock' | 'pendingSO' | 'pendingPO' | 'salesHistory' | 'salesReport';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
@@ -28,6 +33,8 @@ const App: React.FC = () => {
   const [pendingPOItems, setPendingPOItems] = useState<PendingPOItem[]>([]);
   const [sales1Year, setSales1Year] = useState<SalesRecord[]>([]);
   const [sales3Months, setSales3Months] = useState<SalesRecord[]>([]);
+  const [salesReportItems, setSalesReportItems] = useState<SalesReportItem[]>([]);
+  const [customerMasterItems, setCustomerMasterItems] = useState<CustomerMasterItem[]>([]);
   
   const [selectedMake, setSelectedMake] = useState<string | 'ALL'>('ALL');
   const [error, setError] = useState<string | null>(null);
@@ -65,6 +72,18 @@ const App: React.FC = () => {
     if (stored3M) { try { setSales3Months(JSON.parse(stored3M)); } catch (e) { console.error("Sales 3M DB corruption", e); } }
   }, []);
 
+  // Load Sales Report Data
+  useEffect(() => {
+    const stored = localStorage.getItem(STORAGE_KEY_SALES_REPORT);
+    if (stored) { try { setSalesReportItems(JSON.parse(stored)); } catch (e) { console.error("Sales Report DB corruption", e); } }
+  }, []);
+
+  // Load Customer Master Data
+  useEffect(() => {
+    const stored = localStorage.getItem(STORAGE_KEY_CUSTOMER_MASTER);
+    if (stored) { try { setCustomerMasterItems(JSON.parse(stored)); } catch (e) { console.error("Customer Master DB corruption", e); } }
+  }, []);
+
   // Save Effects
   useEffect(() => { localStorage.setItem(STORAGE_KEY_MASTER, JSON.stringify(materials)); }, [materials]);
   useEffect(() => { localStorage.setItem(STORAGE_KEY_STOCK, JSON.stringify(closingStockItems)); }, [closingStockItems]);
@@ -72,6 +91,8 @@ const App: React.FC = () => {
   useEffect(() => { localStorage.setItem(STORAGE_KEY_PENDING_PO, JSON.stringify(pendingPOItems)); }, [pendingPOItems]);
   useEffect(() => { localStorage.setItem(STORAGE_KEY_SALES_1Y, JSON.stringify(sales1Year)); }, [sales1Year]);
   useEffect(() => { localStorage.setItem(STORAGE_KEY_SALES_3M, JSON.stringify(sales3Months)); }, [sales3Months]);
+  useEffect(() => { localStorage.setItem(STORAGE_KEY_SALES_REPORT, JSON.stringify(salesReportItems)); }, [salesReportItems]);
+  useEffect(() => { localStorage.setItem(STORAGE_KEY_CUSTOMER_MASTER, JSON.stringify(customerMasterItems)); }, [customerMasterItems]);
 
   // --- Handlers for Material Master ---
   const handleBulkAddMaterial = (dataList: MaterialFormData[]) => {
@@ -171,6 +192,38 @@ const App: React.FC = () => {
     }
   };
 
+  // --- Handlers for Sales Report ---
+  const handleBulkAddSalesReport = (items: Omit<SalesReportItem, 'id' | 'createdAt'>[]) => {
+    const newItems = items.map(item => ({ ...item, id: crypto.randomUUID(), createdAt: Date.now() }));
+    setSalesReportItems(prev => [...newItems, ...prev]);
+  };
+
+  const handleDeleteSalesReport = (id: string) => {
+    setSalesReportItems(prev => prev.filter(i => i.id !== id));
+  };
+
+  const handleClearSalesReport = () => {
+    if (window.confirm("Are you sure you want to delete ALL Sales Report records?")) {
+      setSalesReportItems([]);
+    }
+  };
+
+  // --- Handlers for Customer Master ---
+  const handleBulkAddCustomerMaster = (items: Omit<CustomerMasterItem, 'id' | 'createdAt'>[]) => {
+    const newItems = items.map(item => ({ ...item, id: crypto.randomUUID(), createdAt: Date.now() }));
+    setCustomerMasterItems(prev => [...newItems, ...prev]);
+  };
+
+  const handleDeleteCustomerMaster = (id: string) => {
+    setCustomerMasterItems(prev => prev.filter(i => i.id !== id));
+  };
+
+  const handleClearCustomerMaster = () => {
+    if (window.confirm("Are you sure you want to delete ALL Customer Master records?")) {
+      setCustomerMasterItems([]);
+    }
+  };
+
   const handleClearDatabase = () => {
     if (window.confirm("Are you sure you want to clear ALL data from ALL tabs? This is irreversible.")) {
       setMaterials([]);
@@ -179,12 +232,16 @@ const App: React.FC = () => {
       setPendingPOItems([]);
       setSales1Year([]);
       setSales3Months([]);
+      setSalesReportItems([]);
+      setCustomerMasterItems([]);
       localStorage.removeItem(STORAGE_KEY_MASTER);
       localStorage.removeItem(STORAGE_KEY_STOCK);
       localStorage.removeItem(STORAGE_KEY_PENDING_SO);
       localStorage.removeItem(STORAGE_KEY_PENDING_PO);
       localStorage.removeItem(STORAGE_KEY_SALES_1Y);
       localStorage.removeItem(STORAGE_KEY_SALES_3M);
+      localStorage.removeItem(STORAGE_KEY_SALES_REPORT);
+      localStorage.removeItem(STORAGE_KEY_CUSTOMER_MASTER);
     }
   };
 
@@ -220,7 +277,7 @@ const App: React.FC = () => {
                 <div className="w-1.5 h-1.5 rounded-full bg-green-50 animate-pulse"></div>
                 Connected
              </div>
-             {(materials.length > 0 || closingStockItems.length > 0 || pendingSOItems.length > 0 || pendingPOItems.length > 0) && (
+             {(materials.length > 0 || closingStockItems.length > 0 || pendingSOItems.length > 0 || pendingPOItems.length > 0 || salesReportItems.length > 0 || customerMasterItems.length > 0) && (
                <button onClick={handleClearDatabase} className="text-xs text-red-500 hover:text-red-700 font-medium underline">
                  Clear All Data
                </button>
@@ -248,6 +305,15 @@ const App: React.FC = () => {
             <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full text-[10px]">{materials.length}</span>
           </button>
           <button
+            onClick={() => setActiveTab('customerMaster')}
+            className={`pb-2 pt-2 px-1 border-b-2 font-medium text-xs flex items-center gap-1.5 whitespace-nowrap transition-colors ${
+              activeTab === 'customerMaster' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <Users className="w-3.5 h-3.5" /> Customer Master
+            <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full text-[10px]">{customerMasterItems.length}</span>
+          </button>
+          <button
             onClick={() => setActiveTab('closingStock')}
             className={`pb-2 pt-2 px-1 border-b-2 font-medium text-xs flex items-center gap-1.5 whitespace-nowrap transition-colors ${
               activeTab === 'closingStock' ? 'border-emerald-500 text-emerald-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -273,6 +339,15 @@ const App: React.FC = () => {
           >
             <ShoppingCart className="w-3.5 h-3.5" /> Pending PO
             <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full text-[10px]">{pendingPOItems.length}</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('salesReport')}
+            className={`pb-2 pt-2 px-1 border-b-2 font-medium text-xs flex items-center gap-1.5 whitespace-nowrap transition-colors ${
+              activeTab === 'salesReport' ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <FileBarChart className="w-3.5 h-3.5" /> Sales Report
+            <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full text-[10px]">{salesReportItems.length}</span>
           </button>
           <button
             onClick={() => setActiveTab('salesHistory')}
@@ -386,6 +461,18 @@ const App: React.FC = () => {
           </div>
         )}
 
+        {/* --- CUSTOMER MASTER TAB --- */}
+        {activeTab === 'customerMaster' && (
+          <div className="h-full w-full">
+             <CustomerMasterView 
+               items={customerMasterItems}
+               onBulkAdd={handleBulkAddCustomerMaster}
+               onDelete={handleDeleteCustomerMaster}
+               onClear={handleClearCustomerMaster}
+             />
+          </div>
+        )}
+
         {/* --- CLOSING STOCK TAB --- */}
         {activeTab === 'closingStock' && (
           <div className="h-full w-full">
@@ -423,6 +510,20 @@ const App: React.FC = () => {
                onBulkAdd={handleBulkAddPendingPO} 
                onDelete={handleDeletePendingPO}
                onClear={handleClearPendingPO}
+             />
+          </div>
+        )}
+
+        {/* --- SALES REPORT TAB --- */}
+        {activeTab === 'salesReport' && (
+          <div className="h-full w-full">
+             <SalesReportView 
+               items={salesReportItems}
+               materials={materials}
+               customers={customerMasterItems}
+               onBulkAdd={handleBulkAddSalesReport}
+               onDelete={handleDeleteSalesReport}
+               onClear={handleClearSalesReport}
              />
           </div>
         )}

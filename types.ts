@@ -1,4 +1,5 @@
 
+
 export interface Material {
   id: string;
   description: string;
@@ -61,5 +62,28 @@ export interface ClosingStockItem {
   quantity: number;
   rate: number;
   value: number;
+  createdAt: number;
+}
+
+export interface SalesReportItem {
+  id: string;
+  date: string;
+  customerName: string;
+  particulars: string;
+  consignee: string;
+  voucherNo: string;
+  voucherRefNo: string;
+  quantity: number;
+  value: number;
+  createdAt: number;
+}
+
+export interface CustomerMasterItem {
+  id: string;
+  customerName: string;
+  group: string;
+  salesRep: string;
+  status: string;
+  customerGroup: string;
   createdAt: number;
 }
