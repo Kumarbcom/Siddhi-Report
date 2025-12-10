@@ -1,7 +1,7 @@
 
-import React, { useRef, useState, useMemo } from 'react';
+import React, { useRef, useState, useMemo, useEffect } from 'react';
 import { SalesReportItem, Material, CustomerMasterItem } from '../types';
-import { Trash2, Download, Upload, Search, ArrowUpDown, ArrowUp, ArrowDown, FileBarChart, AlertTriangle, UserX, PackageX, Users, Package, FileWarning, FileDown, Loader2 } from 'lucide-react';
+import { Trash2, Download, Upload, Search, ArrowUpDown, ArrowUp, ArrowDown, FileBarChart, AlertTriangle, UserX, PackageX, Users, Package, FileWarning, FileDown, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { read, utils, writeFile } from 'xlsx';
 
 interface SalesReportViewProps {
@@ -38,7 +38,41 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' } | null>(null);
-  const [isExporting, setIsExporting] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(100);
+
+  // Reset pagination when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
+  // --- Optimization: Pre-compute Lookups ---
+  // Creating Maps allows O(1) lookup instead of O(N) find inside the main loop.
+  // This is critical for large datasets (e.g. 100k rows).
+  const materialLookup = useMemo(() => {
+    const lookup = new Map<string, Material>();
+    for (const m of materials) {
+        // Index by PartNo
+        if (m.partNo) lookup.set(m.partNo.toLowerCase().trim(), m);
+        // Index by Description (if PartNo didn't already take it, or even if it did, we want to match by desc too)
+        // We prioritize PartNo if they conflict, but here we just want ANY match.
+        // A Map key must be unique. If a PartNo is same as a Description (unlikely), it overwrites.
+        // We add Description as a key too.
+        if (m.description) lookup.set(m.description.toLowerCase().trim(), m);
+    }
+    return lookup;
+  }, [materials]);
+
+  const customerLookup = useMemo(() => {
+    const lookup = new Map<string, CustomerMasterItem>();
+    for (const c of customers) {
+        lookup.set(c.customerName.toLowerCase().trim(), c);
+    }
+    return lookup;
+  }, [customers]);
 
   // Robust Date Formatter
   const formatDateDisplay = (dateVal: string | Date | number) => {
@@ -98,64 +132,78 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    try {
-      const arrayBuffer = await file.arrayBuffer();
-      const wb = read(arrayBuffer);
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      const data = utils.sheet_to_json<any>(ws, { cellDates: true, dateNF: 'yyyy-mm-dd' });
-      const newItems: Omit<SalesReportItem, 'id' | 'createdAt'>[] = [];
+    setIsProcessing(true);
 
-      const formatExcelDate = (val: any) => {
-        if (val instanceof Date) return val.toISOString().split('T')[0];
-        if (typeof val === 'number') {
-            const d = new Date((val - (25567 + 2)) * 86400 * 1000);
-            return d.toISOString().split('T')[0];
+    // Allow UI to render the loading state before blocking with parsing
+    setTimeout(async () => {
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const wb = read(arrayBuffer);
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const data = utils.sheet_to_json<any>(ws, { cellDates: true, dateNF: 'yyyy-mm-dd' });
+        const newItems: Omit<SalesReportItem, 'id' | 'createdAt'>[] = [];
+
+        const formatExcelDate = (val: any) => {
+          if (val instanceof Date) return val.toISOString().split('T')[0];
+          if (typeof val === 'number') {
+              const d = new Date((val - (25567 + 2)) * 86400 * 1000);
+              return d.toISOString().split('T')[0];
+          }
+          return String(val || '');
+        };
+
+        // Robust parsing for numbers (handles commas "1,500")
+        const parseNum = (val: any) => {
+          if (typeof val === 'number') return val;
+          if (typeof val === 'string') {
+              // Remove commas, spaces, currency symbols
+              const clean = val.replace(/[,Rs. ₹$]/g, '').trim();
+              const num = parseFloat(clean);
+              return isNaN(num) ? 0 : num;
+          }
+          return 0;
+        };
+
+        data.forEach((row) => {
+           const getVal = (keys: string[]) => {
+               for (const k of keys) {
+                   const foundKey = Object.keys(row).find(rk => rk.toLowerCase() === k.toLowerCase());
+                   if (foundKey) return row[foundKey];
+               }
+               return '';
+           };
+
+           const date = formatExcelDate(getVal(['date', 'dt']));
+           const customerName = String(getVal(['customer name', 'customer', 'party']) || '');
+           const particulars = String(getVal(['particulars', 'item', 'description']) || '');
+           const consignee = String(getVal(['consignee', 'ship to']) || '');
+           const voucherNo = String(getVal(['voucher no', 'voucher no.', 'inv no', 'invoice']) || '');
+           const voucherRefNo = String(getVal(['voucher ref. no.', 'voucher ref no', 'ref no']) || '');
+           
+           const quantity = parseNum(getVal(['quantity', 'qty']));
+           const value = parseNum(getVal(['value', 'amount', 'total', 'net amount']));
+
+           if (customerName || particulars || voucherNo) {
+               newItems.push({
+                   date, customerName, particulars, consignee, voucherNo, voucherRefNo, quantity, value
+               });
+           }
+        });
+
+        if (newItems.length > 0) { 
+            onBulkAdd(newItems); 
+            alert(`Successfully processed ${newItems.length} records.`); 
+        } else { 
+            alert("No valid records found in the file."); 
         }
-        return String(val || '');
-      };
-
-      // Robust parsing for numbers (handles commas "1,500")
-      const parseNum = (val: any) => {
-        if (typeof val === 'number') return val;
-        if (typeof val === 'string') {
-            // Remove commas, spaces, currency symbols
-            const clean = val.replace(/[,Rs. ₹$]/g, '').trim();
-            const num = parseFloat(clean);
-            return isNaN(num) ? 0 : num;
-        }
-        return 0;
-      };
-
-      data.forEach((row) => {
-         const getVal = (keys: string[]) => {
-             for (const k of keys) {
-                 const foundKey = Object.keys(row).find(rk => rk.toLowerCase() === k.toLowerCase());
-                 if (foundKey) return row[foundKey];
-             }
-             return '';
-         };
-
-         const date = formatExcelDate(getVal(['date', 'dt']));
-         const customerName = String(getVal(['customer name', 'customer', 'party']) || '');
-         const particulars = String(getVal(['particulars', 'item', 'description']) || '');
-         const consignee = String(getVal(['consignee', 'ship to']) || '');
-         const voucherNo = String(getVal(['voucher no', 'voucher no.', 'inv no', 'invoice']) || '');
-         const voucherRefNo = String(getVal(['voucher ref. no.', 'voucher ref no', 'ref no']) || '');
-         
-         const quantity = parseNum(getVal(['quantity', 'qty']));
-         const value = parseNum(getVal(['value', 'amount', 'total', 'net amount']));
-
-         if (customerName || particulars || voucherNo) {
-             newItems.push({
-                 date, customerName, particulars, consignee, voucherNo, voucherRefNo, quantity, value
-             });
-         }
-      });
-
-      if (newItems.length > 0) { onBulkAdd(newItems); alert(`Imported ${newItems.length} records.`); }
-      else { alert("No valid records found."); }
-    } catch (err) { alert("Failed to parse Excel file."); }
-    if (fileInputRef.current) fileInputRef.current.value = '';
+      } catch (err) { 
+          console.error(err);
+          alert("Failed to parse Excel file. It might be too large or corrupted."); 
+      } finally {
+          setIsProcessing(false);
+          if (fileInputRef.current) fileInputRef.current.value = '';
+      }
+    }, 100);
   };
 
   const handleSort = (key: SortKey) => {
@@ -164,19 +212,18 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
     setSortConfig({ key, direction });
   };
 
-  // --- Enrichment Logic ---
+  // --- Enrichment Logic (Optimized) ---
   const enrichedItems: EnrichedSalesItem[] = useMemo(() => {
     return items.map(item => {
         const cleanCust = item.customerName.toLowerCase().trim();
         const cleanPart = item.particulars.toLowerCase().trim();
 
-        const customer = customers.find(c => c.customerName.toLowerCase().trim() === cleanCust);
-        
-        // Match against Part No first, then Description
-        const material = materials.find(m => 
-            m.partNo.toLowerCase().trim() === cleanPart || 
-            m.description.toLowerCase().trim() === cleanPart
-        );
+        // FAST LOOKUP
+        const customer = customerLookup.get(cleanCust);
+        // Try direct Part No match first (assuming cleanPart is a Part No)
+        // Then try Description match (assuming cleanPart is a Description)
+        // The Map contains both as keys pointing to the same Material object.
+        const material = materialLookup.get(cleanPart);
 
         return {
             ...item,
@@ -190,7 +237,7 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
             isMatUnknown: !material && !!item.particulars
         };
     });
-  }, [items, customers, materials]);
+  }, [items, customerLookup, materialLookup]);
 
   const processedItems = useMemo(() => {
     let data = [...enrichedItems];
@@ -219,6 +266,14 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
     return data;
   }, [enrichedItems, searchTerm, sortConfig]);
 
+  // --- Pagination Logic ---
+  const totalPages = Math.ceil(processedItems.length / itemsPerPage);
+  const paginatedItems = useMemo(() => {
+      const start = (currentPage - 1) * itemsPerPage;
+      return processedItems.slice(start, start + itemsPerPage);
+  }, [processedItems, currentPage, itemsPerPage]);
+
+
   // --- Export Discrepancies ---
   const handleExportUnknowns = () => {
     const unknownCusts = new Set<string>();
@@ -230,7 +285,7 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
     });
 
     if (unknownCusts.size === 0 && unknownMats.size === 0) {
-        alert("No discrepancies found to export. All customers and items match the Master Database.");
+        alert("No discrepancies found to export.");
         return;
     }
 
@@ -258,9 +313,8 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
       return;
     }
 
-    setIsExporting(true);
+    setIsProcessing(true);
 
-    // Use setTimeout to allow the UI to update with the spinner before the heavy sync operation blocks the thread
     setTimeout(() => {
         try {
             // Map to a clean structure for Excel
@@ -291,7 +345,7 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
             console.error("Export failed:", error);
             alert("Failed to export data. The dataset might be too large.");
         } finally {
-            setIsExporting(false);
+            setIsProcessing(false);
         }
     }, 100);
   };
@@ -308,6 +362,7 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
       let unknownCustomers = 0;
       let unknownItems = 0;
 
+      // We calculate stats on ALL items, not just paginated ones
       enrichedItems.forEach(item => {
           quantity += item.quantity;
           value += item.value;
@@ -356,12 +411,12 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
             <div className="flex flex-wrap gap-2">
                 <button 
                     onClick={handleExportAll} 
-                    disabled={isExporting}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-700 rounded-lg text-xs font-medium border border-gray-300 transition-colors shadow-sm ${isExporting ? 'opacity-50 cursor-wait' : 'hover:bg-gray-50'}`}
+                    disabled={isProcessing}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-700 rounded-lg text-xs font-medium border border-gray-300 transition-colors shadow-sm ${isProcessing ? 'opacity-50 cursor-wait' : 'hover:bg-gray-50'}`}
                     title="Export Full Report to Excel"
                 >
-                    {isExporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileDown className="w-3.5 h-3.5" />}
-                    {isExporting ? 'Exporting...' : 'Export All Data'}
+                    {isProcessing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileDown className="w-3.5 h-3.5" />}
+                    Export All
                 </button>
                 {(stats.unknownCustomers > 0 || stats.unknownItems > 0) && (
                     <button 
@@ -374,7 +429,14 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                 )}
                 <button onClick={handleDownloadTemplate} className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-600 rounded-lg text-xs border hover:bg-gray-50 transition-colors"><Download className="w-3.5 h-3.5" /> Template</button>
                 <input type="file" ref={fileInputRef} className="hidden" accept=".xlsx, .xls" onChange={handleFileUpload} />
-                <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs border border-blue-100 hover:bg-blue-100 transition-colors"><Upload className="w-3.5 h-3.5" /> Import Excel</button>
+                <button 
+                    onClick={() => fileInputRef.current?.click()} 
+                    disabled={isProcessing}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs border border-blue-100 hover:bg-blue-100 transition-colors"
+                >
+                    {isProcessing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                    {isProcessing ? 'Importing...' : 'Import Excel'}
+                </button>
                 <div className="w-px h-6 bg-gray-200 mx-0.5 hidden sm:block"></div>
                 <button onClick={onClear} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs border border-red-100 hover:bg-red-100 transition-colors"><Trash2 className="w-3.5 h-3.5" /> Clear Data</button>
             </div>
@@ -387,8 +449,8 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
 
       {/* 3. Data Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col flex-1 min-h-0">
-         <div className="overflow-auto h-full">
-            <table className="w-full text-left border-collapse min-w-full">
+         <div className="overflow-auto flex-1">
+            <table className="w-full text-left border-collapse min-w-full relative">
                 <thead className="sticky top-0 z-10 bg-gray-50 shadow-sm text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
                     <tr className="border-b border-gray-200">
                         <th className="py-2 px-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('date')}>Date {renderSortIcon('date')}</th>
@@ -412,10 +474,12 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 text-xs text-gray-700">
-                    {processedItems.length === 0 ? (
-                        <tr><td colSpan={12} className="py-8 text-center text-gray-500">No matching sales records found.</td></tr>
+                    {paginatedItems.length === 0 ? (
+                        <tr><td colSpan={12} className="py-8 text-center text-gray-500">
+                            {isProcessing ? 'Processing data...' : 'No matching sales records found.'}
+                        </td></tr>
                     ) : (
-                        processedItems.map(item => {
+                        paginatedItems.map(item => {
                             return (
                                 <tr key={item.id} className="hover:bg-blue-50/20 transition-colors">
                                     <td className="py-2 px-3 whitespace-nowrap text-gray-500">{formatDateDisplay(item.date)}</td>
@@ -468,6 +532,43 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                     )}
                 </tbody>
             </table>
+         </div>
+         
+         {/* Pagination Footer */}
+         <div className="bg-gray-50 px-3 py-2 border-t border-gray-200 text-xs text-gray-500 flex justify-between items-center flex-shrink-0">
+             <div className="flex items-center gap-2">
+                 <span>Rows per page:</span>
+                 <select 
+                    value={itemsPerPage} 
+                    onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                    className="bg-white border border-gray-300 rounded text-xs py-0.5 px-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                 >
+                     <option value={50}>50</option>
+                     <option value={100}>100</option>
+                     <option value={500}>500</option>
+                     <option value={1000}>1000</option>
+                 </select>
+                 <span className="ml-2">
+                    Showing {paginatedItems.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} - {Math.min(currentPage * itemsPerPage, processedItems.length)} of {processedItems.length}
+                 </span>
+             </div>
+             <div className="flex items-center gap-1">
+                 <button 
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="p-1 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                 >
+                     <ChevronLeft className="w-4 h-4" />
+                 </button>
+                 <span className="px-2">Page {currentPage} of {Math.max(1, totalPages)}</span>
+                 <button 
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages || totalPages === 0}
+                    className="p-1 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                 >
+                     <ChevronRight className="w-4 h-4" />
+                 </button>
+             </div>
          </div>
       </div>
     </div>

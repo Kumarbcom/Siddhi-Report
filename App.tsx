@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Material, MaterialFormData, PendingSOItem, PendingPOItem, SalesRecord, ClosingStockItem, SalesReportItem, CustomerMasterItem } from './types';
 import MaterialTable from './components/MaterialTable';
@@ -38,6 +37,20 @@ const App: React.FC = () => {
   
   const [selectedMake, setSelectedMake] = useState<string | 'ALL'>('ALL');
   const [error, setError] = useState<string | null>(null);
+
+  // Helper for safe storage
+  const saveToStorage = (key: string, data: any) => {
+    try {
+      localStorage.setItem(key, JSON.stringify(data));
+      if (error && error.includes('storage')) setError(null);
+    } catch (e: any) {
+      console.error(`Failed to save to ${key}:`, e);
+      // QuotaExceededError check
+      if (e.name === 'QuotaExceededError' || e.code === 22) {
+        setError("Warning: Browser storage limit reached. Data is available in this session but may not persist after reload.");
+      }
+    }
+  };
 
   // Load Master Data
   useEffect(() => {
@@ -84,15 +97,15 @@ const App: React.FC = () => {
     if (stored) { try { setCustomerMasterItems(JSON.parse(stored)); } catch (e) { console.error("Customer Master DB corruption", e); } }
   }, []);
 
-  // Save Effects
-  useEffect(() => { localStorage.setItem(STORAGE_KEY_MASTER, JSON.stringify(materials)); }, [materials]);
-  useEffect(() => { localStorage.setItem(STORAGE_KEY_STOCK, JSON.stringify(closingStockItems)); }, [closingStockItems]);
-  useEffect(() => { localStorage.setItem(STORAGE_KEY_PENDING_SO, JSON.stringify(pendingSOItems)); }, [pendingSOItems]);
-  useEffect(() => { localStorage.setItem(STORAGE_KEY_PENDING_PO, JSON.stringify(pendingPOItems)); }, [pendingPOItems]);
-  useEffect(() => { localStorage.setItem(STORAGE_KEY_SALES_1Y, JSON.stringify(sales1Year)); }, [sales1Year]);
-  useEffect(() => { localStorage.setItem(STORAGE_KEY_SALES_3M, JSON.stringify(sales3Months)); }, [sales3Months]);
-  useEffect(() => { localStorage.setItem(STORAGE_KEY_SALES_REPORT, JSON.stringify(salesReportItems)); }, [salesReportItems]);
-  useEffect(() => { localStorage.setItem(STORAGE_KEY_CUSTOMER_MASTER, JSON.stringify(customerMasterItems)); }, [customerMasterItems]);
+  // Save Effects with Safe Writes
+  useEffect(() => { saveToStorage(STORAGE_KEY_MASTER, materials); }, [materials]);
+  useEffect(() => { saveToStorage(STORAGE_KEY_STOCK, closingStockItems); }, [closingStockItems]);
+  useEffect(() => { saveToStorage(STORAGE_KEY_PENDING_SO, pendingSOItems); }, [pendingSOItems]);
+  useEffect(() => { saveToStorage(STORAGE_KEY_PENDING_PO, pendingPOItems); }, [pendingPOItems]);
+  useEffect(() => { saveToStorage(STORAGE_KEY_SALES_1Y, sales1Year); }, [sales1Year]);
+  useEffect(() => { saveToStorage(STORAGE_KEY_SALES_3M, sales3Months); }, [sales3Months]);
+  useEffect(() => { saveToStorage(STORAGE_KEY_SALES_REPORT, salesReportItems); }, [salesReportItems]);
+  useEffect(() => { saveToStorage(STORAGE_KEY_CUSTOMER_MASTER, customerMasterItems); }, [customerMasterItems]);
 
   // --- Handlers for Material Master ---
   const handleBulkAddMaterial = (dataList: MaterialFormData[]) => {
@@ -234,14 +247,20 @@ const App: React.FC = () => {
       setSales3Months([]);
       setSalesReportItems([]);
       setCustomerMasterItems([]);
-      localStorage.removeItem(STORAGE_KEY_MASTER);
-      localStorage.removeItem(STORAGE_KEY_STOCK);
-      localStorage.removeItem(STORAGE_KEY_PENDING_SO);
-      localStorage.removeItem(STORAGE_KEY_PENDING_PO);
-      localStorage.removeItem(STORAGE_KEY_SALES_1Y);
-      localStorage.removeItem(STORAGE_KEY_SALES_3M);
-      localStorage.removeItem(STORAGE_KEY_SALES_REPORT);
-      localStorage.removeItem(STORAGE_KEY_CUSTOMER_MASTER);
+      // Clear storage
+      try {
+        localStorage.removeItem(STORAGE_KEY_MASTER);
+        localStorage.removeItem(STORAGE_KEY_STOCK);
+        localStorage.removeItem(STORAGE_KEY_PENDING_SO);
+        localStorage.removeItem(STORAGE_KEY_PENDING_PO);
+        localStorage.removeItem(STORAGE_KEY_SALES_1Y);
+        localStorage.removeItem(STORAGE_KEY_SALES_3M);
+        localStorage.removeItem(STORAGE_KEY_SALES_REPORT);
+        localStorage.removeItem(STORAGE_KEY_CUSTOMER_MASTER);
+        setError(null);
+      } catch (e) {
+        console.error("Error clearing storage", e);
+      }
     }
   };
 
@@ -363,7 +382,7 @@ const App: React.FC = () => {
 
       <main className="flex-1 w-full px-4 py-4 overflow-hidden flex flex-col h-[calc(100vh-56px)]">
         {error && (
-          <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-3 text-red-700 flex-shrink-0">
+          <div className="mb-4 bg-orange-50 border border-orange-200 rounded-lg p-3 flex items-center gap-3 text-orange-800 flex-shrink-0">
             <AlertCircle className="w-4 h-4 flex-shrink-0" />
             <p className="text-xs font-medium">{error}</p>
           </div>
