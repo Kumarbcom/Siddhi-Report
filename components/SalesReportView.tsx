@@ -1,7 +1,7 @@
 
 import React, { useRef, useState, useMemo, useEffect } from 'react';
 import { SalesReportItem, Material, CustomerMasterItem } from '../types';
-import { Trash2, Download, Upload, Search, ArrowUpDown, ArrowUp, ArrowDown, FileBarChart, AlertTriangle, UserX, PackageX, Users, Package, FileWarning, FileDown, Loader2, ChevronLeft, ChevronRight, Filter, Calendar, CalendarRange, Layers, TrendingUp, TrendingDown, Minus, UserCheck, Target, BarChart2, AlertOctagon } from 'lucide-react';
+import { Trash2, Download, Upload, Search, ArrowUpDown, ArrowUp, ArrowDown, FileBarChart, AlertTriangle, UserX, PackageX, Users, Package, FileWarning, FileDown, Loader2, ChevronLeft, ChevronRight, Filter, Calendar, CalendarRange, Layers, TrendingUp, TrendingDown, Minus, UserCheck, Target, BarChart2, AlertOctagon, DollarSign } from 'lucide-react';
 import { read, utils, writeFile } from 'xlsx';
 
 interface SalesReportViewProps {
@@ -287,6 +287,14 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
     return data;
   }, [enrichedItems, selectedFY, timeView, selectedMonth, selectedWeek, slicerGroup, slicerRep, slicerStatus, slicerMake, slicerMatGroup, searchTerm, sortConfig, showMismatchesOnly]);
 
+  // --- Total Summary Calculation ---
+  const totals = useMemo(() => {
+      return processedItems.reduce((acc, item) => ({
+          qty: acc.qty + item.quantity,
+          val: acc.val + item.value
+      }), { qty: 0, val: 0 });
+  }, [processedItems]);
+
   const totalPages = Math.ceil(processedItems.length / itemsPerPage);
   const paginatedItems = useMemo(() => {
       const start = (currentPage - 1) * itemsPerPage;
@@ -340,8 +348,15 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
       const exportData = processedItems.map(item => ({
         "Date": formatDateDisplay(item.date),
         "Fiscal Year": item.fiscalYear,
-        "Customer": item.customerName,
+        "Customer Name": item.customerName,
+        "Customer Group": item.custGroup,
+        "Sales Rep": item.salesRep,
+        "Status": item.custStatus,
         "Particulars": item.particulars,
+        "Make": item.make,
+        "Material Group": item.matGroup,
+        "Voucher No": item.voucherNo,
+        "Quantity": item.quantity,
         "Value": item.value
       }));
       const ws = utils.json_to_sheet(exportData);
@@ -499,7 +514,7 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
               </div>
               <div>
                   <h3 className="text-sm font-bold text-gray-800">Data Quality Check</h3>
-                  <p className="text-xs text-gray-500">
+                  <p className={`text-xs ${mismatchStats.total > 0 ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
                       {mismatchStats.total > 0 
                         ? `${mismatchStats.total} Records need attention (${mismatchStats.uniqueCust} Unique Customers, ${mismatchStats.uniqueMat} Unique Items)` 
                         : "All records match Master Data perfectly."}
@@ -610,7 +625,7 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
             
             {/* Group Slicer */}
             <div className="flex flex-col gap-0.5">
-                <label className="text-[9px] text-gray-400 font-semibold uppercase">Group</label>
+                <label className="text-[10px] text-gray-500 font-bold uppercase">Customer Group</label>
                 <select 
                     value={slicerGroup} 
                     onChange={(e) => setSlicerGroup(e.target.value)}
@@ -623,7 +638,7 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
 
             {/* Rep Slicer */}
             <div className="flex flex-col gap-0.5">
-                <label className="text-[9px] text-gray-400 font-semibold uppercase">Sales Rep</label>
+                <label className="text-[10px] text-gray-500 font-bold uppercase">Sales Rep</label>
                 <select 
                     value={slicerRep} 
                     onChange={(e) => setSlicerRep(e.target.value)}
@@ -636,7 +651,7 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
 
             {/* Status Slicer */}
             <div className="flex flex-col gap-0.5">
-                <label className="text-[9px] text-gray-400 font-semibold uppercase">Status</label>
+                <label className="text-[10px] text-gray-500 font-bold uppercase">Customer Status</label>
                 <select 
                     value={slicerStatus} 
                     onChange={(e) => setSlicerStatus(e.target.value)}
@@ -649,7 +664,7 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
 
             {/* Make Slicer */}
             <div className="flex flex-col gap-0.5">
-                <label className="text-[9px] text-gray-400 font-semibold uppercase">Make</label>
+                <label className="text-[10px] text-gray-500 font-bold uppercase">Make</label>
                 <select 
                     value={slicerMake} 
                     onChange={(e) => setSlicerMake(e.target.value)}
@@ -662,7 +677,7 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
 
             {/* Mat Group Slicer */}
             <div className="flex flex-col gap-0.5">
-                <label className="text-[9px] text-gray-400 font-semibold uppercase">Mat Group</label>
+                <label className="text-[10px] text-gray-500 font-bold uppercase">Material Group</label>
                 <select 
                     value={slicerMatGroup} 
                     onChange={(e) => setSlicerMatGroup(e.target.value)}
@@ -685,17 +700,43 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
          </div>
       </div>
 
-      {/* 3. Action Bar (Search/Export) */}
-      <div className="flex justify-between items-center bg-white p-2 rounded-xl shadow-sm border border-gray-200 flex-shrink-0">
-          <div className="relative w-64">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Search className="h-3.5 w-3.5 text-gray-400" /></div>
-            <input type="text" placeholder="Search filtered results..." className="pl-9 pr-3 py-1.5 w-full border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-         </div>
-         <div className="flex gap-2">
-            <button onClick={handleExportAll} disabled={isProcessing} className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-700 rounded-lg text-xs font-medium border border-gray-300 hover:bg-gray-50"><FileDown className="w-3.5 h-3.5" /> Export View</button>
+      {/* 3. Action Bar (Search/Export) WITH SUMMARY BAR */}
+      <div className="flex flex-col md:flex-row justify-between items-center bg-white p-2 rounded-xl shadow-sm border border-gray-200 flex-shrink-0 gap-3">
+          
+          <div className="flex items-center gap-3 w-full md:w-auto">
+              <h2 className="text-sm font-semibold text-gray-800 flex items-center gap-2 pl-1 whitespace-nowrap">
+                  <FileBarChart className="w-4 h-4 text-blue-600" /> Sales Report
+              </h2>
+              <div className="h-6 w-px bg-gray-200 hidden md:block"></div>
+              
+              {/* Sales Summary Labels (The "Comparison Label") */}
+              <div className="flex items-center gap-4 bg-gray-50 px-3 py-1 rounded-lg border border-gray-200 shadow-sm">
+                  <div className="flex flex-col">
+                      <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wide">Records</span>
+                      <span className="text-xs font-bold text-gray-800">{processedItems.length}</span>
+                  </div>
+                  <div className="w-px h-6 bg-gray-300"></div>
+                  <div className="flex flex-col">
+                      <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wide">Total Qty</span>
+                      <span className="text-xs font-bold text-blue-600">{totals.qty.toLocaleString()}</span>
+                  </div>
+                  <div className="w-px h-6 bg-gray-300"></div>
+                  <div className="flex flex-col">
+                      <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wide">Total Value</span>
+                      <span className="text-xs font-bold text-emerald-600">{formatCurrency(totals.val)}</span>
+                  </div>
+              </div>
+          </div>
+
+         <div className="flex gap-2 w-full md:w-auto justify-end">
+             <div className="relative w-48 hidden md:block">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Search className="h-3.5 w-3.5 text-gray-400" /></div>
+                <input type="text" placeholder="Search filtered results..." className="pl-9 pr-3 py-1.5 w-full border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+             </div>
+            <button onClick={handleExportAll} disabled={isProcessing} className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-700 rounded-lg text-xs font-medium border border-gray-300 hover:bg-gray-50"><FileDown className="w-3.5 h-3.5" /> Export</button>
             <input type="file" ref={fileInputRef} className="hidden" accept=".xlsx, .xls" onChange={handleFileUpload} />
             <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs border border-blue-100 hover:bg-blue-100"><Upload className="w-3.5 h-3.5" /> Import</button>
-            <button onClick={onClear} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs border border-red-100 hover:bg-red-100"><Trash2 className="w-3.5 h-3.5" /> Clear</button>
+            <button onClick={onClear} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs border border-red-100 hover:bg-red-100"><Trash2 className="w-3.5 h-3.5" /></button>
          </div>
       </div>
 
@@ -707,18 +748,18 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                     <tr className="border-b border-gray-200">
                         <th className="py-2 px-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('date')}>Date {renderSortIcon('date')}</th>
                         <th className="py-2 px-3 text-center">FY</th>
-                        <th className="py-2 px-3 cursor-pointer hover:bg-gray-100 bg-blue-50/50" onClick={() => handleSort('customerName')}>Customer {renderSortIcon('customerName')}</th>
-                        <th className="py-2 px-3 cursor-pointer hover:bg-gray-100 bg-blue-50/50" onClick={() => handleSort('custGroup')}>Group {renderSortIcon('custGroup')}</th>
-                        <th className="py-2 px-3 cursor-pointer hover:bg-gray-100 bg-blue-50/50" onClick={() => handleSort('salesRep')}>Rep {renderSortIcon('salesRep')}</th>
+                        <th className="py-2 px-3 cursor-pointer hover:bg-gray-100 bg-blue-50/50" onClick={() => handleSort('customerName')}>Customer Name {renderSortIcon('customerName')}</th>
+                        <th className="py-2 px-3 cursor-pointer hover:bg-gray-100 bg-blue-50/50" onClick={() => handleSort('custGroup')}>Customer Group {renderSortIcon('custGroup')}</th>
+                        <th className="py-2 px-3 cursor-pointer hover:bg-gray-100 bg-blue-50/50" onClick={() => handleSort('salesRep')}>Sales Rep {renderSortIcon('salesRep')}</th>
                         <th className="py-2 px-3 cursor-pointer hover:bg-gray-100 bg-blue-50/50" onClick={() => handleSort('custStatus')}>Status {renderSortIcon('custStatus')}</th>
                         
                         <th className="py-2 px-3 cursor-pointer hover:bg-gray-100 bg-orange-50/50 w-56" onClick={() => handleSort('particulars')}>Particulars {renderSortIcon('particulars')}</th>
                         <th className="py-2 px-3 cursor-pointer hover:bg-gray-100 bg-orange-50/50" onClick={() => handleSort('make')}>Make {renderSortIcon('make')}</th>
-                        <th className="py-2 px-3 cursor-pointer hover:bg-gray-100 bg-orange-50/50" onClick={() => handleSort('matGroup')}>Mat Group {renderSortIcon('matGroup')}</th>
-                        <th className="py-2 px-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('voucherNo')}>Voucher {renderSortIcon('voucherNo')}</th>
-                        <th className="py-2 px-3 text-right cursor-pointer hover:bg-gray-100" onClick={() => handleSort('quantity')}>Qty {renderSortIcon('quantity')}</th>
+                        <th className="py-2 px-3 cursor-pointer hover:bg-gray-100 bg-orange-50/50" onClick={() => handleSort('matGroup')}>Material Group {renderSortIcon('matGroup')}</th>
+                        <th className="py-2 px-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('voucherNo')}>Voucher No {renderSortIcon('voucherNo')}</th>
+                        <th className="py-2 px-3 text-right cursor-pointer hover:bg-gray-100" onClick={() => handleSort('quantity')}>Quantity {renderSortIcon('quantity')}</th>
                         <th className="py-2 px-3 text-right cursor-pointer hover:bg-gray-100" onClick={() => handleSort('value')}>Value {renderSortIcon('value')}</th>
-                        <th className="py-2 px-3 text-right">Act</th>
+                        <th className="py-2 px-3 text-right">Actions</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 text-xs text-gray-700">

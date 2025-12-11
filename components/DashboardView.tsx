@@ -34,7 +34,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   const [timeView, setTimeView] = useState<TimeView>('FY');
   const [comparisonMode, setComparisonMode] = useState<ComparisonMode>('PREV_YEAR');
   const [selectedFY, setSelectedFY] = useState<string>('');
-  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
+  
+  // Initialize to current fiscal month index (0=Apr, 11=Mar)
+  const [selectedMonth, setSelectedMonth] = useState<number>(() => {
+    const m = new Date().getMonth();
+    return m >= 3 ? m - 3 : m + 9;
+  });
+  
   const [selectedWeek, setSelectedWeek] = useState<number>(1);
   const [pieMetric, setPieMetric] = useState<PieMetric>('GROUP');
 
@@ -269,8 +275,25 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   }, [currentData]);
 
   // --- Render Helpers ---
-  const formatCurrency = (val: number) => `Rs. ${Math.round(val).toLocaleString('en-IN')}`;
-  const formatK = (val: number) => val >= 100000 ? `${(val/100000).toFixed(2)}L` : (val >= 1000 ? `${(val/1000).toFixed(1)}k` : Math.round(val));
+  // Updated: Show full rounded numbers for all currency values
+  const formatNumber = (val: number) => Math.round(val).toLocaleString('en-IN');
+  const formatCurrency = (val: number) => `Rs. ${formatNumber(val)}`;
+
+  // --- Dynamic Comparison Label ---
+  const comparisonLabel = useMemo(() => {
+    if (comparisonMode === 'PREV_YEAR') return 'Last Year';
+    
+    if (timeView === 'FY') return 'Prev FY';
+    if (timeView === 'MONTH') {
+        const prevM = selectedMonth - 1;
+        // If prevM is -1, it implies March of the previous year contextually
+        return prevM < 0 ? 'Mar (Prev FY)' : getFiscalMonthName(prevM);
+    }
+    if (timeView === 'WEEK') {
+        return selectedWeek > 1 ? `Week ${selectedWeek - 1}` : 'Prior Week';
+    }
+    return 'Prev Period';
+  }, [comparisonMode, timeView, selectedMonth, selectedWeek]);
 
   return (
     <div className="h-full w-full flex flex-col bg-gray-50/50 overflow-hidden">
@@ -361,7 +384,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                     {Math.abs(kpis.pct).toFixed(1)}%
                                 </span>
                             </div>
-                            <span className="text-[10px] text-gray-400 font-medium">{comparisonMode === 'PREV_YEAR' ? 'Last Year' : 'Prev Period'}: {formatK(kpis.prevVal)}</span>
+                            <span className="text-[10px] text-gray-400 font-medium">{comparisonLabel}: {formatNumber(kpis.prevVal)}</span>
                         </div>
                     </div>
 
@@ -394,7 +417,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                         <div className="flex justify-between items-start">
                             <div>
                                 <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Avg Order Value</p>
-                                <h3 className="text-2xl font-extrabold text-gray-900 mt-1">{formatK(kpis.avgOrder)}</h3>
+                                <h3 className="text-2xl font-extrabold text-gray-900 mt-1">{formatNumber(kpis.avgOrder)}</h3>
                             </div>
                             <div className="bg-purple-50 p-2 rounded-lg text-purple-600"><Activity className="w-5 h-5" /></div>
                         </div>
@@ -403,11 +426,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
 
                 {/* 2. Charts Row */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-96">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:h-96">
                     
                     {/* Line Chart (Trend) */}
-                    <div className="lg:col-span-2 bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col">
-                        <div className="flex justify-between items-center mb-4">
+                    <div className="lg:col-span-2 bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col min-h-[350px] overflow-hidden">
+                        <div className="flex justify-between items-center mb-2 flex-shrink-0">
                             <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2"><TrendingUp className="w-4 h-4 text-blue-600" /> Sales Trend Analysis</h3>
                             <div className="flex items-center gap-3 text-[10px] flex-wrap">
                                 {lineChartData.series.map((s, i) => (
@@ -418,42 +441,44 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                 ))}
                             </div>
                         </div>
-                        <div className="flex-1 w-full relative">
-                            {/* Simple SVG Line Chart Implementation */}
-                            <svg className="w-full h-full" viewBox={`0 0 ${Math.max(lineChartData.labels.length * 10, 100)} 100`} preserveAspectRatio="none">
-                                {/* Grid Lines */}
-                                {[0, 25, 50, 75, 100].map(y => (
-                                    <line key={y} x1="0" y1={y} x2="1000" y2={y} stroke="#f3f4f6" strokeWidth="0.5" />
-                                ))}
-                                
-                                {/* Data Paths */}
-                                {(() => {
-                                    // Calculate global max across all active series for scaling
-                                    const allValues = lineChartData.series.flatMap(s => s.data);
-                                    const max = Math.max(...allValues, 1) * 1.1;
-                                    const step = (Math.max(lineChartData.labels.length * 10, 100)) / (lineChartData.labels.length - 1 || 1);
+                        <div className="flex-1 w-full flex flex-col min-h-0">
+                            <div className="flex-1 w-full relative min-h-0">
+                                {/* Simple SVG Line Chart Implementation */}
+                                <svg className="w-full h-full absolute inset-0" viewBox={`0 0 ${Math.max(lineChartData.labels.length * 10, 100)} 100`} preserveAspectRatio="none">
+                                    {/* Grid Lines */}
+                                    {[0, 25, 50, 75, 100].map(y => (
+                                        <line key={y} x1="0" y1={y} x2="1000" y2={y} stroke="#f3f4f6" strokeWidth="0.5" />
+                                    ))}
                                     
-                                    const getPoints = (series: number[]) => series.map((v, i) => `${i * step},${100 - (v / max * 100)}`).join(' ');
+                                    {/* Data Paths */}
+                                    {(() => {
+                                        // Calculate global max across all active series for scaling
+                                        const allValues = lineChartData.series.flatMap(s => s.data);
+                                        const max = Math.max(...allValues, 1) * 1.1;
+                                        const step = (Math.max(lineChartData.labels.length * 10, 100)) / (lineChartData.labels.length - 1 || 1);
+                                        
+                                        const getPoints = (series: number[]) => series.map((v, i) => `${i * step},${100 - (v / max * 100)}`).join(' ');
 
-                                    return lineChartData.series.map((series, idx) => (
-                                        <React.Fragment key={idx}>
-                                            <polyline 
-                                                points={getPoints(series.data)} 
-                                                fill="none" 
-                                                stroke={series.color} 
-                                                strokeWidth={idx === 0 ? "2.5" : "2"} 
-                                                strokeDasharray={idx > 0 && !lineChartData.isMultiYear ? "4" : "0"} 
-                                            />
-                                            {/* Dots for Current Series (First one usually) */}
-                                            {idx === 0 && series.data.map((v, i) => (
-                                                <circle key={i} cx={i * step} cy={100 - (v/max*100)} r="2.5" fill="white" stroke={series.color} strokeWidth="2" />
-                                            ))}
-                                        </React.Fragment>
-                                    ));
-                                })()}
-                            </svg>
+                                        return lineChartData.series.map((series, idx) => (
+                                            <React.Fragment key={idx}>
+                                                <polyline 
+                                                    points={getPoints(series.data)} 
+                                                    fill="none" 
+                                                    stroke={series.color} 
+                                                    strokeWidth={idx === 0 ? "2.5" : "2"} 
+                                                    strokeDasharray={idx > 0 && !lineChartData.isMultiYear ? "4" : "0"} 
+                                                />
+                                                {/* Dots for Current Series (First one usually) */}
+                                                {idx === 0 && series.data.map((v, i) => (
+                                                    <circle key={i} cx={i * step} cy={100 - (v/max*100)} r="2.5" fill="white" stroke={series.color} strokeWidth="2" />
+                                                ))}
+                                            </React.Fragment>
+                                        ));
+                                    })()}
+                                </svg>
+                            </div>
                             {/* X-Axis Labels */}
-                            <div className="absolute bottom-0 left-0 right-0 flex justify-between text-[9px] text-gray-400 mt-2 border-t border-gray-100 pt-1">
+                            <div className="flex justify-between text-[9px] text-gray-400 mt-2 border-t border-gray-100 pt-1 h-6 shrink-0">
                                 {lineChartData.labels.map((l, i) => (
                                     <span key={i} style={{width: `${100/lineChartData.labels.length}%`, textAlign: 'center'}}>{l}</span>
                                 ))}
@@ -462,7 +487,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                     </div>
 
                     {/* Pie Chart (Distribution) */}
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col">
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col min-h-[350px]">
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2"><PieIcon className="w-4 h-4 text-purple-600" /> Sales Distribution</h3>
                             <div className="flex bg-gray-100 p-0.5 rounded">
@@ -480,7 +505,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                             <div key={idx} className="flex flex-col gap-1">
                                                 <div className="flex justify-between text-xs">
                                                     <span className="font-medium text-gray-700 truncate w-3/4">{item.label}</span>
-                                                    <span className="font-bold">{Math.round(pct)}%</span>
+                                                    <div className="flex gap-2">
+                                                      <span className="font-bold">{formatNumber(item.value)}</span>
+                                                      <span className="text-gray-400 text-[10px]">({Math.round(pct)}%)</span>
+                                                    </div>
                                                 </div>
                                                 <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
                                                     <div className="bg-purple-500 h-full rounded-full" style={{ width: `${pct}%` }}></div>
@@ -517,7 +545,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                             <span className="w-5 text-[10px] font-bold text-gray-400 bg-gray-100 rounded text-center">{idx + 1}</span>
                                             <span className="font-bold text-gray-700 truncate">{item.label}</span>
                                         </div>
-                                        <span className="font-bold text-gray-900">{formatK(item.value)}</span>
+                                        <span className="font-bold text-gray-900">{formatNumber(item.value)}</span>
                                     </div>
                                     <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden ml-7 w-[calc(100%-1.75rem)]">
                                         <div className="bg-emerald-500 h-full rounded-full transition-all duration-500 group-hover:bg-emerald-600" style={{ width: `${(item.value / maxVal) * 100}%` }}></div>
