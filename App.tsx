@@ -323,7 +323,7 @@ const App: React.FC = () => {
            {isSidebarOpen ? (
               <div className="flex flex-col gap-2">
                  <div className="flex items-center gap-2 text-[10px] text-gray-500">
-                    <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
+                    <div className={`w-1.5 h-1.5 rounded-full ${isDataLoaded ? 'bg-green-500 animate-pulse' : 'bg-orange-500'}`}></div>
                     {isDataLoaded ? "System Connected" : "Loading Data..."}
                  </div>
                  {(materials.length > 0 || closingStockItems.length > 0 || pendingSOItems.length > 0) && (
@@ -334,7 +334,7 @@ const App: React.FC = () => {
               </div>
            ) : (
               <div className="flex justify-center">
-                 <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+                 <div className={`w-1.5 h-1.5 rounded-full ${isDataLoaded ? 'bg-green-500' : 'bg-orange-500'}`}></div>
               </div>
            )}
         </div>
@@ -372,6 +372,8 @@ const App: React.FC = () => {
                   closingStock={closingStockItems}
                   pendingSO={pendingSOItems}
                   pendingPO={pendingPOItems}
+                  salesReportItems={salesReportItems} // Pass detailed items for new dash
+                  customers={customerMasterItems} // Pass customers for group logic
                   sales1Year={sales1Year}
                   sales3Months={sales3Months}
                   setActiveTab={setActiveTab}

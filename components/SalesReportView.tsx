@@ -43,7 +43,10 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' } | null>(null);
+  
+  // Processing States
   const [isProcessing, setIsProcessing] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   
   // --- New Filter States ---
   const [selectedFY, setSelectedFY] = useState<string>('');
@@ -303,7 +306,6 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
     let data = [...enrichedItems];
 
     // 0. Mismatch Filter (Overrides others if active, but let's keep it combinable or exclusive?)
-    // Requirement says "Show the mismatch Make & Customer report". Let's apply this filter.
     if (showMismatchesOnly) {
         data = data.filter(i => i.isCustUnknown || i.isMatUnknown);
     } else {
@@ -416,30 +418,105 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
       writeFile(wb, "Sales_Export.xlsx");
   };
 
+  // New Mismatch Export
+  const handleExportMismatches = () => {
+    const missingCusts = new Set<string>();
+    const missingMats = new Set<string>();
+
+    enrichedItems.forEach(item => {
+        if (item.isCustUnknown) missingCusts.add(item.customerName);
+        if (item.isMatUnknown) missingMats.add(item.particulars);
+    });
+
+    if (missingCusts.size === 0 && missingMats.size === 0) {
+        alert("No mismatches found.");
+        return;
+    }
+
+    const wb = utils.book_new();
+
+    if (missingCusts.size > 0) {
+        const custData = Array.from(missingCusts).sort().map(name => ({ "Missing Customer Name": name }));
+        const ws = utils.json_to_sheet(custData);
+        utils.book_append_sheet(wb, ws, "Missing_Customers");
+    }
+
+    if (missingMats.size > 0) {
+        const matData = Array.from(missingMats).sort().map(name => ({ "Missing Material Description": name }));
+        const ws = utils.json_to_sheet(matData);
+        utils.book_append_sheet(wb, ws, "Missing_Materials");
+    }
+
+    writeFile(wb, "Master_Data_Correction_Report.xlsx");
+  };
+
+  // Optimized File Upload with Chunking to prevent Crash
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if(!file) return;
+      
       setIsProcessing(true);
+      setUploadProgress(0);
+
+      // Wrap in setTimeout to allow UI render cycle to start showing the loader
       setTimeout(async () => {
           try {
             const arrayBuffer = await file.arrayBuffer();
+            // Yield
+            await new Promise(r => setTimeout(r, 0));
+            
             const wb = read(arrayBuffer);
             const ws = wb.Sheets[wb.SheetNames[0]];
+            
+            // Getting raw data (this is sync and might freeze for a second on 60k rows, but usually acceptable)
+            // If even this crashes, we'd need a streaming parser, but xlsx usually handles 100k rows ok in memory.
             const data = utils.sheet_to_json<any>(ws, { cellDates: true, dateNF: 'yyyy-mm-dd' });
-            const newItems: any[] = [];
-            data.forEach((row: any) => {
-                 const getVal = (keys: string[]) => { for (const k of keys) { const foundKey = Object.keys(row).find(rk => rk.toLowerCase() === k.toLowerCase()); if (foundKey) return row[foundKey]; } return ''; };
-                 const customerName = String(getVal(['customer name', 'customer']) || '');
-                 const particulars = String(getVal(['particulars', 'item']) || '');
-                 const voucherNo = String(getVal(['voucher no']) || '');
-                 const value = parseFloat(getVal(['value', 'amount'])) || 0;
-                 const quantity = parseFloat(getVal(['quantity', 'qty'])) || 0;
-                 const date = getVal(['date', 'dt']); 
-                 if(customerName) newItems.push({ date, customerName, particulars, voucherNo, quantity, value, consignee: '', voucherRefNo: '' });
-            });
-            if(newItems.length > 0) onBulkAdd(newItems);
-          } catch(e) { console.error(e); alert("Error parsing file"); }
-          finally { setIsProcessing(false); if(fileInputRef.current) fileInputRef.current.value=''; }
+            
+            const CHUNK_SIZE = 2000;
+            const chunks = Math.ceil(data.length / CHUNK_SIZE);
+            const allNewItems: any[] = [];
+            
+            for (let i = 0; i < chunks; i++) {
+                const chunkData = data.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
+                
+                // Process chunk
+                const chunkItems = chunkData.map((row: any) => {
+                     const getVal = (keys: string[]) => { for (const k of keys) { const foundKey = Object.keys(row).find(rk => rk.toLowerCase() === k.toLowerCase()); if (foundKey) return row[foundKey]; } return ''; };
+                     const customerName = String(getVal(['customer name', 'customer']) || '');
+                     const particulars = String(getVal(['particulars', 'item']) || '');
+                     const voucherNo = String(getVal(['voucher no']) || '');
+                     const value = parseFloat(getVal(['value', 'amount'])) || 0;
+                     const quantity = parseFloat(getVal(['quantity', 'qty'])) || 0;
+                     const date = getVal(['date', 'dt']); 
+                     
+                     if(customerName) {
+                         return { date, customerName, particulars, voucherNo, quantity, value, consignee: '', voucherRefNo: '' };
+                     }
+                     return null;
+                }).filter(Boolean);
+                
+                allNewItems.push(...chunkItems);
+                
+                // Update Progress
+                setUploadProgress(Math.round(((i + 1) / chunks) * 100));
+                
+                // Yield to main thread to prevent "Page Unresponsive"
+                await new Promise(resolve => setTimeout(resolve, 0));
+            }
+
+            if(allNewItems.length > 0) {
+                 onBulkAdd(allNewItems);
+            } else {
+                alert("No valid records found in the file.");
+            }
+          } catch(e) { 
+              console.error(e); 
+              alert("Error parsing file. Please check the format."); 
+          } finally { 
+              setIsProcessing(false); 
+              setUploadProgress(null);
+              if(fileInputRef.current) fileInputRef.current.value=''; 
+          }
       }, 100);
   };
 
@@ -478,8 +555,23 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full gap-4">
+    <div className="flex flex-col h-full gap-4 relative">
       
+      {/* Loading Overlay */}
+      {isProcessing && (
+        <div className="absolute inset-0 z-50 bg-white/80 flex flex-col items-center justify-center backdrop-blur-sm rounded-xl">
+            <Loader2 className="w-10 h-10 text-blue-600 animate-spin mb-3" />
+            <h3 className="text-lg font-bold text-gray-800">Processing Data...</h3>
+            <p className="text-sm text-gray-500 mb-2">Importing large file, please wait.</p>
+            {uploadProgress !== null && (
+                <div className="w-64 bg-gray-200 rounded-full h-2.5 dark:bg-gray-200">
+                    <div className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
+                    <p className="text-xs text-center mt-1 text-gray-600">{uploadProgress}% complete</p>
+                </div>
+            )}
+        </div>
+      )}
+
       {/* 1. Comparative Dashboard (Top Label) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 flex-shrink-0">
           
@@ -713,6 +805,15 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
             <input type="text" placeholder="Search filtered results..." className="pl-9 pr-3 py-1.5 w-full border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
          </div>
          <div className="flex gap-2">
+            {mismatchStats.total > 0 && (
+                <button 
+                    onClick={handleExportMismatches} 
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-700 rounded-lg text-xs font-medium border border-red-200 hover:bg-red-100 animate-pulse"
+                    title="Export list of missing customers and items to fix master data"
+                >
+                    <FileWarning className="w-3.5 h-3.5" /> Export Mismatches
+                </button>
+            )}
             <button onClick={handleExportAll} disabled={isProcessing} className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-700 rounded-lg text-xs font-medium border border-gray-300 hover:bg-gray-50"><FileDown className="w-3.5 h-3.5" /> Export View</button>
             <input type="file" ref={fileInputRef} className="hidden" accept=".xlsx, .xls" onChange={handleFileUpload} />
             <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs border border-blue-100 hover:bg-blue-100"><Upload className="w-3.5 h-3.5" /> Import</button>
