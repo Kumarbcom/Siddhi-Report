@@ -25,8 +25,9 @@ type ActiveTab = 'dashboard' | 'master' | 'customerMaster' | 'closingStock' | 'p
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true); // For mobile toggle if needed, or desktop collapse
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   
+  // Data State
   const [materials, setMaterials] = useState<Material[]>([]);
   const [closingStockItems, setClosingStockItems] = useState<ClosingStockItem[]>([]);
   const [pendingSOItems, setPendingSOItems] = useState<PendingSOItem[]>([]);
@@ -36,74 +37,58 @@ const App: React.FC = () => {
   const [salesReportItems, setSalesReportItems] = useState<SalesReportItem[]>([]);
   const [customerMasterItems, setCustomerMasterItems] = useState<CustomerMasterItem[]>([]);
   
+  // Loading State to prevent overwrite on init
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
+
   const [selectedMake, setSelectedMake] = useState<string | 'ALL'>('ALL');
   const [error, setError] = useState<string | null>(null);
 
-  // Helper for safe storage
-  const saveToStorage = (key: string, data: any) => {
-    try {
-      localStorage.setItem(key, JSON.stringify(data));
-      if (error && error.includes('storage')) setError(null);
-    } catch (e: any) {
-      console.error(`Failed to save to ${key}:`, e);
-      // Warning suppressed as per user request
-    }
-  };
-
-  // Load Master Data
+  // --- Load Data Effects ---
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY_MASTER);
-    if (stored) { try { setMaterials(JSON.parse(stored)); } catch (e) { console.error("Master DB corruption", e); } }
+    const loadData = () => {
+      try {
+        const storedMaster = localStorage.getItem(STORAGE_KEY_MASTER);
+        if (storedMaster) setMaterials(JSON.parse(storedMaster));
+
+        const storedStock = localStorage.getItem(STORAGE_KEY_STOCK);
+        if (storedStock) setClosingStockItems(JSON.parse(storedStock));
+
+        const storedSO = localStorage.getItem(STORAGE_KEY_PENDING_SO);
+        if (storedSO) setPendingSOItems(JSON.parse(storedSO));
+
+        const storedPO = localStorage.getItem(STORAGE_KEY_PENDING_PO);
+        if (storedPO) setPendingPOItems(JSON.parse(storedPO));
+
+        const storedS1Y = localStorage.getItem(STORAGE_KEY_SALES_1Y);
+        if (storedS1Y) setSales1Year(JSON.parse(storedS1Y));
+
+        const storedS3M = localStorage.getItem(STORAGE_KEY_SALES_3M);
+        if (storedS3M) setSales3Months(JSON.parse(storedS3M));
+
+        const storedReport = localStorage.getItem(STORAGE_KEY_SALES_REPORT);
+        if (storedReport) setSalesReportItems(JSON.parse(storedReport));
+
+        const storedCust = localStorage.getItem(STORAGE_KEY_CUSTOMER_MASTER);
+        if (storedCust) setCustomerMasterItems(JSON.parse(storedCust));
+      } catch (e) {
+        console.error("Error loading data from local storage", e);
+        setError("Failed to load some data. Please check console.");
+      } finally {
+        setIsDataLoaded(true);
+      }
+    };
+    loadData();
   }, []);
 
-  // Load Closing Stock Data
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY_STOCK);
-    if (stored) { try { setClosingStockItems(JSON.parse(stored)); } catch (e) { console.error("Stock DB corruption", e); } }
-  }, []);
-
-  // Load Pending SO Data
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY_PENDING_SO);
-    if (stored) { try { setPendingSOItems(JSON.parse(stored)); } catch (e) { console.error("Pending SO DB corruption", e); } }
-  }, []);
-
-  // Load Pending PO Data
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY_PENDING_PO);
-    if (stored) { try { setPendingPOItems(JSON.parse(stored)); } catch (e) { console.error("Pending PO DB corruption", e); } }
-  }, []);
-
-  // Load Sales Data
-  useEffect(() => {
-    const stored1Y = localStorage.getItem(STORAGE_KEY_SALES_1Y);
-    if (stored1Y) { try { setSales1Year(JSON.parse(stored1Y)); } catch (e) { console.error("Sales 1Y DB corruption", e); } }
-    
-    const stored3M = localStorage.getItem(STORAGE_KEY_SALES_3M);
-    if (stored3M) { try { setSales3Months(JSON.parse(stored3M)); } catch (e) { console.error("Sales 3M DB corruption", e); } }
-  }, []);
-
-  // Load Sales Report Data
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY_SALES_REPORT);
-    if (stored) { try { setSalesReportItems(JSON.parse(stored)); } catch (e) { console.error("Sales Report DB corruption", e); } }
-  }, []);
-
-  // Load Customer Master Data
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY_CUSTOMER_MASTER);
-    if (stored) { try { setCustomerMasterItems(JSON.parse(stored)); } catch (e) { console.error("Customer Master DB corruption", e); } }
-  }, []);
-
-  // Save Effects with Safe Writes
-  useEffect(() => { saveToStorage(STORAGE_KEY_MASTER, materials); }, [materials]);
-  useEffect(() => { saveToStorage(STORAGE_KEY_STOCK, closingStockItems); }, [closingStockItems]);
-  useEffect(() => { saveToStorage(STORAGE_KEY_PENDING_SO, pendingSOItems); }, [pendingSOItems]);
-  useEffect(() => { saveToStorage(STORAGE_KEY_PENDING_PO, pendingPOItems); }, [pendingPOItems]);
-  useEffect(() => { saveToStorage(STORAGE_KEY_SALES_1Y, sales1Year); }, [sales1Year]);
-  useEffect(() => { saveToStorage(STORAGE_KEY_SALES_3M, sales3Months); }, [sales3Months]);
-  useEffect(() => { saveToStorage(STORAGE_KEY_SALES_REPORT, salesReportItems); }, [salesReportItems]);
-  useEffect(() => { saveToStorage(STORAGE_KEY_CUSTOMER_MASTER, customerMasterItems); }, [customerMasterItems]);
+  // --- Save Data Effects (Only run if isDataLoaded is true) ---
+  useEffect(() => { if (isDataLoaded) localStorage.setItem(STORAGE_KEY_MASTER, JSON.stringify(materials)); }, [materials, isDataLoaded]);
+  useEffect(() => { if (isDataLoaded) localStorage.setItem(STORAGE_KEY_STOCK, JSON.stringify(closingStockItems)); }, [closingStockItems, isDataLoaded]);
+  useEffect(() => { if (isDataLoaded) localStorage.setItem(STORAGE_KEY_PENDING_SO, JSON.stringify(pendingSOItems)); }, [pendingSOItems, isDataLoaded]);
+  useEffect(() => { if (isDataLoaded) localStorage.setItem(STORAGE_KEY_PENDING_PO, JSON.stringify(pendingPOItems)); }, [pendingPOItems, isDataLoaded]);
+  useEffect(() => { if (isDataLoaded) localStorage.setItem(STORAGE_KEY_SALES_1Y, JSON.stringify(sales1Year)); }, [sales1Year, isDataLoaded]);
+  useEffect(() => { if (isDataLoaded) localStorage.setItem(STORAGE_KEY_SALES_3M, JSON.stringify(sales3Months)); }, [sales3Months, isDataLoaded]);
+  useEffect(() => { if (isDataLoaded) localStorage.setItem(STORAGE_KEY_SALES_REPORT, JSON.stringify(salesReportItems)); }, [salesReportItems, isDataLoaded]);
+  useEffect(() => { if (isDataLoaded) localStorage.setItem(STORAGE_KEY_CUSTOMER_MASTER, JSON.stringify(customerMasterItems)); }, [customerMasterItems, isDataLoaded]);
 
   // --- Handlers for Material Master ---
   const handleBulkAddMaterial = (dataList: MaterialFormData[]) => {
@@ -245,20 +230,9 @@ const App: React.FC = () => {
       setSales3Months([]);
       setSalesReportItems([]);
       setCustomerMasterItems([]);
-      // Clear storage
-      try {
-        localStorage.removeItem(STORAGE_KEY_MASTER);
-        localStorage.removeItem(STORAGE_KEY_STOCK);
-        localStorage.removeItem(STORAGE_KEY_PENDING_SO);
-        localStorage.removeItem(STORAGE_KEY_PENDING_PO);
-        localStorage.removeItem(STORAGE_KEY_SALES_1Y);
-        localStorage.removeItem(STORAGE_KEY_SALES_3M);
-        localStorage.removeItem(STORAGE_KEY_SALES_REPORT);
-        localStorage.removeItem(STORAGE_KEY_CUSTOMER_MASTER);
-        setError(null);
-      } catch (e) {
-        console.error("Error clearing storage", e);
-      }
+      
+      localStorage.clear();
+      setError(null);
     }
   };
 
@@ -350,7 +324,7 @@ const App: React.FC = () => {
               <div className="flex flex-col gap-2">
                  <div className="flex items-center gap-2 text-[10px] text-gray-500">
                     <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
-                    System Connected
+                    {isDataLoaded ? "System Connected" : "Loading Data..."}
                  </div>
                  {(materials.length > 0 || closingStockItems.length > 0 || pendingSOItems.length > 0) && (
                    <button onClick={handleClearDatabase} className="text-xs text-red-500 hover:text-red-700 font-medium text-left flex items-center gap-1.5 mt-1">

@@ -1,7 +1,7 @@
 
 import React, { useRef, useState, useMemo, useEffect } from 'react';
 import { SalesReportItem, Material, CustomerMasterItem } from '../types';
-import { Trash2, Download, Upload, Search, ArrowUpDown, ArrowUp, ArrowDown, FileBarChart, AlertTriangle, UserX, PackageX, Users, Package, FileWarning, FileDown, Loader2, ChevronLeft, ChevronRight, Filter, Calendar, CalendarRange, Layers, TrendingUp, TrendingDown, Minus, UserCheck, Target, BarChart2 } from 'lucide-react';
+import { Trash2, Download, Upload, Search, ArrowUpDown, ArrowUp, ArrowDown, FileBarChart, AlertTriangle, UserX, PackageX, Users, Package, FileWarning, FileDown, Loader2, ChevronLeft, ChevronRight, Filter, Calendar, CalendarRange, Layers, TrendingUp, TrendingDown, Minus, UserCheck, Target, BarChart2, AlertOctagon } from 'lucide-react';
 import { read, utils, writeFile } from 'xlsx';
 
 interface SalesReportViewProps {
@@ -51,6 +51,9 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
   const [selectedMonth, setSelectedMonth] = useState<number>(0); // 0 = April
   const [selectedWeek, setSelectedWeek] = useState<number>(1);
 
+  // Toggle for Mismatch View
+  const [showMismatchesOnly, setShowMismatchesOnly] = useState(false);
+
   // Slicers
   const [slicerGroup, setSlicerGroup] = useState<string>('ALL');
   const [slicerRep, setSlicerRep] = useState<string>('ALL');
@@ -62,26 +65,44 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(100);
 
-  // Helper: Get Fiscal Year Info
+  // Helper: Get Fiscal Year & Custom Week (Thu-Wed)
   const getFiscalInfo = (date: Date) => {
     const month = date.getMonth(); // 0 (Jan) - 11 (Dec)
     const year = date.getFullYear();
     
     // Fiscal Year Calculation
-    // If Month is Jan(0), Feb(1), Mar(2) -> It belongs to Previous Year's FY cycle
     const startYear = month >= 3 ? year : year - 1;
     const fiscalYear = `${startYear}-${startYear + 1}`;
 
     // Fiscal Month Index (0 = April, 11 = March)
-    // Jan(0) -> 9, Feb(1) -> 10, Mar(2) -> 11, April(3) -> 0
     const fiscalMonthIndex = month >= 3 ? month - 3 : month + 9;
 
-    // ISO Week Number
-    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-    const dayNum = d.getUTCDay() || 7;
-    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-    const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
-    const weekNumber = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1)/7);
+    // Custom Week Calculation: Thursday to Wednesday
+    // We base week 1 on the first Thursday on or after April 1st of the Fiscal Year
+    const fyStart = new Date(startYear, 3, 1); // April 1st
+    // Find first Thursday of FY
+    const fyFirstThu = new Date(fyStart);
+    if (fyFirstThu.getDay() <= 4) {
+        fyFirstThu.setDate(fyFirstThu.getDate() + (4 - fyFirstThu.getDay()));
+    } else {
+        fyFirstThu.setDate(fyFirstThu.getDate() + (4 - fyFirstThu.getDay() + 7));
+    }
+    
+    // Normalize date to handle time differences
+    const checkDate = new Date(date);
+    checkDate.setHours(0,0,0,0);
+    const baseDate = new Date(fyFirstThu);
+    baseDate.setHours(0,0,0,0);
+
+    // If date is before the first Thursday of FY, it effectively belongs to "Week 0" or previous FY logic 
+    // For simplicity, we assign it based on simple day diff from April 1st if needed, but let's stick to simple logic:
+    // Week number = Math.floor(diffDays / 7) + 1
+    const diffTime = checkDate.getTime() - baseDate.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    
+    // If date is before the first official Thursday but within FY (Apr 1 - First Thu), it's Week 1
+    // If diffDays is negative, it means it's the partial week at start of FY
+    const weekNumber = diffDays >= 0 ? Math.floor(diffDays / 7) + 2 : 1; 
 
     return { fiscalYear, fiscalMonthIndex, weekNumber };
   };
@@ -90,11 +111,45 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
     const months = ["April", "May", "June", "July", "August", "September", "October", "November", "December", "January", "February", "March"];
     return months[index] || "";
   };
+  
+  // Helper to get Date Range string for a selected Week Number in a FY
+  const getWeekRangeString = (fy: string, weekNum: number) => {
+      if (!fy) return '';
+      const startYear = parseInt(fy.split('-')[0]);
+      const fyStart = new Date(startYear, 3, 1);
+      
+      // Find First Thursday
+      let firstThu = new Date(fyStart);
+      if (firstThu.getDay() <= 4) firstThu.setDate(firstThu.getDate() + (4 - firstThu.getDay()));
+      else firstThu.setDate(firstThu.getDate() + (4 - firstThu.getDay() + 7));
+
+      // Calculate Start Date of Week X
+      // Week 1 covers April 1 to First Wednesday
+      // Week 2 starts on First Thursday.
+      // So if weekNum > 1:
+      const weekStartDate = new Date(firstThu);
+      weekStartDate.setDate(weekStartDate.getDate() + (weekNum - 2) * 7);
+      
+      // If weekNum is 1, strictly it starts April 1st, ends First Wednesday
+      let displayStart = new Date(weekStartDate);
+      if (weekNum === 1) displayStart = new Date(startYear, 3, 1);
+      
+      const displayEnd = new Date(displayStart);
+      // If Week 1, End is First Wednesday (firstThu - 1 day)
+      if (weekNum === 1) {
+          displayEnd.setTime(firstThu.getTime() - 86400000);
+      } else {
+          displayEnd.setDate(displayStart.getDate() + 6);
+      }
+
+      const fmt = (d: Date) => d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+      return `${fmt(displayStart)} - ${fmt(displayEnd)}`;
+  };
 
   // Reset pagination when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, selectedFY, timeView, selectedMonth, selectedWeek, slicerGroup, slicerRep, slicerStatus, slicerMake, slicerMatGroup]);
+  }, [searchTerm, selectedFY, timeView, selectedMonth, selectedWeek, slicerGroup, slicerRep, slicerStatus, slicerMake, slicerMatGroup, showMismatchesOnly]);
 
   // --- Optimization: Pre-compute Lookups ---
   const materialLookup = useMemo(() => {
@@ -148,6 +203,17 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
     });
   }, [items, customerLookup, materialLookup]);
 
+  // --- Mismatch Counts ---
+  const mismatchStats = useMemo(() => {
+     let custMismatch = 0;
+     let matMismatch = 0;
+     enrichedItems.forEach(i => {
+         if (i.isCustUnknown) custMismatch++;
+         if (i.isMatUnknown) matMismatch++;
+     });
+     return { custMismatch, matMismatch, total: custMismatch + matMismatch };
+  }, [enrichedItems]);
+
   // --- Dynamic Options for Slicers ---
   const options = useMemo(() => {
       const fys = Array.from(new Set(enrichedItems.map(i => i.fiscalYear))).sort().reverse();
@@ -172,40 +238,20 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
       if (!selectedFY) return null;
 
       const currentStartYear = parseInt(selectedFY.split('-')[0]);
-      const prevFYString = `${currentStartYear - 1}-${currentStartYear}`;
-
-      // Helper to calculate previous period params
-      let prevFY = selectedFY;
-      let prevMonthIndex = selectedMonth;
-      let prevWeekNum = selectedWeek;
-
-      // Determine Previous Period based on View Mode
-      if (timeView === 'FY') {
-          prevFY = prevFYString;
-      } else if (timeView === 'MONTH') {
-          if (selectedMonth === 0) { // If April (0), go to March (11) of previous FY
-              prevMonthIndex = 11;
-              prevFY = prevFYString;
-          } else {
-              prevMonthIndex = selectedMonth - 1;
-          }
-      } else if (timeView === 'WEEK') {
-           if (selectedWeek === 1) {
-               prevWeekNum = 52; // Approximation
-               prevFY = prevFYString;
-           } else {
-               prevWeekNum = selectedWeek - 1;
-           }
-      }
-
+      
+      // Calculate comparison parameters
+      let prevFY = `${currentStartYear - 1}-${currentStartYear}`; // Last Fiscal Year
+      
+      // 1. Current Period Data
+      // 2. YoY Data (Same period, Last FY)
+      // 3. MoM Data (Previous Month in Current FY) - Only for Month View
+      
       const getMetrics = (fy: string, monthIdx?: number, weekNum?: number) => {
           const data = enrichedItems.filter(i => {
-              // 1. Time Filter
               if (i.fiscalYear !== fy) return false;
               if (timeView === 'MONTH' && monthIdx !== undefined && i.fiscalMonthIndex !== monthIdx) return false;
               if (timeView === 'WEEK' && weekNum !== undefined && i.weekNumber !== weekNum) return false;
               
-              // 2. Slicer Filters (Apply to both Current and Prev for fair comparison)
               if (slicerGroup !== 'ALL' && i.custGroup !== slicerGroup) return false;
               if (slicerRep !== 'ALL' && i.salesRep !== slicerRep) return false;
               if (slicerStatus !== 'ALL' && i.custStatus !== slicerStatus) return false;
@@ -216,11 +262,9 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
           });
 
           const totalValue = data.reduce((acc, i) => acc + i.value, 0);
-          
           const uniqueCustomerNames = Array.from(new Set(data.map(i => i.customerName)));
           const uniqueCustomersCount = uniqueCustomerNames.length;
           
-          // Status Counts
           const statusCounts: Record<string, number> = {};
           uniqueCustomerNames.forEach(name => {
               const cust = customerLookup.get(name.toLowerCase().trim());
@@ -231,35 +275,51 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
           return { totalValue, uniqueCustomersCount, statusCounts, dataCount: data.length };
       };
 
+      // Current Data
       const curr = getMetrics(selectedFY, timeView === 'MONTH' ? selectedMonth : undefined, timeView === 'WEEK' ? selectedWeek : undefined);
-      const prev = getMetrics(prevFY, timeView === 'MONTH' ? prevMonthIndex : undefined, timeView === 'WEEK' ? prevWeekNum : undefined);
+      
+      // YoY Comparison (Last Year, Same Period)
+      const prevYearData = getMetrics(prevFY, timeView === 'MONTH' ? selectedMonth : undefined, timeView === 'WEEK' ? selectedWeek : undefined);
 
-      // Label for Previous Period
-      let prevLabel = '';
-      if (timeView === 'FY') prevLabel = prevFY;
-      else if (timeView === 'MONTH') prevLabel = getFiscalMonthName(prevMonthIndex) + (prevFY !== selectedFY ? ` (${prevFY})` : '');
-      else prevLabel = `Week ${prevWeekNum}` + (prevFY !== selectedFY ? ` (${prevFY})` : '');
+      // MoM Comparison (Current FY, Previous Month) - Only valid if view is Month
+      let prevMonthData = null;
+      let prevMonthLabel = '';
+      if (timeView === 'MONTH') {
+          let pmIndex = selectedMonth - 1;
+          let pmFY = selectedFY;
+          if (pmIndex < 0) {
+              pmIndex = 11;
+              pmFY = prevFY; // Go back to last month of prev FY
+          }
+          prevMonthData = getMetrics(pmFY, pmIndex);
+          prevMonthLabel = getFiscalMonthName(pmIndex);
+      }
 
-      return { curr, prev, prevLabel };
+      return { curr, prevYearData, prevMonthData, prevMonthLabel, prevFY };
   }, [enrichedItems, selectedFY, timeView, selectedMonth, selectedWeek, slicerGroup, slicerRep, slicerStatus, slicerMake, slicerMatGroup, customerLookup]);
 
   // --- Filtering Logic for Table ---
   const processedItems = useMemo(() => {
     let data = [...enrichedItems];
 
-    // 1. Fiscal Year Filter
-    if (selectedFY) {
-        data = data.filter(i => i.fiscalYear === selectedFY);
+    // 0. Mismatch Filter (Overrides others if active, but let's keep it combinable or exclusive?)
+    // Requirement says "Show the mismatch Make & Customer report". Let's apply this filter.
+    if (showMismatchesOnly) {
+        data = data.filter(i => i.isCustUnknown || i.isMatUnknown);
+    } else {
+        // Normal Filters
+        // 1. Fiscal Year Filter
+        if (selectedFY) data = data.filter(i => i.fiscalYear === selectedFY);
+
+        // 2. Time View Filter
+        if (timeView === 'MONTH') {
+            data = data.filter(i => i.fiscalMonthIndex === selectedMonth);
+        } else if (timeView === 'WEEK') {
+            data = data.filter(i => i.weekNumber === selectedWeek);
+        }
     }
 
-    // 2. Time View Filter
-    if (timeView === 'MONTH') {
-        data = data.filter(i => i.fiscalMonthIndex === selectedMonth);
-    } else if (timeView === 'WEEK') {
-        data = data.filter(i => i.weekNumber === selectedWeek);
-    }
-
-    // 3. Slicers
+    // 3. Slicers (Apply even on mismatch view to narrow down?)
     if (slicerGroup !== 'ALL') data = data.filter(i => i.custGroup === slicerGroup);
     if (slicerRep !== 'ALL') data = data.filter(i => i.salesRep === slicerRep);
     if (slicerStatus !== 'ALL') data = data.filter(i => i.custStatus === slicerStatus);
@@ -290,7 +350,7 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
     }
 
     return data;
-  }, [enrichedItems, selectedFY, timeView, selectedMonth, selectedWeek, slicerGroup, slicerRep, slicerStatus, slicerMake, slicerMatGroup, searchTerm, sortConfig]);
+  }, [enrichedItems, selectedFY, timeView, selectedMonth, selectedWeek, slicerGroup, slicerRep, slicerStatus, slicerMake, slicerMatGroup, searchTerm, sortConfig, showMismatchesOnly]);
 
   // --- Pagination Logic ---
   const totalPages = Math.ceil(processedItems.length / itemsPerPage);
@@ -332,8 +392,8 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
     return sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 text-blue-500" /> : <ArrowDown className="w-3 h-3 text-blue-500" />;
   };
 
-  // --- File Handlers (Keep existing logic) ---
-  const handleDownloadTemplate = () => { /* ...existing logic... */ 
+  // --- File Handlers ---
+  const handleDownloadTemplate = () => {
       const headers = [{ "Date": "2023-10-01", "Customer Name": "ABC Corp", "Particulars": "Item", "Voucher No.": "INV-001", "Quantity": 1, "Value": 1000 }];
       const ws = utils.json_to_sheet(headers);
       const wb = utils.book_new();
@@ -341,7 +401,7 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
       writeFile(wb, "Sales_Report_Template.xlsx");
   };
   
-  const handleExportAll = () => { /* ...existing logic... */ 
+  const handleExportAll = () => { 
       if (processedItems.length === 0) { alert("No data"); return; }
       const exportData = processedItems.map(item => ({
         "Date": formatDateDisplay(item.date),
@@ -384,35 +444,20 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
   };
 
   // --- Helper Components for Dashboard ---
-  const TrendBadge = ({ curr, prev }: { curr: number, prev: number }) => {
-     if (prev === 0) return <span className="text-[10px] text-gray-400 font-medium bg-gray-100 px-1.5 py-0.5 rounded">Baseline</span>;
+  const TrendBadge = ({ curr, prev, label }: { curr: number, prev: number, label: string }) => {
+     if (prev === 0) return <span className="text-[9px] text-gray-400 bg-gray-50 px-1 rounded">No Data {label}</span>;
      
      const diff = curr - prev;
      const pct = (diff / prev) * 100;
      const isPositive = diff >= 0;
      
      return (
-        <div className={`flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded ${isPositive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-            {isPositive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-            <span>{Math.abs(pct).toFixed(1)}%</span>
+        <div className={`flex items-center gap-1 text-[9px] font-medium`}>
+            {isPositive ? <TrendingUp className="w-3 h-3 text-green-600" /> : <TrendingDown className="w-3 h-3 text-red-600" />}
+            <span className={isPositive ? 'text-green-700' : 'text-red-700'}>{Math.abs(pct).toFixed(1)}%</span>
+            <span className="text-gray-400 opacity-75">vs {label}</span>
         </div>
      );
-  };
-
-  const AchievementBadge = ({ curr, prev }: { curr: number, prev: number }) => {
-    const diff = curr - prev;
-    if (diff === 0) return null;
-    const isSurplus = diff > 0;
-    return (
-        <div className={`flex flex-col items-end text-[10px] ${isSurplus ? 'text-green-600' : 'text-red-600'}`}>
-            <span className="uppercase font-bold tracking-tight text-[9px] opacity-75">
-                {isSurplus ? 'Extra Achieved' : 'Need to Achieve'}
-            </span>
-            <span className="font-bold flex items-center gap-1">
-                {isSurplus ? '+' : '-'} {formatCurrency(Math.abs(diff))}
-            </span>
-        </div>
-    );
   };
 
   const StatusBreakdown = ({ counts }: { counts: Record<string, number> }) => {
@@ -438,7 +483,7 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
       {/* 1. Comparative Dashboard (Top Label) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 flex-shrink-0">
           
-          {/* Card 1: Sales Value & Achievement */}
+          {/* Card 1: Sales Value & Comparisons */}
           <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200 flex flex-col justify-between">
              <div className="flex justify-between items-start mb-1">
                  <div>
@@ -447,29 +492,42 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                         {timeView === 'FY' ? selectedFY : (timeView === 'MONTH' ? getFiscalMonthName(selectedMonth) : `Week ${selectedWeek}`)}
                      </span>
                  </div>
-                 {comparisonStats && <AchievementBadge curr={comparisonStats.curr.totalValue} prev={comparisonStats.prev.totalValue} />}
              </div>
              
-             <div className="flex items-end justify-between mt-1">
+             <div>
                  <p className="text-xl font-bold text-indigo-700">{comparisonStats ? formatCurrency(comparisonStats.curr.totalValue) : '-'}</p>
-                 <div className="flex flex-col items-end">
-                    {comparisonStats && <TrendBadge curr={comparisonStats.curr.totalValue} prev={comparisonStats.prev.totalValue} />}
-                    <span className="text-[9px] text-gray-400 mt-0.5">vs {comparisonStats?.prevLabel}</span>
+                 <div className="flex flex-col mt-1 gap-0.5">
+                    {/* YoY Comparison */}
+                    {comparisonStats && <TrendBadge curr={comparisonStats.curr.totalValue} prev={comparisonStats.prevYearData.totalValue} label={`Last FY (${comparisonStats.prevFY})`} />}
+                    {/* MoM Comparison (Only if Month View) */}
+                    {comparisonStats && comparisonStats.prevMonthData && (
+                        <TrendBadge curr={comparisonStats.curr.totalValue} prev={comparisonStats.prevMonthData.totalValue} label={comparisonStats.prevMonthLabel} />
+                    )}
                  </div>
              </div>
           </div>
 
-          {/* Card 2: Unique Customers */}
-          <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200">
+          {/* Card 2: Data Quality Mismatch Report */}
+          <button 
+             onClick={() => setShowMismatchesOnly(!showMismatchesOnly)}
+             className={`p-3 rounded-xl shadow-sm border text-left transition-all ${showMismatchesOnly ? 'bg-red-50 border-red-300 ring-1 ring-red-300' : 'bg-white border-gray-200 hover:border-red-200'}`}
+          >
              <div className="flex justify-between items-start mb-1">
-                 <p className="text-[10px] text-gray-500 font-medium uppercase">No. of Customers</p>
-                 <Users className="w-3.5 h-3.5 text-blue-400" />
+                 <p className={`text-[10px] font-medium uppercase ${showMismatchesOnly ? 'text-red-700' : 'text-gray-500'}`}>Data Quality</p>
+                 <AlertTriangle className={`w-3.5 h-3.5 ${mismatchStats.total > 0 ? 'text-red-500 animate-pulse' : 'text-green-500'}`} />
              </div>
-             <p className="text-xl font-bold text-gray-900">{comparisonStats?.curr.uniqueCustomersCount}</p>
-             <div className="mt-2 flex items-center gap-2">
-                 <span className="text-[9px] text-gray-400">vs {comparisonStats?.prev.uniqueCustomersCount} in {comparisonStats?.prevLabel}</span>
-             </div>
-          </div>
+             {mismatchStats.total === 0 ? (
+                 <p className="text-xl font-bold text-green-600">100% Match</p>
+             ) : (
+                 <>
+                    <p className="text-xl font-bold text-red-600">{mismatchStats.total} Errors</p>
+                    <div className="flex flex-col gap-0.5 mt-1 text-[9px] text-red-500">
+                        <span>{mismatchStats.custMismatch} Cust. Unknown</span>
+                        <span>{mismatchStats.matMismatch} Item Unknown</span>
+                    </div>
+                 </>
+             )}
+          </button>
 
           {/* Card 3: Customer Status Breakup */}
           <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200">
@@ -485,9 +543,12 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
           <div className="p-3 rounded-xl shadow-sm border bg-gray-50 border-gray-200 flex flex-col justify-center items-center text-center">
               <span className="text-xs text-gray-500 font-medium flex items-center gap-1.5"><Filter className="w-3 h-3" /> View Mode</span>
               <p className="text-sm font-bold text-gray-800 mt-1">{timeView === 'FY' ? 'Full Fiscal Year' : (timeView === 'MONTH' ? `${getFiscalMonthName(selectedMonth)} (Month)` : `Week ${selectedWeek}`)}</p>
-              {slicerGroup !== 'ALL' || slicerRep !== 'ALL' || slicerMatGroup !== 'ALL' ? (
-                  <span className="text-[9px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full mt-1 border border-blue-100">Filtered View</span>
-              ) : <span className="text-[9px] text-gray-400 mt-1">Global View</span>}
+              {timeView === 'WEEK' && selectedFY && (
+                  <span className="text-[9px] text-gray-500 mt-0.5">{getWeekRangeString(selectedFY, selectedWeek)}</span>
+              )}
+              {showMismatchesOnly && (
+                  <span className="text-[9px] text-red-600 bg-red-50 px-2 py-0.5 rounded-full mt-1 border border-red-100 font-bold">Mismatch Report Active</span>
+              )}
           </div>
       </div>
 
@@ -548,7 +609,7 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                 )}
                 {timeView === 'WEEK' && (
                     <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-2 duration-200">
-                        <span className="text-xs text-gray-500">Week:</span>
+                        <span className="text-xs text-gray-500">Week (Thu-Wed):</span>
                         <input 
                             type="number" 
                             min={1} 
@@ -636,7 +697,7 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
              {/* Reset Filters */}
              {(slicerGroup !== 'ALL' || slicerRep !== 'ALL' || slicerStatus !== 'ALL' || slicerMake !== 'ALL' || slicerMatGroup !== 'ALL') && (
                  <button 
-                    onClick={() => { setSlicerGroup('ALL'); setSlicerRep('ALL'); setSlicerStatus('ALL'); setSlicerMake('ALL'); setSlicerMatGroup('ALL'); }}
+                    onClick={() => { setSlicerGroup('ALL'); setSlicerRep('ALL'); setSlicerStatus('ALL'); setSlicerMake('ALL'); setSlicerMatGroup('ALL'); setShowMismatchesOnly(false); }}
                     className="mt-4 px-3 py-1 bg-red-50 text-red-600 rounded text-xs font-medium border border-red-100 hover:bg-red-100"
                  >
                      Reset Filters
@@ -684,7 +745,7 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                 <tbody className="divide-y divide-gray-200 text-xs text-gray-700">
                     {paginatedItems.length === 0 ? (
                         <tr><td colSpan={13} className="py-8 text-center text-gray-500">
-                            No matching records found for the selected period/filters.
+                            {showMismatchesOnly ? "No data mismatches found! Data quality is perfect." : "No matching records found for the selected period/filters."}
                         </td></tr>
                     ) : (
                         paginatedItems.map(item => {
@@ -697,6 +758,11 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                                     <td className="py-2 px-3 max-w-[150px] bg-blue-50/20">
                                         <div className="flex flex-col">
                                             <span className="font-medium text-gray-900 truncate" title={item.customerName}>{item.customerName}</span>
+                                            {item.isCustUnknown && (
+                                                <span className="inline-flex items-center gap-0.5 mt-0.5 text-[9px] text-red-600 bg-red-50 px-1 py-px rounded border border-red-100 w-fit whitespace-nowrap">
+                                                    <AlertTriangle className="w-2 h-2" /> Unknown
+                                                </span>
+                                            )}
                                         </div>
                                     </td>
                                     <td className="py-2 px-3 bg-blue-50/20 text-gray-600 truncate max-w-[100px]" title={item.custGroup}>{item.custGroup || '-'}</td>
@@ -713,6 +779,11 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                                     <td className="py-2 px-3 max-w-[180px] bg-orange-50/20">
                                         <div className="flex flex-col">
                                             <span className="truncate text-gray-800" title={item.particulars}>{item.particulars}</span>
+                                            {item.isMatUnknown && (
+                                                <span className="inline-flex items-center gap-0.5 mt-0.5 text-[9px] text-red-600 bg-red-50 px-1 py-px rounded border border-red-100 w-fit whitespace-nowrap">
+                                                    <AlertOctagon className="w-2 h-2" /> Check Master
+                                                </span>
+                                            )}
                                         </div>
                                     </td>
                                     <td className="py-2 px-3 bg-orange-50/20 text-gray-600 truncate max-w-[80px]">{item.make || '-'}</td>
