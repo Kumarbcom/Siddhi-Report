@@ -1,6 +1,7 @@
+
 import React, { useRef, useState, useMemo, useEffect } from 'react';
 import { SalesReportItem, Material, CustomerMasterItem } from '../types';
-import { Trash2, Download, Upload, Search, ArrowUpDown, ArrowUp, ArrowDown, FileBarChart, AlertTriangle, UserX, PackageX, Users, Package, FileWarning, FileDown, Loader2, ChevronLeft, ChevronRight, Filter, Calendar, CalendarRange, Layers, TrendingUp, TrendingDown, Minus, UserCheck } from 'lucide-react';
+import { Trash2, Download, Upload, Search, ArrowUpDown, ArrowUp, ArrowDown, FileBarChart, AlertTriangle, UserX, PackageX, Users, Package, FileWarning, FileDown, Loader2, ChevronLeft, ChevronRight, Filter, Calendar, CalendarRange, Layers, TrendingUp, TrendingDown, Minus, UserCheck, Target, BarChart2 } from 'lucide-react';
 import { read, utils, writeFile } from 'xlsx';
 
 interface SalesReportViewProps {
@@ -55,6 +56,7 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
   const [slicerRep, setSlicerRep] = useState<string>('ALL');
   const [slicerStatus, setSlicerStatus] = useState<string>('ALL');
   const [slicerMake, setSlicerMake] = useState<string>('ALL');
+  const [slicerMatGroup, setSlicerMatGroup] = useState<string>('ALL');
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -92,7 +94,7 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
   // Reset pagination when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, selectedFY, timeView, selectedMonth, selectedWeek, slicerGroup, slicerRep, slicerStatus, slicerMake]);
+  }, [searchTerm, selectedFY, timeView, selectedMonth, selectedWeek, slicerGroup, slicerRep, slicerStatus, slicerMake, slicerMatGroup]);
 
   // --- Optimization: Pre-compute Lookups ---
   const materialLookup = useMemo(() => {
@@ -136,7 +138,7 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
             custStatus: customer?.status || 'Unknown',
             custType: customer?.customerGroup || '',
             make: material?.make || 'Unspecified',
-            matGroup: material?.materialGroup || '',
+            matGroup: material?.materialGroup || 'Unspecified',
             isCustUnknown: !customer && !!item.customerName,
             isMatUnknown: !material && !!item.particulars,
             fiscalYear,
@@ -153,8 +155,9 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
       const reps = Array.from(new Set(enrichedItems.map(i => i.salesRep))).sort();
       const statuses = Array.from(new Set(enrichedItems.map(i => i.custStatus))).sort();
       const makes = Array.from(new Set(enrichedItems.map(i => i.make))).sort();
+      const matGroups = Array.from(new Set(enrichedItems.map(i => i.matGroup))).sort();
       
-      return { fys, groups, reps, statuses, makes };
+      return { fys, groups, reps, statuses, makes, matGroups };
   }, [enrichedItems]);
 
   // Set Default FY if not set
@@ -168,18 +171,47 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
   const comparisonStats = useMemo(() => {
       if (!selectedFY) return null;
 
-      const startYear = parseInt(selectedFY.split('-')[0]);
-      const prevFY = `${startYear - 1}-${startYear}`;
+      const currentStartYear = parseInt(selectedFY.split('-')[0]);
+      const prevFYString = `${currentStartYear - 1}-${currentStartYear}`;
 
-      const getMetricsForFY = (fy: string) => {
+      // Helper to calculate previous period params
+      let prevFY = selectedFY;
+      let prevMonthIndex = selectedMonth;
+      let prevWeekNum = selectedWeek;
+
+      // Determine Previous Period based on View Mode
+      if (timeView === 'FY') {
+          prevFY = prevFYString;
+      } else if (timeView === 'MONTH') {
+          if (selectedMonth === 0) { // If April (0), go to March (11) of previous FY
+              prevMonthIndex = 11;
+              prevFY = prevFYString;
+          } else {
+              prevMonthIndex = selectedMonth - 1;
+          }
+      } else if (timeView === 'WEEK') {
+           if (selectedWeek === 1) {
+               prevWeekNum = 52; // Approximation
+               prevFY = prevFYString;
+           } else {
+               prevWeekNum = selectedWeek - 1;
+           }
+      }
+
+      const getMetrics = (fy: string, monthIdx?: number, weekNum?: number) => {
           const data = enrichedItems.filter(i => {
-              // Strict FY filter
+              // 1. Time Filter
               if (i.fiscalYear !== fy) return false;
-              // Apply active slicers to comparison as well for apples-to-apples comparison
+              if (timeView === 'MONTH' && monthIdx !== undefined && i.fiscalMonthIndex !== monthIdx) return false;
+              if (timeView === 'WEEK' && weekNum !== undefined && i.weekNumber !== weekNum) return false;
+              
+              // 2. Slicer Filters (Apply to both Current and Prev for fair comparison)
               if (slicerGroup !== 'ALL' && i.custGroup !== slicerGroup) return false;
               if (slicerRep !== 'ALL' && i.salesRep !== slicerRep) return false;
               if (slicerStatus !== 'ALL' && i.custStatus !== slicerStatus) return false;
               if (slicerMake !== 'ALL' && i.make !== slicerMake) return false;
+              if (slicerMatGroup !== 'ALL' && i.matGroup !== slicerMatGroup) return false;
+              
               return true;
           });
 
@@ -188,20 +220,28 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
           const uniqueCustomerNames = Array.from(new Set(data.map(i => i.customerName)));
           const uniqueCustomersCount = uniqueCustomerNames.length;
           
-          let activeCustomersCount = 0;
+          // Status Counts
+          const statusCounts: Record<string, number> = {};
           uniqueCustomerNames.forEach(name => {
               const cust = customerLookup.get(name.toLowerCase().trim());
-              if (cust && cust.status.toLowerCase() === 'active') activeCustomersCount++;
+              const s = cust?.status || 'Unknown';
+              statusCounts[s] = (statusCounts[s] || 0) + 1;
           });
 
-          return { totalValue, uniqueCustomersCount, activeCustomersCount, dataCount: data.length };
+          return { totalValue, uniqueCustomersCount, statusCounts, dataCount: data.length };
       };
 
-      const curr = getMetricsForFY(selectedFY);
-      const prev = getMetricsForFY(prevFY);
+      const curr = getMetrics(selectedFY, timeView === 'MONTH' ? selectedMonth : undefined, timeView === 'WEEK' ? selectedWeek : undefined);
+      const prev = getMetrics(prevFY, timeView === 'MONTH' ? prevMonthIndex : undefined, timeView === 'WEEK' ? prevWeekNum : undefined);
 
-      return { curr, prev, prevFY };
-  }, [enrichedItems, selectedFY, slicerGroup, slicerRep, slicerStatus, slicerMake, customerLookup]);
+      // Label for Previous Period
+      let prevLabel = '';
+      if (timeView === 'FY') prevLabel = prevFY;
+      else if (timeView === 'MONTH') prevLabel = getFiscalMonthName(prevMonthIndex) + (prevFY !== selectedFY ? ` (${prevFY})` : '');
+      else prevLabel = `Week ${prevWeekNum}` + (prevFY !== selectedFY ? ` (${prevFY})` : '');
+
+      return { curr, prev, prevLabel };
+  }, [enrichedItems, selectedFY, timeView, selectedMonth, selectedWeek, slicerGroup, slicerRep, slicerStatus, slicerMake, slicerMatGroup, customerLookup]);
 
   // --- Filtering Logic for Table ---
   const processedItems = useMemo(() => {
@@ -224,6 +264,7 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
     if (slicerRep !== 'ALL') data = data.filter(i => i.salesRep === slicerRep);
     if (slicerStatus !== 'ALL') data = data.filter(i => i.custStatus === slicerStatus);
     if (slicerMake !== 'ALL') data = data.filter(i => i.make === slicerMake);
+    if (slicerMatGroup !== 'ALL') data = data.filter(i => i.matGroup === slicerMatGroup);
 
     // 4. Search
     if (searchTerm) {
@@ -249,7 +290,7 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
     }
 
     return data;
-  }, [enrichedItems, selectedFY, timeView, selectedMonth, selectedWeek, slicerGroup, slicerRep, slicerStatus, slicerMake, searchTerm, sortConfig]);
+  }, [enrichedItems, selectedFY, timeView, selectedMonth, selectedWeek, slicerGroup, slicerRep, slicerStatus, slicerMake, slicerMatGroup, searchTerm, sortConfig]);
 
   // --- Pagination Logic ---
   const totalPages = Math.ceil(processedItems.length / itemsPerPage);
@@ -342,9 +383,9 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
       }, 100);
   };
 
-  // --- Helper Component for Trend Badge ---
+  // --- Helper Components for Dashboard ---
   const TrendBadge = ({ curr, prev }: { curr: number, prev: number }) => {
-     if (prev === 0) return <span className="text-[10px] text-gray-400 font-medium bg-gray-100 px-1.5 py-0.5 rounded">First Year</span>;
+     if (prev === 0) return <span className="text-[10px] text-gray-400 font-medium bg-gray-100 px-1.5 py-0.5 rounded">Baseline</span>;
      
      const diff = curr - prev;
      const pct = (diff / prev) * 100;
@@ -354,21 +395,41 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
         <div className={`flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded ${isPositive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
             {isPositive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
             <span>{Math.abs(pct).toFixed(1)}%</span>
-            <span className="opacity-75 font-normal">vs {formatCurrency(Math.abs(diff))}</span>
         </div>
      );
   };
-  
-  const CountTrendBadge = ({ curr, prev }: { curr: number, prev: number }) => {
-     if (prev === 0) return <span className="text-[10px] text-gray-400 font-medium bg-gray-100 px-1.5 py-0.5 rounded">New</span>;
-     const diff = curr - prev;
-     const isPositive = diff >= 0;
-     return (
-        <div className={`flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded ${isPositive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-            {isPositive ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
-            <span>{Math.abs(diff)}</span>
+
+  const AchievementBadge = ({ curr, prev }: { curr: number, prev: number }) => {
+    const diff = curr - prev;
+    if (diff === 0) return null;
+    const isSurplus = diff > 0;
+    return (
+        <div className={`flex flex-col items-end text-[10px] ${isSurplus ? 'text-green-600' : 'text-red-600'}`}>
+            <span className="uppercase font-bold tracking-tight text-[9px] opacity-75">
+                {isSurplus ? 'Extra Achieved' : 'Need to Achieve'}
+            </span>
+            <span className="font-bold flex items-center gap-1">
+                {isSurplus ? '+' : '-'} {formatCurrency(Math.abs(diff))}
+            </span>
         </div>
-     );
+    );
+  };
+
+  const StatusBreakdown = ({ counts }: { counts: Record<string, number> }) => {
+    const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+    if (entries.length === 0) return <span className="text-gray-400 text-xs">No data</span>;
+    return (
+        <div className="flex flex-wrap gap-1 mt-2">
+            {entries.map(([status, count]) => (
+                <span key={status} className={`text-[9px] px-1.5 py-0.5 rounded border ${
+                    status.toLowerCase() === 'active' ? 'bg-green-50 text-green-700 border-green-100' : 
+                    status.toLowerCase() === 'inactive' ? 'bg-red-50 text-red-700 border-red-100' : 'bg-gray-50 text-gray-600 border-gray-200'
+                }`}>
+                    {status}: <b>{count}</b>
+                </span>
+            ))}
+        </div>
+    );
   };
 
   return (
@@ -377,16 +438,24 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
       {/* 1. Comparative Dashboard (Top Label) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 flex-shrink-0">
           
-          {/* Card 1: Sales Value */}
-          <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200">
+          {/* Card 1: Sales Value & Achievement */}
+          <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200 flex flex-col justify-between">
              <div className="flex justify-between items-start mb-1">
-                 <p className="text-[10px] text-gray-500 font-medium uppercase">Sales Value</p>
-                 <span className="text-[9px] text-gray-400 font-mono">{selectedFY}</span>
+                 <div>
+                     <p className="text-[10px] text-gray-500 font-medium uppercase">Sales Value</p>
+                     <span className="text-[9px] text-gray-400 font-mono">
+                        {timeView === 'FY' ? selectedFY : (timeView === 'MONTH' ? getFiscalMonthName(selectedMonth) : `Week ${selectedWeek}`)}
+                     </span>
+                 </div>
+                 {comparisonStats && <AchievementBadge curr={comparisonStats.curr.totalValue} prev={comparisonStats.prev.totalValue} />}
              </div>
-             <p className="text-xl font-bold text-indigo-700">{comparisonStats ? formatCurrency(comparisonStats.curr.totalValue) : '-'}</p>
-             <div className="mt-2 flex items-center justify-between">
-                {comparisonStats && <TrendBadge curr={comparisonStats.curr.totalValue} prev={comparisonStats.prev.totalValue} />}
-                <span className="text-[9px] text-gray-400">vs {comparisonStats?.prevFY}</span>
+             
+             <div className="flex items-end justify-between mt-1">
+                 <p className="text-xl font-bold text-indigo-700">{comparisonStats ? formatCurrency(comparisonStats.curr.totalValue) : '-'}</p>
+                 <div className="flex flex-col items-end">
+                    {comparisonStats && <TrendBadge curr={comparisonStats.curr.totalValue} prev={comparisonStats.prev.totalValue} />}
+                    <span className="text-[9px] text-gray-400 mt-0.5">vs {comparisonStats?.prevLabel}</span>
+                 </div>
              </div>
           </div>
 
@@ -398,29 +467,25 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
              </div>
              <p className="text-xl font-bold text-gray-900">{comparisonStats?.curr.uniqueCustomersCount}</p>
              <div className="mt-2 flex items-center gap-2">
-                 {comparisonStats && <CountTrendBadge curr={comparisonStats.curr.uniqueCustomersCount} prev={comparisonStats.prev.uniqueCustomersCount} />}
-                 <span className="text-[9px] text-gray-400">vs {comparisonStats?.prev.uniqueCustomersCount} last yr</span>
+                 <span className="text-[9px] text-gray-400">vs {comparisonStats?.prev.uniqueCustomersCount} in {comparisonStats?.prevLabel}</span>
              </div>
           </div>
 
-          {/* Card 3: Active Status Breakup */}
+          {/* Card 3: Customer Status Breakup */}
           <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200">
              <div className="flex justify-between items-start mb-1">
-                 <p className="text-[10px] text-gray-500 font-medium uppercase">Active Customers</p>
+                 <p className="text-[10px] text-gray-500 font-medium uppercase">Customer Status</p>
                  <UserCheck className="w-3.5 h-3.5 text-green-500" />
              </div>
-             <p className="text-xl font-bold text-gray-900">{comparisonStats?.curr.activeCustomersCount}</p>
-             <div className="mt-2 flex items-center gap-2">
-                 {comparisonStats && <CountTrendBadge curr={comparisonStats.curr.activeCustomersCount} prev={comparisonStats.prev.activeCustomersCount} />}
-                 <span className="text-[9px] text-gray-400">Active count trend</span>
-             </div>
+             <p className="text-xs font-medium text-gray-600">Distribution</p>
+             {comparisonStats && <StatusBreakdown counts={comparisonStats.curr.statusCounts} />}
           </div>
 
           {/* Card 4: Current Selection Indicator */}
           <div className="p-3 rounded-xl shadow-sm border bg-gray-50 border-gray-200 flex flex-col justify-center items-center text-center">
               <span className="text-xs text-gray-500 font-medium flex items-center gap-1.5"><Filter className="w-3 h-3" /> View Mode</span>
               <p className="text-sm font-bold text-gray-800 mt-1">{timeView === 'FY' ? 'Full Fiscal Year' : (timeView === 'MONTH' ? `${getFiscalMonthName(selectedMonth)} (Month)` : `Week ${selectedWeek}`)}</p>
-              {slicerGroup !== 'ALL' || slicerRep !== 'ALL' ? (
+              {slicerGroup !== 'ALL' || slicerRep !== 'ALL' || slicerMatGroup !== 'ALL' ? (
                   <span className="text-[9px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full mt-1 border border-blue-100">Filtered View</span>
               ) : <span className="text-[9px] text-gray-400 mt-1">Global View</span>}
           </div>
@@ -509,7 +574,7 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                 <select 
                     value={slicerGroup} 
                     onChange={(e) => setSlicerGroup(e.target.value)}
-                    className="bg-gray-50 border border-gray-200 text-xs rounded-md px-2 py-1 w-32 outline-none focus:ring-1 focus:ring-blue-500 truncate"
+                    className="bg-gray-50 border border-gray-200 text-xs rounded-md px-2 py-1 w-28 outline-none focus:ring-1 focus:ring-blue-500 truncate"
                 >
                     <option value="ALL">All Groups</option>
                     {options.groups.map(g => <option key={g} value={g}>{g}</option>)}
@@ -522,7 +587,7 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                 <select 
                     value={slicerRep} 
                     onChange={(e) => setSlicerRep(e.target.value)}
-                    className="bg-gray-50 border border-gray-200 text-xs rounded-md px-2 py-1 w-32 outline-none focus:ring-1 focus:ring-blue-500 truncate"
+                    className="bg-gray-50 border border-gray-200 text-xs rounded-md px-2 py-1 w-28 outline-none focus:ring-1 focus:ring-blue-500 truncate"
                 >
                     <option value="ALL">All Reps</option>
                     {options.reps.map(r => <option key={r} value={r}>{r}</option>)}
@@ -535,7 +600,7 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                 <select 
                     value={slicerStatus} 
                     onChange={(e) => setSlicerStatus(e.target.value)}
-                    className="bg-gray-50 border border-gray-200 text-xs rounded-md px-2 py-1 w-28 outline-none focus:ring-1 focus:ring-blue-500"
+                    className="bg-gray-50 border border-gray-200 text-xs rounded-md px-2 py-1 w-24 outline-none focus:ring-1 focus:ring-blue-500"
                 >
                     <option value="ALL">All Status</option>
                     {options.statuses.map(s => <option key={s} value={s}>{s}</option>)}
@@ -548,17 +613,30 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                 <select 
                     value={slicerMake} 
                     onChange={(e) => setSlicerMake(e.target.value)}
-                    className="bg-gray-50 border border-gray-200 text-xs rounded-md px-2 py-1 w-32 outline-none focus:ring-1 focus:ring-blue-500 truncate"
+                    className="bg-gray-50 border border-gray-200 text-xs rounded-md px-2 py-1 w-28 outline-none focus:ring-1 focus:ring-blue-500 truncate"
                 >
                     <option value="ALL">All Makes</option>
                     {options.makes.map(m => <option key={m} value={m}>{m}</option>)}
                 </select>
             </div>
 
+            {/* Mat Group Slicer */}
+            <div className="flex flex-col gap-0.5">
+                <label className="text-[9px] text-gray-400 font-semibold uppercase">Mat Group</label>
+                <select 
+                    value={slicerMatGroup} 
+                    onChange={(e) => setSlicerMatGroup(e.target.value)}
+                    className="bg-gray-50 border border-gray-200 text-xs rounded-md px-2 py-1 w-28 outline-none focus:ring-1 focus:ring-blue-500 truncate"
+                >
+                    <option value="ALL">All Mat Groups</option>
+                    {options.matGroups.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+            </div>
+
              {/* Reset Filters */}
-             {(slicerGroup !== 'ALL' || slicerRep !== 'ALL' || slicerStatus !== 'ALL' || slicerMake !== 'ALL') && (
+             {(slicerGroup !== 'ALL' || slicerRep !== 'ALL' || slicerStatus !== 'ALL' || slicerMake !== 'ALL' || slicerMatGroup !== 'ALL') && (
                  <button 
-                    onClick={() => { setSlicerGroup('ALL'); setSlicerRep('ALL'); setSlicerStatus('ALL'); setSlicerMake('ALL'); }}
+                    onClick={() => { setSlicerGroup('ALL'); setSlicerRep('ALL'); setSlicerStatus('ALL'); setSlicerMake('ALL'); setSlicerMatGroup('ALL'); }}
                     className="mt-4 px-3 py-1 bg-red-50 text-red-600 rounded text-xs font-medium border border-red-100 hover:bg-red-100"
                  >
                      Reset Filters
@@ -596,6 +674,7 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                         
                         <th className="py-2 px-3 cursor-pointer hover:bg-gray-100 bg-orange-50/50 w-56" onClick={() => handleSort('particulars')}>Particulars {renderSortIcon('particulars')}</th>
                         <th className="py-2 px-3 cursor-pointer hover:bg-gray-100 bg-orange-50/50" onClick={() => handleSort('make')}>Make {renderSortIcon('make')}</th>
+                        <th className="py-2 px-3 cursor-pointer hover:bg-gray-100 bg-orange-50/50" onClick={() => handleSort('matGroup')}>Mat Group {renderSortIcon('matGroup')}</th>
                         <th className="py-2 px-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('voucherNo')}>Voucher {renderSortIcon('voucherNo')}</th>
                         <th className="py-2 px-3 text-right cursor-pointer hover:bg-gray-100" onClick={() => handleSort('quantity')}>Qty {renderSortIcon('quantity')}</th>
                         <th className="py-2 px-3 text-right cursor-pointer hover:bg-gray-100" onClick={() => handleSort('value')}>Value {renderSortIcon('value')}</th>
@@ -604,7 +683,7 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                 </thead>
                 <tbody className="divide-y divide-gray-200 text-xs text-gray-700">
                     {paginatedItems.length === 0 ? (
-                        <tr><td colSpan={12} className="py-8 text-center text-gray-500">
+                        <tr><td colSpan={13} className="py-8 text-center text-gray-500">
                             No matching records found for the selected period/filters.
                         </td></tr>
                     ) : (
@@ -631,12 +710,13 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                                     </td>
 
                                     {/* Material Info */}
-                                    <td className="py-2 px-3 max-w-[200px] bg-orange-50/20">
+                                    <td className="py-2 px-3 max-w-[180px] bg-orange-50/20">
                                         <div className="flex flex-col">
                                             <span className="truncate text-gray-800" title={item.particulars}>{item.particulars}</span>
                                         </div>
                                     </td>
                                     <td className="py-2 px-3 bg-orange-50/20 text-gray-600 truncate max-w-[80px]">{item.make || '-'}</td>
+                                    <td className="py-2 px-3 bg-orange-50/20 text-gray-600 truncate max-w-[80px]">{item.matGroup || '-'}</td>
 
                                     {/* Sales Data */}
                                     <td className="py-2 px-3 text-gray-500 font-mono text-[10px] whitespace-nowrap">{item.voucherNo}</td>

@@ -10,7 +10,7 @@ import ClosingStockView from './components/ClosingStockView';
 import SalesReportView from './components/SalesReportView';
 import CustomerMasterView from './components/CustomerMasterView';
 import DashboardView from './components/DashboardView';
-import { Database, AlertCircle, ClipboardList, ShoppingCart, TrendingUp, Package, Layers, LayoutDashboard, FileBarChart, Users } from 'lucide-react';
+import { Database, AlertCircle, ClipboardList, ShoppingCart, TrendingUp, Package, Layers, LayoutDashboard, FileBarChart, Users, ChevronRight, Menu, X } from 'lucide-react';
 
 const STORAGE_KEY_MASTER = 'material_master_db_v1';
 const STORAGE_KEY_STOCK = 'closing_stock_db_v1';
@@ -25,6 +25,7 @@ type ActiveTab = 'dashboard' | 'master' | 'customerMaster' | 'closingStock' | 'p
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true); // For mobile toggle if needed, or desktop collapse
   
   const [materials, setMaterials] = useState<Material[]>([]);
   const [closingStockItems, setClosingStockItems] = useState<ClosingStockItem[]>([]);
@@ -274,293 +275,225 @@ const App: React.FC = () => {
     return materials.filter(m => (m.make?.trim() || 'Unspecified') === selectedMake);
   }, [materials, selectedMake]);
 
+  // --- Sidebar Component ---
+  const SidebarItem = ({ id, label, icon: Icon, count, onClick }: any) => (
+    <button
+      onClick={() => onClick(id)}
+      className={`w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+        activeTab === id 
+          ? 'bg-blue-50 text-blue-700' 
+          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+      }`}
+    >
+      <Icon className={`w-4 h-4 ${activeTab === id ? 'text-blue-600' : 'text-gray-400'}`} />
+      <span className="flex-1">{label}</span>
+      {count !== undefined && (
+        <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${activeTab === id ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
+          {count}
+        </span>
+      )}
+    </button>
+  );
+
   return (
-    <div className="min-h-screen bg-gray-100 font-sans text-gray-900 pb-0 flex flex-col">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-30 shadow-sm flex-shrink-0">
-        <div className="w-full px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="bg-blue-600 p-1.5 rounded-lg text-white">
+    <div className="flex h-screen bg-gray-100 font-sans text-gray-900 overflow-hidden">
+      
+      {/* Sidebar */}
+      <aside className={`bg-white border-r border-gray-200 flex flex-col flex-shrink-0 transition-all duration-300 ${isSidebarOpen ? 'w-64' : 'w-0 -ml-64 md:w-16 md:ml-0 overflow-hidden'}`}>
+        {/* Sidebar Header */}
+        <div className="h-14 flex items-center px-4 border-b border-gray-200 flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <div className="bg-blue-600 p-1.5 rounded-lg text-white flex-shrink-0">
               <Database className="w-4 h-4" />
             </div>
-            <div>
-              <h1 className="text-lg font-bold text-gray-900 leading-tight">Material Master</h1>
-              <p className="text-[10px] text-gray-500 font-medium">Database & Management System</p>
+            <div className={`${isSidebarOpen ? 'opacity-100' : 'opacity-0 hidden'} transition-opacity`}>
+               <h1 className="text-sm font-bold text-gray-900 leading-tight">Material Master</h1>
+               <p className="text-[9px] text-gray-500 font-medium">AI Database System</p>
             </div>
           </div>
-          <div className="flex items-center gap-4">
-             <div className="hidden md:flex items-center gap-2 text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded-full border border-gray-200">
-                <div className="w-1.5 h-1.5 rounded-full bg-green-50 animate-pulse"></div>
-                Connected
+        </div>
+
+        {/* Sidebar Content */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar py-4 px-3 space-y-6">
+           
+           {/* Group: Dashboard */}
+           <div>
+             {isSidebarOpen && <div className="px-3 mb-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Group Dashboard</div>}
+             <SidebarItem id="dashboard" label="Dashboard" icon={LayoutDashboard} onClick={setActiveTab} />
+           </div>
+
+           {/* Group: Masters */}
+           <div>
+             {isSidebarOpen && <div className="px-3 mb-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Masters</div>}
+             <div className="space-y-1">
+                <SidebarItem id="master" label="Material Master" icon={Database} count={materials.length} onClick={setActiveTab} />
+                <SidebarItem id="customerMaster" label="Customer Master" icon={Users} count={customerMasterItems.length} onClick={setActiveTab} />
              </div>
-             {(materials.length > 0 || closingStockItems.length > 0 || pendingSOItems.length > 0 || pendingPOItems.length > 0 || salesReportItems.length > 0 || customerMasterItems.length > 0) && (
-               <button onClick={handleClearDatabase} className="text-xs text-red-500 hover:text-red-700 font-medium underline">
-                 Clear All Data
+           </div>
+
+           {/* Group: Data Tables */}
+           <div>
+             {isSidebarOpen && <div className="px-3 mb-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Data Tables</div>}
+             <div className="space-y-1">
+                <SidebarItem id="closingStock" label="Closing Stock" icon={Package} count={closingStockItems.length} onClick={setActiveTab} />
+                <SidebarItem id="pendingSO" label="Pending SO" icon={ClipboardList} count={pendingSOItems.length} onClick={setActiveTab} />
+                <SidebarItem id="pendingPO" label="Pending PO" icon={ShoppingCart} count={pendingPOItems.length} onClick={setActiveTab} />
+                <SidebarItem id="salesReport" label="Sales Report" icon={FileBarChart} count={salesReportItems.length} onClick={setActiveTab} />
+                <SidebarItem id="salesHistory" label="Sales History" icon={TrendingUp} count={sales1Year.length + sales3Months.length} onClick={setActiveTab} />
+             </div>
+           </div>
+        </div>
+
+        {/* Sidebar Footer */}
+        <div className="p-4 border-t border-gray-200 bg-gray-50 flex-shrink-0">
+           {isSidebarOpen ? (
+              <div className="flex flex-col gap-2">
+                 <div className="flex items-center gap-2 text-[10px] text-gray-500">
+                    <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
+                    System Connected
+                 </div>
+                 {(materials.length > 0 || closingStockItems.length > 0 || pendingSOItems.length > 0) && (
+                   <button onClick={handleClearDatabase} className="text-xs text-red-500 hover:text-red-700 font-medium text-left flex items-center gap-1.5 mt-1">
+                     <AlertCircle className="w-3 h-3" /> Clear All Data
+                   </button>
+                 )}
+              </div>
+           ) : (
+              <div className="flex justify-center">
+                 <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+              </div>
+           )}
+        </div>
+      </aside>
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0 h-full">
+        {/* Mobile Header / Sidebar Toggle */}
+        <header className="bg-white border-b border-gray-200 h-14 flex items-center justify-between px-4 flex-shrink-0 md:hidden">
+            <div className="flex items-center gap-2">
+               <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-lg">
+                  {isSidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
                </button>
-             )}
-          </div>
-        </div>
-        
-        {/* Navigation Tabs */}
-        <div className="w-full px-4 flex space-x-6 -mb-px overflow-x-auto">
-          <button
-            onClick={() => setActiveTab('dashboard')}
-            className={`pb-2 pt-2 px-1 border-b-2 font-medium text-xs flex items-center gap-1.5 whitespace-nowrap transition-colors ${
-              activeTab === 'dashboard' ? 'border-gray-800 text-gray-900' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            <LayoutDashboard className="w-3.5 h-3.5" /> Dashboard
-          </button>
-          <button
-            onClick={() => setActiveTab('master')}
-            className={`pb-2 pt-2 px-1 border-b-2 font-medium text-xs flex items-center gap-1.5 whitespace-nowrap transition-colors ${
-              activeTab === 'master' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            <Database className="w-3.5 h-3.5" /> Material Master
-            <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full text-[10px]">{materials.length}</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('customerMaster')}
-            className={`pb-2 pt-2 px-1 border-b-2 font-medium text-xs flex items-center gap-1.5 whitespace-nowrap transition-colors ${
-              activeTab === 'customerMaster' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            <Users className="w-3.5 h-3.5" /> Customer Master
-            <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full text-[10px]">{customerMasterItems.length}</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('closingStock')}
-            className={`pb-2 pt-2 px-1 border-b-2 font-medium text-xs flex items-center gap-1.5 whitespace-nowrap transition-colors ${
-              activeTab === 'closingStock' ? 'border-emerald-500 text-emerald-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            <Package className="w-3.5 h-3.5" /> Closing Stock
-            <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full text-[10px]">{closingStockItems.length}</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('pendingSO')}
-            className={`pb-2 pt-2 px-1 border-b-2 font-medium text-xs flex items-center gap-1.5 whitespace-nowrap transition-colors ${
-              activeTab === 'pendingSO' ? 'border-purple-500 text-purple-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            <ClipboardList className="w-3.5 h-3.5" /> Pending SO
-            <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full text-[10px]">{pendingSOItems.length}</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('pendingPO')}
-            className={`pb-2 pt-2 px-1 border-b-2 font-medium text-xs flex items-center gap-1.5 whitespace-nowrap transition-colors ${
-              activeTab === 'pendingPO' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            <ShoppingCart className="w-3.5 h-3.5" /> Pending PO
-            <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full text-[10px]">{pendingPOItems.length}</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('salesReport')}
-            className={`pb-2 pt-2 px-1 border-b-2 font-medium text-xs flex items-center gap-1.5 whitespace-nowrap transition-colors ${
-              activeTab === 'salesReport' ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            <FileBarChart className="w-3.5 h-3.5" /> Sales Report
-            <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full text-[10px]">{salesReportItems.length}</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('salesHistory')}
-            className={`pb-2 pt-2 px-1 border-b-2 font-medium text-xs flex items-center gap-1.5 whitespace-nowrap transition-colors ${
-              activeTab === 'salesHistory' ? 'border-teal-500 text-teal-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            <TrendingUp className="w-3.5 h-3.5" /> Sales History
-            <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full text-[10px]">{sales1Year.length + sales3Months.length}</span>
-          </button>
-        </div>
-      </header>
+               <span className="font-bold text-gray-900">Material Master AI</span>
+            </div>
+        </header>
 
-      <main className="flex-1 w-full px-4 py-4 overflow-hidden flex flex-col h-[calc(100vh-56px)]">
-        {error && (
-          <div className="mb-4 bg-orange-50 border border-orange-200 rounded-lg p-3 flex items-center gap-3 text-orange-800 flex-shrink-0">
-            <AlertCircle className="w-4 h-4 flex-shrink-0" />
-            <p className="text-xs font-medium">{error}</p>
-          </div>
-        )}
+        {/* Main View Container */}
+        <main className="flex-1 overflow-hidden p-4 relative">
+          
+          {error && (
+            <div className="mb-4 bg-orange-50 border border-orange-200 rounded-lg p-3 flex items-center gap-3 text-orange-800 flex-shrink-0">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              <p className="text-xs font-medium">{error}</p>
+            </div>
+          )}
 
-        {/* --- DASHBOARD TAB --- */}
-        {activeTab === 'dashboard' && (
-           <DashboardView 
-              materials={materials}
-              closingStock={closingStockItems}
-              pendingSO={pendingSOItems}
-              pendingPO={pendingPOItems}
-              sales1Year={sales1Year}
-              sales3Months={sales3Months}
-              setActiveTab={setActiveTab}
-           />
-        )}
-
-        {/* --- MATERIAL MASTER TAB --- */}
-        {activeTab === 'master' && (
-          <div className="flex flex-col lg:flex-row gap-4 items-start h-full">
+          {/* Tab Content Rendering */}
+          <div className="h-full overflow-hidden flex flex-col">
             
-            {/* Left Column: Interactive Vertical Tabs (Make Filter) */}
-            <div className="w-full lg:w-64 flex-shrink-0 flex flex-col gap-3 h-full">
-              
-              {/* Total Materials Summary */}
-              <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col items-center text-center flex-shrink-0">
-                 <div className="bg-blue-50 p-3 rounded-full mb-2">
-                    <Database className="w-6 h-6 text-blue-600" />
-                </div>
-                 <p className="text-xs font-medium text-gray-500">Total Materials</p>
-                 <p className="text-2xl font-bold text-gray-900 mt-1">{materials.length}</p>
-              </div>
-              
-              {/* Vertical Tabs for Makes */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col flex-1 overflow-hidden min-h-0">
-                <div className="p-3 border-b border-gray-100 bg-gray-50 flex-shrink-0">
-                  <h3 className="text-xs font-bold text-gray-700 flex items-center gap-2">
-                    <Layers className="w-3.5 h-3.5" />
-                    Filter by Make
-                  </h3>
-                </div>
-                <div className="overflow-y-auto custom-scrollbar p-1 space-y-0.5 flex-1">
-                  <button
-                    onClick={() => setSelectedMake('ALL')}
-                    className={`w-full text-left px-3 py-1.5 rounded-md text-xs flex justify-between items-center transition-colors ${
-                      selectedMake === 'ALL' 
-                        ? 'bg-blue-600 text-white shadow-md' 
-                        : 'text-gray-700 hover:bg-gray-100'
-                    }`}
-                  >
-                    <span className="font-medium">All Makes</span>
-                    <span className={`text-[10px] px-1.5 py-px rounded-full ${selectedMake === 'ALL' ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'}`}>
-                      {materials.length}
-                    </span>
-                  </button>
-                  
-                  {makeStats.length > 0 ? (
-                    makeStats.map(([make, count]) => (
-                      <button
-                        key={make}
-                        onClick={() => setSelectedMake(make)}
-                        className={`w-full text-left px-3 py-1.5 rounded-md text-xs flex justify-between items-center transition-colors ${
-                          selectedMake === make 
-                            ? 'bg-blue-600 text-white shadow-md' 
-                            : 'text-gray-700 hover:bg-gray-100'
-                        }`}
-                      >
-                        <span className="truncate font-medium w-3/4" title={make}>{make}</span>
-                        <span className={`text-[10px] px-1.5 py-px rounded-full ${selectedMake === make ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'}`}>
-                          {count}
-                        </span>
-                      </button>
-                    ))
-                  ) : (
-                    <div className="text-center text-gray-400 text-xs italic py-4">No data</div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Right Column: Main Content */}
-            <div className="flex-1 w-full min-w-0 flex flex-col gap-3 h-full overflow-hidden">
-               <AddMaterialForm 
+            {/* --- DASHBOARD TAB --- */}
+            {activeTab === 'dashboard' && (
+              <DashboardView 
                   materials={materials}
-                  onBulkAdd={handleBulkAddMaterial} 
-                  onClear={handleClearMaterials}
-               />
-               <div className="flex-1 min-h-0">
-                   <MaterialTable 
-                      materials={filteredMaterials} 
-                      onDelete={handleDeleteMaterial} 
-                   />
-               </div>
-            </div>
-          </div>
-        )}
+                  closingStock={closingStockItems}
+                  pendingSO={pendingSOItems}
+                  pendingPO={pendingPOItems}
+                  sales1Year={sales1Year}
+                  sales3Months={sales3Months}
+                  setActiveTab={setActiveTab}
+              />
+            )}
 
-        {/* --- CUSTOMER MASTER TAB --- */}
-        {activeTab === 'customerMaster' && (
-          <div className="h-full w-full">
-             <CustomerMasterView 
-               items={customerMasterItems}
-               onBulkAdd={handleBulkAddCustomerMaster}
-               onDelete={handleDeleteCustomerMaster}
-               onClear={handleClearCustomerMaster}
-             />
-          </div>
-        )}
+            {/* --- MATERIAL MASTER TAB --- */}
+            {activeTab === 'master' && (
+              <div className="flex flex-col lg:flex-row gap-4 items-start h-full">
+                
+                {/* Filter Sidebar (Make) */}
+                <div className="w-full lg:w-56 flex-shrink-0 flex flex-col gap-3 h-full">
+                  <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col items-center text-center flex-shrink-0">
+                    <div className="bg-blue-50 p-2.5 rounded-full mb-2"><Database className="w-5 h-5 text-blue-600" /></div>
+                    <p className="text-xs font-medium text-gray-500">Total Materials</p>
+                    <p className="text-2xl font-bold text-gray-900 mt-0.5">{materials.length}</p>
+                  </div>
+                  
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col flex-1 overflow-hidden min-h-0">
+                    <div className="p-3 border-b border-gray-100 bg-gray-50 flex-shrink-0">
+                      <h3 className="text-xs font-bold text-gray-700 flex items-center gap-2">
+                        <Layers className="w-3.5 h-3.5" /> Filter by Make
+                      </h3>
+                    </div>
+                    <div className="overflow-y-auto custom-scrollbar p-1 space-y-0.5 flex-1">
+                      <button onClick={() => setSelectedMake('ALL')} className={`w-full text-left px-3 py-1.5 rounded-md text-xs flex justify-between items-center transition-colors ${selectedMake === 'ALL' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700 hover:bg-gray-100'}`}>
+                        <span className="font-medium">All Makes</span>
+                        <span className={`text-[10px] px-1.5 py-px rounded-full ${selectedMake === 'ALL' ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'}`}>{materials.length}</span>
+                      </button>
+                      {makeStats.length > 0 ? (
+                        makeStats.map(([make, count]) => (
+                          <button key={make} onClick={() => setSelectedMake(make)} className={`w-full text-left px-3 py-1.5 rounded-md text-xs flex justify-between items-center transition-colors ${selectedMake === make ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700 hover:bg-gray-100'}`}>
+                            <span className="truncate font-medium w-3/4" title={make}>{make}</span>
+                            <span className={`text-[10px] px-1.5 py-px rounded-full ${selectedMake === make ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'}`}>{count}</span>
+                          </button>
+                        ))
+                      ) : <div className="text-center text-gray-400 text-xs italic py-4">No data</div>}
+                    </div>
+                  </div>
+                </div>
 
-        {/* --- CLOSING STOCK TAB --- */}
-        {activeTab === 'closingStock' && (
-          <div className="h-full w-full">
-             <ClosingStockView
-               items={closingStockItems}
-               materials={materials} 
-               onBulkAdd={handleBulkAddStock}
-               onDelete={handleDeleteStock}
-               onClear={handleClearStock}
-             />
-          </div>
-        )}
+                {/* Table Content */}
+                <div className="flex-1 w-full min-w-0 flex flex-col gap-3 h-full overflow-hidden">
+                  <AddMaterialForm materials={materials} onBulkAdd={handleBulkAddMaterial} onClear={handleClearMaterials} />
+                  <div className="flex-1 min-h-0">
+                      <MaterialTable materials={filteredMaterials} onDelete={handleDeleteMaterial} />
+                  </div>
+                </div>
+              </div>
+            )}
 
-        {/* --- PENDING SO TAB --- */}
-        {activeTab === 'pendingSO' && (
-          <div className="h-full w-full">
-             <PendingSOView 
-               items={pendingSOItems} 
-               materials={materials} 
-               closingStockItems={closingStockItems}
-               onBulkAdd={handleBulkAddPendingSO} 
-               onDelete={handleDeletePendingSO}
-               onClear={handleClearPendingSO} 
-             />
-          </div>
-        )}
+            {/* --- CUSTOMER MASTER TAB --- */}
+            {activeTab === 'customerMaster' && (
+              <div className="h-full w-full">
+                <CustomerMasterView items={customerMasterItems} onBulkAdd={handleBulkAddCustomerMaster} onDelete={handleDeleteCustomerMaster} onClear={handleClearCustomerMaster} />
+              </div>
+            )}
 
-        {/* --- PENDING PO TAB --- */}
-        {activeTab === 'pendingPO' && (
-          <div className="h-full w-full">
-             <PendingPOView 
-               items={pendingPOItems} 
-               materials={materials} 
-               closingStockItems={closingStockItems}
-               onBulkAdd={handleBulkAddPendingPO} 
-               onDelete={handleDeletePendingPO}
-               onClear={handleClearPendingPO}
-             />
-          </div>
-        )}
+            {/* --- CLOSING STOCK TAB --- */}
+            {activeTab === 'closingStock' && (
+              <div className="h-full w-full">
+                <ClosingStockView items={closingStockItems} materials={materials} onBulkAdd={handleBulkAddStock} onDelete={handleDeleteStock} onClear={handleClearStock} />
+              </div>
+            )}
 
-        {/* --- SALES REPORT TAB --- */}
-        {activeTab === 'salesReport' && (
-          <div className="h-full w-full">
-             <SalesReportView 
-               items={salesReportItems}
-               materials={materials}
-               customers={customerMasterItems}
-               onBulkAdd={handleBulkAddSalesReport}
-               onDelete={handleDeleteSalesReport}
-               onClear={handleClearSalesReport}
-             />
-          </div>
-        )}
+            {/* --- PENDING SO TAB --- */}
+            {activeTab === 'pendingSO' && (
+              <div className="h-full w-full">
+                <PendingSOView items={pendingSOItems} materials={materials} closingStockItems={closingStockItems} onBulkAdd={handleBulkAddPendingSO} onDelete={handleDeletePendingSO} onClear={handleClearPendingSO} />
+              </div>
+            )}
 
-        {/* --- SALES HISTORY TAB --- */}
-        {activeTab === 'salesHistory' && (
-          <div className="h-full overflow-y-auto">
-             <SalesHistoryView 
-               sales1Year={sales1Year} 
-               sales3Months={sales3Months} 
-               onBulkAdd1Year={handleBulkAddSales1Y} 
-               onBulkAdd3Months={handleBulkAddSales3M} 
-               onDelete1Year={handleDeleteSales1Y}
-               onDelete3Months={handleDeleteSales3M}
-               onClear1Year={handleClearSales1Y}
-               onClear3Months={handleClearSales3M}
-             />
+            {/* --- PENDING PO TAB --- */}
+            {activeTab === 'pendingPO' && (
+              <div className="h-full w-full">
+                <PendingPOView items={pendingPOItems} materials={materials} closingStockItems={closingStockItems} onBulkAdd={handleBulkAddPendingPO} onDelete={handleDeletePendingPO} onClear={handleClearPendingPO} />
+              </div>
+            )}
+
+            {/* --- SALES REPORT TAB --- */}
+            {activeTab === 'salesReport' && (
+              <div className="h-full w-full">
+                <SalesReportView items={salesReportItems} materials={materials} customers={customerMasterItems} onBulkAdd={handleBulkAddSalesReport} onDelete={handleDeleteSalesReport} onClear={handleClearSalesReport} />
+              </div>
+            )}
+
+            {/* --- SALES HISTORY TAB --- */}
+            {activeTab === 'salesHistory' && (
+              <div className="h-full overflow-y-auto custom-scrollbar pr-1">
+                <SalesHistoryView sales1Year={sales1Year} sales3Months={sales3Months} onBulkAdd1Year={handleBulkAddSales1Y} onBulkAdd3Months={handleBulkAddSales3M} onDelete1Year={handleDeleteSales1Y} onDelete3Months={handleDeleteSales3M} onClear1Year={handleClearSales1Y} onClear3Months={handleClearSales3M} />
+              </div>
+            )}
+
           </div>
-        )}
-      </main>
+        </main>
+      </div>
     </div>
   );
 };
