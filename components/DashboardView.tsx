@@ -272,7 +272,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   const pieDataGroup = useMemo(() => {
       const map = new Map<string, number>();
       currentData.forEach(i => {
-          let key = i.derivedGroup || 'Unknown';
+          // Strictly use Customer Group field as per Master
+          // If empty, categorize as Unassigned/Others rather than Name
+          let key = i.custGroup; 
+          if (!key || key === 'Unassigned') key = 'Other Groups';
           map.set(key, (map.get(key) || 0) + i.value);
       });
       return Array.from(map.entries())
@@ -654,12 +657,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                         const x = (i / (lineChartData.labels.length - 1)) * 100;
                                                         const y = 100 - (val / chartMax * 100);
                                                         
-                                                        // Determine Font Size based on data density (e.g., month view vs FY view)
-                                                        const fontSize = lineChartData.labels.length > 15 ? "2.5" : "3.5";
+                                                        // Update: Fixed smaller font size approx 2.2% of viewbox height (~8-10px visual)
+                                                        // Update: Fill color matches series color
                                                         
                                                         // Alternate label position to avoid overlap between Current(sIdx=0) and Previous(sIdx>0)
-                                                        // Current Year (sIdx 0) -> Label Top (y - 8)
-                                                        // Prev Year (sIdx > 0) -> Label Bottom (y + 12)
                                                         const labelY = sIdx === 0 ? y - 8 : y + 12;
 
                                                         return (
@@ -681,8 +682,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                                         x={x} 
                                                                         y={labelY} 
                                                                         textAnchor="middle" 
-                                                                        fill="#374151" 
-                                                                        fontSize={fontSize} 
+                                                                        fill={series.color}
+                                                                        fontSize="2.2" 
                                                                         fontWeight="bold"
                                                                         style={{ pointerEvents: 'none', textShadow: '0px 0px 2px white' }}
                                                                     >
@@ -714,7 +715,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                             <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2"><PieIcon className="w-4 h-4 text-purple-600" /> Sales Mix</h3>
                         </div>
                         <div className="flex-1 flex flex-col gap-4 overflow-hidden min-h-0">
-                            {/* 1. Customer Group Donut */}
+                            {/* 1. Customer Group Donut - UPDATED to use raw Customer Group field */}
                             <div className="flex-1 min-h-0 border-b border-dashed border-gray-200 pb-2">
                                 <SimpleDonut data={pieDataGroup} title="Group" color="blue" />
                             </div>
@@ -727,7 +728,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
 
                 {/* 3. Top 10 Pivot (Bar Chart with Expandable Rows) */}
-                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col h-auto min-h-[350px]">
+                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col h-96">
                     <div className="flex justify-between items-center mb-4">
                         <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
                             <BarChart3 className="w-4 h-4 text-emerald-600" /> Top 10 Customer Groups (Expandable)
