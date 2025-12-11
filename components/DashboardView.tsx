@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Material, ClosingStockItem, PendingSOItem, PendingPOItem, SalesRecord, SalesReportItem, CustomerMasterItem } from '../types';
-import { TrendingUp, TrendingDown, Package, ClipboardList, ShoppingCart, Calendar, Filter, PieChart as PieIcon, BarChart3, Users, ArrowRight, Activity, DollarSign, ArrowUpRight, ArrowDownRight, RefreshCw, UserCircle, Minus, Plus, ChevronDown, ChevronUp, Link2Off, AlertTriangle, Layers, Clock, CheckCircle2, AlertCircle, User } from 'lucide-react';
+import { TrendingUp, TrendingDown, Package, ClipboardList, ShoppingCart, Calendar, Filter, PieChart as PieIcon, BarChart3, Users, ArrowRight, Activity, DollarSign, ArrowUpRight, ArrowDownRight, RefreshCw, UserCircle, Minus, Plus, ChevronDown, ChevronUp, Link2Off, AlertTriangle, Layers, Clock, CheckCircle2, AlertCircle, User, Factory } from 'lucide-react';
 
 interface DashboardViewProps {
   materials: Material[];
@@ -20,6 +20,23 @@ type ComparisonMode = 'PREV_PERIOD' | 'PREV_YEAR';
 type Metric = 'quantity' | 'value';
 
 const COLORS = ['#10B981', '#3B82F6', '#6366F1', '#8B5CF6', '#EC4899', '#F59E0B', '#EF4444', '#6B7280', '#059669', '#2563EB'];
+
+// --- Helper: Lakh Formatter ---
+const formatLakhs = (val: number) => {
+    if (val === 0) return '0';
+    if (Math.abs(val) >= 100000) {
+        return `Rs. ${(val / 100000).toFixed(2)} L`;
+    }
+    return `Rs. ${Math.round(val).toLocaleString('en-IN')}`;
+};
+
+const formatLakhsCompact = (val: number) => {
+    if (val === 0) return '0';
+    if (Math.abs(val) >= 100000) {
+        return `${(val / 100000).toFixed(2)} L`;
+    }
+    return Math.round(val).toLocaleString('en-IN');
+};
 
 // --- Local Components for Inventory Tab ---
 const InventoryToggle: React.FC<{ value: Metric; onChange: (m: Metric) => void; colorClass: string }> = ({ value, onChange, colorClass }) => (
@@ -42,8 +59,9 @@ const InventoryToggle: React.FC<{ value: Metric; onChange: (m: Metric) => void; 
 const InventoryDonutChart: React.FC<{ 
   data: { label: string; value: number; color: string; displayValue: string }[], 
   metric: Metric,
-  total: number 
-}> = ({ data, metric, total }) => {
+  total: number,
+  centerLabelOverride?: string
+}> = ({ data, metric, total, centerLabelOverride }) => {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   let cumulativePercent = 0;
 
@@ -62,13 +80,12 @@ const InventoryDonutChart: React.FC<{
     return [x, y];
   };
 
-  const centerLabel = hoveredIndex !== null ? data[hoveredIndex].label : `Total ${metric === 'value' ? 'Val' : 'Qty'}`;
+  const centerLabel = hoveredIndex !== null ? data[hoveredIndex].label : (centerLabelOverride || `Total ${metric === 'value' ? 'Val' : 'Qty'}`);
   
-  // UPDATED: Show full value instead of compact notation
   const centerValue = hoveredIndex !== null 
     ? data[hoveredIndex].displayValue 
     : (metric === 'value' 
-        ? `Rs. ${Math.round(total).toLocaleString('en-IN')}` 
+        ? formatLakhs(total)
         : Math.round(total).toLocaleString('en-IN'));
         
   const centerSubtext = hoveredIndex !== null ? `${(data[hoveredIndex].value / total * 100).toFixed(1)}%` : '';
@@ -120,7 +137,7 @@ const InventoryDonutChart: React.FC<{
 
       <div className="flex-1 w-full overflow-hidden flex flex-col min-h-0">
          <div className="flex items-center justify-between text-[9px] uppercase font-semibold text-gray-400 pb-1 border-b border-gray-100 mb-1">
-            <span>Make</span>
+            <span>Category</span>
             <div className="flex gap-2">
                 <span className="w-8 text-right">%</span>
                 <span className="w-20 text-right">{metric === 'value' ? 'Val' : 'Qty'}</span>
@@ -171,7 +188,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   const [invMakeMetric, setInvMakeMetric] = useState<Metric>('value');
   const [invGroupMetric, setInvGroupMetric] = useState<Metric>('value');
   const [invTopMetric, setInvTopMetric] = useState<Metric>('value');
-  const [invSelectedMake, setInvSelectedMake] = useState<string>('ALL'); // Inventory Filter
+  const [invSelectedMake, setInvSelectedMake] = useState<string>('ALL');
+
+  // Pending SO Tab State
+  const [soFilterMake, setSoFilterMake] = useState<string>('ALL');
+  const [soFilterGroup, setSoFilterGroup] = useState<string>('ALL');
 
   // Initialize to current fiscal month index (0=Apr, 11=Mar)
   const [selectedMonth, setSelectedMonth] = useState<number>(() => {
@@ -181,36 +202,38 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   
   const [selectedWeek, setSelectedWeek] = useState<number>(1);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  
+  // New: Collapsible groups for Pending SO
+  const [expandedPendingGroups, setExpandedPendingGroups] = useState<Set<string>>(new Set());
 
-  // Toggle Group Expansion
+  // Toggle Group Expansion (Sales)
   const toggleGroup = (groupName: string) => {
     const newSet = new Set(expandedGroups);
-    if (newSet.has(groupName)) {
-      newSet.delete(groupName);
-    } else {
-      newSet.add(groupName);
-    }
+    if (newSet.has(groupName)) newSet.delete(groupName);
+    else newSet.add(groupName);
     setExpandedGroups(newSet);
+  };
+
+  // Toggle Pending Group Expansion
+  const togglePendingGroup = (groupName: string) => {
+    const newSet = new Set(expandedPendingGroups);
+    if (newSet.has(groupName)) newSet.delete(groupName);
+    else newSet.add(groupName);
+    setExpandedPendingGroups(newSet);
   };
 
   // --- Helper: Robust Date Parsing ---
   const parseDate = (val: any): Date => {
     if (!val) return new Date();
     if (val instanceof Date) return val;
-    // Handle Excel Serial Number (approximate)
     if (typeof val === 'number') {
         return new Date((val - (25567 + 2)) * 86400 * 1000);
     }
-    // Handle Strings
     if (typeof val === 'string') {
-        // Try ISO first
         const d = new Date(val);
         if (!isNaN(d.getTime())) return d;
-        
-        // Try DD/MM/YYYY or DD-MM-YYYY
         const parts = val.split(/[-/.]/);
         if (parts.length === 3) {
-             // Assume DD-MM-YYYY
              return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
         }
     }
@@ -247,7 +270,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
   // --- 1. Prepare Sales Data ---
   const enrichedSales = useMemo(() => {
-      // Create lookup for customer group/status
       const custMap = new Map<string, CustomerMasterItem>();
       customers.forEach(c => custMap.set(c.customerName.toLowerCase().trim(), c));
 
@@ -257,17 +279,18 @@ const DashboardView: React.FC<DashboardViewProps> = ({
           const cust = custMap.get(item.customerName.toLowerCase().trim());
           
           const primaryGroup = cust?.customerGroup?.trim(); 
-          const groupingKey = (primaryGroup && primaryGroup !== 'Unassigned') ? primaryGroup : item.customerName;
+          const accountGroup = cust?.group?.trim(); 
           
           return {
               ...item,
               ...fi,
               rawDate: dateObj,
-              custGroup: primaryGroup, 
+              custGroup: accountGroup, 
+              customerMasterGroup: primaryGroup || 'Unspecified', 
               oldGroupField: cust?.group,
               custStatus: cust?.status || 'Unknown',
               salesRep: cust?.salesRep || 'Unassigned',
-              derivedGroup: groupingKey,
+              derivedGroup: primaryGroup || item.customerName,
               isGrouped: !!(primaryGroup && primaryGroup !== 'Unassigned')
           };
       });
@@ -307,7 +330,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
           const prevFY = `${startYear - 1}-${startYear}`;
           return getDataForPeriod(prevFY, selectedMonth, selectedWeek);
       } else {
-          // Prev Period Logic
           if (timeView === 'FY') {
               const prevFY = `${startYear - 1}-${startYear}`;
               return getDataForPeriod(prevFY);
@@ -326,35 +348,27 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   const kpis = useMemo(() => {
       const currVal = currentData.reduce((acc, i) => acc + i.value, 0);
       const prevVal = previousData.reduce((acc, i) => acc + i.value, 0);
-      
       const currQty = currentData.reduce((acc, i) => acc + i.quantity, 0);
-      
       const uniqueCusts = new Set(currentData.map(i => i.customerName)).size;
       const avgOrder = currentData.length ? currVal / currentData.length : 0;
-
       const diff = currVal - prevVal;
       const pct = prevVal ? ((diff / prevVal) * 100) : 0;
-
       return { currVal, prevVal, diff, pct, currQty, uniqueCusts, avgOrder };
   }, [currentData, previousData]);
 
   const lineChartData = useMemo(() => {
       if (timeView === 'FY' && selectedFY) {
           const labels = ["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"];
-          
           const startYear = parseInt(selectedFY.split('-')[0]);
           if(isNaN(startYear)) return { labels: [], series: [], isMultiYear: true };
-
           const fy1 = selectedFY;
           const fy2 = `${startYear - 1}-${startYear}`;
           const fy3 = `${startYear - 2}-${startYear - 1}`;
-
           const getSeries = (fy: string) => {
               const arr = new Array(12).fill(0);
               enrichedSales.filter(i => i.fiscalYear === fy).forEach(i => arr[i.fiscalMonthIndex] += i.value);
               return arr;
           };
-
           return { 
               labels, 
               series: [
@@ -364,28 +378,23 @@ const DashboardView: React.FC<DashboardViewProps> = ({
               ],
               isMultiYear: true
           };
-      } 
-      else {
+      } else {
           const daysInView = timeView === 'MONTH' ? 31 : 7;
           const labels = Array.from({length: daysInView}, (_, i) => (i + 1).toString());
-          
           const currSeries = new Array(daysInView).fill(0);
           const prevSeries = new Array(daysInView).fill(0);
-
           currentData.forEach(i => {
               let idx = 0;
               if (timeView === 'MONTH') idx = i.rawDate.getDate() - 1;
               else idx = i.rawDate.getDay(); 
               if (idx >= 0 && idx < daysInView) currSeries[idx] += i.value;
           });
-          
           previousData.forEach(i => {
               let idx = 0;
               if (timeView === 'MONTH') idx = i.rawDate.getDate() - 1;
               else idx = i.rawDate.getDay();
               if (idx >= 0 && idx < daysInView) prevSeries[idx] += i.value;
           });
-          
           return { 
               labels, 
               series: [
@@ -400,8 +409,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   const pieDataGroup = useMemo(() => {
       const map = new Map<string, number>();
       currentData.forEach(i => {
-          let key = i.custGroup; 
-          if (!key || key === 'Unassigned') key = 'Other Groups';
+          let key = i.customerMasterGroup || 'Other Groups';
           map.set(key, (map.get(key) || 0) + i.value);
       });
       return Array.from(map.entries())
@@ -429,13 +437,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({
           if (i.isGrouped) existing.isGroup = true;
           currentMap.set(key, existing);
       });
-
       const prevMap = new Map<string, number>();
       previousData.forEach(i => {
           const key = i.derivedGroup;
           prevMap.set(key, (prevMap.get(key) || 0) + i.value);
       });
-
       return Array.from(currentMap.entries())
           .map(([label, { value, isGroup }]) => {
               const prevValue = prevMap.get(label) || 0;
@@ -459,7 +465,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       .sort((a, b) => b.value - a.value);
   };
 
-  // --- INVENTORY DATA PREPARATION ---
+  // --- INVENTORY PREP ---
   const enrichedStock = useMemo(() => {
     return closingStock.map(item => {
         const itemDesc = item.description.toLowerCase().trim();
@@ -473,28 +479,24 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     });
   }, [closingStock, materials]);
 
-  // Derive Unique Makes for Filter
   const inventoryUniqueMakes = useMemo(() => {
      const makes = new Set(enrichedStock.map(i => i.make));
      const list = Array.from(makes).sort();
      return ['ALL', ...list];
   }, [enrichedStock]);
 
-  // Filter Stock Data based on Make
   const filteredStock = useMemo(() => {
       if (invSelectedMake === 'ALL') return enrichedStock;
       return enrichedStock.filter(i => i.make === invSelectedMake);
   }, [enrichedStock, invSelectedMake]);
 
-  // Inventory Aggregations
   const inventoryStats = useMemo(() => {
-    const data = filteredStock; // Use filtered data
+    const data = filteredStock; 
     const totalQty = data.reduce((acc, i) => acc + i.quantity, 0);
     const totalVal = data.reduce((acc, i) => acc + i.value, 0);
     const count = data.length;
     const totalUnmatched = data.filter(i => !i.isLinked).length;
 
-    // 1. Make Aggregation
     const makeMap = new Map<string, { qty: number, val: number }>();
     data.forEach(i => {
         const m = makeMap.get(i.make) || { qty: 0, val: 0 };
@@ -503,7 +505,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         makeMap.set(i.make, m);
     });
 
-    const formatVal = (val: number, type: Metric) => type === 'value' ? `Rs. ${Math.round(val).toLocaleString('en-IN')}` : Math.round(val).toLocaleString('en-IN');
+    const formatVal = (val: number, type: Metric) => type === 'value' ? formatLakhs(val) : Math.round(val).toLocaleString('en-IN');
 
     const byMake = Array.from(makeMap.entries())
         .map(([label, data], i) => ({ 
@@ -514,7 +516,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         }))
         .sort((a, b) => b.value - a.value);
 
-    // 2. Group Aggregation
     const groupMap = new Map<string, { qty: number, val: number }>();
     data.forEach(i => {
          const g = groupMap.get(i.group) || { qty: 0, val: 0 };
@@ -531,7 +532,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         .sort((a, b) => b.value - a.value)
         .filter(g => g.label !== 'Unspecified');
 
-    // 3. Top Articles
     const topArticles = [...data]
         .sort((a, b) => {
             const valA = invTopMetric === 'value' ? a.value : a.quantity;
@@ -549,14 +549,20 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     return { totalQty, totalVal, count, totalUnmatched, byMake, byGroup, topArticles, currentMakeTotal, formatVal };
   }, [filteredStock, invMakeMetric, invGroupMetric, invTopMetric]);
 
-  // --- PENDING SO DASHBOARD LOGIC (FIFO) ---
-  const soDashboardStats = useMemo(() => {
-    // 1. Setup Time Barriers
+  // --- PENDING SO LOGIC REFACTOR (PROCESS -> FILTER -> AGGREGATE) ---
+  
+  // 1. Enrich & FIFO Allocation (Global Level)
+  const processedSOData = useMemo(() => {
     const today = new Date();
     const endOfCurrentMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
     endOfCurrentMonth.setHours(23, 59, 59, 999);
 
-    // 2. Group SO items by Product Name
+    const matMap = new Map<string, string>();
+    materials.forEach(m => matMap.set(m.description.toLowerCase().trim(), m.make));
+    const custMap = new Map<string, string>();
+    customers.forEach(c => custMap.set(c.customerName.toLowerCase().trim(), c.customerGroup || 'Unassigned'));
+
+    // Group items for FIFO
     const groupedItems: Record<string, PendingSOItem[]> = {};
     pendingSO.forEach(item => {
         const key = item.itemName.toLowerCase().trim();
@@ -564,33 +570,16 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         groupedItems[key].push(item);
     });
 
-    // Stats Accumulators
-    const stats = {
-        totalOrdered: { qty: 0, val: 0, count: 0 },
-        totalBalance: { qty: 0, val: 0 },
-        due: { 
-            available: { qty: 0, val: 0 },
-            shortage: { qty: 0, val: 0 }
-        },
-        scheduled: {
-            available: { qty: 0, val: 0 },
-            shortage: { qty: 0, val: 0 }
-        }
-    };
-    
-    // Unique Orders Set
-    const uniqueOrders = new Set<string>();
+    const results = [];
 
-    // 3. FIFO Logic
+    // Run FIFO
     Object.keys(groupedItems).forEach(key => {
         const groupOrders = groupedItems[key];
-        
-        // Find Stock
         const stockItem = closingStock.find(s => s.description.toLowerCase().trim() === key);
         const totalStock = stockItem ? stockItem.quantity : 0;
         let runningStock = totalStock;
 
-        // Sort Orders by Due Date Ascending (Earliest first)
+        // Sort by Due Date
         groupOrders.sort((a, b) => {
             const dateA = new Date(a.dueDate || '9999-12-31').getTime();
             const dateB = new Date(b.dueDate || '9999-12-31').getTime();
@@ -598,103 +587,161 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         });
 
         groupOrders.forEach(order => {
-             // Total Stats
-             if (order.orderNo) uniqueOrders.add(order.orderNo);
-             stats.totalOrdered.qty += order.orderedQty;
-             stats.totalOrdered.val += (order.orderedQty * (order.rate || 0));
-             stats.totalBalance.qty += order.balanceQty;
-             stats.totalBalance.val += (order.balanceQty * (order.rate || 0));
+            const dueDate = order.dueDate ? new Date(order.dueDate) : new Date('9999-12-31');
+            const isFuture = dueDate > endOfCurrentMonth;
+            
+            // Calc Overdue
+            const diffTime = today.getTime() - dueDate.getTime();
+            const isOverdue = diffTime > 0;
 
-             // Categorize: Due vs Scheduled
-             const dueDate = order.dueDate ? new Date(order.dueDate) : new Date('9999-12-31');
-             const isFuture = dueDate > endOfCurrentMonth; // True if next month onwards
+            let allocated = 0;
+            let shortage = order.balanceQty;
 
-             // Allocation
-             const required = order.balanceQty;
-             const canAllocate = Math.min(runningStock, required);
-             const shortage = required - canAllocate;
-             runningStock = Math.max(0, runningStock - canAllocate);
+            if (!isFuture) {
+                const required = order.balanceQty;
+                allocated = Math.min(runningStock, required);
+                shortage = required - allocated;
+                runningStock = Math.max(0, runningStock - allocated);
+            }
 
-             // Value Calculation
-             const rate = order.rate || 0;
-             const allocVal = canAllocate * rate;
-             const shortVal = shortage * rate;
+            const val = (order.balanceQty || 0) * (order.rate || 0);
+            const allocatedVal = allocated * (order.rate || 0);
+            const shortageVal = shortage * (order.rate || 0);
 
-             if (isFuture) {
-                 stats.scheduled.available.qty += canAllocate;
-                 stats.scheduled.available.val += allocVal;
-                 stats.scheduled.shortage.qty += shortage;
-                 stats.scheduled.shortage.val += shortVal;
-             } else {
-                 stats.due.available.qty += canAllocate;
-                 stats.due.available.val += allocVal;
-                 stats.due.shortage.qty += shortage;
-                 stats.due.shortage.val += shortVal;
-             }
+            results.push({
+                ...order,
+                make: matMap.get(key) || 'Unspecified',
+                customerGroup: custMap.get(order.partyName.toLowerCase().trim()) || 'Unassigned',
+                isFuture,
+                isOverdue,
+                allocated,
+                shortage,
+                val,
+                allocatedVal,
+                shortageVal
+            });
         });
     });
+    return results;
+  }, [pendingSO, materials, customers, closingStock]);
 
-    stats.totalOrdered.count = uniqueOrders.size;
-    return stats;
+  // 2. Filter Processed Data (Slicers)
+  const filteredSOData = useMemo(() => {
+      return processedSOData.filter(item => {
+          if (soFilterMake !== 'ALL' && item.make !== soFilterMake) return false;
+          if (soFilterGroup !== 'ALL' && item.customerGroup !== soFilterGroup) return false;
+          return true;
+      });
+  }, [processedSOData, soFilterMake, soFilterGroup]);
 
-  }, [pendingSO, closingStock]);
+  // 3. Aggregate Stats for Charts & KPIs
+  const soStats = useMemo(() => {
+      const stats = {
+          totalOrdered: { qty: 0, val: 0, count: 0 },
+          totalBalance: { qty: 0, val: 0 },
+          due: { available: { qty: 0, val: 0 }, shortage: { qty: 0, val: 0 } },
+          scheduled: { available: { qty: 0, val: 0 }, shortage: { qty: 0, val: 0 } },
+          byGroup: new Map<string, number>(),
+          byMake: new Map<string, number>(),
+          byStatus: { overdue: 0, due: 0, future: 0 }
+      };
 
-  // --- TOP 10 CUSTOMERS PENDING SO LOGIC ---
-  const topPendingCustomers = useMemo(() => {
-    const today = new Date();
-    const endOfCurrentMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-    endOfCurrentMonth.setHours(23, 59, 59, 999);
+      const uniqueOrders = new Set<string>();
 
-    const customerStats: Record<string, { 
-        due: { qty: number, val: number }, 
-        scheduled: { qty: number, val: number },
-        totalVal: number 
-    }> = {};
+      filteredSOData.forEach(item => {
+          if (item.orderNo) uniqueOrders.add(item.orderNo);
+          
+          stats.totalOrdered.qty += item.orderedQty;
+          stats.totalOrdered.val += (item.orderedQty * (item.rate || 0));
+          
+          stats.totalBalance.qty += item.balanceQty;
+          stats.totalBalance.val += item.val;
 
-    pendingSO.forEach(item => {
-        const cust = item.partyName || 'Unknown';
-        if (!customerStats[cust]) {
-            customerStats[cust] = { due: { qty: 0, val: 0 }, scheduled: { qty: 0, val: 0 }, totalVal: 0 };
-        }
+          // Split Logic
+          if (item.isFuture) {
+              stats.scheduled.available.qty += item.allocated;
+              stats.scheduled.available.val += item.allocatedVal;
+              stats.scheduled.shortage.qty += item.shortage;
+              stats.scheduled.shortage.val += item.shortageVal;
+              stats.byStatus.future += item.val;
+          } else {
+              stats.due.available.qty += item.allocated;
+              stats.due.available.val += item.allocatedVal;
+              stats.due.shortage.qty += item.shortage;
+              stats.due.shortage.val += item.shortageVal;
+              
+              if (item.isOverdue) stats.byStatus.overdue += item.val;
+              else stats.byStatus.due += item.val;
+          }
 
-        let dueDate = new Date('9999-12-31');
-        if (item.dueDate) {
-             if (item.dueDate instanceof Date) dueDate = item.dueDate;
-             else dueDate = new Date(item.dueDate);
-        }
-        
-        const isFuture = dueDate > endOfCurrentMonth;
-        const val = (item.balanceQty || 0) * (item.rate || 0);
+          // Charts Aggregation
+          stats.byGroup.set(item.customerGroup, (stats.byGroup.get(item.customerGroup) || 0) + item.val);
+          stats.byMake.set(item.make, (stats.byMake.get(item.make) || 0) + item.val);
+      });
 
-        if (isFuture) {
-            customerStats[cust].scheduled.qty += item.balanceQty;
-            customerStats[cust].scheduled.val += val;
-        } else {
-            customerStats[cust].due.qty += item.balanceQty;
-            customerStats[cust].due.val += val;
-        }
-        customerStats[cust].totalVal += val;
-    });
+      stats.totalOrdered.count = uniqueOrders.size;
+      return stats;
+  }, [filteredSOData]);
 
-    return Object.entries(customerStats)
-        .map(([name, stats]) => ({ name, ...stats }))
-        .sort((a, b) => b.totalVal - a.totalVal)
-        .slice(0, 10);
+  // 4. Aggregate Top 10 Groups Table (Filtered)
+  const topPendingGroups = useMemo(() => {
+      const groupStats: Record<string, { totalVal: number, due: any, scheduled: any, customers: any }> = {};
 
-  }, [pendingSO]);
+      filteredSOData.forEach(item => {
+          const g = item.customerGroup;
+          const c = item.partyName;
 
+          if (!groupStats[g]) {
+              groupStats[g] = { totalVal: 0, due: { qty: 0, val: 0 }, scheduled: { qty: 0, val: 0 }, customers: {} };
+          }
+          if (!groupStats[g].customers[c]) {
+              groupStats[g].customers[c] = { due: { qty: 0, val: 0 }, scheduled: { qty: 0, val: 0 }, totalVal: 0 };
+          }
+
+          if (item.isFuture) {
+              groupStats[g].scheduled.qty += item.balanceQty;
+              groupStats[g].scheduled.val += item.val;
+              groupStats[g].customers[c].scheduled.qty += item.balanceQty;
+              groupStats[g].customers[c].scheduled.val += item.val;
+          } else {
+              groupStats[g].due.qty += item.balanceQty;
+              groupStats[g].due.val += item.val;
+              groupStats[g].customers[c].due.qty += item.balanceQty;
+              groupStats[g].customers[c].due.val += item.val;
+          }
+          groupStats[g].totalVal += item.val;
+          groupStats[g].customers[c].totalVal += item.val;
+      });
+
+      return Object.entries(groupStats)
+          .map(([groupName, s]) => ({
+              groupName,
+              ...s,
+              customers: Object.entries(s.customers)
+                  .map(([custName, cs]: any) => ({ custName, ...cs }))
+                  .sort((a: any, b: any) => b.totalVal - a.totalVal)
+          }))
+          .sort((a, b) => b.totalVal - a.totalVal)
+          .slice(0, 10);
+  }, [filteredSOData]);
+
+  // Slicer Options
+  const soSlicerOptions = useMemo(() => {
+      const makes = new Set(processedSOData.map(i => i.make));
+      const groups = new Set(processedSOData.map(i => i.customerGroup));
+      return {
+          makes: ['ALL', ...Array.from(makes).sort()],
+          groups: ['ALL', ...Array.from(groups).sort()]
+      };
+  }, [processedSOData]);
 
   // --- Render Helpers ---
   const formatNumber = (val: number) => Math.round(val).toLocaleString('en-IN');
-  const formatCompactNumber = (val: number) => {
-      if (val >= 1000000) return (val / 1000000).toFixed(1) + 'M';
-      if (val >= 1000) return (val / 1000).toFixed(1) + 'k';
-      return Math.round(val).toString();
-  };
-  const formatCurrency = (val: number) => `Rs. ${formatNumber(val)}`;
+  const formatCompactNumber = (val: number) => formatLakhsCompact(val); 
+  const formatCurrency = (val: number) => formatLakhs(val); 
   
   const formatAxisValue = (val: number) => {
-    if (val >= 1000000) return (val / 1000000).toFixed(1) + 'M';
+    if (val >= 100000) return (val / 100000).toFixed(1) + 'L';
     if (val >= 1000) return (val / 1000).toFixed(0) + 'k';
     return val.toFixed(0);
   };
@@ -720,17 +767,14 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
   const SimpleDonut = ({ data, title, color }: { data: {label: string, value: number}[], title: string, color: string }) => {
      if(data.length === 0) return <div className="h-32 flex items-center justify-center text-gray-400 text-xs">No Data</div>;
-     
      const total = data.reduce((a,b) => a+b.value, 0);
      let cumPercent = 0;
-     
      let displayData = data;
      if (data.length > 5) {
          const top5 = data.slice(0, 5);
          const otherVal = data.slice(5).reduce((a,b) => a+b.value, 0);
          displayData = [...top5, { label: 'Others', value: otherVal }];
      }
-
      return (
         <div className="flex flex-col h-full">
             <h4 className="text-[10px] font-bold text-gray-500 uppercase mb-2">{title}</h4>
@@ -745,39 +789,55 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                           const endX = Math.cos(2 * Math.PI * cumPercent);
                           const endY = Math.sin(2 * Math.PI * cumPercent);
                           const largeArc = percent > 0.5 ? 1 : 0;
-                          
                           const sliceColor = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#9CA3AF'][i % 6];
-                          
                           return (
-                              <path 
-                                key={i}
-                                d={`M ${startX} ${startY} A 1 1 0 ${largeArc} 1 ${endX} ${endY} L 0 0`}
-                                fill={sliceColor}
-                                stroke="white"
-                                strokeWidth="0.05"
-                              />
+                              <path key={i} d={`M ${startX} ${startY} A 1 1 0 ${largeArc} 1 ${endX} ${endY} L 0 0`} fill={sliceColor} stroke="white" strokeWidth="0.05" />
                           );
                       })}
                       <circle cx="0" cy="0" r="0.6" fill="white" />
                    </svg>
                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                       <span className={`text-[8px] font-bold text-${color}-600`}>{formatCompactNumber(total)}</span>
+                       <span className={`text-[8px] font-bold text-${color}-600`}>{formatLakhsCompact(total)}</span>
                    </div>
                 </div>
                 <div className="flex-1 overflow-y-auto custom-scrollbar h-24 text-[9px]">
                     {displayData.map((d, i) => (
                         <div key={i} className="flex justify-between items-center mb-1">
-                             <div className="flex items-center gap-1.5 truncate">
-                                <div className="w-1.5 h-1.5 rounded-full" style={{backgroundColor: ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#9CA3AF'][i % 6]}}></div>
-                                <span className="text-gray-600 truncate max-w-[80px]" title={d.label}>{d.label}</span>
+                             <div className="flex items-center gap-1.5 truncate flex-1 min-w-0">
+                                <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{backgroundColor: ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#9CA3AF'][i % 6]}}></div>
+                                <span className="text-gray-600 truncate" title={d.label}>{d.label}</span>
                              </div>
-                             <span className="font-bold text-gray-800">{Math.round((d.value/total)*100)}%</span>
+                             <span className="font-bold text-gray-800 whitespace-nowrap ml-2">{formatLakhs(d.value)}</span>
                         </div>
                     ))}
                 </div>
             </div>
         </div>
      );
+  };
+
+  const SimpleBarChart = ({ data, title, color }: { data: {label: string, value: number}[], title: string, color: string }) => {
+      if(data.length === 0) return <div className="h-32 flex items-center justify-center text-gray-400 text-xs">No Data</div>;
+      const sorted = [...data].sort((a,b) => b.value - a.value).slice(0, 6);
+      const maxVal = sorted[0].value || 1;
+      return (
+          <div className="flex flex-col h-full">
+              <h4 className="text-[10px] font-bold text-gray-500 uppercase mb-2">{title}</h4>
+              <div className="flex-1 flex flex-col gap-2 overflow-y-auto custom-scrollbar pr-1">
+                  {sorted.map((item, i) => (
+                      <div key={i} className="flex flex-col gap-0.5">
+                          <div className="flex justify-between text-[9px]">
+                              <span className="text-gray-700 truncate font-medium">{item.label}</span>
+                              <span className="text-gray-900 font-bold">{formatLakhs(item.value)}</span>
+                          </div>
+                          <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                              <div className={`h-full rounded-full bg-${color}-500`} style={{ width: `${(item.value / maxVal) * 100}%` }}></div>
+                          </div>
+                      </div>
+                  ))}
+              </div>
+          </div>
+      );
   };
 
   return (
@@ -858,6 +918,28 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                   </div>
               </div>
           )}
+
+          {/* NEW: Pending SO Filters */}
+          {activeSubTab === 'so' && (
+              <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
+                  <div className="flex items-center gap-1.5 bg-gray-50 p-1 rounded-lg border border-gray-200">
+                      <Filter className="w-3.5 h-3.5 text-purple-500 ml-1" />
+                      <div className="flex flex-col px-1">
+                          <label className="text-[9px] font-bold text-gray-400 uppercase">Make</label>
+                          <select value={soFilterMake} onChange={e => setSoFilterMake(e.target.value)} className="bg-transparent text-xs font-bold text-gray-700 outline-none w-24">
+                              {soSlicerOptions.makes.map(m => <option key={m} value={m}>{m}</option>)}
+                          </select>
+                      </div>
+                      <div className="w-px h-6 bg-gray-300 mx-1"></div>
+                      <div className="flex flex-col px-1">
+                          <label className="text-[9px] font-bold text-gray-400 uppercase">Cust Group</label>
+                          <select value={soFilterGroup} onChange={e => setSoFilterGroup(e.target.value)} className="bg-transparent text-xs font-bold text-gray-700 outline-none w-28">
+                              {soSlicerOptions.groups.map(g => <option key={g} value={g}>{g}</option>)}
+                          </select>
+                      </div>
+                  </div>
+              </div>
+          )}
       </div>
 
       <div className="flex-1 p-4 overflow-y-auto custom-scrollbar">
@@ -882,7 +964,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                     {Math.abs(kpis.pct).toFixed(1)}%
                                 </span>
                             </div>
-                            <span className="text-[10px] text-gray-400 font-medium">{comparisonLabel}: {formatNumber(kpis.prevVal)}</span>
+                            <span className="text-[10px] text-gray-400 font-medium">{comparisonLabel}: {formatLakhsCompact(kpis.prevVal)}</span>
                         </div>
                     </div>
 
@@ -915,7 +997,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                         <div className="flex justify-between items-start">
                             <div>
                                 <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Avg Order Value</p>
-                                <h3 className="text-2xl font-extrabold text-gray-900 mt-1">{formatNumber(kpis.avgOrder)}</h3>
+                                <h3 className="text-2xl font-extrabold text-gray-900 mt-1">{formatCurrency(kpis.avgOrder)}</h3>
                             </div>
                             <div className="bg-purple-50 p-2 rounded-lg text-purple-600"><Activity className="w-5 h-5" /></div>
                         </div>
@@ -1039,7 +1121,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                                         fontWeight="bold"
                                                                         style={{ pointerEvents: 'none', textShadow: '0px 0px 2px white' }}
                                                                     >
-                                                                        {formatCompactNumber(val)}
+                                                                        {formatLakhsCompact(val)}
                                                                     </text>
                                                                 )}
                                                             </g>
@@ -1069,7 +1151,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                         <div className="flex-1 flex flex-col gap-4 overflow-hidden min-h-0">
                             {/* 1. Customer Group Donut - UPDATED to use raw Customer Group field */}
                             <div className="flex-1 min-h-0 border-b border-dashed border-gray-200 pb-2">
-                                <SimpleDonut data={pieDataGroup} title="Group" color="blue" />
+                                <SimpleDonut data={pieDataGroup} title="Cust. Master Group" color="blue" />
                             </div>
                             {/* 2. Customer Status Donut */}
                             <div className="flex-1 min-h-0 pt-2">
@@ -1120,10 +1202,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                 <span className="font-bold text-gray-800 truncate select-none">{item.label}</span>
                                             </div>
                                             <div className="flex flex-col items-end">
-                                                <span className="font-bold text-gray-900">{formatNumber(item.value)}</span>
+                                                <span className="font-bold text-gray-900">{formatLakhs(item.value)}</span>
                                                 {item.prevValue > 0 && (
                                                     <div className="flex items-center gap-1 text-[9px] mt-0.5">
-                                                        <span className="text-gray-400">vs {formatCompactNumber(item.prevValue)}</span>
+                                                        <span className="text-gray-400">vs {formatLakhsCompact(item.prevValue)}</span>
                                                         <span className={`font-medium ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
                                                             {isPositive ? '+' : ''}{Math.round(item.pct)}%
                                                         </span>
@@ -1145,7 +1227,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                 {breakdown.map((cust, cIdx) => (
                                                     <div key={cIdx} className="flex justify-between items-center text-[10px]">
                                                         <span className="text-gray-600 truncate flex-1">{cust.name}</span>
-                                                        <span className="font-medium text-gray-800">{formatNumber(cust.value)}</span>
+                                                        <span className="font-medium text-gray-800">{formatLakhs(cust.value)}</span>
                                                     </div>
                                                 ))}
                                                 {breakdown.length === 0 && <span className="text-[10px] text-gray-400 italic">No details available</span>}
@@ -1274,22 +1356,79 @@ const DashboardView: React.FC<DashboardViewProps> = ({
               {/* 1. KPI Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                      <p className="text-[10px] font-bold text-gray-500 uppercase mb-1">TOTAL ORDERED ({soDashboardStats.totalOrdered.count} ORDERS)</p>
+                      <p className="text-[10px] font-bold text-gray-500 uppercase mb-1">TOTAL ORDERED ({soStats.totalOrdered.count} ORDERS)</p>
                       <div className="flex flex-col">
-                          <span className="text-xl font-extrabold text-gray-900">{formatCurrency(soDashboardStats.totalOrdered.val)}</span>
-                          <span className="text-sm font-bold text-blue-600">Qty: {soDashboardStats.totalOrdered.qty.toLocaleString()}</span>
+                          <span className="text-xl font-extrabold text-gray-900">{formatCurrency(soStats.totalOrdered.val)}</span>
+                          <span className="text-sm font-bold text-blue-600">Qty: {soStats.totalOrdered.qty.toLocaleString()}</span>
                       </div>
                   </div>
                   <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
                       <p className="text-[10px] font-bold text-gray-500 uppercase mb-1">TOTAL BALANCE</p>
                       <div className="flex flex-col">
-                          <span className="text-xl font-extrabold text-gray-900">{formatCurrency(soDashboardStats.totalBalance.val)}</span>
-                          <span className="text-sm font-bold text-orange-600">Qty: {soDashboardStats.totalBalance.qty.toLocaleString()}</span>
+                          <span className="text-xl font-extrabold text-gray-900">{formatCurrency(soStats.totalBalance.val)}</span>
+                          <span className="text-sm font-bold text-orange-600">Qty: {soStats.totalBalance.qty.toLocaleString()}</span>
                       </div>
                   </div>
               </div>
 
-              {/* 2. Analysis Table */}
+              {/* 2. Top Charts Grid (Filtered) */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  
+                  {/* Chart 1: Customer Group Distribution */}
+                  <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex flex-col h-64">
+                      <div className="flex items-center justify-between border-b border-gray-100 pb-2 mb-2">
+                          <h3 className="text-xs font-bold text-gray-800 flex items-center gap-1"><Users className="w-3.5 h-3.5 text-blue-600" /> Group Wise Pending</h3>
+                      </div>
+                      <div className="flex-1 min-h-0">
+                          <InventoryDonutChart 
+                            data={Array.from(soStats.byGroup.entries())
+                                .map(([label, value], i) => ({ 
+                                    label: label || 'Unassigned', value, color: COLORS[i % COLORS.length], displayValue: formatLakhs(value) 
+                                }))
+                                .sort((a,b) => b.value - a.value)
+                            } 
+                            metric="value" 
+                            total={soStats.totalBalance.val} 
+                            centerLabelOverride="Total Value"
+                          />
+                      </div>
+                  </div>
+
+                  {/* Chart 2: Make Wise Pending (Bar) */}
+                  <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex flex-col h-64">
+                      <div className="flex items-center justify-between border-b border-gray-100 pb-2 mb-2">
+                          <h3 className="text-xs font-bold text-gray-800 flex items-center gap-1"><Factory className="w-3.5 h-3.5 text-purple-600" /> Make Wise Pending</h3>
+                      </div>
+                      <div className="flex-1 min-h-0">
+                          <SimpleBarChart 
+                             data={Array.from(soStats.byMake.entries()).map(([label, value]) => ({ label, value }))} 
+                             title="" 
+                             color="purple" 
+                          />
+                      </div>
+                  </div>
+
+                  {/* Chart 3: Status Distribution */}
+                  <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex flex-col h-64">
+                      <div className="flex items-center justify-between border-b border-gray-100 pb-2 mb-2">
+                          <h3 className="text-xs font-bold text-gray-800 flex items-center gap-1"><Clock className="w-3.5 h-3.5 text-orange-600" /> Schedule Status</h3>
+                      </div>
+                      <div className="flex-1 min-h-0">
+                          <InventoryDonutChart 
+                            data={[
+                                { label: 'Overdue', value: soStats.byStatus.overdue, color: '#EF4444', displayValue: formatLakhs(soStats.byStatus.overdue) },
+                                { label: 'Due This Month', value: soStats.byStatus.due, color: '#F59E0B', displayValue: formatLakhs(soStats.byStatus.due) },
+                                { label: 'Scheduled (Future)', value: soStats.byStatus.future, color: '#10B981', displayValue: formatLakhs(soStats.byStatus.future) }
+                            ].filter(d => d.value > 0)} 
+                            metric="value" 
+                            total={soStats.totalBalance.val} 
+                            centerLabelOverride="Status"
+                          />
+                      </div>
+                  </div>
+              </div>
+
+              {/* 3. Analysis Table */}
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                   <div className="p-3 bg-gray-50 border-b border-gray-200">
                       <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
@@ -1318,14 +1457,14 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                               </td>
                               <td className="py-4 px-4 text-center bg-green-50/10 border-l border-r border-gray-100">
                                   <div className="flex flex-col items-center">
-                                      <span className="font-bold text-green-700">{formatCurrency(soDashboardStats.due.available.val)}</span>
-                                      <span className="text-xs font-medium text-green-600">Qty: {soDashboardStats.due.available.qty.toLocaleString()}</span>
+                                      <span className="font-bold text-green-700">{formatCurrency(soStats.due.available.val)}</span>
+                                      <span className="text-xs font-medium text-green-600">Qty: {soStats.due.available.qty.toLocaleString()}</span>
                                   </div>
                               </td>
                               <td className="py-4 px-4 text-center bg-red-50/10">
                                   <div className="flex flex-col items-center">
-                                      <span className="font-bold text-red-700">{formatCurrency(soDashboardStats.due.shortage.val)}</span>
-                                      <span className="text-xs font-medium text-red-600">Qty: {soDashboardStats.due.shortage.qty.toLocaleString()}</span>
+                                      <span className="font-bold text-red-700">{formatCurrency(soStats.due.shortage.val)}</span>
+                                      <span className="text-xs font-medium text-red-600">Qty: {soStats.due.shortage.qty.toLocaleString()}</span>
                                   </div>
                               </td>
                           </tr>
@@ -1343,14 +1482,14 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                               </td>
                               <td className="py-4 px-4 text-center bg-green-50/10 border-l border-r border-gray-100">
                                   <div className="flex flex-col items-center">
-                                      <span className="font-bold text-green-700">{formatCurrency(soDashboardStats.scheduled.available.val)}</span>
-                                      <span className="text-xs font-medium text-green-600">Qty: {soDashboardStats.scheduled.available.qty.toLocaleString()}</span>
+                                      <span className="font-bold text-green-700">{formatCurrency(soStats.scheduled.available.val)}</span>
+                                      <span className="text-xs font-medium text-green-600">Qty: {soStats.scheduled.available.qty.toLocaleString()}</span>
                                   </div>
                               </td>
                               <td className="py-4 px-4 text-center bg-red-50/10">
                                   <div className="flex flex-col items-center">
-                                      <span className="font-bold text-red-700">{formatCurrency(soDashboardStats.scheduled.shortage.val)}</span>
-                                      <span className="text-xs font-medium text-red-600">Qty: {soDashboardStats.scheduled.shortage.qty.toLocaleString()}</span>
+                                      <span className="font-bold text-red-700">{formatCurrency(soStats.scheduled.shortage.val)}</span>
+                                      <span className="text-xs font-medium text-red-600">Qty: {soStats.scheduled.shortage.qty.toLocaleString()}</span>
                                   </div>
                               </td>
                           </tr>
@@ -1358,20 +1497,21 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                   </table>
               </div>
 
-              {/* 3. Top 10 Customers Table */}
+              {/* 4. Top 10 Customer Groups Table (Collapsible) */}
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                   <div className="p-3 bg-gray-50 border-b border-gray-200">
                       <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
-                          <User className="w-4 h-4 text-blue-600" /> Top 10 Customers - Pending Orders
+                          <User className="w-4 h-4 text-blue-600" /> Top 10 Customer Groups - Pending Orders
                       </h3>
                   </div>
                   <div className="overflow-x-auto">
                       <table className="w-full text-left border-collapse">
                           <thead>
                               <tr className="bg-gray-50 border-b border-gray-100 text-[10px] font-bold text-gray-500 uppercase">
-                                  <th className="py-3 px-4 border-r border-gray-200 w-1/3" rowSpan={2}>Customer Name</th>
+                                  <th className="py-3 px-4 border-r border-gray-200 w-1/3" rowSpan={2}>Customer Group</th>
                                   <th className="py-2 px-4 text-center border-b border-r border-gray-200 bg-red-50/30 text-red-800" colSpan={2}>Due for Delivery</th>
                                   <th className="py-2 px-4 text-center border-b border-gray-200 bg-blue-50/30 text-blue-800" colSpan={2}>Scheduled</th>
+                                  <th className="py-3 px-4 text-right border-l border-gray-200" rowSpan={2}>Total Value</th>
                               </tr>
                               <tr className="bg-gray-50 border-b border-gray-100 text-[9px] font-bold text-gray-500 uppercase">
                                   <th className="py-2 px-4 text-right border-r border-gray-200 bg-red-50/10">Qty</th>
@@ -1381,28 +1521,67 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                               </tr>
                           </thead>
                           <tbody className="divide-y divide-gray-100 text-xs">
-                              {topPendingCustomers.map((cust, idx) => (
-                                  <tr key={idx} className="hover:bg-gray-50 transition-colors">
-                                      <td className="py-3 px-4 font-medium text-gray-800 border-r border-gray-100 max-w-[200px] truncate" title={cust.name}>
-                                          {cust.name}
-                                      </td>
-                                      <td className="py-3 px-4 text-right text-gray-600 border-r border-gray-100 bg-red-50/5">
-                                          {cust.due.qty.toLocaleString()}
-                                      </td>
-                                      <td className="py-3 px-4 text-right font-medium text-red-700 border-r border-gray-100 bg-red-50/5">
-                                          {formatCurrency(cust.due.val)}
-                                      </td>
-                                      <td className="py-3 px-4 text-right text-gray-600 border-r border-gray-100 bg-blue-50/5">
-                                          {cust.scheduled.qty.toLocaleString()}
-                                      </td>
-                                      <td className="py-3 px-4 text-right font-medium text-blue-700 bg-blue-50/5">
-                                          {formatCurrency(cust.scheduled.val)}
-                                      </td>
-                                  </tr>
-                              ))}
-                              {topPendingCustomers.length === 0 && (
+                              {topPendingGroups.map((group, idx) => {
+                                  const isExpanded = expandedPendingGroups.has(group.groupName);
+                                  return (
+                                      <React.Fragment key={idx}>
+                                          {/* Group Row */}
+                                          <tr 
+                                            className="hover:bg-gray-50 transition-colors cursor-pointer bg-gray-50/30 font-semibold"
+                                            onClick={() => togglePendingGroup(group.groupName)}
+                                          >
+                                              <td className="py-3 px-4 text-gray-900 border-r border-gray-100 flex items-center gap-2">
+                                                  <button className="text-gray-500 hover:text-blue-600">
+                                                      {isExpanded ? <Minus className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
+                                                  </button>
+                                                  {group.groupName}
+                                              </td>
+                                              <td className="py-3 px-4 text-right text-gray-600 border-r border-gray-100 bg-red-50/5">
+                                                  {group.due.qty.toLocaleString()}
+                                              </td>
+                                              <td className="py-3 px-4 text-right text-red-700 border-r border-gray-100 bg-red-50/5">
+                                                  {formatCurrency(group.due.val)}
+                                              </td>
+                                              <td className="py-3 px-4 text-right text-gray-600 border-r border-gray-100 bg-blue-50/5">
+                                                  {group.scheduled.qty.toLocaleString()}
+                                              </td>
+                                              <td className="py-3 px-4 text-right text-blue-700 bg-blue-50/5">
+                                                  {formatCurrency(group.scheduled.val)}
+                                              </td>
+                                              <td className="py-3 px-4 text-right text-gray-900 font-bold border-l border-gray-100">
+                                                  {formatCurrency(group.totalVal)}
+                                              </td>
+                                          </tr>
+
+                                          {/* Expanded Customer Details */}
+                                          {isExpanded && group.customers.map((cust: any, cIdx: number) => (
+                                              <tr key={`${idx}-${cIdx}`} className="bg-white hover:bg-gray-50 transition-colors animate-in slide-in-from-top-1 duration-200">
+                                                  <td className="py-2 px-4 pl-10 text-gray-600 border-r border-gray-100 text-[11px] truncate" title={cust.custName}>
+                                                      {cust.custName}
+                                                  </td>
+                                                  <td className="py-2 px-4 text-right text-gray-500 border-r border-gray-100 text-[11px]">
+                                                      {cust.due.qty.toLocaleString()}
+                                                  </td>
+                                                  <td className="py-2 px-4 text-right text-gray-600 border-r border-gray-100 text-[11px]">
+                                                      {formatCurrency(cust.due.val)}
+                                                  </td>
+                                                  <td className="py-2 px-4 text-right text-gray-500 border-r border-gray-100 text-[11px]">
+                                                      {cust.scheduled.qty.toLocaleString()}
+                                                  </td>
+                                                  <td className="py-2 px-4 text-right text-gray-600 text-[11px]">
+                                                      {formatCurrency(cust.scheduled.val)}
+                                                  </td>
+                                                  <td className="py-2 px-4 text-right text-gray-800 font-medium border-l border-gray-100 text-[11px]">
+                                                      {formatCurrency(cust.totalVal)}
+                                                  </td>
+                                              </tr>
+                                          ))}
+                                      </React.Fragment>
+                                  );
+                              })}
+                              {topPendingGroups.length === 0 && (
                                   <tr>
-                                      <td colSpan={5} className="py-8 text-center text-gray-400">No pending orders found.</td>
+                                      <td colSpan={6} className="py-8 text-center text-gray-400">No pending orders found.</td>
                                   </tr>
                               )}
                           </tbody>
