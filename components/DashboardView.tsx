@@ -649,12 +649,18 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                         vectorEffect="non-scaling-stroke"
                                                     />
                                                     
-                                                    {/* Data Points and Labels (Visible Labels only for main series and reasonable count) */}
-                                                    {sIdx === 0 && series.data.map((val, i) => {
+                                                    {/* Data Points and Labels - ENABLED FOR ALL SERIES, INCLUDING PREVIOUS YEAR */}
+                                                    {series.data.map((val, i) => {
                                                         const x = (i / (lineChartData.labels.length - 1)) * 100;
                                                         const y = 100 - (val / chartMax * 100);
-                                                        // Show labels only if not too crowded (e.g., FY view or Week View)
-                                                        const showLabel = lineChartData.labels.length <= 13; 
+                                                        
+                                                        // Determine Font Size based on data density (e.g., month view vs FY view)
+                                                        const fontSize = lineChartData.labels.length > 15 ? "2.5" : "3.5";
+                                                        
+                                                        // Alternate label position to avoid overlap between Current(sIdx=0) and Previous(sIdx>0)
+                                                        // Current Year (sIdx 0) -> Label Top (y - 8)
+                                                        // Prev Year (sIdx > 0) -> Label Bottom (y + 12)
+                                                        const labelY = sIdx === 0 ? y - 8 : y + 12;
 
                                                         return (
                                                             <g key={i}>
@@ -668,15 +674,15 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                                     vectorEffect="non-scaling-stroke"
                                                                     className="hover:scale-125 transition-transform cursor-pointer"
                                                                 >
-                                                                    <title>{`${lineChartData.labels[i]}: ${formatNumber(val)}`}</title>
+                                                                    <title>{`${lineChartData.labels[i]} (${series.name}): ${formatNumber(val)}`}</title>
                                                                 </circle>
-                                                                {showLabel && val > 0 && (
+                                                                {val > 0 && (
                                                                     <text 
                                                                         x={x} 
-                                                                        y={y - 8} 
+                                                                        y={labelY} 
                                                                         textAnchor="middle" 
                                                                         fill="#374151" 
-                                                                        fontSize="3.5" 
+                                                                        fontSize={fontSize} 
                                                                         fontWeight="bold"
                                                                         style={{ pointerEvents: 'none', textShadow: '0px 0px 2px white' }}
                                                                     >
@@ -710,7 +716,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                         <div className="flex-1 flex flex-col gap-4 overflow-hidden min-h-0">
                             {/* 1. Customer Group Donut */}
                             <div className="flex-1 min-h-0 border-b border-dashed border-gray-200 pb-2">
-                                <SimpleDonut data={pieDataGroup} title="By Customer Group" color="blue" />
+                                <SimpleDonut data={pieDataGroup} title="Group" color="blue" />
                             </div>
                             {/* 2. Customer Status Donut */}
                             <div className="flex-1 min-h-0 pt-2">
