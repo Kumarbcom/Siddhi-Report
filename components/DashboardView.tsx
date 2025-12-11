@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Material, ClosingStockItem, PendingSOItem, PendingPOItem, SalesRecord, SalesReportItem, CustomerMasterItem } from '../types';
-import { TrendingUp, TrendingDown, Package, ClipboardList, ShoppingCart, Calendar, Filter, PieChart as PieIcon, BarChart3, Users, ArrowRight, Activity, DollarSign, ArrowUpRight, ArrowDownRight, RefreshCw } from 'lucide-react';
+import { TrendingUp, TrendingDown, Package, ClipboardList, ShoppingCart, Calendar, Filter, PieChart as PieIcon, BarChart3, Users, ArrowRight, Activity, DollarSign, ArrowUpRight, ArrowDownRight, RefreshCw, UserCircle, Minus } from 'lucide-react';
 
 interface DashboardViewProps {
   materials: Material[];
@@ -106,6 +106,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({
           const dateObj = parseDate(item.date);
           const fi = getFiscalInfo(dateObj);
           const cust = custMap.get(item.customerName.toLowerCase().trim());
+          
+          // Determine Grouping Key: Group -> Name
+          const primaryGroup = cust?.group?.trim();
+          const groupingKey = (primaryGroup && primaryGroup !== 'Unassigned') ? primaryGroup : item.customerName;
+
           return {
               ...item,
               ...fi,
@@ -113,7 +118,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
               custGroup: cust?.group || 'Unassigned',
               custStatus: cust?.status || 'Unknown',
               salesRep: cust?.salesRep || 'Unassigned',
-              derivedGroup: (cust?.group && cust.group !== 'Unassigned') ? cust.group : item.customerName // Logic: If group empty, use name
+              derivedGroup: groupingKey
           };
       });
   }, [salesReportItems, customers]);
@@ -266,18 +271,33 @@ const DashboardView: React.FC<DashboardViewProps> = ({
           .sort((a, b) => b.value - a.value);
   }, [currentData, pieMetric]);
 
-  // --- 6. Top 10 Customers (Pivot Logic: Group else Name) ---
+  // --- 6. Top 10 Customers (Group Logic with Fallback) ---
   const topCustomers = useMemo(() => {
-      const map = new Map<string, number>();
+      // 1. Aggregate Current Data by Group (fallback to Name)
+      const currentMap = new Map<string, number>();
       currentData.forEach(i => {
-          const key = i.derivedGroup || 'Unknown';
-          map.set(key, (map.get(key) || 0) + i.value);
+          const key = i.derivedGroup;
+          currentMap.set(key, (currentMap.get(key) || 0) + i.value);
       });
-      return Array.from(map.entries())
-          .map(([label, value]) => ({ label, value }))
+
+      // 2. Aggregate Previous Data using SAME keys (derivedGroup)
+      const prevMap = new Map<string, number>();
+      previousData.forEach(i => {
+          const key = i.derivedGroup;
+          prevMap.set(key, (prevMap.get(key) || 0) + i.value);
+      });
+
+      // 3. Combine & Sort
+      return Array.from(currentMap.entries())
+          .map(([label, value]) => {
+              const prevValue = prevMap.get(label) || 0;
+              const diff = value - prevValue;
+              const pct = prevValue !== 0 ? (diff / prevValue) * 100 : 0;
+              return { label, value, prevValue, diff, pct };
+          })
           .sort((a, b) => b.value - a.value)
           .slice(0, 10);
-  }, [currentData]);
+  }, [currentData, previousData]);
 
   // --- Render Helpers ---
   const formatNumber = (val: number) => Math.round(val).toLocaleString('en-IN');
@@ -596,8 +616,12 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 {/* 3. Top 10 Pivot (Bar Chart) */}
                 <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col h-80">
                     <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2"><BarChart3 className="w-4 h-4 text-emerald-600" /> Top 10 Customer Groups / Accounts</h3>
-                        <span className="text-[10px] text-gray-400 italic">By Total Sales Value</span>
+                        <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                            <BarChart3 className="w-4 h-4 text-emerald-600" /> Top 10 Customer Groups
+                        </h3>
+                        <span className="text-[10px] text-gray-400 italic text-right">
+                             Values vs {comparisonLabel}
+                        </span>
                     </div>
                     
                     {/* Header for Pivot */}
@@ -609,14 +633,26 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                     <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-3">
                         {topCustomers.map((item, idx) => {
                             const maxVal = topCustomers[0]?.value || 1;
+                            const isPositive = item.diff >= 0;
+                            
                             return (
                                 <div key={idx} className="group hover:bg-gray-50 p-1 rounded transition-colors">
-                                    <div className="flex justify-between items-center text-xs mb-1">
+                                    <div className="flex justify-between items-start text-xs mb-1">
                                         <div className="flex items-center gap-2 overflow-hidden">
-                                            <span className="w-5 text-[10px] font-bold text-gray-400 bg-gray-100 rounded text-center">{idx + 1}</span>
+                                            <span className="w-5 text-[10px] font-bold text-gray-400 bg-gray-100 rounded text-center flex-shrink-0">{idx + 1}</span>
                                             <span className="font-bold text-gray-700 truncate">{item.label}</span>
                                         </div>
-                                        <span className="font-bold text-gray-900">{formatNumber(item.value)}</span>
+                                        <div className="flex flex-col items-end">
+                                            <span className="font-bold text-gray-900">{formatNumber(item.value)}</span>
+                                            {item.prevValue > 0 && (
+                                                <div className="flex items-center gap-1 text-[9px] mt-0.5">
+                                                    <span className="text-gray-400">vs {formatNumber(item.prevValue)}</span>
+                                                    <span className={`font-medium ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                                                        {isPositive ? '+' : ''}{Math.round(item.pct)}%
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                     <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden ml-7 w-[calc(100%-1.75rem)]">
                                         <div className="bg-emerald-500 h-full rounded-full transition-all duration-500 group-hover:bg-emerald-600" style={{ width: `${(item.value / maxVal) * 100}%` }}></div>
