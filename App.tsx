@@ -226,8 +226,8 @@ const App: React.FC = () => {
               <Database className="w-4 h-4" />
             </div>
             <div className={`${isSidebarOpen ? 'opacity-100' : 'opacity-0 hidden'} transition-opacity`}>
-               <h1 className="text-sm font-bold text-gray-900 leading-tight">Material Master</h1>
-               <p className="text-[9px] text-gray-500 font-medium">AI Database System</p>
+               <h1 className="text-sm font-bold text-gray-900 leading-tight">Siddhi Kabel Corp.</h1>
+               <p className="text-[9px] text-gray-500 font-medium">Reports System</p>
             </div>
           </div>
         </div>
@@ -280,7 +280,7 @@ const App: React.FC = () => {
                <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-lg">
                   {isSidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
                </button>
-               <span className="font-bold text-gray-900">Material Master AI</span>
+               <span className="font-bold text-gray-900">Siddhi Kabel Reports</span>
             </div>
         </header>
 
