@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Material, ClosingStockItem, PendingSOItem, PendingPOItem, SalesRecord, SalesReportItem, CustomerMasterItem } from '../types';
-import { TrendingUp, TrendingDown, Package, ClipboardList, ShoppingCart, Calendar, Filter, PieChart as PieIcon, BarChart3, Users, ArrowRight, Activity, DollarSign, ArrowUpRight, ArrowDownRight, RefreshCw, UserCircle, Minus } from 'lucide-react';
+import { TrendingUp, TrendingDown, Package, ClipboardList, ShoppingCart, Calendar, Filter, PieChart as PieIcon, BarChart3, Users, ArrowRight, Activity, DollarSign, ArrowUpRight, ArrowDownRight, RefreshCw, UserCircle, Minus, Plus, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface DashboardViewProps {
   materials: Material[];
@@ -17,7 +17,6 @@ interface DashboardViewProps {
 
 type TimeView = 'FY' | 'MONTH' | 'WEEK';
 type ComparisonMode = 'PREV_PERIOD' | 'PREV_YEAR';
-type PieMetric = 'GROUP' | 'STATUS' | 'REP';
 
 const DashboardView: React.FC<DashboardViewProps> = ({
   materials,
@@ -42,7 +41,18 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   });
   
   const [selectedWeek, setSelectedWeek] = useState<number>(1);
-  const [pieMetric, setPieMetric] = useState<PieMetric>('GROUP');
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+
+  // Toggle Group Expansion
+  const toggleGroup = (groupName: string) => {
+    const newSet = new Set(expandedGroups);
+    if (newSet.has(groupName)) {
+      newSet.delete(groupName);
+    } else {
+      newSet.add(groupName);
+    }
+    setExpandedGroups(newSet);
+  };
 
   // --- Helper: Robust Date Parsing ---
   const parseDate = (val: any): Date => {
@@ -107,18 +117,21 @@ const DashboardView: React.FC<DashboardViewProps> = ({
           const fi = getFiscalInfo(dateObj);
           const cust = custMap.get(item.customerName.toLowerCase().trim());
           
-          // Determine Grouping Key: Group -> Name
-          const primaryGroup = cust?.group?.trim();
+          // Determine Grouping Key: Customer Group -> Customer Name
+          // User Requirement: "refer the Customer master Customer Group... if nothing Mention... consider Customer Name"
+          const primaryGroup = cust?.customerGroup?.trim(); 
           const groupingKey = (primaryGroup && primaryGroup !== 'Unassigned') ? primaryGroup : item.customerName;
-
+          
           return {
               ...item,
               ...fi,
               rawDate: dateObj,
-              custGroup: cust?.group || 'Unassigned',
+              custGroup: primaryGroup, // Actual Customer Group field
+              oldGroupField: cust?.group, // The 'Group' field
               custStatus: cust?.status || 'Unknown',
               salesRep: cust?.salesRep || 'Unassigned',
-              derivedGroup: groupingKey
+              derivedGroup: groupingKey,
+              isGrouped: !!(primaryGroup && primaryGroup !== 'Unassigned')
           };
       });
   }, [salesReportItems, customers]);
@@ -255,32 +268,42 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       }
   }, [currentData, previousData, timeView, selectedFY, enrichedSales, comparisonMode]);
 
-  // --- 5. Pie Chart Data ---
-  const pieData = useMemo(() => {
+  // --- 5. Pie Chart Data: Group & Status (Two separate datasets) ---
+  const pieDataGroup = useMemo(() => {
       const map = new Map<string, number>();
       currentData.forEach(i => {
-          let key = 'Unknown';
-          if (pieMetric === 'GROUP') key = i.custGroup || 'Unassigned';
-          else if (pieMetric === 'STATUS') key = i.custStatus || 'Unknown';
-          else if (pieMetric === 'REP') key = i.salesRep || 'Unassigned';
-
+          let key = i.derivedGroup || 'Unknown';
           map.set(key, (map.get(key) || 0) + i.value);
       });
       return Array.from(map.entries())
           .map(([label, value]) => ({ label, value }))
           .sort((a, b) => b.value - a.value);
-  }, [currentData, pieMetric]);
+  }, [currentData]);
 
-  // --- 6. Top 10 Customers (Group Logic with Fallback) ---
+  const pieDataStatus = useMemo(() => {
+    const map = new Map<string, number>();
+    currentData.forEach(i => {
+        let key = i.custStatus || 'Unknown';
+        map.set(key, (map.get(key) || 0) + i.value);
+    });
+    return Array.from(map.entries())
+        .map(([label, value]) => ({ label, value }))
+        .sort((a, b) => b.value - a.value);
+  }, [currentData]);
+
+  // --- 6. Top 10 Customers (Group Logic with Expansion) ---
   const topCustomers = useMemo(() => {
-      // 1. Aggregate Current Data by Group (fallback to Name)
-      const currentMap = new Map<string, number>();
+      // 1. Aggregate Current Data by Group
+      const currentMap = new Map<string, { value: number, isGroup: boolean }>();
       currentData.forEach(i => {
           const key = i.derivedGroup;
-          currentMap.set(key, (currentMap.get(key) || 0) + i.value);
+          const existing = currentMap.get(key) || { value: 0, isGroup: false };
+          existing.value += i.value;
+          if (i.isGrouped) existing.isGroup = true;
+          currentMap.set(key, existing);
       });
 
-      // 2. Aggregate Previous Data using SAME keys (derivedGroup)
+      // 2. Aggregate Previous Data
       const prevMap = new Map<string, number>();
       previousData.forEach(i => {
           const key = i.derivedGroup;
@@ -289,18 +312,36 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
       // 3. Combine & Sort
       return Array.from(currentMap.entries())
-          .map(([label, value]) => {
+          .map(([label, { value, isGroup }]) => {
               const prevValue = prevMap.get(label) || 0;
               const diff = value - prevValue;
               const pct = prevValue !== 0 ? (diff / prevValue) * 100 : 0;
-              return { label, value, prevValue, diff, pct };
+              return { label, value, prevValue, diff, pct, isGroup };
           })
           .sort((a, b) => b.value - a.value)
           .slice(0, 10);
   }, [currentData, previousData]);
 
+  // Helper to get customers within a specific group
+  const getGroupBreakdown = (groupName: string) => {
+    const breakdownMap = new Map<string, number>();
+    currentData
+      .filter(i => i.derivedGroup === groupName)
+      .forEach(i => {
+         breakdownMap.set(i.customerName, (breakdownMap.get(i.customerName) || 0) + i.value);
+      });
+    return Array.from(breakdownMap.entries())
+      .map(([name, val]) => ({ name, value: val }))
+      .sort((a, b) => b.value - a.value);
+  };
+
   // --- Render Helpers ---
   const formatNumber = (val: number) => Math.round(val).toLocaleString('en-IN');
+  const formatCompactNumber = (val: number) => {
+      if (val >= 1000000) return (val / 1000000).toFixed(1) + 'M';
+      if (val >= 1000) return (val / 1000).toFixed(1) + 'k';
+      return Math.round(val).toString();
+  };
   const formatCurrency = (val: number) => `Rs. ${formatNumber(val)}`;
   
   // Format Large Numbers for Axis
@@ -331,6 +372,71 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       const allValues = lineChartData.series.flatMap(s => s.data);
       return Math.max(...allValues, 1000) * 1.1; // 10% Headroom
   }, [lineChartData]);
+
+  // Donut Chart Component
+  const SimpleDonut = ({ data, title, color }: { data: {label: string, value: number}[], title: string, color: string }) => {
+     if(data.length === 0) return <div className="h-32 flex items-center justify-center text-gray-400 text-xs">No Data</div>;
+     
+     const total = data.reduce((a,b) => a+b.value, 0);
+     let cumPercent = 0;
+     
+     // Only show top 5 + Other
+     let displayData = data;
+     if (data.length > 5) {
+         const top5 = data.slice(0, 5);
+         const otherVal = data.slice(5).reduce((a,b) => a+b.value, 0);
+         displayData = [...top5, { label: 'Others', value: otherVal }];
+     }
+
+     return (
+        <div className="flex flex-col h-full">
+            <h4 className="text-[10px] font-bold text-gray-500 uppercase mb-2">{title}</h4>
+            <div className="flex items-center gap-4 flex-1">
+                <div className="w-20 h-20 relative flex-shrink-0">
+                   <svg viewBox="-1 -1 2 2" className="transform -rotate-90 w-full h-full">
+                      {displayData.map((slice, i) => {
+                          const percent = slice.value / total;
+                          const startX = Math.cos(2 * Math.PI * cumPercent);
+                          const startY = Math.sin(2 * Math.PI * cumPercent);
+                          cumPercent += percent;
+                          const endX = Math.cos(2 * Math.PI * cumPercent);
+                          const endY = Math.sin(2 * Math.PI * cumPercent);
+                          const largeArc = percent > 0.5 ? 1 : 0;
+                          
+                          // Quick distinct colors
+                          const sliceColor = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#9CA3AF'][i % 6];
+                          
+                          return (
+                              <path 
+                                key={i}
+                                d={`M ${startX} ${startY} A 1 1 0 ${largeArc} 1 ${endX} ${endY} L 0 0`}
+                                fill={sliceColor}
+                                stroke="white"
+                                strokeWidth="0.05"
+                              />
+                          );
+                      })}
+                      <circle cx="0" cy="0" r="0.6" fill="white" />
+                   </svg>
+                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                       <span className={`text-[8px] font-bold text-${color}-600`}>{formatCompactNumber(total)}</span>
+                   </div>
+                </div>
+                <div className="flex-1 overflow-y-auto custom-scrollbar h-24 text-[9px]">
+                    {displayData.map((d, i) => (
+                        <div key={i} className="flex justify-between items-center mb-1">
+                             <div className="flex items-center gap-1.5 truncate">
+                                <div className="w-1.5 h-1.5 rounded-full" style={{backgroundColor: ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#9CA3AF'][i % 6]}}></div>
+                                <span className="text-gray-600 truncate max-w-[80px]" title={d.label}>{d.label}</span>
+                             </div>
+                             <span className="font-bold text-gray-800">{Math.round((d.value/total)*100)}%</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+     );
+  };
 
   return (
     <div className="h-full w-full flex flex-col bg-gray-50/50 overflow-hidden">
@@ -519,8 +625,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
                                         {/* Series Paths */}
                                         {lineChartData.series.map((series, sIdx) => {
-                                            // Generate points string for SVG polyline/polygon
-                                            // x and y are percentages 0-100 relative to viewBox
                                             const points = series.data.map((val, i) => {
                                                 const x = (i / (lineChartData.labels.length - 1)) * 100;
                                                 const y = 100 - (val / chartMax * 100);
@@ -544,22 +648,44 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                         className="transition-all duration-300 ease-out"
                                                         vectorEffect="non-scaling-stroke"
                                                     />
-                                                    {/* Hover Dots (only for main series to avoid clutter) */}
-                                                    {sIdx === 0 && series.data.map((val, i) => (
-                                                        <circle 
-                                                            key={i}
-                                                            cx={(i / (lineChartData.labels.length - 1)) * 100}
-                                                            cy={100 - (val / chartMax * 100)}
-                                                            r="2" // Scaled relative to SVG coord, vectorEffect to keep size visual
-                                                            fill="white"
-                                                            stroke={series.color}
-                                                            strokeWidth="1.5"
-                                                            vectorEffect="non-scaling-stroke"
-                                                            className="hover:scale-125 transition-transform cursor-pointer"
-                                                        >
-                                                            <title>{`${lineChartData.labels[i]}: ${formatNumber(val)}`}</title>
-                                                        </circle>
-                                                    ))}
+                                                    
+                                                    {/* Data Points and Labels (Visible Labels only for main series and reasonable count) */}
+                                                    {sIdx === 0 && series.data.map((val, i) => {
+                                                        const x = (i / (lineChartData.labels.length - 1)) * 100;
+                                                        const y = 100 - (val / chartMax * 100);
+                                                        // Show labels only if not too crowded (e.g., FY view or Week View)
+                                                        const showLabel = lineChartData.labels.length <= 13; 
+
+                                                        return (
+                                                            <g key={i}>
+                                                                <circle 
+                                                                    cx={x}
+                                                                    cy={y}
+                                                                    r="2" 
+                                                                    fill="white"
+                                                                    stroke={series.color}
+                                                                    strokeWidth="1.5"
+                                                                    vectorEffect="non-scaling-stroke"
+                                                                    className="hover:scale-125 transition-transform cursor-pointer"
+                                                                >
+                                                                    <title>{`${lineChartData.labels[i]}: ${formatNumber(val)}`}</title>
+                                                                </circle>
+                                                                {showLabel && val > 0 && (
+                                                                    <text 
+                                                                        x={x} 
+                                                                        y={y - 8} 
+                                                                        textAnchor="middle" 
+                                                                        fill="#374151" 
+                                                                        fontSize="3.5" 
+                                                                        fontWeight="bold"
+                                                                        style={{ pointerEvents: 'none', textShadow: '0px 0px 2px white' }}
+                                                                    >
+                                                                        {formatCompactNumber(val)}
+                                                                    </text>
+                                                                )}
+                                                            </g>
+                                                        );
+                                                    })}
                                                 </g>
                                             );
                                         })}
@@ -576,57 +702,38 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                         </div>
                     </div>
 
-                    {/* Pie Chart (Distribution) */}
+                    {/* Pie Charts (Split View: Group & Status) */}
                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col min-h-[350px]">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2"><PieIcon className="w-4 h-4 text-purple-600" /> Sales Distribution</h3>
-                            <div className="flex bg-gray-100 p-0.5 rounded">
-                                <button onClick={() => setPieMetric('GROUP')} className={`px-2 py-0.5 text-[9px] font-bold rounded ${pieMetric === 'GROUP' ? 'bg-white shadow text-purple-700' : 'text-gray-500'}`}>Group</button>
-                                <button onClick={() => setPieMetric('REP')} className={`px-2 py-0.5 text-[9px] font-bold rounded ${pieMetric === 'REP' ? 'bg-white shadow text-purple-700' : 'text-gray-500'}`}>Rep</button>
-                                <button onClick={() => setPieMetric('STATUS')} className={`px-2 py-0.5 text-[9px] font-bold rounded ${pieMetric === 'STATUS' ? 'bg-white shadow text-purple-700' : 'text-gray-500'}`}>Status</button>
-                            </div>
+                        <div className="flex justify-between items-center mb-2 flex-shrink-0">
+                            <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2"><PieIcon className="w-4 h-4 text-purple-600" /> Sales Mix</h3>
                         </div>
-                        <div className="flex-1 overflow-y-auto custom-scrollbar">
-                            {pieData.length === 0 ? <div className="text-center text-gray-400 text-xs mt-10">No data</div> : (
-                                <div className="space-y-2">
-                                    {pieData.map((item, idx) => {
-                                        const total = pieData.reduce((a, b) => a + b.value, 0);
-                                        const pct = (item.value / total) * 100;
-                                        return (
-                                            <div key={idx} className="flex flex-col gap-1">
-                                                <div className="flex justify-between text-xs">
-                                                    <span className="font-medium text-gray-700 truncate w-3/4">{item.label}</span>
-                                                    <div className="flex gap-2">
-                                                      <span className="font-bold">{formatNumber(item.value)}</span>
-                                                      <span className="text-gray-400 text-[10px]">({Math.round(pct)}%)</span>
-                                                    </div>
-                                                </div>
-                                                <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
-                                                    <div className="bg-purple-500 h-full rounded-full" style={{ width: `${pct}%` }}></div>
-                                                </div>
-                                            </div>
-                                        )
-                                    })}
-                                </div>
-                            )}
+                        <div className="flex-1 flex flex-col gap-4 overflow-hidden min-h-0">
+                            {/* 1. Customer Group Donut */}
+                            <div className="flex-1 min-h-0 border-b border-dashed border-gray-200 pb-2">
+                                <SimpleDonut data={pieDataGroup} title="By Customer Group" color="blue" />
+                            </div>
+                            {/* 2. Customer Status Donut */}
+                            <div className="flex-1 min-h-0 pt-2">
+                                <SimpleDonut data={pieDataStatus} title="By Status" color="green" />
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                {/* 3. Top 10 Pivot (Bar Chart) */}
-                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col h-80">
+                {/* 3. Top 10 Pivot (Bar Chart with Expandable Rows) */}
+                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col h-auto min-h-[350px]">
                     <div className="flex justify-between items-center mb-4">
                         <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
-                            <BarChart3 className="w-4 h-4 text-emerald-600" /> Top 10 Customer Groups
+                            <BarChart3 className="w-4 h-4 text-emerald-600" /> Top 10 Customer Groups (Expandable)
                         </h3>
                         <span className="text-[10px] text-gray-400 italic text-right">
                              Values vs {comparisonLabel}
                         </span>
                     </div>
                     
-                    {/* Header for Pivot */}
-                    <div className="flex justify-between text-[10px] font-bold text-gray-400 uppercase border-b border-gray-100 pb-2 mb-2">
-                        <span>Group / Customer</span>
+                    {/* Header */}
+                    <div className="flex justify-between text-[10px] font-bold text-gray-400 uppercase border-b border-gray-100 pb-2 mb-2 px-2">
+                        <span>Group Name</span>
                         <span>Total Sales</span>
                     </div>
 
@@ -634,29 +741,58 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                         {topCustomers.map((item, idx) => {
                             const maxVal = topCustomers[0]?.value || 1;
                             const isPositive = item.diff >= 0;
+                            const isExpanded = expandedGroups.has(item.label);
+                            const breakdown = isExpanded && item.isGroup ? getGroupBreakdown(item.label) : [];
                             
                             return (
-                                <div key={idx} className="group hover:bg-gray-50 p-1 rounded transition-colors">
-                                    <div className="flex justify-between items-start text-xs mb-1">
-                                        <div className="flex items-center gap-2 overflow-hidden">
-                                            <span className="w-5 text-[10px] font-bold text-gray-400 bg-gray-100 rounded text-center flex-shrink-0">{idx + 1}</span>
-                                            <span className="font-bold text-gray-700 truncate">{item.label}</span>
+                                <div key={idx} className="bg-gray-50/50 rounded-lg border border-gray-100 overflow-hidden">
+                                    <div 
+                                        className="p-2 flex flex-col cursor-pointer hover:bg-gray-100 transition-colors"
+                                        onClick={() => item.isGroup && toggleGroup(item.label)}
+                                    >
+                                        <div className="flex justify-between items-start text-xs mb-1">
+                                            <div className="flex items-center gap-2 overflow-hidden">
+                                                <button 
+                                                    className={`w-5 h-5 flex items-center justify-center rounded transition-colors ${item.isGroup ? 'hover:bg-gray-200 text-gray-600' : 'opacity-0 cursor-default'}`}
+                                                >
+                                                    {item.isGroup && (isExpanded ? <Minus className="w-3 h-3" /> : <Plus className="w-3 h-3" />)}
+                                                </button>
+                                                <span className="w-5 text-[10px] font-bold text-gray-400 bg-white border border-gray-200 rounded text-center flex-shrink-0">{idx + 1}</span>
+                                                <span className="font-bold text-gray-800 truncate select-none">{item.label}</span>
+                                            </div>
+                                            <div className="flex flex-col items-end">
+                                                <span className="font-bold text-gray-900">{formatNumber(item.value)}</span>
+                                                {item.prevValue > 0 && (
+                                                    <div className="flex items-center gap-1 text-[9px] mt-0.5">
+                                                        <span className="text-gray-400">vs {formatCompactNumber(item.prevValue)}</span>
+                                                        <span className={`font-medium ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                                                            {isPositive ? '+' : ''}{Math.round(item.pct)}%
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
-                                        <div className="flex flex-col items-end">
-                                            <span className="font-bold text-gray-900">{formatNumber(item.value)}</span>
-                                            {item.prevValue > 0 && (
-                                                <div className="flex items-center gap-1 text-[9px] mt-0.5">
-                                                    <span className="text-gray-400">vs {formatNumber(item.prevValue)}</span>
-                                                    <span className={`font-medium ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
-                                                        {isPositive ? '+' : ''}{Math.round(item.pct)}%
-                                                    </span>
-                                                </div>
-                                            )}
+                                        {/* Main Bar */}
+                                        <div className="w-full bg-gray-200 h-1.5 rounded-full overflow-hidden ml-12 w-[calc(100%-3rem)]">
+                                            <div className="bg-emerald-500 h-full rounded-full transition-all duration-500" style={{ width: `${(item.value / maxVal) * 100}%` }}></div>
                                         </div>
                                     </div>
-                                    <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden ml-7 w-[calc(100%-1.75rem)]">
-                                        <div className="bg-emerald-500 h-full rounded-full transition-all duration-500 group-hover:bg-emerald-600" style={{ width: `${(item.value / maxVal) * 100}%` }}></div>
-                                    </div>
+
+                                    {/* Expanded Details */}
+                                    {isExpanded && item.isGroup && (
+                                        <div className="bg-white border-t border-gray-100 p-2 pl-14 animate-in slide-in-from-top-1 duration-200">
+                                            <p className="text-[9px] font-bold text-gray-400 uppercase mb-2">Group Breakdown</p>
+                                            <div className="space-y-2">
+                                                {breakdown.map((cust, cIdx) => (
+                                                    <div key={cIdx} className="flex justify-between items-center text-[10px]">
+                                                        <span className="text-gray-600 truncate flex-1">{cust.name}</span>
+                                                        <span className="font-medium text-gray-800">{formatNumber(cust.value)}</span>
+                                                    </div>
+                                                ))}
+                                                {breakdown.length === 0 && <span className="text-[10px] text-gray-400 italic">No details available</span>}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             )
                         })}
