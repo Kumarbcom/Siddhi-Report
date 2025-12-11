@@ -17,7 +17,7 @@ interface DashboardViewProps {
 
 type TimeView = 'FY' | 'MONTH' | 'WEEK';
 type ComparisonMode = 'PREV_PERIOD' | 'PREV_YEAR';
-type PieMetric = 'GROUP' | 'STATUS';
+type PieMetric = 'GROUP' | 'STATUS' | 'REP';
 
 const DashboardView: React.FC<DashboardViewProps> = ({
   materials,
@@ -112,6 +112,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
               rawDate: dateObj,
               custGroup: cust?.group || 'Unassigned',
               custStatus: cust?.status || 'Unknown',
+              salesRep: cust?.salesRep || 'Unassigned',
               derivedGroup: (cust?.group && cust.group !== 'Unassigned') ? cust.group : item.customerName // Logic: If group empty, use name
           };
       });
@@ -253,7 +254,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   const pieData = useMemo(() => {
       const map = new Map<string, number>();
       currentData.forEach(i => {
-          const key = pieMetric === 'GROUP' ? (i.custGroup || 'Unassigned') : (i.custStatus || 'Unknown');
+          let key = 'Unknown';
+          if (pieMetric === 'GROUP') key = i.custGroup || 'Unassigned';
+          else if (pieMetric === 'STATUS') key = i.custStatus || 'Unknown';
+          else if (pieMetric === 'REP') key = i.salesRep || 'Unassigned';
+
           map.set(key, (map.get(key) || 0) + i.value);
       });
       return Array.from(map.entries())
@@ -275,9 +280,15 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   }, [currentData]);
 
   // --- Render Helpers ---
-  // Updated: Show full rounded numbers for all currency values
   const formatNumber = (val: number) => Math.round(val).toLocaleString('en-IN');
   const formatCurrency = (val: number) => `Rs. ${formatNumber(val)}`;
+  
+  // Format Large Numbers for Axis
+  const formatAxisValue = (val: number) => {
+    if (val >= 1000000) return (val / 1000000).toFixed(1) + 'M';
+    if (val >= 1000) return (val / 1000).toFixed(0) + 'k';
+    return val.toFixed(0);
+  };
 
   // --- Dynamic Comparison Label ---
   const comparisonLabel = useMemo(() => {
@@ -294,6 +305,12 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     }
     return 'Prev Period';
   }, [comparisonMode, timeView, selectedMonth, selectedWeek]);
+
+  // Calculate Chart Max for Y-Axis
+  const chartMax = useMemo(() => {
+      const allValues = lineChartData.series.flatMap(s => s.data);
+      return Math.max(...allValues, 1000) * 1.1; // 10% Headroom
+  }, [lineChartData]);
 
   return (
     <div className="h-full w-full flex flex-col bg-gray-50/50 overflow-hidden">
@@ -441,47 +458,100 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                 ))}
                             </div>
                         </div>
-                        <div className="flex-1 w-full flex flex-col min-h-0">
-                            <div className="flex-1 w-full relative min-h-0">
-                                {/* Simple SVG Line Chart Implementation */}
-                                <svg className="w-full h-full absolute inset-0" viewBox={`0 0 ${Math.max(lineChartData.labels.length * 10, 100)} 100`} preserveAspectRatio="none">
-                                    {/* Grid Lines */}
-                                    {[0, 25, 50, 75, 100].map(y => (
-                                        <line key={y} x1="0" y1={y} x2="1000" y2={y} stroke="#f3f4f6" strokeWidth="0.5" />
-                                    ))}
-                                    
-                                    {/* Data Paths */}
-                                    {(() => {
-                                        // Calculate global max across all active series for scaling
-                                        const allValues = lineChartData.series.flatMap(s => s.data);
-                                        const max = Math.max(...allValues, 1) * 1.1;
-                                        const step = (Math.max(lineChartData.labels.length * 10, 100)) / (lineChartData.labels.length - 1 || 1);
-                                        
-                                        const getPoints = (series: number[]) => series.map((v, i) => `${i * step},${100 - (v / max * 100)}`).join(' ');
-
-                                        return lineChartData.series.map((series, idx) => (
-                                            <React.Fragment key={idx}>
-                                                <polyline 
-                                                    points={getPoints(series.data)} 
-                                                    fill="none" 
-                                                    stroke={series.color} 
-                                                    strokeWidth={idx === 0 ? "2.5" : "2"} 
-                                                    strokeDasharray={idx > 0 && !lineChartData.isMultiYear ? "4" : "0"} 
-                                                />
-                                                {/* Dots for Current Series (First one usually) */}
-                                                {idx === 0 && series.data.map((v, i) => (
-                                                    <circle key={i} cx={i * step} cy={100 - (v/max*100)} r="2.5" fill="white" stroke={series.color} strokeWidth="2" />
-                                                ))}
-                                            </React.Fragment>
-                                        ));
-                                    })()}
-                                </svg>
+                        
+                        <div className="flex flex-1 min-h-0 pt-4">
+                            {/* Y-Axis */}
+                            <div className="flex flex-col justify-between text-[10px] text-gray-400 font-medium pr-3 pb-6 h-full text-right w-12 shrink-0 select-none border-r border-gray-100">
+                                <span>{formatAxisValue(chartMax)}</span>
+                                <span>{formatAxisValue(chartMax * 0.75)}</span>
+                                <span>{formatAxisValue(chartMax * 0.5)}</span>
+                                <span>{formatAxisValue(chartMax * 0.25)}</span>
+                                <span>0</span>
                             </div>
-                            {/* X-Axis Labels */}
-                            <div className="flex justify-between text-[9px] text-gray-400 mt-2 border-t border-gray-100 pt-1 h-6 shrink-0">
-                                {lineChartData.labels.map((l, i) => (
-                                    <span key={i} style={{width: `${100/lineChartData.labels.length}%`, textAlign: 'center'}}>{l}</span>
-                                ))}
+
+                            {/* Chart Area */}
+                            <div className="flex-1 flex flex-col min-w-0 relative pl-2">
+                                {/* Graph */}
+                                <div className="flex-1 relative">
+                                    <svg className="w-full h-full absolute inset-0 overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
+                                        {/* Define Gradients */}
+                                        <defs>
+                                            <linearGradient id="gradient-blue" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.2" />
+                                                <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
+                                            </linearGradient>
+                                        </defs>
+
+                                        {/* Grid Lines */}
+                                        {[0, 0.25, 0.5, 0.75, 1].map((p, i) => (
+                                            <line 
+                                                key={i} 
+                                                x1="0" 
+                                                y1={p * 100} 
+                                                x2="100" 
+                                                y2={p * 100} 
+                                                stroke="#f3f4f6" 
+                                                strokeWidth="1" 
+                                                strokeDasharray={p === 1 ? "" : "2"} // Solid line at bottom (100% or 0 value)
+                                                vectorEffect="non-scaling-stroke"
+                                            />
+                                        ))}
+
+                                        {/* Series Paths */}
+                                        {lineChartData.series.map((series, sIdx) => {
+                                            // Generate points string for SVG polyline/polygon
+                                            // x and y are percentages 0-100 relative to viewBox
+                                            const points = series.data.map((val, i) => {
+                                                const x = (i / (lineChartData.labels.length - 1)) * 100;
+                                                const y = 100 - (val / chartMax * 100);
+                                                return `${x},${y}`;
+                                            }).join(' ');
+                                            
+                                            const areaPoints = `${points} 100,100 0,100`;
+
+                                            return (
+                                                <g key={sIdx}>
+                                                    {sIdx === 0 && (
+                                                        <polygon points={areaPoints} fill="url(#gradient-blue)" />
+                                                    )}
+                                                    <polyline 
+                                                        points={points} 
+                                                        fill="none" 
+                                                        stroke={series.color} 
+                                                        strokeWidth="2"
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                        className="transition-all duration-300 ease-out"
+                                                        vectorEffect="non-scaling-stroke"
+                                                    />
+                                                    {/* Hover Dots (only for main series to avoid clutter) */}
+                                                    {sIdx === 0 && series.data.map((val, i) => (
+                                                        <circle 
+                                                            key={i}
+                                                            cx={(i / (lineChartData.labels.length - 1)) * 100}
+                                                            cy={100 - (val / chartMax * 100)}
+                                                            r="2" // Scaled relative to SVG coord, vectorEffect to keep size visual
+                                                            fill="white"
+                                                            stroke={series.color}
+                                                            strokeWidth="1.5"
+                                                            vectorEffect="non-scaling-stroke"
+                                                            className="hover:scale-125 transition-transform cursor-pointer"
+                                                        >
+                                                            <title>{`${lineChartData.labels[i]}: ${formatNumber(val)}`}</title>
+                                                        </circle>
+                                                    ))}
+                                                </g>
+                                            );
+                                        })}
+                                    </svg>
+                                </div>
+
+                                {/* X-Axis Labels */}
+                                <div className="h-6 flex justify-between items-center mt-2 text-[10px] text-gray-400 font-medium select-none">
+                                    {lineChartData.labels.map((l, i) => (
+                                        <span key={i} className="flex-1 text-center truncate">{l}</span>
+                                    ))}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -492,6 +562,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                             <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2"><PieIcon className="w-4 h-4 text-purple-600" /> Sales Distribution</h3>
                             <div className="flex bg-gray-100 p-0.5 rounded">
                                 <button onClick={() => setPieMetric('GROUP')} className={`px-2 py-0.5 text-[9px] font-bold rounded ${pieMetric === 'GROUP' ? 'bg-white shadow text-purple-700' : 'text-gray-500'}`}>Group</button>
+                                <button onClick={() => setPieMetric('REP')} className={`px-2 py-0.5 text-[9px] font-bold rounded ${pieMetric === 'REP' ? 'bg-white shadow text-purple-700' : 'text-gray-500'}`}>Rep</button>
                                 <button onClick={() => setPieMetric('STATUS')} className={`px-2 py-0.5 text-[9px] font-bold rounded ${pieMetric === 'STATUS' ? 'bg-white shadow text-purple-700' : 'text-gray-500'}`}>Status</button>
                             </div>
                         </div>
