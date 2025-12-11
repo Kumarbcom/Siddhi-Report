@@ -47,6 +47,7 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
   // Processing States
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string>('');
   
   // --- New Filter States ---
   const [selectedFY, setSelectedFY] = useState<string>('');
@@ -97,14 +98,9 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
     const baseDate = new Date(fyFirstThu);
     baseDate.setHours(0,0,0,0);
 
-    // If date is before the first Thursday of FY, it effectively belongs to "Week 0" or previous FY logic 
-    // For simplicity, we assign it based on simple day diff from April 1st if needed, but let's stick to simple logic:
-    // Week number = Math.floor(diffDays / 7) + 1
     const diffTime = checkDate.getTime() - baseDate.getTime();
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
     
-    // If date is before the first official Thursday but within FY (Apr 1 - First Thu), it's Week 1
-    // If diffDays is negative, it means it's the partial week at start of FY
     const weekNumber = diffDays >= 0 ? Math.floor(diffDays / 7) + 2 : 1; 
 
     return { fiscalYear, fiscalMonthIndex, weekNumber };
@@ -127,18 +123,13 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
       else firstThu.setDate(firstThu.getDate() + (4 - firstThu.getDay() + 7));
 
       // Calculate Start Date of Week X
-      // Week 1 covers April 1 to First Wednesday
-      // Week 2 starts on First Thursday.
-      // So if weekNum > 1:
       const weekStartDate = new Date(firstThu);
       weekStartDate.setDate(weekStartDate.getDate() + (weekNum - 2) * 7);
       
-      // If weekNum is 1, strictly it starts April 1st, ends First Wednesday
       let displayStart = new Date(weekStartDate);
       if (weekNum === 1) displayStart = new Date(startYear, 3, 1);
       
       const displayEnd = new Date(displayStart);
-      // If Week 1, End is First Wednesday (firstThu - 1 day)
       if (weekNum === 1) {
           displayEnd.setTime(firstThu.getTime() - 86400000);
       } else {
@@ -206,15 +197,30 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
     });
   }, [items, customerLookup, materialLookup]);
 
-  // --- Mismatch Counts ---
+  // --- Mismatch Counts (Unique) ---
   const mismatchStats = useMemo(() => {
-     let custMismatch = 0;
-     let matMismatch = 0;
+     let recordsWithError = 0;
+     const uniqueCustErrors = new Set<string>();
+     const uniqueMatErrors = new Set<string>();
+
      enrichedItems.forEach(i => {
-         if (i.isCustUnknown) custMismatch++;
-         if (i.isMatUnknown) matMismatch++;
+         let hasError = false;
+         if (i.isCustUnknown) {
+             uniqueCustErrors.add(i.customerName);
+             hasError = true;
+         }
+         if (i.isMatUnknown) {
+             uniqueMatErrors.add(i.particulars);
+             hasError = true;
+         }
+         if (hasError) recordsWithError++;
      });
-     return { custMismatch, matMismatch, total: custMismatch + matMismatch };
+     
+     return { 
+         total: recordsWithError, 
+         uniqueCust: uniqueCustErrors.size, 
+         uniqueMat: uniqueMatErrors.size 
+     };
   }, [enrichedItems]);
 
   // --- Dynamic Options for Slicers ---
@@ -236,84 +242,14 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
       }
   }, [options.fys, selectedFY]);
 
-  // --- Comparative Stats Logic ---
-  const comparisonStats = useMemo(() => {
-      if (!selectedFY) return null;
-
-      const currentStartYear = parseInt(selectedFY.split('-')[0]);
-      
-      // Calculate comparison parameters
-      let prevFY = `${currentStartYear - 1}-${currentStartYear}`; // Last Fiscal Year
-      
-      // 1. Current Period Data
-      // 2. YoY Data (Same period, Last FY)
-      // 3. MoM Data (Previous Month in Current FY) - Only for Month View
-      
-      const getMetrics = (fy: string, monthIdx?: number, weekNum?: number) => {
-          const data = enrichedItems.filter(i => {
-              if (i.fiscalYear !== fy) return false;
-              if (timeView === 'MONTH' && monthIdx !== undefined && i.fiscalMonthIndex !== monthIdx) return false;
-              if (timeView === 'WEEK' && weekNum !== undefined && i.weekNumber !== weekNum) return false;
-              
-              if (slicerGroup !== 'ALL' && i.custGroup !== slicerGroup) return false;
-              if (slicerRep !== 'ALL' && i.salesRep !== slicerRep) return false;
-              if (slicerStatus !== 'ALL' && i.custStatus !== slicerStatus) return false;
-              if (slicerMake !== 'ALL' && i.make !== slicerMake) return false;
-              if (slicerMatGroup !== 'ALL' && i.matGroup !== slicerMatGroup) return false;
-              
-              return true;
-          });
-
-          const totalValue = data.reduce((acc, i) => acc + i.value, 0);
-          const uniqueCustomerNames = Array.from(new Set(data.map(i => i.customerName)));
-          const uniqueCustomersCount = uniqueCustomerNames.length;
-          
-          const statusCounts: Record<string, number> = {};
-          uniqueCustomerNames.forEach(name => {
-              const cust = customerLookup.get(name.toLowerCase().trim());
-              const s = cust?.status || 'Unknown';
-              statusCounts[s] = (statusCounts[s] || 0) + 1;
-          });
-
-          return { totalValue, uniqueCustomersCount, statusCounts, dataCount: data.length };
-      };
-
-      // Current Data
-      const curr = getMetrics(selectedFY, timeView === 'MONTH' ? selectedMonth : undefined, timeView === 'WEEK' ? selectedWeek : undefined);
-      
-      // YoY Comparison (Last Year, Same Period)
-      const prevYearData = getMetrics(prevFY, timeView === 'MONTH' ? selectedMonth : undefined, timeView === 'WEEK' ? selectedWeek : undefined);
-
-      // MoM Comparison (Current FY, Previous Month) - Only valid if view is Month
-      let prevMonthData = null;
-      let prevMonthLabel = '';
-      if (timeView === 'MONTH') {
-          let pmIndex = selectedMonth - 1;
-          let pmFY = selectedFY;
-          if (pmIndex < 0) {
-              pmIndex = 11;
-              pmFY = prevFY; // Go back to last month of prev FY
-          }
-          prevMonthData = getMetrics(pmFY, pmIndex);
-          prevMonthLabel = getFiscalMonthName(pmIndex);
-      }
-
-      return { curr, prevYearData, prevMonthData, prevMonthLabel, prevFY };
-  }, [enrichedItems, selectedFY, timeView, selectedMonth, selectedWeek, slicerGroup, slicerRep, slicerStatus, slicerMake, slicerMatGroup, customerLookup]);
-
-  // --- Filtering Logic for Table ---
+  // --- Pagination Logic ---
   const processedItems = useMemo(() => {
     let data = [...enrichedItems];
 
-    // 0. Mismatch Filter (Overrides others if active, but let's keep it combinable or exclusive?)
     if (showMismatchesOnly) {
         data = data.filter(i => i.isCustUnknown || i.isMatUnknown);
     } else {
-        // Normal Filters
-        // 1. Fiscal Year Filter
         if (selectedFY) data = data.filter(i => i.fiscalYear === selectedFY);
-
-        // 2. Time View Filter
         if (timeView === 'MONTH') {
             data = data.filter(i => i.fiscalMonthIndex === selectedMonth);
         } else if (timeView === 'WEEK') {
@@ -321,14 +257,12 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
         }
     }
 
-    // 3. Slicers (Apply even on mismatch view to narrow down?)
     if (slicerGroup !== 'ALL') data = data.filter(i => i.custGroup === slicerGroup);
     if (slicerRep !== 'ALL') data = data.filter(i => i.salesRep === slicerRep);
     if (slicerStatus !== 'ALL') data = data.filter(i => i.custStatus === slicerStatus);
     if (slicerMake !== 'ALL') data = data.filter(i => i.make === slicerMake);
     if (slicerMatGroup !== 'ALL') data = data.filter(i => i.matGroup === slicerMatGroup);
 
-    // 4. Search
     if (searchTerm) {
         const lower = searchTerm.toLowerCase();
         data = data.filter(i => 
@@ -338,7 +272,6 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
         );
     }
 
-    // 5. Sorting
     if (sortConfig) {
         data.sort((a, b) => {
             // @ts-ignore
@@ -354,7 +287,6 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
     return data;
   }, [enrichedItems, selectedFY, timeView, selectedMonth, selectedWeek, slicerGroup, slicerRep, slicerStatus, slicerMake, slicerMatGroup, searchTerm, sortConfig, showMismatchesOnly]);
 
-  // --- Pagination Logic ---
   const totalPages = Math.ceil(processedItems.length / itemsPerPage);
   const paginatedItems = useMemo(() => {
       const start = (currentPage - 1) * itemsPerPage;
@@ -418,7 +350,6 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
       writeFile(wb, "Sales_Export.xlsx");
   };
 
-  // New Mismatch Export
   const handleExportMismatches = () => {
     const missingCusts = new Set<string>();
     const missingMats = new Set<string>();
@@ -450,108 +381,97 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
     writeFile(wb, "Master_Data_Correction_Report.xlsx");
   };
 
-  // Optimized File Upload with Chunking to prevent Crash
+  // --- Time-Sliced File Upload (Main Thread Optimized) ---
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if(!file) return;
       
       setIsProcessing(true);
       setUploadProgress(0);
+      setStatusMessage("Reading file...");
 
-      // Wrap in setTimeout to allow UI render cycle to start showing the loader
+      // Small delay to let React render the loader
       setTimeout(async () => {
           try {
             const arrayBuffer = await file.arrayBuffer();
-            // Yield
-            await new Promise(r => setTimeout(r, 0));
-            
-            const wb = read(arrayBuffer);
+            const wb = read(arrayBuffer, { type: 'array' });
             const ws = wb.Sheets[wb.SheetNames[0]];
             
-            // Getting raw data (this is sync and might freeze for a second on 60k rows, but usually acceptable)
-            // If even this crashes, we'd need a streaming parser, but xlsx usually handles 100k rows ok in memory.
-            const data = utils.sheet_to_json<any>(ws, { cellDates: true, dateNF: 'yyyy-mm-dd' });
+            setStatusMessage("Parsing rows...");
+            // Use cellDates: true for proper date handling
+            const jsonData = utils.sheet_to_json<any>(ws, { cellDates: true, dateNF: 'yyyy-mm-dd' });
             
-            const CHUNK_SIZE = 2000;
-            const chunks = Math.ceil(data.length / CHUNK_SIZE);
+            const totalRows = jsonData.length;
+            const CHUNK_SIZE = 1000; // Process 1000 rows at a time
             const allNewItems: any[] = [];
             
-            for (let i = 0; i < chunks; i++) {
-                const chunkData = data.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
-                
-                // Process chunk
-                const chunkItems = chunkData.map((row: any) => {
-                     const getVal = (keys: string[]) => { for (const k of keys) { const foundKey = Object.keys(row).find(rk => rk.toLowerCase() === k.toLowerCase()); if (foundKey) return row[foundKey]; } return ''; };
-                     const customerName = String(getVal(['customer name', 'customer']) || '');
-                     const particulars = String(getVal(['particulars', 'item']) || '');
-                     const voucherNo = String(getVal(['voucher no']) || '');
-                     const value = parseFloat(getVal(['value', 'amount'])) || 0;
-                     const quantity = parseFloat(getVal(['quantity', 'qty'])) || 0;
-                     const date = getVal(['date', 'dt']); 
-                     
-                     if(customerName) {
-                         return { date, customerName, particulars, voucherNo, quantity, value, consignee: '', voucherRefNo: '' };
-                     }
-                     return null;
-                }).filter(Boolean);
-                
-                allNewItems.push(...chunkItems);
-                
-                // Update Progress
-                setUploadProgress(Math.round(((i + 1) / chunks) * 100));
-                
-                // Yield to main thread to prevent "Page Unresponsive"
-                await new Promise(resolve => setTimeout(resolve, 0));
-            }
+            let currentIndex = 0;
 
-            if(allNewItems.length > 0) {
-                 onBulkAdd(allNewItems);
-            } else {
-                alert("No valid records found in the file.");
-            }
+            const processChunk = () => {
+                const end = Math.min(currentIndex + CHUNK_SIZE, totalRows);
+                
+                for (let i = currentIndex; i < end; i++) {
+                    const row = jsonData[i];
+                    // Manual extraction loop optimization
+                    let customerName = '';
+                    let particulars = '';
+                    let voucherNo = '';
+                    let value = 0;
+                    let quantity = 0;
+                    let date = null;
+
+                    // Faster key check
+                    const keys = Object.keys(row);
+                    for (let k = 0; k < keys.length; k++) {
+                        const key = keys[k];
+                        const lowerKey = key.toLowerCase();
+                        
+                        if (lowerKey.includes('customer') || lowerKey === 'name') customerName = String(row[key]);
+                        else if (lowerKey.includes('particular') || lowerKey.includes('item')) particulars = String(row[key]);
+                        else if (lowerKey.includes('voucher')) voucherNo = String(row[key]);
+                        else if (lowerKey.includes('value') || lowerKey.includes('amount')) value = parseFloat(row[key]);
+                        else if (lowerKey.includes('quant') || lowerKey === 'qty') quantity = parseFloat(row[key]);
+                        else if (lowerKey.includes('date') || lowerKey === 'dt') date = row[key];
+                    }
+
+                    if (customerName) {
+                        allNewItems.push({ date, customerName, particulars, voucherNo, quantity, value: value || 0, consignee: '', voucherRefNo: '' });
+                    }
+                }
+
+                currentIndex = end;
+                const progress = Math.round((currentIndex / totalRows) * 100);
+                setUploadProgress(progress);
+                setStatusMessage(`Processing... ${progress}%`);
+
+                if (currentIndex < totalRows) {
+                    // Schedule next chunk
+                    setTimeout(processChunk, 0); 
+                } else {
+                    // Finished
+                    setStatusMessage("Finalizing import...");
+                    setTimeout(() => {
+                        if(allNewItems.length > 0) {
+                            onBulkAdd(allNewItems);
+                        } else {
+                            alert("No valid records found in the file.");
+                        }
+                        setIsProcessing(false);
+                        setUploadProgress(null);
+                        if(fileInputRef.current) fileInputRef.current.value=''; 
+                    }, 50);
+                }
+            };
+
+            // Start processing
+            setTimeout(processChunk, 50);
+
           } catch(e) { 
               console.error(e); 
               alert("Error parsing file. Please check the format."); 
-          } finally { 
-              setIsProcessing(false); 
-              setUploadProgress(null);
-              if(fileInputRef.current) fileInputRef.current.value=''; 
+              setIsProcessing(false);
           }
       }, 100);
-  };
-
-  // --- Helper Components for Dashboard ---
-  const TrendBadge = ({ curr, prev, label }: { curr: number, prev: number, label: string }) => {
-     if (prev === 0) return <span className="text-[9px] text-gray-400 bg-gray-50 px-1 rounded">No Data {label}</span>;
-     
-     const diff = curr - prev;
-     const pct = (diff / prev) * 100;
-     const isPositive = diff >= 0;
-     
-     return (
-        <div className={`flex items-center gap-1 text-[9px] font-medium`}>
-            {isPositive ? <TrendingUp className="w-3 h-3 text-green-600" /> : <TrendingDown className="w-3 h-3 text-red-600" />}
-            <span className={isPositive ? 'text-green-700' : 'text-red-700'}>{Math.abs(pct).toFixed(1)}%</span>
-            <span className="text-gray-400 opacity-75">vs {label}</span>
-        </div>
-     );
-  };
-
-  const StatusBreakdown = ({ counts }: { counts: Record<string, number> }) => {
-    const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-    if (entries.length === 0) return <span className="text-gray-400 text-xs">No data</span>;
-    return (
-        <div className="flex flex-wrap gap-1 mt-2">
-            {entries.map(([status, count]) => (
-                <span key={status} className={`text-[9px] px-1.5 py-0.5 rounded border ${
-                    status.toLowerCase() === 'active' ? 'bg-green-50 text-green-700 border-green-100' : 
-                    status.toLowerCase() === 'inactive' ? 'bg-red-50 text-red-700 border-red-100' : 'bg-gray-50 text-gray-600 border-gray-200'
-                }`}>
-                    {status}: <b>{count}</b>
-                </span>
-            ))}
-        </div>
-    );
   };
 
   return (
@@ -559,89 +479,51 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
       
       {/* Loading Overlay */}
       {isProcessing && (
-        <div className="absolute inset-0 z-50 bg-white/80 flex flex-col items-center justify-center backdrop-blur-sm rounded-xl">
-            <Loader2 className="w-10 h-10 text-blue-600 animate-spin mb-3" />
-            <h3 className="text-lg font-bold text-gray-800">Processing Data...</h3>
-            <p className="text-sm text-gray-500 mb-2">Importing large file, please wait.</p>
+        <div className="absolute inset-0 z-50 bg-white/90 flex flex-col items-center justify-center backdrop-blur-sm rounded-xl">
+            <Loader2 className="w-12 h-12 text-blue-600 animate-spin mb-4" />
+            <h3 className="text-xl font-bold text-gray-800">{statusMessage}</h3>
+            <p className="text-sm text-gray-500 mb-4">Please wait while we process {uploadProgress !== null ? 'your data' : 'the file'}...</p>
             {uploadProgress !== null && (
-                <div className="w-64 bg-gray-200 rounded-full h-2.5 dark:bg-gray-200">
-                    <div className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
-                    <p className="text-xs text-center mt-1 text-gray-600">{uploadProgress}% complete</p>
+                <div className="w-64 bg-gray-200 rounded-full h-3">
+                    <div className="bg-blue-600 h-3 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
                 </div>
             )}
         </div>
       )}
 
-      {/* 1. Comparative Dashboard (Top Label) */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 flex-shrink-0">
-          
-          {/* Card 1: Sales Value & Comparisons */}
-          <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200 flex flex-col justify-between">
-             <div className="flex justify-between items-start mb-1">
-                 <div>
-                     <p className="text-[10px] text-gray-500 font-medium uppercase">Sales Value</p>
-                     <span className="text-[9px] text-gray-400 font-mono">
-                        {timeView === 'FY' ? selectedFY : (timeView === 'MONTH' ? getFiscalMonthName(selectedMonth) : `Week ${selectedWeek}`)}
-                     </span>
-                 </div>
-             </div>
-             
-             <div>
-                 <p className="text-xl font-bold text-indigo-700">{comparisonStats ? formatCurrency(comparisonStats.curr.totalValue) : '-'}</p>
-                 <div className="flex flex-col mt-1 gap-0.5">
-                    {/* YoY Comparison */}
-                    {comparisonStats && <TrendBadge curr={comparisonStats.curr.totalValue} prev={comparisonStats.prevYearData.totalValue} label={`Last FY (${comparisonStats.prevFY})`} />}
-                    {/* MoM Comparison (Only if Month View) */}
-                    {comparisonStats && comparisonStats.prevMonthData && (
-                        <TrendBadge curr={comparisonStats.curr.totalValue} prev={comparisonStats.prevMonthData.totalValue} label={comparisonStats.prevMonthLabel} />
-                    )}
-                 </div>
-             </div>
+      {/* 1. Mismatch Report Banner */}
+      <div className="flex items-center justify-between bg-white p-3 rounded-xl shadow-sm border border-gray-200 flex-shrink-0">
+          <div className="flex items-center gap-3">
+              <div className={`p-2 rounded-lg ${mismatchStats.total > 0 ? 'bg-orange-50 text-orange-600' : 'bg-green-50 text-green-600'}`}>
+                  {mismatchStats.total > 0 ? <AlertTriangle className="w-5 h-5" /> : <UserCheck className="w-5 h-5" />}
+              </div>
+              <div>
+                  <h3 className="text-sm font-bold text-gray-800">Data Quality Check</h3>
+                  <p className="text-xs text-gray-500">
+                      {mismatchStats.total > 0 
+                        ? `${mismatchStats.total} Records need attention (${mismatchStats.uniqueCust} Unique Customers, ${mismatchStats.uniqueMat} Unique Items)` 
+                        : "All records match Master Data perfectly."}
+                  </p>
+              </div>
           </div>
-
-          {/* Card 2: Data Quality Mismatch Report */}
-          <button 
-             onClick={() => setShowMismatchesOnly(!showMismatchesOnly)}
-             className={`p-3 rounded-xl shadow-sm border text-left transition-all ${showMismatchesOnly ? 'bg-red-50 border-red-300 ring-1 ring-red-300' : 'bg-white border-gray-200 hover:border-red-200'}`}
-          >
-             <div className="flex justify-between items-start mb-1">
-                 <p className={`text-[10px] font-medium uppercase ${showMismatchesOnly ? 'text-red-700' : 'text-gray-500'}`}>Data Quality</p>
-                 <AlertTriangle className={`w-3.5 h-3.5 ${mismatchStats.total > 0 ? 'text-red-500 animate-pulse' : 'text-green-500'}`} />
-             </div>
-             {mismatchStats.total === 0 ? (
-                 <p className="text-xl font-bold text-green-600">100% Match</p>
-             ) : (
-                 <>
-                    <p className="text-xl font-bold text-red-600">{mismatchStats.total} Errors</p>
-                    <div className="flex flex-col gap-0.5 mt-1 text-[9px] text-red-500">
-                        <span>{mismatchStats.custMismatch} Cust. Unknown</span>
-                        <span>{mismatchStats.matMismatch} Item Unknown</span>
-                    </div>
-                 </>
-             )}
-          </button>
-
-          {/* Card 3: Customer Status Breakup */}
-          <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200">
-             <div className="flex justify-between items-start mb-1">
-                 <p className="text-[10px] text-gray-500 font-medium uppercase">Customer Status</p>
-                 <UserCheck className="w-3.5 h-3.5 text-green-500" />
-             </div>
-             <p className="text-xs font-medium text-gray-600">Distribution</p>
-             {comparisonStats && <StatusBreakdown counts={comparisonStats.curr.statusCounts} />}
-          </div>
-
-          {/* Card 4: Current Selection Indicator */}
-          <div className="p-3 rounded-xl shadow-sm border bg-gray-50 border-gray-200 flex flex-col justify-center items-center text-center">
-              <span className="text-xs text-gray-500 font-medium flex items-center gap-1.5"><Filter className="w-3 h-3" /> View Mode</span>
-              <p className="text-sm font-bold text-gray-800 mt-1">{timeView === 'FY' ? 'Full Fiscal Year' : (timeView === 'MONTH' ? `${getFiscalMonthName(selectedMonth)} (Month)` : `Week ${selectedWeek}`)}</p>
-              {timeView === 'WEEK' && selectedFY && (
-                  <span className="text-[9px] text-gray-500 mt-0.5">{getWeekRangeString(selectedFY, selectedWeek)}</span>
-              )}
-              {showMismatchesOnly && (
-                  <span className="text-[9px] text-red-600 bg-red-50 px-2 py-0.5 rounded-full mt-1 border border-red-100 font-bold">Mismatch Report Active</span>
-              )}
-          </div>
+          {mismatchStats.total > 0 ? (
+              <div className="flex gap-2">
+                  <button 
+                    onClick={() => setShowMismatchesOnly(!showMismatchesOnly)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${showMismatchesOnly ? 'bg-orange-100 text-orange-700 border-orange-200' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}
+                  >
+                      {showMismatchesOnly ? "Show All Data" : "Show Errors Only"}
+                  </button>
+                  <button 
+                    onClick={handleExportMismatches}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold bg-orange-600 text-white border border-orange-700 hover:bg-orange-700 shadow-sm flex items-center gap-1.5 animate-pulse"
+                  >
+                      <FileWarning className="w-3.5 h-3.5" /> Download Report
+                  </button>
+              </div>
+          ) : (
+              <span className="text-xs font-bold text-green-600 bg-green-50 px-3 py-1 rounded-full border border-green-100">100% Quality</span>
+          )}
       </div>
 
       {/* 2. CONTROL PANEL (Date & Slicers) */}
@@ -710,6 +592,11 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                             onChange={(e) => setSelectedWeek(Number(e.target.value))}
                             className="w-16 bg-white border border-gray-300 text-xs rounded-md px-2 py-1 outline-none focus:ring-2 focus:ring-blue-500"
                         />
+                        {selectedFY && (
+                            <span className="text-[10px] text-gray-400 bg-gray-50 px-2 py-1 rounded border border-gray-100">
+                                {getWeekRangeString(selectedFY, selectedWeek)}
+                            </span>
+                        )}
                     </div>
                 )}
             </div>
@@ -805,15 +692,6 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
             <input type="text" placeholder="Search filtered results..." className="pl-9 pr-3 py-1.5 w-full border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
          </div>
          <div className="flex gap-2">
-            {mismatchStats.total > 0 && (
-                <button 
-                    onClick={handleExportMismatches} 
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-700 rounded-lg text-xs font-medium border border-red-200 hover:bg-red-100 animate-pulse"
-                    title="Export list of missing customers and items to fix master data"
-                >
-                    <FileWarning className="w-3.5 h-3.5" /> Export Mismatches
-                </button>
-            )}
             <button onClick={handleExportAll} disabled={isProcessing} className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-700 rounded-lg text-xs font-medium border border-gray-300 hover:bg-gray-50"><FileDown className="w-3.5 h-3.5" /> Export View</button>
             <input type="file" ref={fileInputRef} className="hidden" accept=".xlsx, .xls" onChange={handleFileUpload} />
             <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs border border-blue-100 hover:bg-blue-100"><Upload className="w-3.5 h-3.5" /> Import</button>
