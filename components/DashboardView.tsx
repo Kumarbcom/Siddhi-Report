@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Material, ClosingStockItem, PendingSOItem, PendingPOItem, SalesRecord, SalesReportItem, CustomerMasterItem } from '../types';
-import { TrendingUp, TrendingDown, Package, ClipboardList, ShoppingCart, Calendar, Filter, PieChart as PieIcon, BarChart3, Users, ArrowRight, Activity, DollarSign, ArrowUpRight, ArrowDownRight, RefreshCw, UserCircle, Minus, Plus, ChevronDown, ChevronUp, Link2Off, AlertTriangle, Layers } from 'lucide-react';
+import { TrendingUp, TrendingDown, Package, ClipboardList, ShoppingCart, Calendar, Filter, PieChart as PieIcon, BarChart3, Users, ArrowRight, Activity, DollarSign, ArrowUpRight, ArrowDownRight, RefreshCw, UserCircle, Minus, Plus, ChevronDown, ChevronUp, Link2Off, AlertTriangle, Layers, Clock, CheckCircle2, AlertCircle, User } from 'lucide-react';
 
 interface DashboardViewProps {
   materials: Material[];
@@ -63,11 +63,14 @@ const InventoryDonutChart: React.FC<{
   };
 
   const centerLabel = hoveredIndex !== null ? data[hoveredIndex].label : `Total ${metric === 'value' ? 'Val' : 'Qty'}`;
+  
+  // UPDATED: Show full value instead of compact notation
   const centerValue = hoveredIndex !== null 
     ? data[hoveredIndex].displayValue 
     : (metric === 'value' 
-        ? (total > 1000000 ? `${(total/1000000).toFixed(2)}M` : (total > 1000 ? `${(total/1000).toFixed(1)}k` : Math.round(total))) 
-        : Math.round(total).toLocaleString());
+        ? `Rs. ${Math.round(total).toLocaleString('en-IN')}` 
+        : Math.round(total).toLocaleString('en-IN'));
+        
   const centerSubtext = hoveredIndex !== null ? `${(data[hoveredIndex].value / total * 100).toFixed(1)}%` : '';
 
   return (
@@ -108,7 +111,7 @@ const InventoryDonutChart: React.FC<{
           <span className="text-[9px] text-gray-400 uppercase font-medium tracking-wider truncate w-full text-center">
             {centerLabel === 'Unspecified' ? 'Unknown' : centerLabel}
           </span>
-          <span className="text-[11px] font-bold text-gray-800 leading-tight">
+          <span className="text-[11px] font-bold text-gray-800 leading-tight text-center">
              {centerValue}
           </span>
           {centerSubtext && <span className="text-[9px] text-gray-500 font-medium">{centerSubtext}</span>}
@@ -168,6 +171,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   const [invMakeMetric, setInvMakeMetric] = useState<Metric>('value');
   const [invGroupMetric, setInvGroupMetric] = useState<Metric>('value');
   const [invTopMetric, setInvTopMetric] = useState<Metric>('value');
+  const [invSelectedMake, setInvSelectedMake] = useState<string>('ALL'); // Inventory Filter
 
   // Initialize to current fiscal month index (0=Apr, 11=Mar)
   const [selectedMonth, setSelectedMonth] = useState<number>(() => {
@@ -469,15 +473,30 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     });
   }, [closingStock, materials]);
 
+  // Derive Unique Makes for Filter
+  const inventoryUniqueMakes = useMemo(() => {
+     const makes = new Set(enrichedStock.map(i => i.make));
+     const list = Array.from(makes).sort();
+     return ['ALL', ...list];
+  }, [enrichedStock]);
+
+  // Filter Stock Data based on Make
+  const filteredStock = useMemo(() => {
+      if (invSelectedMake === 'ALL') return enrichedStock;
+      return enrichedStock.filter(i => i.make === invSelectedMake);
+  }, [enrichedStock, invSelectedMake]);
+
+  // Inventory Aggregations
   const inventoryStats = useMemo(() => {
-    const totalQty = enrichedStock.reduce((acc, i) => acc + i.quantity, 0);
-    const totalVal = enrichedStock.reduce((acc, i) => acc + i.value, 0);
-    const count = enrichedStock.length;
-    const totalUnmatched = enrichedStock.filter(i => !i.isLinked).length;
+    const data = filteredStock; // Use filtered data
+    const totalQty = data.reduce((acc, i) => acc + i.quantity, 0);
+    const totalVal = data.reduce((acc, i) => acc + i.value, 0);
+    const count = data.length;
+    const totalUnmatched = data.filter(i => !i.isLinked).length;
 
     // 1. Make Aggregation
     const makeMap = new Map<string, { qty: number, val: number }>();
-    enrichedStock.forEach(i => {
+    data.forEach(i => {
         const m = makeMap.get(i.make) || { qty: 0, val: 0 };
         m.qty += i.quantity;
         m.val += i.value;
@@ -497,7 +516,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
     // 2. Group Aggregation
     const groupMap = new Map<string, { qty: number, val: number }>();
-    enrichedStock.forEach(i => {
+    data.forEach(i => {
          const g = groupMap.get(i.group) || { qty: 0, val: 0 };
          g.qty += i.quantity;
          g.val += i.value;
@@ -513,7 +532,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         .filter(g => g.label !== 'Unspecified');
 
     // 3. Top Articles
-    const topArticles = [...enrichedStock]
+    const topArticles = [...data]
         .sort((a, b) => {
             const valA = invTopMetric === 'value' ? a.value : a.quantity;
             const valB = invTopMetric === 'value' ? b.value : b.quantity;
@@ -528,7 +547,142 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     const currentMakeTotal = byMake.reduce((acc, item) => acc + item.value, 0);
 
     return { totalQty, totalVal, count, totalUnmatched, byMake, byGroup, topArticles, currentMakeTotal, formatVal };
-  }, [enrichedStock, invMakeMetric, invGroupMetric, invTopMetric]);
+  }, [filteredStock, invMakeMetric, invGroupMetric, invTopMetric]);
+
+  // --- PENDING SO DASHBOARD LOGIC (FIFO) ---
+  const soDashboardStats = useMemo(() => {
+    // 1. Setup Time Barriers
+    const today = new Date();
+    const endOfCurrentMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    endOfCurrentMonth.setHours(23, 59, 59, 999);
+
+    // 2. Group SO items by Product Name
+    const groupedItems: Record<string, PendingSOItem[]> = {};
+    pendingSO.forEach(item => {
+        const key = item.itemName.toLowerCase().trim();
+        if (!groupedItems[key]) groupedItems[key] = [];
+        groupedItems[key].push(item);
+    });
+
+    // Stats Accumulators
+    const stats = {
+        totalOrdered: { qty: 0, val: 0, count: 0 },
+        totalBalance: { qty: 0, val: 0 },
+        due: { 
+            available: { qty: 0, val: 0 },
+            shortage: { qty: 0, val: 0 }
+        },
+        scheduled: {
+            available: { qty: 0, val: 0 },
+            shortage: { qty: 0, val: 0 }
+        }
+    };
+    
+    // Unique Orders Set
+    const uniqueOrders = new Set<string>();
+
+    // 3. FIFO Logic
+    Object.keys(groupedItems).forEach(key => {
+        const groupOrders = groupedItems[key];
+        
+        // Find Stock
+        const stockItem = closingStock.find(s => s.description.toLowerCase().trim() === key);
+        const totalStock = stockItem ? stockItem.quantity : 0;
+        let runningStock = totalStock;
+
+        // Sort Orders by Due Date Ascending (Earliest first)
+        groupOrders.sort((a, b) => {
+            const dateA = new Date(a.dueDate || '9999-12-31').getTime();
+            const dateB = new Date(b.dueDate || '9999-12-31').getTime();
+            return dateA - dateB;
+        });
+
+        groupOrders.forEach(order => {
+             // Total Stats
+             if (order.orderNo) uniqueOrders.add(order.orderNo);
+             stats.totalOrdered.qty += order.orderedQty;
+             stats.totalOrdered.val += (order.orderedQty * (order.rate || 0));
+             stats.totalBalance.qty += order.balanceQty;
+             stats.totalBalance.val += (order.balanceQty * (order.rate || 0));
+
+             // Categorize: Due vs Scheduled
+             const dueDate = order.dueDate ? new Date(order.dueDate) : new Date('9999-12-31');
+             const isFuture = dueDate > endOfCurrentMonth; // True if next month onwards
+
+             // Allocation
+             const required = order.balanceQty;
+             const canAllocate = Math.min(runningStock, required);
+             const shortage = required - canAllocate;
+             runningStock = Math.max(0, runningStock - canAllocate);
+
+             // Value Calculation
+             const rate = order.rate || 0;
+             const allocVal = canAllocate * rate;
+             const shortVal = shortage * rate;
+
+             if (isFuture) {
+                 stats.scheduled.available.qty += canAllocate;
+                 stats.scheduled.available.val += allocVal;
+                 stats.scheduled.shortage.qty += shortage;
+                 stats.scheduled.shortage.val += shortVal;
+             } else {
+                 stats.due.available.qty += canAllocate;
+                 stats.due.available.val += allocVal;
+                 stats.due.shortage.qty += shortage;
+                 stats.due.shortage.val += shortVal;
+             }
+        });
+    });
+
+    stats.totalOrdered.count = uniqueOrders.size;
+    return stats;
+
+  }, [pendingSO, closingStock]);
+
+  // --- TOP 10 CUSTOMERS PENDING SO LOGIC ---
+  const topPendingCustomers = useMemo(() => {
+    const today = new Date();
+    const endOfCurrentMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    endOfCurrentMonth.setHours(23, 59, 59, 999);
+
+    const customerStats: Record<string, { 
+        due: { qty: number, val: number }, 
+        scheduled: { qty: number, val: number },
+        totalVal: number 
+    }> = {};
+
+    pendingSO.forEach(item => {
+        const cust = item.partyName || 'Unknown';
+        if (!customerStats[cust]) {
+            customerStats[cust] = { due: { qty: 0, val: 0 }, scheduled: { qty: 0, val: 0 }, totalVal: 0 };
+        }
+
+        let dueDate = new Date('9999-12-31');
+        if (item.dueDate) {
+             if (item.dueDate instanceof Date) dueDate = item.dueDate;
+             else dueDate = new Date(item.dueDate);
+        }
+        
+        const isFuture = dueDate > endOfCurrentMonth;
+        const val = (item.balanceQty || 0) * (item.rate || 0);
+
+        if (isFuture) {
+            customerStats[cust].scheduled.qty += item.balanceQty;
+            customerStats[cust].scheduled.val += val;
+        } else {
+            customerStats[cust].due.qty += item.balanceQty;
+            customerStats[cust].due.val += val;
+        }
+        customerStats[cust].totalVal += val;
+    });
+
+    return Object.entries(customerStats)
+        .map(([name, stats]) => ({ name, ...stats }))
+        .sort((a, b) => b.totalVal - a.totalVal)
+        .slice(0, 10);
+
+  }, [pendingSO]);
+
 
   // --- Render Helpers ---
   const formatNumber = (val: number) => Math.round(val).toLocaleString('en-IN');
@@ -688,6 +842,19 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                           <button onClick={() => setComparisonMode('PREV_YEAR')} className={`px-2 py-1 rounded text-[10px] font-bold ${comparisonMode === 'PREV_YEAR' ? 'bg-white text-purple-600 shadow' : 'text-gray-500'}`}>Last Year</button>
                           <button onClick={() => setComparisonMode('PREV_PERIOD')} className={`px-2 py-1 rounded text-[10px] font-bold ${comparisonMode === 'PREV_PERIOD' ? 'bg-white text-purple-600 shadow' : 'text-gray-500'}`}>Previous</button>
                       </div>
+                  </div>
+              </div>
+          )}
+
+          {/* NEW: Inventory Filter */}
+          {activeSubTab === 'inventory' && (
+              <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
+                  <div className="flex items-center gap-1.5">
+                      <Filter className="w-3.5 h-3.5 text-gray-500" />
+                      <span className="text-[10px] text-gray-500 font-bold uppercase hidden md:inline">Filter Make:</span>
+                      <select value={invSelectedMake} onChange={e => setInvSelectedMake(e.target.value)} className="bg-white border border-gray-300 text-xs rounded-md px-2 py-1.5 font-medium outline-none focus:ring-2 focus:ring-blue-500 min-w-[120px]">
+                          {inventoryUniqueMakes.map(m => <option key={m} value={m}>{m}</option>)}
+                      </select>
                   </div>
               </div>
           )}
@@ -1055,9 +1222,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                              const percent = (group.value / maxVal) * 100;
                              return (
                                  <div key={group.label} className="text-[10px]">
-                                     <div className="flex justify-between mb-0.5">
-                                         <span className="text-gray-700 font-medium truncate w-20">{group.label}</span>
-                                         <span className="text-gray-900 font-bold">{inventoryStats.formatVal(group.value, invGroupMetric)}</span>
+                                     <div className="flex justify-between items-center gap-2 mb-0.5">
+                                         <span className="text-gray-700 font-medium text-[10px]">{group.label}</span>
+                                         <span className="text-gray-900 font-bold whitespace-nowrap">{inventoryStats.formatVal(group.value, invGroupMetric)}</span>
                                      </div>
                                      <div className="w-full bg-gray-100 rounded-full h-1 overflow-hidden">
                                          <div className="bg-blue-500 h-1 rounded-full transition-all duration-500" style={{ width: `${percent}%` }}></div>
@@ -1100,10 +1267,152 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                  </div>
              </div>
           </div>
+        ) : activeSubTab === 'so' ? (
+          // --- PENDING SO DASHBOARD ---
+          <div className="flex flex-col gap-6">
+              
+              {/* 1. KPI Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                      <p className="text-[10px] font-bold text-gray-500 uppercase mb-1">TOTAL ORDERED ({soDashboardStats.totalOrdered.count} ORDERS)</p>
+                      <div className="flex flex-col">
+                          <span className="text-xl font-extrabold text-gray-900">{formatCurrency(soDashboardStats.totalOrdered.val)}</span>
+                          <span className="text-sm font-bold text-blue-600">Qty: {soDashboardStats.totalOrdered.qty.toLocaleString()}</span>
+                      </div>
+                  </div>
+                  <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                      <p className="text-[10px] font-bold text-gray-500 uppercase mb-1">TOTAL BALANCE</p>
+                      <div className="flex flex-col">
+                          <span className="text-xl font-extrabold text-gray-900">{formatCurrency(soDashboardStats.totalBalance.val)}</span>
+                          <span className="text-sm font-bold text-orange-600">Qty: {soDashboardStats.totalBalance.qty.toLocaleString()}</span>
+                      </div>
+                  </div>
+              </div>
+
+              {/* 2. Analysis Table */}
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                  <div className="p-3 bg-gray-50 border-b border-gray-200">
+                      <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                          <ClipboardList className="w-4 h-4 text-purple-600" /> Delivery Schedule Analysis (FIFO)
+                      </h3>
+                  </div>
+                  <table className="w-full text-left border-collapse">
+                      <thead>
+                          <tr className="bg-gray-50 border-b border-gray-100 text-[10px] font-bold text-gray-500 uppercase">
+                              <th className="py-3 px-4 w-1/3">Category</th>
+                              <th className="py-3 px-4 text-center bg-green-50/50 border-l border-r border-green-100 text-green-700">Stock Available</th>
+                              <th className="py-3 px-4 text-center bg-red-50/50 text-red-700">Need to Arrange</th>
+                          </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 text-sm">
+                          {/* Row 1: Due for Delivery */}
+                          <tr className="hover:bg-gray-50/50 transition-colors">
+                              <td className="py-4 px-4">
+                                  <div className="flex items-center gap-2">
+                                      <div className="bg-red-100 p-1.5 rounded text-red-600"><AlertCircle className="w-4 h-4" /></div>
+                                      <div>
+                                          <p className="font-bold text-gray-800">Due for Delivery</p>
+                                          <p className="text-[10px] text-gray-500">Overdue or Due this Month</p>
+                                      </div>
+                                  </div>
+                              </td>
+                              <td className="py-4 px-4 text-center bg-green-50/10 border-l border-r border-gray-100">
+                                  <div className="flex flex-col items-center">
+                                      <span className="font-bold text-green-700">{formatCurrency(soDashboardStats.due.available.val)}</span>
+                                      <span className="text-xs font-medium text-green-600">Qty: {soDashboardStats.due.available.qty.toLocaleString()}</span>
+                                  </div>
+                              </td>
+                              <td className="py-4 px-4 text-center bg-red-50/10">
+                                  <div className="flex flex-col items-center">
+                                      <span className="font-bold text-red-700">{formatCurrency(soDashboardStats.due.shortage.val)}</span>
+                                      <span className="text-xs font-medium text-red-600">Qty: {soDashboardStats.due.shortage.qty.toLocaleString()}</span>
+                                  </div>
+                              </td>
+                          </tr>
+
+                          {/* Row 2: Scheduled */}
+                          <tr className="hover:bg-gray-50/50 transition-colors">
+                              <td className="py-4 px-4">
+                                  <div className="flex items-center gap-2">
+                                      <div className="bg-blue-100 p-1.5 rounded text-blue-600"><Clock className="w-4 h-4" /></div>
+                                      <div>
+                                          <p className="font-bold text-gray-800">Scheduled</p>
+                                          <p className="text-[10px] text-gray-500">Future Orders (Next Month+)</p>
+                                      </div>
+                                  </div>
+                              </td>
+                              <td className="py-4 px-4 text-center bg-green-50/10 border-l border-r border-gray-100">
+                                  <div className="flex flex-col items-center">
+                                      <span className="font-bold text-green-700">{formatCurrency(soDashboardStats.scheduled.available.val)}</span>
+                                      <span className="text-xs font-medium text-green-600">Qty: {soDashboardStats.scheduled.available.qty.toLocaleString()}</span>
+                                  </div>
+                              </td>
+                              <td className="py-4 px-4 text-center bg-red-50/10">
+                                  <div className="flex flex-col items-center">
+                                      <span className="font-bold text-red-700">{formatCurrency(soDashboardStats.scheduled.shortage.val)}</span>
+                                      <span className="text-xs font-medium text-red-600">Qty: {soDashboardStats.scheduled.shortage.qty.toLocaleString()}</span>
+                                  </div>
+                              </td>
+                          </tr>
+                      </tbody>
+                  </table>
+              </div>
+
+              {/* 3. Top 10 Customers Table */}
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                  <div className="p-3 bg-gray-50 border-b border-gray-200">
+                      <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                          <User className="w-4 h-4 text-blue-600" /> Top 10 Customers - Pending Orders
+                      </h3>
+                  </div>
+                  <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                          <thead>
+                              <tr className="bg-gray-50 border-b border-gray-100 text-[10px] font-bold text-gray-500 uppercase">
+                                  <th className="py-3 px-4 border-r border-gray-200 w-1/3" rowSpan={2}>Customer Name</th>
+                                  <th className="py-2 px-4 text-center border-b border-r border-gray-200 bg-red-50/30 text-red-800" colSpan={2}>Due for Delivery</th>
+                                  <th className="py-2 px-4 text-center border-b border-gray-200 bg-blue-50/30 text-blue-800" colSpan={2}>Scheduled</th>
+                              </tr>
+                              <tr className="bg-gray-50 border-b border-gray-100 text-[9px] font-bold text-gray-500 uppercase">
+                                  <th className="py-2 px-4 text-right border-r border-gray-200 bg-red-50/10">Qty</th>
+                                  <th className="py-2 px-4 text-right border-r border-gray-200 bg-red-50/10">Amount</th>
+                                  <th className="py-2 px-4 text-right border-r border-gray-200 bg-blue-50/10">Qty</th>
+                                  <th className="py-2 px-4 text-right bg-blue-50/10">Amount</th>
+                              </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100 text-xs">
+                              {topPendingCustomers.map((cust, idx) => (
+                                  <tr key={idx} className="hover:bg-gray-50 transition-colors">
+                                      <td className="py-3 px-4 font-medium text-gray-800 border-r border-gray-100 max-w-[200px] truncate" title={cust.name}>
+                                          {cust.name}
+                                      </td>
+                                      <td className="py-3 px-4 text-right text-gray-600 border-r border-gray-100 bg-red-50/5">
+                                          {cust.due.qty.toLocaleString()}
+                                      </td>
+                                      <td className="py-3 px-4 text-right font-medium text-red-700 border-r border-gray-100 bg-red-50/5">
+                                          {formatCurrency(cust.due.val)}
+                                      </td>
+                                      <td className="py-3 px-4 text-right text-gray-600 border-r border-gray-100 bg-blue-50/5">
+                                          {cust.scheduled.qty.toLocaleString()}
+                                      </td>
+                                      <td className="py-3 px-4 text-right font-medium text-blue-700 bg-blue-50/5">
+                                          {formatCurrency(cust.scheduled.val)}
+                                      </td>
+                                  </tr>
+                              ))}
+                              {topPendingCustomers.length === 0 && (
+                                  <tr>
+                                      <td colSpan={5} className="py-8 text-center text-gray-400">No pending orders found.</td>
+                                  </tr>
+                              )}
+                          </tbody>
+                      </table>
+                  </div>
+              </div>
+          </div>
         ) : (
-            // Placeholder for other tabs (SO/PO)
+            // Placeholder for PO
             <div className="flex items-center justify-center h-64 text-gray-400 italic">
-                {activeSubTab === 'so' && "Pending SO details available in 'Pending SO' tab."}
                 {activeSubTab === 'po' && "Pending PO details available in 'Pending PO' tab."}
             </div>
         )}
