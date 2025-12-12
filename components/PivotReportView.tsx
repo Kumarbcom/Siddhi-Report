@@ -82,29 +82,40 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
 
     // 3. Build Rows based on Material Master
     return materials.map(mat => {
-        const key = mat.description.toLowerCase().trim();
+        const descriptionKey = mat.description.toLowerCase().trim();
+        const partNoKey = mat.partNo ? mat.partNo.toLowerCase().trim() : '';
         
         // Basic Data
-        const stock = stockMap.get(key) || { qty: 0, val: 0 };
-        const so = soMap.get(key) || { qty: 0, val: 0 };
-        const po = poMap.get(key) || { qty: 0, val: 0 };
+        const stock = stockMap.get(descriptionKey) || { qty: 0, val: 0 };
+        const so = soMap.get(descriptionKey) || { qty: 0, val: 0 };
+        const po = poMap.get(descriptionKey) || { qty: 0, val: 0 };
         
         // Net Calculation: Stock + PO - SO
         const netQty = stock.qty + po.qty - so.qty;
-        // Estimate Net Value based on average stock rate if possible, else 0
-        const avgRate = stock.qty > 0 ? stock.val / stock.qty : 0; 
+        
+        // Estimate Rate: Try Stock -> PO -> SO
+        let avgRate = 0;
+        if (stock.qty > 0) {
+            avgRate = stock.val / stock.qty;
+        } else if (po.qty > 0) {
+            avgRate = po.val / po.qty;
+        } else if (so.qty > 0) {
+            avgRate = so.val / so.qty;
+        }
+
         const netVal = netQty * avgRate;
 
         // Sales Averages (Rounded to 10)
-        const s3 = sales3mMap.get(key) || { qty: 0, val: 0 };
+        // PRIORITIZE Part Number for Sales Matching, fallback to Description
+        const s3 = (partNoKey && sales3mMap.get(partNoKey)) || sales3mMap.get(descriptionKey) || { qty: 0, val: 0 };
         const avg3mQtyRaw = s3.qty / 3;
         const avg3mQty = roundToTen(avg3mQtyRaw);
-        const avg3mVal = avg3mQty * (s3.qty > 0 ? s3.val / s3.qty : 0);
+        const avg3mVal = avg3mQty * (s3.qty > 0 ? s3.val / s3.qty : avgRate);
 
-        const s1 = sales1yMap.get(key) || { qty: 0, val: 0 };
+        const s1 = (partNoKey && sales1yMap.get(partNoKey)) || sales1yMap.get(descriptionKey) || { qty: 0, val: 0 };
         const avg1yQtyRaw = s1.qty / 12;
         const avg1yQty = roundToTen(avg1yQtyRaw);
-        const avg1yVal = avg1yQty * (s1.qty > 0 ? s1.val / s1.qty : 0);
+        const avg1yVal = avg1yQty * (s1.qty > 0 ? s1.val / s1.qty : avgRate);
 
         // Comparison
         const diffQty = avg3mQty - avg1yQty;
@@ -112,8 +123,13 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
 
         // Stock Levels (Based on 1Y Avg)
         const minStock = avg1yQty; // Min is Avg Annual (Monthly)
+        const minStockVal = minStock * avgRate;
+
         const reorderStock = roundToTen(avg1yQtyRaw * 1.5);
+        const reorderStockVal = reorderStock * avgRate;
+
         const maxStock = roundToTen(avg1yQtyRaw * 3); // Using 3x to create a logical ceiling above reorder
+        const maxStockVal = maxStock * avgRate;
 
         // --- Actionable Logic ---
         
@@ -147,7 +163,11 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
             avg3m: { qty: avg3mQty, val: avg3mVal },
             avg1y: { qty: avg1yQty, val: avg1yVal },
             growth: { diff: diffQty, pct: growthPct },
-            levels: { min: minStock, reorder: reorderStock, max: maxStock },
+            levels: { 
+                min: { qty: minStock, val: minStockVal }, 
+                reorder: { qty: reorderStock, val: reorderStockVal }, 
+                max: { qty: maxStock, val: maxStockVal } 
+            },
             actions: {
                 excessStock: { qty: excessStockQty, val: excessStockVal },
                 excessPO: { qty: excessPOQty, val: excessPOVal },
@@ -195,7 +215,9 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
           "3M Avg Qty": i.avg3m.qty, "3M Avg Val": i.avg3m.val,
           "1Y Avg Qty": i.avg1y.qty, "1Y Avg Val": i.avg1y.val,
           "Growth %": i.growth.pct.toFixed(1) + '%',
-          "Min": i.levels.min, "Reorder": i.levels.reorder, "Max": i.levels.max,
+          "Min Qty": i.levels.min.qty, "Min Val": i.levels.min.val,
+          "Reorder Qty": i.levels.reorder.qty, "Reorder Val": i.levels.reorder.val,
+          "Max Qty": i.levels.max.qty, "Max Val": i.levels.max.val,
           "Excess Stock Qty": i.actions.excessStock.qty, "Excess Stock Val": i.actions.excessStock.val,
           "Excess PO Qty": i.actions.excessPO.qty, "Excess PO Val": i.actions.excessPO.val,
           "Need to Place Qty": i.actions.poNeed.qty, "Need to Place Val": i.actions.poNeed.val,
@@ -253,7 +275,7 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                             <th colSpan={2} className="py-1 px-2 text-center border-r border-gray-300 bg-purple-50/50">Pending PO</th>
                             <th colSpan={2} className="py-1 px-2 text-center border-r border-gray-300 bg-gray-200">Net Position</th>
                             <th colSpan={3} className="py-1 px-2 text-center border-r border-gray-300 bg-yellow-50/50">Sales Performance</th>
-                            <th colSpan={3} className="py-1 px-2 text-center border-r border-gray-300 bg-teal-50/50">Stock Norms</th>
+                            <th colSpan={6} className="py-1 px-2 text-center border-r border-gray-300 bg-teal-50/50">Stock Norms</th>
                             <th colSpan={2} className="py-1 px-2 text-center border-r border-gray-300 bg-red-50 text-red-700">Excess Stock</th>
                             <th colSpan={2} className="py-1 px-2 text-center border-r border-gray-300 bg-red-50 text-red-700">Excess PO</th>
                             <th colSpan={2} className="py-1 px-2 text-center border-r border-gray-300 bg-green-50 text-green-700">PO Needed</th>
@@ -281,9 +303,12 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                             <th className="py-2 px-2 text-right bg-yellow-50/30">1Y Avg</th>
                             <th className="py-2 px-2 text-center border-r bg-yellow-50/30">Trend</th>
                             
-                            <th className="py-2 px-2 text-right bg-teal-50/30">Min</th>
-                            <th className="py-2 px-2 text-right bg-teal-50/30">Reorder</th>
-                            <th className="py-2 px-2 text-right border-r bg-teal-50/30">Max</th>
+                            <th className="py-2 px-2 text-right bg-teal-50/30">Min Qty</th>
+                            <th className="py-2 px-2 text-right border-r bg-teal-50/30">Min Val</th>
+                            <th className="py-2 px-2 text-right bg-teal-50/30">Reorder Qty</th>
+                            <th className="py-2 px-2 text-right border-r bg-teal-50/30">Reorder Val</th>
+                            <th className="py-2 px-2 text-right bg-teal-50/30">Max Qty</th>
+                            <th className="py-2 px-2 text-right border-r bg-teal-50/30">Max Val</th>
                             
                             <th className="py-2 px-2 text-right bg-red-50/50">Qty</th>
                             <th className="py-2 px-2 text-right border-r bg-red-50/50">Val</th>
@@ -300,7 +325,7 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                     </thead>
                     <tbody className="divide-y divide-gray-100 text-[10px] text-gray-700">
                         {filteredData.length === 0 ? (
-                            <tr><td colSpan={26} className="py-10 text-center text-gray-400">No data matches your filter.</td></tr>
+                            <tr><td colSpan={29} className="py-10 text-center text-gray-400">No data matches your filter.</td></tr>
                         ) : (
                             filteredData.map((row, idx) => (
                                 <tr key={row.id} className="hover:bg-gray-50 transition-colors group">
@@ -329,9 +354,12 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                                         </div>
                                     </td>
                                     
-                                    <td className="py-1 px-2 text-right bg-teal-50/10 text-gray-500">{row.levels.min}</td>
-                                    <td className="py-1 px-2 text-right bg-teal-50/10 font-medium text-teal-700">{row.levels.reorder}</td>
-                                    <td className="py-1 px-2 text-right border-r bg-teal-50/10 text-gray-500">{row.levels.max}</td>
+                                    <td className="py-1 px-2 text-right bg-teal-50/10 text-gray-500">{row.levels.min.qty}</td>
+                                    <td className="py-1 px-2 text-right border-r bg-teal-50/10 text-gray-400">{formatVal(row.levels.min.val)}</td>
+                                    <td className="py-1 px-2 text-right bg-teal-50/10 font-medium text-teal-700">{row.levels.reorder.qty}</td>
+                                    <td className="py-1 px-2 text-right border-r bg-teal-50/10 text-teal-600">{formatVal(row.levels.reorder.val)}</td>
+                                    <td className="py-1 px-2 text-right bg-teal-50/10 text-gray-500">{row.levels.max.qty}</td>
+                                    <td className="py-1 px-2 text-right border-r bg-teal-50/10 text-gray-400">{formatVal(row.levels.max.val)}</td>
                                     
                                     <td className="py-1 px-2 text-right bg-red-50/20 font-bold text-red-600">{row.actions.excessStock.qty || ''}</td>
                                     <td className="py-1 px-2 text-right border-r bg-red-50/20 text-red-400">{row.actions.excessStock.val ? formatVal(row.actions.excessStock.val) : ''}</td>

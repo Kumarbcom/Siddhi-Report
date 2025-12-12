@@ -21,21 +21,19 @@ type Metric = 'quantity' | 'value';
 
 const COLORS = ['#10B981', '#3B82F6', '#6366F1', '#8B5CF6', '#EC4899', '#F59E0B', '#EF4444', '#6B7280', '#059669', '#2563EB'];
 
-// --- Helper: Lakh Formatter ---
-const formatLakhs = (val: number) => {
+// --- Helper: Currency Formatter (Crores > Lakhs > Thousands) ---
+const formatLargeValue = (val: number, compact: boolean = false) => {
     if (val === 0) return '0';
-    if (Math.abs(val) >= 100000) {
-        return `Rs. ${(val / 100000).toFixed(2)} L`;
+    const absVal = Math.abs(val);
+    const prefix = compact ? '' : 'Rs. ';
+    
+    if (absVal >= 10000000) { // 1 Crore
+        return `${prefix}${(val / 10000000).toFixed(2)} Cr`;
     }
-    return `Rs. ${Math.round(val).toLocaleString('en-IN')}`;
-};
-
-const formatLakhsCompact = (val: number) => {
-    if (val === 0) return '0';
-    if (Math.abs(val) >= 100000) {
-        return `${(val / 100000).toFixed(2)} L`;
+    if (absVal >= 100000) { // 1 Lakh
+        return `${prefix}${(val / 100000).toFixed(2)} L`;
     }
-    return Math.round(val).toLocaleString('en-IN');
+    return `${prefix}${Math.round(val).toLocaleString('en-IN')}`;
 };
 
 // --- Local Components for Inventory Tab ---
@@ -85,7 +83,7 @@ const InventoryDonutChart: React.FC<{
   const centerValue = hoveredIndex !== null 
     ? data[hoveredIndex].displayValue 
     : (metric === 'value' 
-        ? formatLakhs(total)
+        ? formatLargeValue(total)
         : Math.round(total).toLocaleString('en-IN'));
         
   const centerSubtext = hoveredIndex !== null ? `${(data[hoveredIndex].value / total * 100).toFixed(1)}%` : '';
@@ -534,7 +532,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         makeMap.set(i.make, m);
     });
 
-    const formatVal = (val: number, type: Metric) => type === 'value' ? formatLakhs(val) : Math.round(val).toLocaleString('en-IN');
+    const formatVal = (val: number, type: Metric) => type === 'value' ? formatLargeValue(val) : Math.round(val).toLocaleString('en-IN');
 
     const byMake = Array.from(makeMap.entries())
         .map(([label, data], i) => ({ 
@@ -766,10 +764,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
   // --- Render Helpers ---
   const formatNumber = (val: number) => Math.round(val).toLocaleString('en-IN');
-  const formatCompactNumber = (val: number) => formatLakhsCompact(val); 
-  const formatCurrency = (val: number) => formatLakhs(val); 
+  const formatCompactNumber = (val: number) => formatLargeValue(val, true); 
+  const formatCurrency = (val: number) => formatLargeValue(val); 
   
   const formatAxisValue = (val: number) => {
+    if (val >= 10000000) return (val / 10000000).toFixed(1) + 'Cr';
     if (val >= 100000) return (val / 100000).toFixed(1) + 'L';
     if (val >= 1000) return (val / 1000).toFixed(0) + 'k';
     return val.toFixed(0);
@@ -826,7 +825,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                       <circle cx="0" cy="0" r="0.6" fill="white" />
                    </svg>
                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                       <span className={`text-[8px] font-bold text-${color}-600`}>{formatLakhsCompact(total)}</span>
+                       <span className={`text-[8px] font-bold text-${color}-600`}>{formatLargeValue(total, true)}</span>
                    </div>
                 </div>
                 <div className="flex-1 overflow-y-auto custom-scrollbar h-24 text-[9px]">
@@ -836,7 +835,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                 <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{backgroundColor: ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#9CA3AF'][i % 6]}}></div>
                                 <span className="text-gray-600 truncate" title={d.label}>{d.label}</span>
                              </div>
-                             <span className="font-bold text-gray-800 whitespace-nowrap ml-2">{formatLakhs(d.value)}</span>
+                             <span className="font-bold text-gray-800 whitespace-nowrap ml-2">{formatLargeValue(d.value, true)}</span>
                         </div>
                     ))}
                 </div>
@@ -857,7 +856,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                       <div key={i} className="flex flex-col gap-0.5">
                           <div className="flex justify-between text-[9px]">
                               <span className="text-gray-700 truncate font-medium">{item.label}</span>
-                              <span className="text-gray-900 font-bold">{formatLakhs(item.value)}</span>
+                              <span className="text-gray-900 font-bold">{formatLargeValue(item.value, true)}</span>
                           </div>
                           <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
                               <div className={`h-full rounded-full bg-${color}-500`} style={{ width: `${(item.value / maxVal) * 100}%` }}></div>
@@ -993,7 +992,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                     {Math.abs(kpis.pct).toFixed(1)}%
                                 </span>
                             </div>
-                            <span className="text-[10px] text-gray-400 font-medium">{comparisonLabel}: {formatLakhsCompact(kpis.prevVal)}</span>
+                            <span className="text-[10px] text-gray-400 font-medium">{comparisonLabel}: {formatCompactNumber(kpis.prevVal)}</span>
                         </div>
                     </div>
 
@@ -1150,7 +1149,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                                         fontWeight="bold"
                                                                         style={{ pointerEvents: 'none', textShadow: '0px 0px 2px white' }}
                                                                     >
-                                                                        {formatLakhsCompact(val)}
+                                                                        {formatCompactNumber(val)}
                                                                     </text>
                                                                 )}
                                                             </g>
@@ -1228,8 +1227,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="py-3 text-right font-bold text-gray-900">{formatLakhs(item.value)}</td>
-                                            <td className="py-3 text-right text-gray-500 hidden sm:table-cell">{formatLakhs(item.prevValue)}</td>
+                                            <td className="py-3 text-right font-bold text-gray-900">{formatLargeValue(item.value)}</td>
+                                            <td className="py-3 text-right text-gray-500 hidden sm:table-cell">{formatLargeValue(item.prevValue)}</td>
                                             <td className="py-3 text-right">
                                                 <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${item.pct >= 0 ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
                                                     {item.pct >= 0 ? <Plus className="w-2 h-2 mr-0.5" /> : <Minus className="w-2 h-2 mr-0.5" />}
@@ -1255,8 +1254,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                                 {getGroupBreakdown(item.label).map((sub, sIdx) => (
                                                                     <tr key={sIdx} className="border-b border-gray-100 last:border-0 hover:bg-gray-100/50">
                                                                         <td className="py-2 pl-8 text-gray-600 w-1/2 font-medium">{sub.name}</td>
-                                                                        <td className="py-2 text-right text-gray-400">{formatLakhs(sub.prevValue)}</td>
-                                                                        <td className="py-2 text-right font-bold text-gray-800">{formatLakhs(sub.value)}</td>
+                                                                        <td className="py-2 text-right text-gray-400">{formatLargeValue(sub.prevValue)}</td>
+                                                                        <td className="py-2 text-right font-bold text-gray-800">{formatLargeValue(sub.value)}</td>
                                                                         <td className="py-2 text-right">
                                                                             <span className={`text-[10px] font-bold ${sub.pct >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                                                                                 {sub.pct > 0 ? '+' : ''}{Math.round(sub.pct)}%
@@ -1283,7 +1282,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
                          <p className="text-[10px] text-emerald-600 font-bold uppercase">Total Value</p>
-                         <h3 className="text-xl font-extrabold text-gray-900 mt-0.5">{formatLakhs(inventoryStats.totalVal)}</h3>
+                         <h3 className="text-xl font-extrabold text-gray-900 mt-0.5">{formatLargeValue(inventoryStats.totalVal)}</h3>
                      </div>
                      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
                          <p className="text-[10px] text-blue-600 font-bold uppercase">Total Items</p>
@@ -1417,9 +1416,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                  {expandedPendingGroups.has(group.groupName) ? <ChevronUp className="w-3 h-3 text-gray-400" /> : <ChevronDown className="w-3 h-3 text-gray-400" />}
                                                  {group.groupName}
                                              </td>
-                                             <td className="py-3 text-right font-bold">{formatLakhs(group.totalVal)}</td>
-                                             <td className="py-3 text-right text-red-600 font-medium">{formatLakhs(group.due.val)}</td>
-                                             <td className="py-3 text-right text-blue-600 font-medium">{formatLakhs(group.scheduled.val)}</td>
+                                             <td className="py-3 text-right font-bold">{formatLargeValue(group.totalVal)}</td>
+                                             <td className="py-3 text-right text-red-600 font-medium">{formatLargeValue(group.due.val)}</td>
+                                             <td className="py-3 text-right text-blue-600 font-medium">{formatLargeValue(group.scheduled.val)}</td>
                                          </tr>
                                          {expandedPendingGroups.has(group.groupName) && (
                                              <tr>
@@ -1429,9 +1428,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                              {group.customers.map((cust: any, cIdx: number) => (
                                                                  <tr key={cIdx} className="border-b border-gray-100 last:border-0">
                                                                      <td className="py-2 pl-8 text-gray-600 w-1/2">{cust.custName}</td>
-                                                                     <td className="py-2 text-right text-gray-800">{formatLakhs(cust.totalVal)}</td>
-                                                                     <td className="py-2 text-right text-red-500">{formatLakhs(cust.due.val)}</td>
-                                                                     <td className="py-2 text-right text-blue-500">{formatLakhs(cust.scheduled.val)}</td>
+                                                                     <td className="py-2 text-right text-gray-800">{formatLargeValue(cust.totalVal)}</td>
+                                                                     <td className="py-2 text-right text-red-500">{formatLargeValue(cust.due.val)}</td>
+                                                                     <td className="py-2 text-right text-blue-500">{formatLargeValue(cust.scheduled.val)}</td>
                                                                  </tr>
                                                              ))}
                                                          </table>
