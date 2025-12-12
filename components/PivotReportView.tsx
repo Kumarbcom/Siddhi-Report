@@ -1,7 +1,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { Material, ClosingStockItem, PendingSOItem, PendingPOItem, SalesReportItem } from '../types';
-import { FileDown, Search, ArrowUp, ArrowDown, Filter, AlertTriangle, Minus } from 'lucide-react';
+import { FileDown, Search, ArrowUp, ArrowDown, Filter, AlertTriangle, Minus, ArrowUpDown, Layers } from 'lucide-react';
 import { utils, writeFile } from 'xlsx';
 
 interface PivotReportViewProps {
@@ -18,6 +18,15 @@ const roundToTen = (num: number) => {
     return Math.ceil(num / 10) * 10;
 };
 
+// --- Helper: Format Large Values ---
+const formatLargeValue = (val: number) => {
+    if (val === 0) return '-';
+    const absVal = Math.abs(val);
+    if (absVal >= 10000000) return `${(val / 10000000).toFixed(2)} Cr`;
+    if (absVal >= 100000) return `${(val / 100000).toFixed(2)} L`;
+    return Math.round(val).toLocaleString('en-IN');
+};
+
 const PivotReportView: React.FC<PivotReportViewProps> = ({
   materials,
   closingStock,
@@ -26,7 +35,19 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
   salesReportItems
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState<'ALL' | 'ACTION' | 'EXCESS'>('ALL');
+  
+  // Slicers
+  const [slicerMake, setSlicerMake] = useState('ALL');
+  const [slicerGroup, setSlicerGroup] = useState('ALL');
+
+  // Toggles
+  const [showExcessStock, setShowExcessStock] = useState(false);
+  const [showExcessPO, setShowExcessPO] = useState(false);
+  const [showPONeed, setShowPONeed] = useState(false);
+  const [showExpedite, setShowExpedite] = useState(false);
+
+  // Sorting
+  const [sortOption, setSortOption] = useState<string>('default'); // default, stockVal, poNeedVal, excessStockVal, etc.
 
   // --- Core Calculation Logic ---
   const pivotData = useMemo(() => {
@@ -42,7 +63,6 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
     pendingSO.forEach(i => {
         const key = i.itemName.toLowerCase().trim();
         const existing = soMap.get(key) || { qty: 0, val: 0 };
-        // Use balanceQty for pending
         const val = (i.balanceQty || 0) * (i.rate || 0);
         soMap.set(key, { qty: existing.qty + (i.balanceQty || 0), val: existing.val + val });
     });
@@ -80,33 +100,26 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
         }
     });
 
-    // 3. Build Rows based on Material Master
-    return materials.map(mat => {
+    // 3. Build Rows
+    const rawRows = materials.map(mat => {
         const descriptionKey = mat.description.toLowerCase().trim();
         const partNoKey = mat.partNo ? mat.partNo.toLowerCase().trim() : '';
         
-        // Basic Data
         const stock = stockMap.get(descriptionKey) || { qty: 0, val: 0 };
         const so = soMap.get(descriptionKey) || { qty: 0, val: 0 };
         const po = poMap.get(descriptionKey) || { qty: 0, val: 0 };
         
-        // Net Calculation: Stock + PO - SO
         const netQty = stock.qty + po.qty - so.qty;
         
-        // Estimate Rate: Try Stock -> PO -> SO
+        // Estimate Rate
         let avgRate = 0;
-        if (stock.qty > 0) {
-            avgRate = stock.val / stock.qty;
-        } else if (po.qty > 0) {
-            avgRate = po.val / po.qty;
-        } else if (so.qty > 0) {
-            avgRate = so.val / so.qty;
-        }
+        if (stock.qty > 0) avgRate = stock.val / stock.qty;
+        else if (po.qty > 0) avgRate = po.val / po.qty;
+        else if (so.qty > 0) avgRate = so.val / so.qty;
 
         const netVal = netQty * avgRate;
 
-        // Sales Averages (Rounded to 10)
-        // PRIORITIZE Part Number for Sales Matching, fallback to Description
+        // Sales Averages (Prioritize Part No Match)
         const s3 = (partNoKey && sales3mMap.get(partNoKey)) || sales3mMap.get(descriptionKey) || { qty: 0, val: 0 };
         const avg3mQtyRaw = s3.qty / 3;
         const avg3mQty = roundToTen(avg3mQtyRaw);
@@ -117,42 +130,29 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
         const avg1yQty = roundToTen(avg1yQtyRaw);
         const avg1yVal = avg1yQty * (s1.qty > 0 ? s1.val / s1.qty : avgRate);
 
-        // Comparison
         const diffQty = avg3mQty - avg1yQty;
         const growthPct = avg1yQty > 0 ? (diffQty / avg1yQty) * 100 : 0;
 
-        // Stock Levels (Based on 1Y Avg)
-        const minStock = avg1yQty; // Min is Avg Annual (Monthly)
+        // Stock Norms
+        const minStock = avg1yQty;
         const minStockVal = minStock * avgRate;
-
         const reorderStock = roundToTen(avg1yQtyRaw * 1.5);
         const reorderStockVal = reorderStock * avgRate;
-
-        const maxStock = roundToTen(avg1yQtyRaw * 3); // Using 3x to create a logical ceiling above reorder
+        const maxStock = roundToTen(avg1yQtyRaw * 3);
         const maxStockVal = maxStock * avgRate;
 
-        // --- Actionable Logic ---
-        
-        // 1. Excess Stock: If Closing > (SO + Max)
+        // Actions
         const excessStockThreshold = so.qty + maxStock;
         const excessStockQty = Math.max(0, stock.qty - excessStockThreshold);
         const excessStockVal = excessStockQty * avgRate;
 
-        // 2. Excess PO: If Net > Max (i.e., we are bringing in too much)
         const excessPOQty = Math.max(0, netQty - maxStock);
         const excessPOVal = excessPOQty * avgRate;
 
-        // 3. PO Need to Place: If Net < Max (Targeting Max Stock)
-        // Only trigger if Net is below Reorder level to be realistic, but prompt implies simple logic
         const deficit = maxStock - netQty;
         const poNeedQty = deficit > 0 ? deficit : 0;
         const poNeedVal = poNeedQty * avgRate;
 
-        // 4. PO Exist (Expedite): Pending PO > (Closing - (SO + Max))??
-        // Logic Interpretation: Do we have POs that need to be rushed because Closing Stock is dangerously low?
-        // Let's use: Amount of Pending PO that is required to fill the gap between Closing and Max.
-        // Gap = Max - (Closing - SO). 
-        // Expedite = Min(Pending PO, Gap).
         const immediateGap = (so.qty + maxStock) - stock.qty;
         const expediteQty = (immediateGap > 0 && po.qty > 0) ? Math.min(po.qty, immediateGap) : 0;
         const expediteVal = expediteQty * avgRate;
@@ -176,13 +176,41 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
             }
         };
     });
+
+    // Only show items with some activity (Stock, SO, PO) or Action Needed
+    return rawRows.filter(item => 
+        item.stock.qty > 0 || 
+        item.so.qty > 0 || 
+        item.po.qty > 0 || 
+        item.actions.poNeed.qty > 0 ||
+        item.actions.expedite.qty > 0
+    );
+
   }, [materials, closingStock, pendingSO, pendingPO, salesReportItems]);
+
+  // --- Slicer Data ---
+  const slicerOptions = useMemo(() => {
+      const makes = new Set<string>();
+      const groups = new Set<string>();
+      pivotData.forEach(i => {
+          if (i.make) makes.add(i.make);
+          if (i.materialGroup) groups.add(i.materialGroup);
+      });
+      return {
+          makes: ['ALL', ...Array.from(makes).sort()],
+          groups: ['ALL', ...Array.from(groups).sort()]
+      };
+  }, [pivotData]);
 
   // --- Filtering & Sorting ---
   const filteredData = useMemo(() => {
       let data = pivotData;
       
-      // Text Search
+      // Slicers
+      if (slicerMake !== 'ALL') data = data.filter(i => i.make === slicerMake);
+      if (slicerGroup !== 'ALL') data = data.filter(i => i.materialGroup === slicerGroup);
+
+      // Search
       if (searchTerm) {
           const lower = searchTerm.toLowerCase();
           data = data.filter(i => 
@@ -192,15 +220,60 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
           );
       }
 
-      // Type Filter
-      if (filterType === 'ACTION') {
-          data = data.filter(i => i.actions.poNeed.qty > 0 || i.actions.expedite.qty > 0);
-      } else if (filterType === 'EXCESS') {
-          data = data.filter(i => i.actions.excessStock.qty > 0 || i.actions.excessPO.qty > 0);
+      // Toggles (OR Logic)
+      const hasToggle = showExcessStock || showExcessPO || showPONeed || showExpedite;
+      if (hasToggle) {
+          data = data.filter(i => 
+              (showExcessStock && i.actions.excessStock.qty > 0) ||
+              (showExcessPO && i.actions.excessPO.qty > 0) ||
+              (showPONeed && i.actions.poNeed.qty > 0) ||
+              (showExpedite && i.actions.expedite.qty > 0)
+          );
+      }
+
+      // Sorting
+      const sortFn = (a: typeof data[0], b: typeof data[0]) => {
+          switch (sortOption) {
+              case 'stockVal': return b.stock.val - a.stock.val;
+              case 'poNeedVal': return b.actions.poNeed.val - a.actions.poNeed.val;
+              case 'excessStockVal': return b.actions.excessStock.val - a.actions.excessStock.val;
+              case 'excessPOVal': return b.actions.excessPO.val - a.actions.excessPO.val;
+              case 'expediteVal': return b.actions.expedite.val - a.actions.expedite.val;
+              case 'netVal': return b.net.val - a.net.val;
+              default: return 0; // Default Master order
+          }
+      };
+      
+      if (sortOption !== 'default') {
+          data = [...data].sort(sortFn);
       }
 
       return data;
-  }, [pivotData, searchTerm, filterType]);
+  }, [pivotData, searchTerm, slicerMake, slicerGroup, showExcessStock, showExcessPO, showPONeed, showExpedite, sortOption]);
+
+  // --- Totals ---
+  const totals = useMemo(() => {
+      return filteredData.reduce((acc, row) => ({
+          stock: { qty: acc.stock.qty + row.stock.qty, val: acc.stock.val + row.stock.val },
+          so: { qty: acc.so.qty + row.so.qty, val: acc.so.val + row.so.val },
+          po: { qty: acc.po.qty + row.po.qty, val: acc.po.val + row.po.val },
+          net: { qty: acc.net.qty + row.net.qty, val: acc.net.val + row.net.val },
+          avg3m: { qty: acc.avg3m.qty + row.avg3m.qty, val: acc.avg3m.val + row.avg3m.val },
+          avg1y: { qty: acc.avg1y.qty + row.avg1y.qty, val: acc.avg1y.val + row.avg1y.val },
+          min: { qty: acc.min.qty + row.levels.min.qty, val: acc.min.val + row.levels.min.val },
+          reorder: { qty: acc.reorder.qty + row.levels.reorder.qty, val: acc.reorder.val + row.levels.reorder.val },
+          max: { qty: acc.max.qty + row.levels.max.qty, val: acc.max.val + row.levels.max.val },
+          excessStock: { qty: acc.excessStock.qty + row.actions.excessStock.qty, val: acc.excessStock.val + row.actions.excessStock.val },
+          excessPO: { qty: acc.excessPO.qty + row.actions.excessPO.qty, val: acc.excessPO.val + row.actions.excessPO.val },
+          poNeed: { qty: acc.poNeed.qty + row.actions.poNeed.qty, val: acc.poNeed.val + row.actions.poNeed.val },
+          expedite: { qty: acc.expedite.qty + row.actions.expedite.qty, val: acc.expedite.val + row.actions.expedite.val },
+      }), {
+          stock: { qty: 0, val: 0 }, so: { qty: 0, val: 0 }, po: { qty: 0, val: 0 }, net: { qty: 0, val: 0 },
+          avg3m: { qty: 0, val: 0 }, avg1y: { qty: 0, val: 0 },
+          min: { qty: 0, val: 0 }, reorder: { qty: 0, val: 0 }, max: { qty: 0, val: 0 },
+          excessStock: { qty: 0, val: 0 }, excessPO: { qty: 0, val: 0 }, poNeed: { qty: 0, val: 0 }, expedite: { qty: 0, val: 0 }
+      });
+  }, [filteredData]);
 
   // --- Export ---
   const handleExport = () => {
@@ -232,33 +305,73 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
   const formatVal = (v: number) => Math.round(v).toLocaleString('en-IN');
 
   return (
-    <div className="flex flex-col h-full gap-4">
+    <div className="flex flex-col h-full gap-3">
         
         {/* Toolbar */}
-        <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200 flex flex-col md:flex-row justify-between items-center gap-4 flex-shrink-0">
-            <div className="flex items-center gap-3">
-                <div className="bg-indigo-50 p-2 rounded-lg text-indigo-600"><Filter className="w-5 h-5" /></div>
-                <div>
-                    <h2 className="text-sm font-bold text-gray-800">Pivot Strategy Report</h2>
-                    <p className="text-[10px] text-gray-500">{filteredData.length} records analyzed</p>
+        <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200 flex flex-col gap-3 flex-shrink-0">
+            {/* Top Row: Title, Search, Export */}
+            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                <div className="flex items-center gap-3">
+                    <div className="bg-indigo-50 p-2 rounded-lg text-indigo-600"><Filter className="w-5 h-5" /></div>
+                    <div>
+                        <h2 className="text-sm font-bold text-gray-800">Pivot Strategy Report</h2>
+                        <p className="text-[10px] text-gray-500">{filteredData.length} active items (Hidden: Inactive/Empty)</p>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-2 w-full md:w-auto">
+                    <div className="relative flex-1 md:w-64">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Search className="h-3.5 w-3.5 text-gray-400" /></div>
+                        <input type="text" placeholder="Search..." className="pl-9 pr-3 py-1.5 w-full border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                    </div>
+                    <button onClick={handleExport} className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs font-bold border border-green-100 hover:bg-green-100 whitespace-nowrap">
+                        <FileDown className="w-3.5 h-3.5" /> Export
+                    </button>
                 </div>
             </div>
 
-            <div className="flex items-center gap-2 w-full md:w-auto">
-                <div className="relative flex-1 md:w-64">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Search className="h-3.5 w-3.5 text-gray-400" /></div>
-                    <input type="text" placeholder="Search..." className="pl-9 pr-3 py-1.5 w-full border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-                </div>
+            {/* Bottom Row: Slicers, Toggles, Sort */}
+            <div className="flex flex-wrap items-center gap-4 border-t border-gray-100 pt-3">
                 
-                <div className="flex bg-gray-100 p-1 rounded-lg">
-                    <button onClick={() => setFilterType('ALL')} className={`px-3 py-1 text-[10px] font-bold rounded ${filterType === 'ALL' ? 'bg-white shadow text-gray-800' : 'text-gray-500'}`}>All</button>
-                    <button onClick={() => setFilterType('ACTION')} className={`px-3 py-1 text-[10px] font-bold rounded ${filterType === 'ACTION' ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`}>Actions</button>
-                    <button onClick={() => setFilterType('EXCESS')} className={`px-3 py-1 text-[10px] font-bold rounded ${filterType === 'EXCESS' ? 'bg-white shadow text-red-600' : 'text-gray-500'}`}>Excess</button>
+                {/* Slicers */}
+                <div className="flex items-center gap-2 bg-gray-50 px-2 py-1 rounded-lg border border-gray-200">
+                    <Layers className="w-3.5 h-3.5 text-gray-500" />
+                    <div className="flex flex-col">
+                        <label className="text-[9px] font-bold text-gray-400 uppercase">Make</label>
+                        <select value={slicerMake} onChange={e => setSlicerMake(e.target.value)} className="bg-transparent text-xs font-bold text-gray-700 outline-none w-24">
+                            {slicerOptions.makes.map(m => <option key={m} value={m}>{m}</option>)}
+                        </select>
+                    </div>
+                    <div className="w-px h-6 bg-gray-300 mx-1"></div>
+                    <div className="flex flex-col">
+                        <label className="text-[9px] font-bold text-gray-400 uppercase">Group</label>
+                        <select value={slicerGroup} onChange={e => setSlicerGroup(e.target.value)} className="bg-transparent text-xs font-bold text-gray-700 outline-none w-24">
+                            {slicerOptions.groups.map(g => <option key={g} value={g}>{g}</option>)}
+                        </select>
+                    </div>
                 </div>
 
-                <button onClick={handleExport} className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs font-bold border border-green-100 hover:bg-green-100">
-                    <FileDown className="w-3.5 h-3.5" /> Export
-                </button>
+                {/* Toggles */}
+                <div className="flex flex-wrap gap-1.5">
+                    <button onClick={() => setShowExcessStock(!showExcessStock)} className={`px-2 py-1 rounded text-[10px] font-bold border transition-colors ${showExcessStock ? 'bg-red-50 text-red-700 border-red-200 shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}>Excess Stock</button>
+                    <button onClick={() => setShowExcessPO(!showExcessPO)} className={`px-2 py-1 rounded text-[10px] font-bold border transition-colors ${showExcessPO ? 'bg-orange-50 text-orange-700 border-orange-200 shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}>Excess PO</button>
+                    <button onClick={() => setShowPONeed(!showPONeed)} className={`px-2 py-1 rounded text-[10px] font-bold border transition-colors ${showPONeed ? 'bg-green-50 text-green-700 border-green-200 shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}>PO Need</button>
+                    <button onClick={() => setShowExpedite(!showExpedite)} className={`px-2 py-1 rounded text-[10px] font-bold border transition-colors ${showExpedite ? 'bg-blue-50 text-blue-700 border-blue-200 shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}>Expedite</button>
+                </div>
+
+                {/* Sort */}
+                <div className="ml-auto flex items-center gap-2">
+                    <ArrowUpDown className="w-3.5 h-3.5 text-gray-400" />
+                    <select value={sortOption} onChange={(e) => setSortOption(e.target.value)} className="bg-white border border-gray-300 text-xs rounded-md px-2 py-1 outline-none focus:ring-1 focus:ring-indigo-500">
+                        <option value="default">Default Sort</option>
+                        <option value="stockVal">Highest Stock Val</option>
+                        <option value="netVal">Highest Net Val</option>
+                        <option value="poNeedVal">Highest PO Need Val</option>
+                        <option value="excessStockVal">Highest Excess Stock Val</option>
+                        <option value="excessPOVal">Highest Excess PO Val</option>
+                        <option value="expediteVal">Highest Expedite Val</option>
+                    </select>
+                </div>
             </div>
         </div>
 
@@ -324,8 +437,50 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 text-[10px] text-gray-700">
+                        {/* TOTALS ROW */}
+                        {filteredData.length > 0 && (
+                            <tr className="bg-yellow-50 font-bold border-b-2 border-yellow-200 text-gray-900 sticky top-[62px] z-10 shadow-sm">
+                                <td colSpan={3} className="py-2 px-2 text-right border-r uppercase text-[9px] tracking-wide text-gray-500">Filtered Totals:</td>
+                                
+                                <td className="py-2 px-2 text-right bg-blue-100/50">{formatLargeValue(totals.stock.qty)}</td>
+                                <td className="py-2 px-2 text-right border-r bg-blue-100/50">{formatLargeValue(totals.stock.val)}</td>
+                                
+                                <td className="py-2 px-2 text-right bg-orange-100/50">{formatLargeValue(totals.so.qty)}</td>
+                                <td className="py-2 px-2 text-right border-r bg-orange-100/50">{formatLargeValue(totals.so.val)}</td>
+                                
+                                <td className="py-2 px-2 text-right bg-purple-100/50">{formatLargeValue(totals.po.qty)}</td>
+                                <td className="py-2 px-2 text-right border-r bg-purple-100/50">{formatLargeValue(totals.po.val)}</td>
+                                
+                                <td className="py-2 px-2 text-right bg-gray-200">{formatLargeValue(totals.net.qty)}</td>
+                                <td className="py-2 px-2 text-right border-r bg-gray-200">{formatLargeValue(totals.net.val)}</td>
+                                
+                                <td className="py-2 px-2 text-right bg-yellow-100/50">{formatLargeValue(totals.avg3m.qty)}</td>
+                                <td className="py-2 px-2 text-right bg-yellow-100/50">{formatLargeValue(totals.avg1y.qty)}</td>
+                                <td className="py-2 px-2 text-center border-r bg-yellow-100/50">-</td>
+                                
+                                <td className="py-2 px-2 text-right bg-teal-100/50">{formatLargeValue(totals.min.qty)}</td>
+                                <td className="py-2 px-2 text-right border-r bg-teal-100/50">{formatLargeValue(totals.min.val)}</td>
+                                <td className="py-2 px-2 text-right bg-teal-100/50">{formatLargeValue(totals.reorder.qty)}</td>
+                                <td className="py-2 px-2 text-right border-r bg-teal-100/50">{formatLargeValue(totals.reorder.val)}</td>
+                                <td className="py-2 px-2 text-right bg-teal-100/50">{formatLargeValue(totals.max.qty)}</td>
+                                <td className="py-2 px-2 text-right border-r bg-teal-100/50">{formatLargeValue(totals.max.val)}</td>
+                                
+                                <td className="py-2 px-2 text-right bg-red-100/50 text-red-800">{formatLargeValue(totals.excessStock.qty)}</td>
+                                <td className="py-2 px-2 text-right border-r bg-red-100/50 text-red-800">{formatLargeValue(totals.excessStock.val)}</td>
+                                
+                                <td className="py-2 px-2 text-right bg-red-100/50 text-red-800">{formatLargeValue(totals.excessPO.qty)}</td>
+                                <td className="py-2 px-2 text-right border-r bg-red-100/50 text-red-800">{formatLargeValue(totals.excessPO.val)}</td>
+                                
+                                <td className="py-2 px-2 text-right bg-green-100/50 text-green-800">{formatLargeValue(totals.poNeed.qty)}</td>
+                                <td className="py-2 px-2 text-right border-r bg-green-100/50 text-green-800">{formatLargeValue(totals.poNeed.val)}</td>
+                                
+                                <td className="py-2 px-2 text-right bg-blue-100/50 text-blue-800">{formatLargeValue(totals.expedite.qty)}</td>
+                                <td className="py-2 px-2 text-right bg-blue-100/50 text-blue-800">{formatLargeValue(totals.expedite.val)}</td>
+                            </tr>
+                        )}
+
                         {filteredData.length === 0 ? (
-                            <tr><td colSpan={29} className="py-10 text-center text-gray-400">No data matches your filter.</td></tr>
+                            <tr><td colSpan={29} className="py-10 text-center text-gray-400">No active items match your filter.</td></tr>
                         ) : (
                             filteredData.map((row, idx) => (
                                 <tr key={row.id} className="hover:bg-gray-50 transition-colors group">
