@@ -105,6 +105,10 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
         const descriptionKey = mat.description.toLowerCase().trim();
         const partNoKey = mat.partNo ? mat.partNo.toLowerCase().trim() : '';
         
+        // Normalize Make and Group for consistent filtering
+        const normalizedMake = String(mat.make || '').trim() || 'Unspecified';
+        const normalizedGroup = String(mat.materialGroup || '').trim() || 'Unspecified';
+
         const stock = stockMap.get(descriptionKey) || { qty: 0, val: 0 };
         const so = soMap.get(descriptionKey) || { qty: 0, val: 0 };
         const po = poMap.get(descriptionKey) || { qty: 0, val: 0 };
@@ -119,16 +123,44 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
 
         const netVal = netQty * avgRate;
 
-        // Sales Averages (Prioritize Part No Match)
-        const s3 = (partNoKey && sales3mMap.get(partNoKey)) || sales3mMap.get(descriptionKey) || { qty: 0, val: 0 };
-        const avg3mQtyRaw = s3.qty / 3;
-        const avg3mQty = roundToTen(avg3mQtyRaw);
-        const avg3mVal = avg3mQty * (s3.qty > 0 ? s3.val / s3.qty : avgRate);
+        // Sales Averages (Dual Match Logic: Part No + Description)
+        // --- 3 Months ---
+        const s3Part = (partNoKey && sales3mMap.get(partNoKey)) || { qty: 0, val: 0 };
+        const s3Desc = sales3mMap.get(descriptionKey) || { qty: 0, val: 0 };
+        
+        let s3TotalQty = 0;
+        let s3TotalVal = 0;
 
-        const s1 = (partNoKey && sales1yMap.get(partNoKey)) || sales1yMap.get(descriptionKey) || { qty: 0, val: 0 };
-        const avg1yQtyRaw = s1.qty / 12;
+        if (partNoKey && partNoKey !== descriptionKey) {
+            s3TotalQty = s3Part.qty + s3Desc.qty;
+            s3TotalVal = s3Part.val + s3Desc.val;
+        } else {
+            s3TotalQty = s3Desc.qty;
+            s3TotalVal = s3Desc.val;
+        }
+
+        const avg3mQtyRaw = s3TotalQty / 3;
+        const avg3mQty = roundToTen(avg3mQtyRaw);
+        const avg3mVal = avg3mQty * (s3TotalQty > 0 ? s3TotalVal / s3TotalQty : avgRate);
+
+        // --- 1 Year ---
+        const s1Part = (partNoKey && sales1yMap.get(partNoKey)) || { qty: 0, val: 0 };
+        const s1Desc = sales1yMap.get(descriptionKey) || { qty: 0, val: 0 };
+
+        let s1TotalQty = 0;
+        let s1TotalVal = 0;
+
+        if (partNoKey && partNoKey !== descriptionKey) {
+            s1TotalQty = s1Part.qty + s1Desc.qty;
+            s1TotalVal = s1Part.val + s1Desc.val;
+        } else {
+            s1TotalQty = s1Desc.qty;
+            s1TotalVal = s1Desc.val;
+        }
+
+        const avg1yQtyRaw = s1TotalQty / 12;
         const avg1yQty = roundToTen(avg1yQtyRaw);
-        const avg1yVal = avg1yQty * (s1.qty > 0 ? s1.val / s1.qty : avgRate);
+        const avg1yVal = avg1yQty * (s1TotalQty > 0 ? s1TotalVal / s1TotalQty : avgRate);
 
         const diffQty = avg3mQty - avg1yQty;
         const growthPct = avg1yQty > 0 ? (diffQty / avg1yQty) * 100 : 0;
@@ -159,6 +191,8 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
 
         return {
             ...mat,
+            make: normalizedMake,
+            materialGroup: normalizedGroup,
             stock, so, po, net: { qty: netQty, val: netVal },
             avg3m: { qty: avg3mQty, val: avg3mVal },
             avg1y: { qty: avg1yQty, val: avg1yVal },
@@ -254,19 +288,19 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
   // --- Totals ---
   const totals = useMemo(() => {
       return filteredData.reduce((acc, row) => ({
-          stock: { qty: acc.stock.qty + row.stock.qty, val: acc.stock.val + row.stock.val },
-          so: { qty: acc.so.qty + row.so.qty, val: acc.so.val + row.so.val },
-          po: { qty: acc.po.qty + row.po.qty, val: acc.po.val + row.po.val },
-          net: { qty: acc.net.qty + row.net.qty, val: acc.net.val + row.net.val },
-          avg3m: { qty: acc.avg3m.qty + row.avg3m.qty, val: acc.avg3m.val + row.avg3m.val },
-          avg1y: { qty: acc.avg1y.qty + row.avg1y.qty, val: acc.avg1y.val + row.avg1y.val },
-          min: { qty: acc.min.qty + row.levels.min.qty, val: acc.min.val + row.levels.min.val },
-          reorder: { qty: acc.reorder.qty + row.levels.reorder.qty, val: acc.reorder.val + row.levels.reorder.val },
-          max: { qty: acc.max.qty + row.levels.max.qty, val: acc.max.val + row.levels.max.val },
-          excessStock: { qty: acc.excessStock.qty + row.actions.excessStock.qty, val: acc.excessStock.val + row.actions.excessStock.val },
-          excessPO: { qty: acc.excessPO.qty + row.actions.excessPO.qty, val: acc.excessPO.val + row.actions.excessPO.val },
-          poNeed: { qty: acc.poNeed.qty + row.actions.poNeed.qty, val: acc.poNeed.val + row.actions.poNeed.val },
-          expedite: { qty: acc.expedite.qty + row.actions.expedite.qty, val: acc.expedite.val + row.actions.expedite.val },
+          stock: { qty: acc.stock.qty + (row.stock.qty || 0), val: acc.stock.val + (row.stock.val || 0) },
+          so: { qty: acc.so.qty + (row.so.qty || 0), val: acc.so.val + (row.so.val || 0) },
+          po: { qty: acc.po.qty + (row.po.qty || 0), val: acc.po.val + (row.po.val || 0) },
+          net: { qty: acc.net.qty + (row.net.qty || 0), val: acc.net.val + (row.net.val || 0) },
+          avg3m: { qty: acc.avg3m.qty + (row.avg3m.qty || 0), val: acc.avg3m.val + (row.avg3m.val || 0) },
+          avg1y: { qty: acc.avg1y.qty + (row.avg1y.qty || 0), val: acc.avg1y.val + (row.avg1y.val || 0) },
+          min: { qty: acc.min.qty + (row.levels.min.qty || 0), val: acc.min.val + (row.levels.min.val || 0) },
+          reorder: { qty: acc.reorder.qty + (row.levels.reorder.qty || 0), val: acc.reorder.val + (row.levels.reorder.val || 0) },
+          max: { qty: acc.max.qty + (row.levels.max.qty || 0), val: acc.max.val + (row.levels.max.val || 0) },
+          excessStock: { qty: acc.excessStock.qty + (row.actions.excessStock.qty || 0), val: acc.excessStock.val + (row.actions.excessStock.val || 0) },
+          excessPO: { qty: acc.excessPO.qty + (row.actions.excessPO.qty || 0), val: acc.excessPO.val + (row.actions.excessPO.val || 0) },
+          poNeed: { qty: acc.poNeed.qty + (row.actions.poNeed.qty || 0), val: acc.poNeed.val + (row.actions.poNeed.val || 0) },
+          expedite: { qty: acc.expedite.qty + (row.actions.expedite.qty || 0), val: acc.expedite.val + (row.actions.expedite.val || 0) },
       }), {
           stock: { qty: 0, val: 0 }, so: { qty: 0, val: 0 }, po: { qty: 0, val: 0 }, net: { qty: 0, val: 0 },
           avg3m: { qty: 0, val: 0 }, avg1y: { qty: 0, val: 0 },
