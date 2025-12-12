@@ -285,7 +285,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
               ...item,
               ...fi,
               rawDate: dateObj,
-              custGroup: accountGroup, 
+              custGroup: accountGroup, // From Customer Master 2nd Col
               customerMasterGroup: primaryGroup || 'Unspecified', 
               oldGroupField: cust?.group,
               custStatus: cust?.status || 'Unknown',
@@ -409,7 +409,22 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   const pieDataGroup = useMemo(() => {
       const map = new Map<string, number>();
       currentData.forEach(i => {
-          let key = i.customerMasterGroup || 'Other Groups';
+          // Use Account Group (Customer Master 2nd Col) - i.custGroup
+          const rawGroup = i.custGroup || 'Unassigned';
+          let key = rawGroup;
+          
+          // Consolidation Logic
+          const lowerKey = rawGroup.toLowerCase().trim();
+          
+          // 1. Group-Giridhar-Peenya & Group-Peenya -> Group-Giridhar
+          if (lowerKey === 'group-giridhar-peenya' || lowerKey === 'group-peenya') {
+              key = 'Group-Giridhar';
+          } 
+          // 2. All "Online" variations -> Online
+          else if (lowerKey.includes('online')) {
+              key = 'Online';
+          }
+
           map.set(key, (map.get(key) || 0) + i.value);
       });
       return Array.from(map.entries())
@@ -454,15 +469,29 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   }, [currentData, previousData]);
 
   const getGroupBreakdown = (groupName: string) => {
-    const breakdownMap = new Map<string, number>();
-    currentData
-      .filter(i => i.derivedGroup === groupName)
-      .forEach(i => {
-         breakdownMap.set(i.customerName, (breakdownMap.get(i.customerName) || 0) + i.value);
-      });
+    const breakdownMap = new Map<string, { current: number; prev: number }>();
+
+    // Process Current
+    currentData.filter(i => i.derivedGroup === groupName).forEach(i => {
+        const existing = breakdownMap.get(i.customerName) || { current: 0, prev: 0 };
+        existing.current += i.value;
+        breakdownMap.set(i.customerName, existing);
+    });
+
+    // Process Previous
+    previousData.filter(i => i.derivedGroup === groupName).forEach(i => {
+        const existing = breakdownMap.get(i.customerName) || { current: 0, prev: 0 };
+        existing.prev += i.value;
+        breakdownMap.set(i.customerName, existing);
+    });
+
     return Array.from(breakdownMap.entries())
-      .map(([name, val]) => ({ name, value: val }))
-      .sort((a, b) => b.value - a.value);
+        .map(([name, data]) => {
+            const diff = data.current - data.prev;
+            const pct = data.prev !== 0 ? (diff / data.prev) * 100 : 0;
+            return { name, value: data.current, prevValue: data.prev, pct };
+        })
+        .sort((a, b) => b.value - a.value);
   };
 
   // --- INVENTORY PREP ---
@@ -1149,9 +1178,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                             <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2"><PieIcon className="w-4 h-4 text-purple-600" /> Sales Mix</h3>
                         </div>
                         <div className="flex-1 flex flex-col gap-4 overflow-hidden min-h-0">
-                            {/* 1. Customer Group Donut - UPDATED to use raw Customer Group field */}
+                            {/* 1. Account Group Donut (Consolidated) */}
                             <div className="flex-1 min-h-0 border-b border-dashed border-gray-200 pb-2">
-                                <SimpleDonut data={pieDataGroup} title="Cust. Master Group" color="blue" />
+                                <SimpleDonut data={pieDataGroup} title="Account Group (Consolidated)" color="blue" />
                             </div>
                             {/* 2. Customer Status Donut */}
                             <div className="flex-1 min-h-0 pt-2">
@@ -1162,437 +1191,284 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
 
                 {/* 3. Top 10 Pivot (Bar Chart with Expandable Rows) */}
-                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col h-96">
-                    <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
-                            <BarChart3 className="w-4 h-4 text-emerald-600" /> Top 10 Customer Groups (Expandable)
-                        </h3>
-                        <span className="text-[10px] text-gray-400 italic text-right">
-                             Values vs {comparisonLabel}
-                        </span>
-                    </div>
-                    
-                    {/* Header */}
-                    <div className="flex justify-between text-[10px] font-bold text-gray-400 uppercase border-b border-gray-100 pb-2 mb-2 px-2">
-                        <span>Group Name</span>
-                        <span>Total Sales</span>
-                    </div>
-
-                    <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-3">
-                        {topCustomers.map((item, idx) => {
-                            const maxVal = topCustomers[0]?.value || 1;
-                            const isPositive = item.diff >= 0;
-                            const isExpanded = expandedGroups.has(item.label);
-                            const breakdown = isExpanded && item.isGroup ? getGroupBreakdown(item.label) : [];
-                            
-                            return (
-                                <div key={idx} className="bg-gray-50/50 rounded-lg border border-gray-100 overflow-hidden">
-                                    <div 
-                                        className="p-2 flex flex-col cursor-pointer hover:bg-gray-100 transition-colors"
-                                        onClick={() => item.isGroup && toggleGroup(item.label)}
-                                    >
-                                        <div className="flex justify-between items-start text-xs mb-1">
-                                            <div className="flex items-center gap-2 overflow-hidden">
-                                                <button 
-                                                    className={`w-5 h-5 flex items-center justify-center rounded transition-colors ${item.isGroup ? 'hover:bg-gray-200 text-gray-600' : 'opacity-0 cursor-default'}`}
-                                                >
-                                                    {item.isGroup && (isExpanded ? <Minus className="w-3 h-3" /> : <Plus className="w-3 h-3" />)}
-                                                </button>
-                                                <span className="w-5 text-[10px] font-bold text-gray-400 bg-white border border-gray-200 rounded text-center flex-shrink-0">{idx + 1}</span>
-                                                <span className="font-bold text-gray-800 truncate select-none">{item.label}</span>
-                                            </div>
-                                            <div className="flex flex-col items-end">
-                                                <span className="font-bold text-gray-900">{formatLakhs(item.value)}</span>
-                                                {item.prevValue > 0 && (
-                                                    <div className="flex items-center gap-1 text-[9px] mt-0.5">
-                                                        <span className="text-gray-400">vs {formatLakhsCompact(item.prevValue)}</span>
-                                                        <span className={`font-medium ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
-                                                            {isPositive ? '+' : ''}{Math.round(item.pct)}%
-                                                        </span>
+                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col">
+                     <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2"><Layers className="w-4 h-4 text-gray-600" /> Top Customers / Groups</h3>
+                     </div>
+                     <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="text-[10px] text-gray-500 uppercase border-b border-gray-100">
+                                    <th className="py-2 pl-2 w-8">#</th>
+                                    <th className="py-2">Name</th>
+                                    <th className="py-2 text-right">Sales</th>
+                                    <th className="py-2 text-right hidden sm:table-cell">Prev</th>
+                                    <th className="py-2 text-right">Growth</th>
+                                </tr>
+                            </thead>
+                            <tbody className="text-xs">
+                                {topCustomers.map((item, idx) => (
+                                    <React.Fragment key={idx}>
+                                        <tr className={`border-b border-gray-50 hover:bg-gray-50 ${expandedGroups.has(item.label) ? 'bg-gray-50' : ''}`}>
+                                            <td className="py-3 pl-2 text-gray-400 font-mono text-[10px]">{idx + 1}</td>
+                                            <td className="py-3">
+                                                <div className="flex flex-col">
+                                                    <div className="flex items-center gap-2">
+                                                        {item.isGroup && (
+                                                            <button onClick={() => toggleGroup(item.label)} className="p-0.5 hover:bg-gray-200 rounded">
+                                                                {expandedGroups.has(item.label) ? <ChevronUp className="w-3 h-3 text-gray-500" /> : <ChevronDown className="w-3 h-3 text-gray-500" />}
+                                                            </button>
+                                                        )}
+                                                        <span className="font-bold text-gray-800">{item.label}</span>
+                                                        {item.isGroup && <span className="text-[9px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded border border-blue-100 uppercase tracking-wide">Group</span>}
                                                     </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                        {/* Main Bar */}
-                                        <div className="w-full bg-gray-200 h-1.5 rounded-full overflow-hidden ml-12 w-[calc(100%-3rem)]">
-                                            <div className="bg-emerald-500 h-full rounded-full transition-all duration-500" style={{ width: `${(item.value / maxVal) * 100}%` }}></div>
-                                        </div>
-                                    </div>
-
-                                    {/* Expanded Details */}
-                                    {isExpanded && item.isGroup && (
-                                        <div className="bg-white border-t border-gray-100 p-2 pl-14 animate-in slide-in-from-top-1 duration-200">
-                                            <p className="text-[9px] font-bold text-gray-400 uppercase mb-2">Group Breakdown</p>
-                                            <div className="space-y-2">
-                                                {breakdown.map((cust, cIdx) => (
-                                                    <div key={cIdx} className="flex justify-between items-center text-[10px]">
-                                                        <span className="text-gray-600 truncate flex-1">{cust.name}</span>
-                                                        <span className="font-medium text-gray-800">{formatLakhs(cust.value)}</span>
+                                                    {/* Bar Visual */}
+                                                    <div className="w-full max-w-md h-1.5 bg-gray-100 rounded-full mt-1.5 overflow-hidden">
+                                                        <div className="h-full bg-blue-500 rounded-full" style={{ width: `${(item.value / (topCustomers[0]?.value || 1)) * 100}%` }}></div>
                                                     </div>
-                                                ))}
-                                                {breakdown.length === 0 && <span className="text-[10px] text-gray-400 italic">No details available</span>}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            )
-                        })}
-                        {topCustomers.length === 0 && <div className="text-center text-gray-400 text-xs mt-10">No sales data for selected period.</div>}
-                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="py-3 text-right font-bold text-gray-900">{formatLakhs(item.value)}</td>
+                                            <td className="py-3 text-right text-gray-500 hidden sm:table-cell">{formatLakhs(item.prevValue)}</td>
+                                            <td className="py-3 text-right">
+                                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${item.pct >= 0 ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                                                    {item.pct >= 0 ? <Plus className="w-2 h-2 mr-0.5" /> : <Minus className="w-2 h-2 mr-0.5" />}
+                                                    {Math.abs(item.pct).toFixed(1)}%
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        {/* Expanded Group Details */}
+                                        {item.isGroup && expandedGroups.has(item.label) && (
+                                            <tr>
+                                                <td colSpan={5} className="p-0">
+                                                    <div className="bg-gray-50/50 p-3 border-b border-gray-100 animate-in slide-in-from-top-1">
+                                                        <table className="w-full text-xs">
+                                                            <thead>
+                                                                <tr className="text-[9px] text-gray-400 uppercase border-b border-gray-100 text-right">
+                                                                    <th className="py-1 text-left pl-8">Customer Name</th>
+                                                                    <th className="py-1">Prev</th>
+                                                                    <th className="py-1">Current</th>
+                                                                    <th className="py-1">Growth</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                {getGroupBreakdown(item.label).map((sub, sIdx) => (
+                                                                    <tr key={sIdx} className="border-b border-gray-100 last:border-0 hover:bg-gray-100/50">
+                                                                        <td className="py-2 pl-8 text-gray-600 w-1/2 font-medium">{sub.name}</td>
+                                                                        <td className="py-2 text-right text-gray-400">{formatLakhs(sub.prevValue)}</td>
+                                                                        <td className="py-2 text-right font-bold text-gray-800">{formatLakhs(sub.value)}</td>
+                                                                        <td className="py-2 text-right">
+                                                                            <span className={`text-[10px] font-bold ${sub.pct >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                                                {sub.pct > 0 ? '+' : ''}{Math.round(sub.pct)}%
+                                                                            </span>
+                                                                        </td>
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </React.Fragment>
+                                ))}
+                            </tbody>
+                        </table>
+                     </div>
                 </div>
-
             </div>
         ) : activeSubTab === 'inventory' ? (
-          <div className="flex flex-col gap-4">
-             {/* 1. Header Stats */}
-             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 flex-shrink-0">
-               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                   <div className="bg-emerald-50 rounded-lg p-3 border border-emerald-100">
-                       <p className="text-[10px] font-semibold text-emerald-700 uppercase tracking-wide mb-0.5">Total Stock Value</p>
-                       <p className="text-xl font-bold text-gray-900">{formatCurrency(inventoryStats.totalVal)}</p>
-                   </div>
-                   <div className="bg-blue-50 rounded-lg p-3 border border-blue-100">
-                       <p className="text-[10px] font-semibold text-blue-700 uppercase tracking-wide mb-0.5">Total Items</p>
-                       <p className="text-xl font-bold text-gray-900">{inventoryStats.count.toLocaleString()}</p>
-                   </div>
-                   <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
-                       <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wide mb-0.5">Total Quantity</p>
-                       <p className="text-xl font-bold text-gray-900">{inventoryStats.totalQty.toLocaleString()}</p>
-                   </div>
-                   <div className={`rounded-lg p-3 border ${inventoryStats.totalUnmatched > 0 ? 'bg-orange-50 border-orange-100' : 'bg-green-50 border-green-100'}`}>
-                       <div className="flex items-center gap-1.5 mb-0.5">
-                          {inventoryStats.totalUnmatched > 0 ? <Link2Off className="w-3 h-3 text-orange-600" /> : <Package className="w-3 h-3 text-green-600" />}
-                          <p className={`text-[10px] font-semibold uppercase tracking-wide ${inventoryStats.totalUnmatched > 0 ? 'text-orange-700' : 'text-green-700'}`}>
-                             Not in Master
-                          </p>
-                       </div>
-                       <p className={`text-xl font-bold ${inventoryStats.totalUnmatched > 0 ? 'text-orange-800' : 'text-green-800'}`}>
-                           {inventoryStats.totalUnmatched.toLocaleString()}
-                       </p>
-                   </div>
-               </div>
-             </div>
-
-             {/* 2. Charts Dashboard */}
-             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-shrink-0">
-                 {/* Make Distribution (Donut) */}
-                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 flex flex-col h-[280px]">
-                     <div className="flex justify-between items-center mb-2 border-b border-gray-100 pb-2 flex-shrink-0">
-                         <div className="flex items-center gap-1.5">
-                             <PieIcon className="w-4 h-4 text-purple-600" />
-                             <h3 className="text-xs font-bold text-gray-800">Make Distribution</h3>
-                         </div>
-                         <InventoryToggle value={invMakeMetric} onChange={setInvMakeMetric} colorClass="text-purple-700" />
+             <div className="flex flex-col gap-4">
+                 {/* Inventory KPIs */}
+                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                         <p className="text-[10px] text-emerald-600 font-bold uppercase">Total Value</p>
+                         <h3 className="text-xl font-extrabold text-gray-900 mt-0.5">{formatLakhs(inventoryStats.totalVal)}</h3>
                      </div>
-                     <div className="flex-1 min-h-0">
-                       <InventoryDonutChart data={inventoryStats.byMake} metric={invMakeMetric} total={inventoryStats.currentMakeTotal} />
+                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                         <p className="text-[10px] text-blue-600 font-bold uppercase">Total Items</p>
+                         <h3 className="text-xl font-extrabold text-gray-900 mt-0.5">{inventoryStats.count.toLocaleString()}</h3>
+                     </div>
+                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                         <p className="text-[10px] text-gray-500 font-bold uppercase">Total Qty</p>
+                         <h3 className="text-xl font-extrabold text-gray-900 mt-0.5">{inventoryStats.totalQty.toLocaleString()}</h3>
+                     </div>
+                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                         <div className="flex items-center gap-1">
+                             {inventoryStats.totalUnmatched > 0 ? <Link2Off className="w-3.5 h-3.5 text-red-500" /> : <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />}
+                             <p className="text-[10px] text-gray-500 font-bold uppercase">Master Status</p>
+                         </div>
+                         <h3 className={`text-xl font-extrabold mt-0.5 ${inventoryStats.totalUnmatched > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                             {inventoryStats.totalUnmatched > 0 ? `${inventoryStats.totalUnmatched} Unmatched` : 'All Linked'}
+                         </h3>
                      </div>
                  </div>
 
-                 {/* Group Distribution (Bar/List) */}
-                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 flex flex-col h-[280px]">
-                     <div className="flex justify-between items-center mb-2 border-b border-gray-100 pb-2 flex-shrink-0">
-                         <div className="flex items-center gap-1.5">
-                             <BarChart3 className="w-4 h-4 text-blue-600" />
-                             <h3 className="text-xs font-bold text-gray-800">Stock by Group</h3>
-                         </div>
-                         <InventoryToggle value={invGroupMetric} onChange={setInvGroupMetric} colorClass="text-blue-700" />
-                     </div>
-                     <div className="overflow-y-auto custom-scrollbar space-y-2 flex-1 pr-1">
-                         {inventoryStats.byGroup.map((group) => {
-                             const maxVal = inventoryStats.byGroup[0]?.value || 1;
-                             const percent = (group.value / maxVal) * 100;
-                             return (
-                                 <div key={group.label} className="text-[10px]">
-                                     <div className="flex justify-between items-center gap-2 mb-0.5">
-                                         <span className="text-gray-700 font-medium text-[10px]">{group.label}</span>
-                                         <span className="text-gray-900 font-bold whitespace-nowrap">{inventoryStats.formatVal(group.value, invGroupMetric)}</span>
-                                     </div>
-                                     <div className="w-full bg-gray-100 rounded-full h-1 overflow-hidden">
-                                         <div className="bg-blue-500 h-1 rounded-full transition-all duration-500" style={{ width: `${percent}%` }}></div>
-                                     </div>
-                                 </div>
-                             )
-                         })}
-                         {inventoryStats.byGroup.length === 0 && <div className="text-center text-gray-400 text-[10px] py-8">No grouped data found</div>}
-                     </div>
-                 </div>
+                 {/* Inventory Charts */}
+                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:h-80">
+                      {/* Make Donut */}
+                      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col">
+                           <div className="flex justify-between items-center mb-2">
+                               <h4 className="text-xs font-bold text-gray-700">Stock by Make</h4>
+                               <InventoryToggle value={invMakeMetric} onChange={setInvMakeMetric} colorClass="text-purple-700" />
+                           </div>
+                           <div className="flex-1 min-h-0">
+                                <InventoryDonutChart data={inventoryStats.byMake} metric={invMakeMetric} total={inventoryStats.currentMakeTotal} centerLabelOverride="Total" />
+                           </div>
+                      </div>
+                      
+                      {/* Group List */}
+                      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col">
+                           <div className="flex justify-between items-center mb-2">
+                               <h4 className="text-xs font-bold text-gray-700">Stock by Group</h4>
+                               <InventoryToggle value={invGroupMetric} onChange={setInvGroupMetric} colorClass="text-blue-700" />
+                           </div>
+                           <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 space-y-3">
+                               {inventoryStats.byGroup.map((g, i) => (
+                                   <div key={i} className="flex flex-col gap-1">
+                                       <div className="flex justify-between text-[10px]">
+                                           <span className="font-medium text-gray-700 truncate">{g.label}</span>
+                                           <span className="font-bold text-gray-900">{inventoryStats.formatVal(g.value, invGroupMetric)}</span>
+                                       </div>
+                                       <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                                           <div className="bg-blue-500 h-full rounded-full" style={{ width: `${(g.value / (inventoryStats.byGroup[0]?.value || 1)) * 100}%` }}></div>
+                                       </div>
+                                   </div>
+                               ))}
+                           </div>
+                      </div>
 
-                 {/* Top 5 Articles */}
-                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 flex flex-col h-[280px]">
-                     <div className="flex justify-between items-center mb-2 border-b border-gray-100 pb-2 flex-shrink-0">
-                         <div className="flex items-center gap-1.5">
-                             <Layers className="w-4 h-4 text-emerald-600" />
-                             <h3 className="text-xs font-bold text-gray-800">Top 5 Articles</h3>
-                         </div>
-                         <InventoryToggle value={invTopMetric} onChange={setInvTopMetric} colorClass="text-emerald-700" />
-                     </div>
-                     <div className="space-y-2 flex-1 overflow-y-auto custom-scrollbar pr-1">
-                         {inventoryStats.topArticles.map((item, idx) => (
-                             <div key={idx} className="flex items-center gap-2">
-                                 <span className={`flex-shrink-0 w-4 h-4 flex items-center justify-center rounded-full text-[9px] font-bold ${idx === 0 ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-500'}`}>
-                                     {idx + 1}
-                                 </span>
-                                 <div className="flex-1 min-w-0">
-                                     <p className="text-[10px] font-medium text-gray-800 truncate" title={item.label}>{item.label}</p>
-                                     <div className="w-full bg-gray-100 rounded-full h-1 mt-0.5">
-                                         <div className={`h-1 rounded-full ${idx === 0 ? 'bg-emerald-500' : 'bg-emerald-300'} transition-all duration-500`} style={{ width: `${(item.value / inventoryStats.topArticles[0].value) * 100}%` }}></div>
-                                     </div>
-                                 </div>
-                                 <div className="text-right">
-                                     <p className="text-[10px] font-bold text-gray-900">{inventoryStats.formatVal(item.value, invTopMetric)}</p>
-                                 </div>
-                             </div>
-                         ))}
-                         {inventoryStats.topArticles.length === 0 && <p className="text-center text-gray-400 text-[10px] py-4">No data available</p>}
-                     </div>
+                      {/* Top Articles */}
+                      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col">
+                           <div className="flex justify-between items-center mb-2">
+                               <h4 className="text-xs font-bold text-gray-700">Top 5 Articles</h4>
+                               <InventoryToggle value={invTopMetric} onChange={setInvTopMetric} colorClass="text-emerald-700" />
+                           </div>
+                           <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 space-y-3">
+                               {inventoryStats.topArticles.map((a, i) => (
+                                   <div key={i} className="flex items-center gap-2">
+                                       <span className="w-5 h-5 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center text-[10px] font-bold shrink-0">{i+1}</span>
+                                       <div className="flex-1 min-w-0">
+                                           <p className="text-[10px] font-medium text-gray-800 truncate" title={a.label}>{a.label}</p>
+                                           <div className="w-full bg-gray-100 h-1 rounded-full mt-1">
+                                                <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${(a.value / (inventoryStats.topArticles[0]?.value || 1)) * 100}%` }}></div>
+                                           </div>
+                                       </div>
+                                       <span className="text-[10px] font-bold text-gray-900">{inventoryStats.formatVal(a.value, invTopMetric)}</span>
+                                   </div>
+                               ))}
+                           </div>
+                      </div>
                  </div>
              </div>
-          </div>
         ) : activeSubTab === 'so' ? (
-          // --- PENDING SO DASHBOARD ---
-          <div className="flex flex-col gap-6">
-              
-              {/* 1. KPI Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                      <p className="text-[10px] font-bold text-gray-500 uppercase mb-1">TOTAL ORDERED ({soStats.totalOrdered.count} ORDERS)</p>
-                      <div className="flex flex-col">
-                          <span className="text-xl font-extrabold text-gray-900">{formatCurrency(soStats.totalOrdered.val)}</span>
-                          <span className="text-sm font-bold text-blue-600">Qty: {soStats.totalOrdered.qty.toLocaleString()}</span>
-                      </div>
-                  </div>
-                  <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                      <p className="text-[10px] font-bold text-gray-500 uppercase mb-1">TOTAL BALANCE</p>
-                      <div className="flex flex-col">
-                          <span className="text-xl font-extrabold text-gray-900">{formatCurrency(soStats.totalBalance.val)}</span>
-                          <span className="text-sm font-bold text-orange-600">Qty: {soStats.totalBalance.qty.toLocaleString()}</span>
-                      </div>
-                  </div>
-              </div>
+            <div className="flex flex-col gap-4">
+                 {/* SO KPIs - UPDATED LAYOUT */}
+                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                         <p className="text-[10px] text-gray-500 font-bold uppercase">TOTAL BALANCE</p>
+                         <h3 className="text-2xl font-extrabold text-orange-600 mt-0.5">{formatCurrency(soStats.totalBalance.val)}</h3>
+                         <p className="text-[10px] text-gray-400 mt-1 font-medium">{soStats.totalBalance.qty.toLocaleString()} Units</p>
+                     </div>
+                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                         <div className="flex items-center gap-2">
+                             <div className="bg-red-50 p-1.5 rounded text-red-600"><AlertCircle className="w-4 h-4" /></div>
+                             <p className="text-[10px] text-gray-500 font-bold uppercase">DUE FOR DELIVERY</p>
+                         </div>
+                         <h3 className="text-2xl font-extrabold text-gray-900 mt-1">{formatCurrency(soStats.byStatus.overdue + soStats.byStatus.due)}</h3>
+                     </div>
+                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                         <div className="flex items-center gap-2">
+                             <div className="bg-blue-50 p-1.5 rounded text-blue-600"><Clock className="w-4 h-4" /></div>
+                             <p className="text-[10px] text-gray-500 font-bold uppercase">SCHEDULED</p>
+                         </div>
+                         <h3 className="text-2xl font-extrabold text-gray-900 mt-1">{formatCurrency(soStats.byStatus.future)}</h3>
+                     </div>
+                 </div>
 
-              {/* 2. Top Charts Grid (Filtered) */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                  
-                  {/* Chart 1: Customer Group Distribution */}
-                  <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex flex-col h-64">
-                      <div className="flex items-center justify-between border-b border-gray-100 pb-2 mb-2">
-                          <h3 className="text-xs font-bold text-gray-800 flex items-center gap-1"><Users className="w-3.5 h-3.5 text-blue-600" /> Group Wise Pending</h3>
+                 {/* Charts */}
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-64">
+                      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                          <SimpleBarChart data={Array.from(soStats.byGroup.entries()).map(([label, value]) => ({ label, value }))} title="Pending by Group" color="orange" />
                       </div>
-                      <div className="flex-1 min-h-0">
-                          <InventoryDonutChart 
-                            data={Array.from(soStats.byGroup.entries())
-                                .map(([label, value], i) => ({ 
-                                    label: label || 'Unassigned', value, color: COLORS[i % COLORS.length], displayValue: formatLakhs(value) 
-                                }))
-                                .sort((a,b) => b.value - a.value)
-                            } 
-                            metric="value" 
-                            total={soStats.totalBalance.val} 
-                            centerLabelOverride="Total Value"
-                          />
+                      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                          <SimpleBarChart data={Array.from(soStats.byMake.entries()).map(([label, value]) => ({ label, value }))} title="Pending by Make" color="blue" />
                       </div>
-                  </div>
+                 </div>
 
-                  {/* Chart 2: Make Wise Pending (Bar) */}
-                  <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex flex-col h-64">
-                      <div className="flex items-center justify-between border-b border-gray-100 pb-2 mb-2">
-                          <h3 className="text-xs font-bold text-gray-800 flex items-center gap-1"><Factory className="w-3.5 h-3.5 text-purple-600" /> Make Wise Pending</h3>
-                      </div>
-                      <div className="flex-1 min-h-0">
-                          <SimpleBarChart 
-                             data={Array.from(soStats.byMake.entries()).map(([label, value]) => ({ label, value }))} 
-                             title="" 
-                             color="purple" 
-                          />
-                      </div>
-                  </div>
-
-                  {/* Chart 3: Status Distribution */}
-                  <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex flex-col h-64">
-                      <div className="flex items-center justify-between border-b border-gray-100 pb-2 mb-2">
-                          <h3 className="text-xs font-bold text-gray-800 flex items-center gap-1"><Clock className="w-3.5 h-3.5 text-orange-600" /> Schedule Status</h3>
-                      </div>
-                      <div className="flex-1 min-h-0">
-                          <InventoryDonutChart 
-                            data={[
-                                { label: 'Overdue', value: soStats.byStatus.overdue, color: '#EF4444', displayValue: formatLakhs(soStats.byStatus.overdue) },
-                                { label: 'Due This Month', value: soStats.byStatus.due, color: '#F59E0B', displayValue: formatLakhs(soStats.byStatus.due) },
-                                { label: 'Scheduled (Future)', value: soStats.byStatus.future, color: '#10B981', displayValue: formatLakhs(soStats.byStatus.future) }
-                            ].filter(d => d.value > 0)} 
-                            metric="value" 
-                            total={soStats.totalBalance.val} 
-                            centerLabelOverride="Status"
-                          />
-                      </div>
-                  </div>
-              </div>
-
-              {/* 3. Analysis Table */}
-              <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                  <div className="p-3 bg-gray-50 border-b border-gray-200">
-                      <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
-                          <ClipboardList className="w-4 h-4 text-purple-600" /> Delivery Schedule Analysis (FIFO)
-                      </h3>
-                  </div>
-                  <table className="w-full text-left border-collapse">
-                      <thead>
-                          <tr className="bg-gray-50 border-b border-gray-100 text-[10px] font-bold text-gray-500 uppercase">
-                              <th className="py-3 px-4 w-1/3">Category</th>
-                              <th className="py-3 px-4 text-center bg-green-50/50 border-l border-r border-green-100 text-green-700">Stock Available</th>
-                              <th className="py-3 px-4 text-center bg-red-50/50 text-red-700">Need to Arrange</th>
-                          </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100 text-sm">
-                          {/* Row 1: Due for Delivery */}
-                          <tr className="hover:bg-gray-50/50 transition-colors">
-                              <td className="py-4 px-4">
-                                  <div className="flex items-center gap-2">
-                                      <div className="bg-red-100 p-1.5 rounded text-red-600"><AlertCircle className="w-4 h-4" /></div>
-                                      <div>
-                                          <p className="font-bold text-gray-800">Due for Delivery</p>
-                                          <p className="text-[10px] text-gray-500">Overdue or Due this Month</p>
-                                      </div>
-                                  </div>
-                              </td>
-                              <td className="py-4 px-4 text-center bg-green-50/10 border-l border-r border-gray-100">
-                                  <div className="flex flex-col items-center">
-                                      <span className="font-bold text-green-700">{formatCurrency(soStats.due.available.val)}</span>
-                                      <span className="text-xs font-medium text-green-600">Qty: {soStats.due.available.qty.toLocaleString()}</span>
-                                  </div>
-                              </td>
-                              <td className="py-4 px-4 text-center bg-red-50/10">
-                                  <div className="flex flex-col items-center">
-                                      <span className="font-bold text-red-700">{formatCurrency(soStats.due.shortage.val)}</span>
-                                      <span className="text-xs font-medium text-red-600">Qty: {soStats.due.shortage.qty.toLocaleString()}</span>
-                                  </div>
-                              </td>
-                          </tr>
-
-                          {/* Row 2: Scheduled */}
-                          <tr className="hover:bg-gray-50/50 transition-colors">
-                              <td className="py-4 px-4">
-                                  <div className="flex items-center gap-2">
-                                      <div className="bg-blue-100 p-1.5 rounded text-blue-600"><Clock className="w-4 h-4" /></div>
-                                      <div>
-                                          <p className="font-bold text-gray-800">Scheduled</p>
-                                          <p className="text-[10px] text-gray-500">Future Orders (Next Month+)</p>
-                                      </div>
-                                  </div>
-                              </td>
-                              <td className="py-4 px-4 text-center bg-green-50/10 border-l border-r border-gray-100">
-                                  <div className="flex flex-col items-center">
-                                      <span className="font-bold text-green-700">{formatCurrency(soStats.scheduled.available.val)}</span>
-                                      <span className="text-xs font-medium text-green-600">Qty: {soStats.scheduled.available.qty.toLocaleString()}</span>
-                                  </div>
-                              </td>
-                              <td className="py-4 px-4 text-center bg-red-50/10">
-                                  <div className="flex flex-col items-center">
-                                      <span className="font-bold text-red-700">{formatCurrency(soStats.scheduled.shortage.val)}</span>
-                                      <span className="text-xs font-medium text-red-600">Qty: {soStats.scheduled.shortage.qty.toLocaleString()}</span>
-                                  </div>
-                              </td>
-                          </tr>
-                      </tbody>
-                  </table>
-              </div>
-
-              {/* 4. Top 10 Customer Groups Table (Collapsible) */}
-              <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                  <div className="p-3 bg-gray-50 border-b border-gray-200">
-                      <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
-                          <User className="w-4 h-4 text-blue-600" /> Top 10 Customer Groups - Pending Orders
-                      </h3>
-                  </div>
-                  <div className="overflow-x-auto">
-                      <table className="w-full text-left border-collapse">
-                          <thead>
-                              <tr className="bg-gray-50 border-b border-gray-100 text-[10px] font-bold text-gray-500 uppercase">
-                                  <th className="py-3 px-4 border-r border-gray-200 w-1/3" rowSpan={2}>Customer Group</th>
-                                  <th className="py-2 px-4 text-center border-b border-r border-gray-200 bg-red-50/30 text-red-800" colSpan={2}>Due for Delivery</th>
-                                  <th className="py-2 px-4 text-center border-b border-gray-200 bg-blue-50/30 text-blue-800" colSpan={2}>Scheduled</th>
-                                  <th className="py-3 px-4 text-right border-l border-gray-200" rowSpan={2}>Total Value</th>
-                              </tr>
-                              <tr className="bg-gray-50 border-b border-gray-100 text-[9px] font-bold text-gray-500 uppercase">
-                                  <th className="py-2 px-4 text-right border-r border-gray-200 bg-red-50/10">Qty</th>
-                                  <th className="py-2 px-4 text-right border-r border-gray-200 bg-red-50/10">Amount</th>
-                                  <th className="py-2 px-4 text-right border-r border-gray-200 bg-blue-50/10">Qty</th>
-                                  <th className="py-2 px-4 text-right bg-blue-50/10">Amount</th>
-                              </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-100 text-xs">
-                              {topPendingGroups.map((group, idx) => {
-                                  const isExpanded = expandedPendingGroups.has(group.groupName);
-                                  return (
-                                      <React.Fragment key={idx}>
-                                          {/* Group Row */}
-                                          <tr 
-                                            className="hover:bg-gray-50 transition-colors cursor-pointer bg-gray-50/30 font-semibold"
-                                            onClick={() => togglePendingGroup(group.groupName)}
-                                          >
-                                              <td className="py-3 px-4 text-gray-900 border-r border-gray-100 flex items-center gap-2">
-                                                  <button className="text-gray-500 hover:text-blue-600">
-                                                      {isExpanded ? <Minus className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
-                                                  </button>
-                                                  {group.groupName}
-                                              </td>
-                                              <td className="py-3 px-4 text-right text-gray-600 border-r border-gray-100 bg-red-50/5">
-                                                  {group.due.qty.toLocaleString()}
-                                              </td>
-                                              <td className="py-3 px-4 text-right text-red-700 border-r border-gray-100 bg-red-50/5">
-                                                  {formatCurrency(group.due.val)}
-                                              </td>
-                                              <td className="py-3 px-4 text-right text-gray-600 border-r border-gray-100 bg-blue-50/5">
-                                                  {group.scheduled.qty.toLocaleString()}
-                                              </td>
-                                              <td className="py-3 px-4 text-right text-blue-700 bg-blue-50/5">
-                                                  {formatCurrency(group.scheduled.val)}
-                                              </td>
-                                              <td className="py-3 px-4 text-right text-gray-900 font-bold border-l border-gray-100">
-                                                  {formatCurrency(group.totalVal)}
-                                              </td>
-                                          </tr>
-
-                                          {/* Expanded Customer Details */}
-                                          {isExpanded && group.customers.map((cust: any, cIdx: number) => (
-                                              <tr key={`${idx}-${cIdx}`} className="bg-white hover:bg-gray-50 transition-colors animate-in slide-in-from-top-1 duration-200">
-                                                  <td className="py-2 px-4 pl-10 text-gray-600 border-r border-gray-100 text-[11px] truncate" title={cust.custName}>
-                                                      {cust.custName}
-                                                  </td>
-                                                  <td className="py-2 px-4 text-right text-gray-500 border-r border-gray-100 text-[11px]">
-                                                      {cust.due.qty.toLocaleString()}
-                                                  </td>
-                                                  <td className="py-2 px-4 text-right text-gray-600 border-r border-gray-100 text-[11px]">
-                                                      {formatCurrency(cust.due.val)}
-                                                  </td>
-                                                  <td className="py-2 px-4 text-right text-gray-500 border-r border-gray-100 text-[11px]">
-                                                      {cust.scheduled.qty.toLocaleString()}
-                                                  </td>
-                                                  <td className="py-2 px-4 text-right text-gray-600 text-[11px]">
-                                                      {formatCurrency(cust.scheduled.val)}
-                                                  </td>
-                                                  <td className="py-2 px-4 text-right text-gray-800 font-medium border-l border-gray-100 text-[11px]">
-                                                      {formatCurrency(cust.totalVal)}
-                                                  </td>
-                                              </tr>
-                                          ))}
-                                      </React.Fragment>
-                                  );
-                              })}
-                              {topPendingGroups.length === 0 && (
-                                  <tr>
-                                      <td colSpan={6} className="py-8 text-center text-gray-400">No pending orders found.</td>
-                                  </tr>
-                              )}
-                          </tbody>
-                      </table>
-                  </div>
-              </div>
-          </div>
+                 {/* Top Pending Groups Table */}
+                 <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                     <h3 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2"><ClipboardList className="w-4 h-4 text-gray-600" /> Top Pending Groups</h3>
+                     <div className="overflow-x-auto">
+                         <table className="w-full text-left border-collapse">
+                             <thead>
+                                 <tr className="text-[10px] text-gray-500 uppercase border-b border-gray-100">
+                                     <th className="py-2 pl-2">Group Name</th>
+                                     <th className="py-2 text-right">Total Pending</th>
+                                     <th className="py-2 text-right text-red-600">Immediate Due</th>
+                                     <th className="py-2 text-right text-blue-600">Scheduled</th>
+                                 </tr>
+                             </thead>
+                             <tbody className="text-xs">
+                                 {topPendingGroups.map((group, idx) => (
+                                     <React.Fragment key={idx}>
+                                         <tr className={`border-b border-gray-50 hover:bg-gray-50 cursor-pointer ${expandedPendingGroups.has(group.groupName) ? 'bg-gray-50' : ''}`} onClick={() => togglePendingGroup(group.groupName)}>
+                                             <td className="py-3 pl-2 flex items-center gap-2 font-medium text-gray-800">
+                                                 {expandedPendingGroups.has(group.groupName) ? <ChevronUp className="w-3 h-3 text-gray-400" /> : <ChevronDown className="w-3 h-3 text-gray-400" />}
+                                                 {group.groupName}
+                                             </td>
+                                             <td className="py-3 text-right font-bold">{formatLakhs(group.totalVal)}</td>
+                                             <td className="py-3 text-right text-red-600 font-medium">{formatLakhs(group.due.val)}</td>
+                                             <td className="py-3 text-right text-blue-600 font-medium">{formatLakhs(group.scheduled.val)}</td>
+                                         </tr>
+                                         {expandedPendingGroups.has(group.groupName) && (
+                                             <tr>
+                                                 <td colSpan={4} className="p-0">
+                                                     <div className="bg-gray-50/50 p-3 border-b border-gray-100 animate-in slide-in-from-top-1">
+                                                         <table className="w-full text-xs">
+                                                             {group.customers.map((cust: any, cIdx: number) => (
+                                                                 <tr key={cIdx} className="border-b border-gray-100 last:border-0">
+                                                                     <td className="py-2 pl-8 text-gray-600 w-1/2">{cust.custName}</td>
+                                                                     <td className="py-2 text-right text-gray-800">{formatLakhs(cust.totalVal)}</td>
+                                                                     <td className="py-2 text-right text-red-500">{formatLakhs(cust.due.val)}</td>
+                                                                     <td className="py-2 text-right text-blue-500">{formatLakhs(cust.scheduled.val)}</td>
+                                                                 </tr>
+                                                             ))}
+                                                         </table>
+                                                     </div>
+                                                 </td>
+                                             </tr>
+                                         )}
+                                     </React.Fragment>
+                                 ))}
+                             </tbody>
+                         </table>
+                     </div>
+                 </div>
+            </div>
         ) : (
-            // Placeholder for PO
-            <div className="flex items-center justify-center h-64 text-gray-400 italic">
-                {activeSubTab === 'po' && "Pending PO details available in 'Pending PO' tab."}
+            <div className="flex flex-col gap-4">
+                {/* PO Stats */}
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-8 text-center">
+                    <ShoppingCart className="w-12 h-12 text-blue-300 mx-auto mb-3" />
+                    <h3 className="text-lg font-bold text-blue-900">Purchase Orders Overview</h3>
+                    <p className="text-sm text-blue-600 mb-6"> {pendingPO.length} Pending Orders</p>
+                    
+                    <div className="flex justify-center gap-8">
+                        <div className="text-center">
+                            <p className="text-xs uppercase font-bold text-blue-400">Total Ordered</p>
+                            <p className="text-2xl font-bold text-blue-800">{pendingPO.reduce((acc, i) => acc + (i.orderedQty || 0), 0).toLocaleString()}</p>
+                        </div>
+                        <div className="text-center">
+                            <p className="text-xs uppercase font-bold text-blue-400">Pending Qty</p>
+                            <p className="text-2xl font-bold text-blue-800">{pendingPO.reduce((acc, i) => acc + (i.balanceQty || 0), 0).toLocaleString()}</p>
+                        </div>
+                         <div className="text-center">
+                            <p className="text-xs uppercase font-bold text-blue-400">Pending Value</p>
+                            <p className="text-2xl font-bold text-blue-800">{formatCurrency(pendingPO.reduce((acc, i) => acc + ((i.balanceQty || 0) * (i.rate || 0)), 0))}</p>
+                        </div>
+                    </div>
+                </div>
             </div>
         )}
       </div>
