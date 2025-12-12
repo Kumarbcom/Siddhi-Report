@@ -27,6 +27,28 @@ const formatLargeValue = (val: number) => {
     return Math.round(val).toLocaleString('en-IN');
 };
 
+// --- Helper: Robust Date Parsing ---
+const parseDate = (val: any): Date => {
+    if (!val) return new Date(0); // Return epoch if invalid
+    if (val instanceof Date) return val;
+    if (typeof val === 'number') {
+        // Excel serial date conversion
+        return new Date((val - (25567 + 2)) * 86400 * 1000);
+    }
+    if (typeof val === 'string') {
+        const d = new Date(val);
+        if (!isNaN(d.getTime())) return d;
+        // Try DD-MM-YYYY or DD/MM/YYYY common in exports
+        const parts = val.split(/[-/.]/);
+        if (parts.length === 3) {
+             // Try assuming DD-MM-YYYY first (common in IN/UK)
+             const d2 = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+             if (!isNaN(d2.getTime())) return d2;
+        }
+    }
+    return new Date(0);
+};
+
 const PivotReportView: React.FC<PivotReportViewProps> = ({
   materials,
   closingStock,
@@ -54,13 +76,15 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
     // 1. Create Index Maps for fast lookup
     const stockMap = new Map<string, { qty: number; val: number }>();
     closingStock.forEach(i => {
+        if (!i.description) return;
         const key = i.description.toLowerCase().trim();
         const existing = stockMap.get(key) || { qty: 0, val: 0 };
-        stockMap.set(key, { qty: existing.qty + i.quantity, val: existing.val + i.value });
+        stockMap.set(key, { qty: existing.qty + (i.quantity || 0), val: existing.val + (i.value || 0) });
     });
 
     const soMap = new Map<string, { qty: number; val: number }>();
     pendingSO.forEach(i => {
+        if (!i.itemName) return;
         const key = i.itemName.toLowerCase().trim();
         const existing = soMap.get(key) || { qty: 0, val: 0 };
         const val = (i.balanceQty || 0) * (i.rate || 0);
@@ -69,6 +93,7 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
 
     const poMap = new Map<string, { qty: number; val: number }>();
     pendingPO.forEach(i => {
+        if (!i.itemName) return;
         const key = i.itemName.toLowerCase().trim();
         const existing = poMap.get(key) || { qty: 0, val: 0 };
         const val = (i.balanceQty || 0) * (i.rate || 0);
@@ -77,32 +102,35 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
 
     // 2. Date Ranges for Sales
     const now = new Date();
-    const threeMonthsAgo = new Date(); threeMonthsAgo.setMonth(now.getMonth() - 3);
-    const oneYearAgo = new Date(); oneYearAgo.setFullYear(now.getFullYear() - 1);
+    const threeMonthsAgo = new Date(); 
+    threeMonthsAgo.setMonth(now.getMonth() - 3);
+    const oneYearAgo = new Date(); 
+    oneYearAgo.setFullYear(now.getFullYear() - 1);
 
     const sales3mMap = new Map<string, { qty: number; val: number }>();
     const sales1yMap = new Map<string, { qty: number; val: number }>();
 
     salesReportItems.forEach(i => {
+        if (!i.particulars) return;
         const key = i.particulars.toLowerCase().trim();
-        const d = new Date(i.date);
+        const d = parseDate(i.date);
         
         // 1 Year Data
         if (d >= oneYearAgo) {
             const ex1 = sales1yMap.get(key) || { qty: 0, val: 0 };
-            sales1yMap.set(key, { qty: ex1.qty + i.quantity, val: ex1.val + i.value });
+            sales1yMap.set(key, { qty: ex1.qty + (i.quantity || 0), val: ex1.val + (i.value || 0) });
 
             // 3 Months Data (Subset)
             if (d >= threeMonthsAgo) {
                 const ex3 = sales3mMap.get(key) || { qty: 0, val: 0 };
-                sales3mMap.set(key, { qty: ex3.qty + i.quantity, val: ex3.val + i.value });
+                sales3mMap.set(key, { qty: ex3.qty + (i.quantity || 0), val: ex3.val + (i.value || 0) });
             }
         }
     });
 
     // 3. Build Rows
     const rawRows = materials.map(mat => {
-        const descriptionKey = mat.description.toLowerCase().trim();
+        const descriptionKey = mat.description ? mat.description.toLowerCase().trim() : '';
         const partNoKey = mat.partNo ? mat.partNo.toLowerCase().trim() : '';
         
         // Normalize Make and Group for consistent filtering
@@ -126,36 +154,40 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
         // Sales Averages (Dual Match Logic: Part No + Description)
         // --- 3 Months ---
         const s3Part = (partNoKey && sales3mMap.get(partNoKey)) || { qty: 0, val: 0 };
-        const s3Desc = sales3mMap.get(descriptionKey) || { qty: 0, val: 0 };
+        const s3Desc = (descriptionKey && sales3mMap.get(descriptionKey)) || { qty: 0, val: 0 };
         
         let s3TotalQty = 0;
         let s3TotalVal = 0;
 
-        if (partNoKey && partNoKey !== descriptionKey) {
+        if (partNoKey && descriptionKey && partNoKey !== descriptionKey) {
             s3TotalQty = s3Part.qty + s3Desc.qty;
             s3TotalVal = s3Part.val + s3Desc.val;
         } else {
-            s3TotalQty = s3Desc.qty;
-            s3TotalVal = s3Desc.val;
+            // If keys same or one missing, prefer Desc match as primary, fallback to Part
+            const bestMatch = s3Desc.qty > 0 ? s3Desc : s3Part;
+            s3TotalQty = bestMatch.qty;
+            s3TotalVal = bestMatch.val;
         }
 
         const avg3mQtyRaw = s3TotalQty / 3;
         const avg3mQty = roundToTen(avg3mQtyRaw);
+        // Use actual sales average rate if available, else use estimated rate
         const avg3mVal = avg3mQty * (s3TotalQty > 0 ? s3TotalVal / s3TotalQty : avgRate);
 
         // --- 1 Year ---
         const s1Part = (partNoKey && sales1yMap.get(partNoKey)) || { qty: 0, val: 0 };
-        const s1Desc = sales1yMap.get(descriptionKey) || { qty: 0, val: 0 };
+        const s1Desc = (descriptionKey && sales1yMap.get(descriptionKey)) || { qty: 0, val: 0 };
 
         let s1TotalQty = 0;
         let s1TotalVal = 0;
 
-        if (partNoKey && partNoKey !== descriptionKey) {
+        if (partNoKey && descriptionKey && partNoKey !== descriptionKey) {
             s1TotalQty = s1Part.qty + s1Desc.qty;
             s1TotalVal = s1Part.val + s1Desc.val;
         } else {
-            s1TotalQty = s1Desc.qty;
-            s1TotalVal = s1Desc.val;
+            const bestMatch = s1Desc.qty > 0 ? s1Desc : s1Part;
+            s1TotalQty = bestMatch.qty;
+            s1TotalVal = bestMatch.val;
         }
 
         const avg1yQtyRaw = s1TotalQty / 12;
@@ -217,7 +249,9 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
         item.so.qty > 0 || 
         item.po.qty > 0 || 
         item.actions.poNeed.qty > 0 ||
-        item.actions.expedite.qty > 0
+        item.actions.expedite.qty > 0 ||
+        item.avg3m.qty > 0 || // Include if there's recent sales activity even if no stock
+        item.avg1y.qty > 0
     );
 
   }, [materials, closingStock, pendingSO, pendingPO, salesReportItems]);
