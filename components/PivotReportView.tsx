@@ -49,6 +49,24 @@ const parseDate = (val: any): Date => {
     return new Date(0);
 };
 
+// --- Type for Sort Keys ---
+type SortPath = 
+  | 'description' | 'make' | 'materialGroup'
+  | 'stock.qty' | 'stock.val'
+  | 'so.qty' | 'so.val'
+  | 'po.qty' | 'po.val'
+  | 'net.qty' | 'net.val'
+  | 'avg3m.qty' | 'avg3m.val'
+  | 'avg1y.qty' | 'avg1y.val'
+  | 'growth.pct'
+  | 'levels.min.qty' | 'levels.min.val'
+  | 'levels.reorder.qty' | 'levels.reorder.val'
+  | 'levels.max.qty' | 'levels.max.val'
+  | 'actions.excessStock.qty' | 'actions.excessStock.val'
+  | 'actions.excessPO.qty' | 'actions.excessPO.val'
+  | 'actions.poNeed.qty' | 'actions.poNeed.val'
+  | 'actions.expedite.qty' | 'actions.expedite.val';
+
 const PivotReportView: React.FC<PivotReportViewProps> = ({
   materials,
   closingStock,
@@ -69,8 +87,11 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
   const [showPONeed, setShowPONeed] = useState(false);
   const [showExpedite, setShowExpedite] = useState(false);
 
-  // Sorting
-  const [sortOption, setSortOption] = useState<string>('default'); // default, stockVal, poNeedVal, excessStockVal, etc.
+  // Sorting State
+  const [sortConfig, setSortConfig] = useState<{ key: SortPath; direction: 'asc' | 'desc' }>({ 
+      key: 'stock.val', 
+      direction: 'desc' 
+  });
 
   // --- Core Calculation Logic ---
   const pivotData = useMemo(() => {
@@ -319,42 +340,47 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
           );
       }
 
-      // Sorting
-      const sortFn = (a: typeof data[0], b: typeof data[0]) => {
-          switch (sortOption) {
-              case 'stockVal': return b.stock.val - a.stock.val;
-              case 'poNeedVal': return b.actions.poNeed.val - a.actions.poNeed.val;
-              case 'excessStockVal': return b.actions.excessStock.val - a.actions.excessStock.val;
-              case 'excessPOVal': return b.actions.excessPO.val - a.actions.excessPO.val;
-              case 'expediteVal': return b.actions.expedite.val - a.actions.expedite.val;
-              case 'netVal': return b.net.val - a.net.val;
-              default: return 0; // Default Master order
-          }
+      // Deep Sort Function
+      const getVal = (obj: any, path: string) => {
+          return path.split('.').reduce((acc, part) => acc && acc[part] !== undefined ? acc[part] : 0, obj);
       };
-      
-      if (sortOption !== 'default') {
-          data = [...data].sort(sortFn);
-      }
+
+      data = [...data].sort((a, b) => {
+          const valA = getVal(a, sortConfig.key);
+          const valB = getVal(b, sortConfig.key);
+          
+          if (typeof valA === 'string' && typeof valB === 'string') {
+              return sortConfig.direction === 'asc' 
+                  ? valA.localeCompare(valB) 
+                  : valB.localeCompare(valA);
+          }
+          
+          // Numeric Sort
+          return sortConfig.direction === 'asc' 
+              ? (Number(valA) - Number(valB)) 
+              : (Number(valB) - Number(valA));
+      });
 
       return data;
-  }, [pivotData, searchTerm, slicerMake, slicerGroup, filterDescription, showExcessStock, showExcessPO, showPONeed, showExpedite, sortOption]);
+  }, [pivotData, searchTerm, slicerMake, slicerGroup, filterDescription, showExcessStock, showExcessPO, showPONeed, showExpedite, sortConfig]);
 
   // --- Totals ---
+  // STRICT CALCULATION on filteredData
   const totals = useMemo(() => {
       return filteredData.reduce((acc, row) => ({
-          stock: { qty: acc.stock.qty + (row.stock.qty || 0), val: acc.stock.val + (row.stock.val || 0) },
-          so: { qty: acc.so.qty + (row.so.qty || 0), val: acc.so.val + (row.so.val || 0) },
-          po: { qty: acc.po.qty + (row.po.qty || 0), val: acc.po.val + (row.po.val || 0) },
-          net: { qty: acc.net.qty + (row.net.qty || 0), val: acc.net.val + (row.net.val || 0) },
-          avg3m: { qty: acc.avg3m.qty + (row.avg3m.qty || 0), val: acc.avg3m.val + (row.avg3m.val || 0) },
-          avg1y: { qty: acc.avg1y.qty + (row.avg1y.qty || 0), val: acc.avg1y.val + (row.avg1y.val || 0) },
-          min: { qty: acc.min.qty + (row.levels.min.qty || 0), val: acc.min.val + (row.levels.min.val || 0) },
-          reorder: { qty: acc.reorder.qty + (row.levels.reorder.qty || 0), val: acc.reorder.val + (row.levels.reorder.val || 0) },
-          max: { qty: acc.max.qty + (row.levels.max.qty || 0), val: acc.max.val + (row.levels.max.val || 0) },
-          excessStock: { qty: acc.excessStock.qty + (row.actions.excessStock.qty || 0), val: acc.excessStock.val + (row.actions.excessStock.val || 0) },
-          excessPO: { qty: acc.excessPO.qty + (row.actions.excessPO.qty || 0), val: acc.excessPO.val + (row.actions.excessPO.val || 0) },
-          poNeed: { qty: acc.poNeed.qty + (row.actions.poNeed.qty || 0), val: acc.poNeed.val + (row.actions.poNeed.val || 0) },
-          expedite: { qty: acc.expedite.qty + (row.actions.expedite.qty || 0), val: acc.expedite.val + (row.actions.expedite.val || 0) },
+          stock: { qty: acc.stock.qty + (Number(row.stock.qty) || 0), val: acc.stock.val + (Number(row.stock.val) || 0) },
+          so: { qty: acc.so.qty + (Number(row.so.qty) || 0), val: acc.so.val + (Number(row.so.val) || 0) },
+          po: { qty: acc.po.qty + (Number(row.po.qty) || 0), val: acc.po.val + (Number(row.po.val) || 0) },
+          net: { qty: acc.net.qty + (Number(row.net.qty) || 0), val: acc.net.val + (Number(row.net.val) || 0) },
+          avg3m: { qty: acc.avg3m.qty + (Number(row.avg3m.qty) || 0), val: acc.avg3m.val + (Number(row.avg3m.val) || 0) },
+          avg1y: { qty: acc.avg1y.qty + (Number(row.avg1y.qty) || 0), val: acc.avg1y.val + (Number(row.avg1y.val) || 0) },
+          min: { qty: acc.min.qty + (Number(row.levels.min.qty) || 0), val: acc.min.val + (Number(row.levels.min.val) || 0) },
+          reorder: { qty: acc.reorder.qty + (Number(row.levels.reorder.qty) || 0), val: acc.reorder.val + (Number(row.levels.reorder.val) || 0) },
+          max: { qty: acc.max.qty + (Number(row.levels.max.qty) || 0), val: acc.max.val + (Number(row.levels.max.val) || 0) },
+          excessStock: { qty: acc.excessStock.qty + (Number(row.actions.excessStock.qty) || 0), val: acc.excessStock.val + (Number(row.actions.excessStock.val) || 0) },
+          excessPO: { qty: acc.excessPO.qty + (Number(row.actions.excessPO.qty) || 0), val: acc.excessPO.val + (Number(row.actions.excessPO.val) || 0) },
+          poNeed: { qty: acc.poNeed.qty + (Number(row.actions.poNeed.qty) || 0), val: acc.poNeed.val + (Number(row.actions.poNeed.val) || 0) },
+          expedite: { qty: acc.expedite.qty + (Number(row.actions.expedite.qty) || 0), val: acc.expedite.val + (Number(row.actions.expedite.val) || 0) },
       }), {
           stock: { qty: 0, val: 0 }, so: { qty: 0, val: 0 }, po: { qty: 0, val: 0 }, net: { qty: 0, val: 0 },
           avg3m: { qty: 0, val: 0 }, avg1y: { qty: 0, val: 0 },
@@ -388,6 +414,24 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
       const wb = utils.book_new();
       utils.book_append_sheet(wb, ws, "Pivot_Report");
       writeFile(wb, "Pivot_Inventory_Report.xlsx");
+  };
+
+  const handleHeaderSort = (key: SortPath) => {
+      setSortConfig(current => {
+          if (current.key === key) {
+              // Toggle direction
+              return { key, direction: current.direction === 'asc' ? 'desc' : 'asc' };
+          }
+          // Default to DESC for new column (Highest to Lowest)
+          return { key, direction: 'desc' };
+      });
+  };
+
+  const renderSortArrow = (key: SortPath) => {
+      if (sortConfig.key !== key) return <ArrowUpDown className="w-3 h-3 text-gray-300 opacity-50 group-hover:opacity-100" />;
+      return sortConfig.direction === 'asc' 
+          ? <ArrowUp className="w-3 h-3 text-indigo-600" /> 
+          : <ArrowDown className="w-3 h-3 text-indigo-600" />;
   };
 
   const formatVal = (v: number) => Math.round(v).toLocaleString('en-IN');
@@ -455,20 +499,6 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                     <button onClick={() => setShowPONeed(!showPONeed)} className={`px-2 py-1 rounded text-[10px] font-bold border transition-colors ${showPONeed ? 'bg-green-50 text-green-700 border-green-200 shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}>PO Need</button>
                     <button onClick={() => setShowExpedite(!showExpedite)} className={`px-2 py-1 rounded text-[10px] font-bold border transition-colors ${showExpedite ? 'bg-blue-50 text-blue-700 border-blue-200 shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}>Expedite</button>
                 </div>
-
-                {/* Sort */}
-                <div className="ml-auto flex items-center gap-2">
-                    <ArrowUpDown className="w-3.5 h-3.5 text-gray-400" />
-                    <select value={sortOption} onChange={(e) => setSortOption(e.target.value)} className="bg-white border border-gray-300 text-xs rounded-md px-2 py-1 outline-none focus:ring-1 focus:ring-indigo-500">
-                        <option value="default">Default Sort</option>
-                        <option value="stockVal">Highest Stock Val</option>
-                        <option value="netVal">Highest Net Val</option>
-                        <option value="poNeedVal">Highest PO Need Val</option>
-                        <option value="excessStockVal">Highest Excess Stock Val</option>
-                        <option value="excessPOVal">Highest Excess PO Val</option>
-                        <option value="expediteVal">Highest Expedite Val</option>
-                    </select>
-                </div>
             </div>
         </div>
 
@@ -476,7 +506,7 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex-1 flex flex-col min-h-0 relative">
             <div className="overflow-auto h-full w-full">
                 <table className="w-full text-left border-collapse">
-                    <thead className="sticky top-0 z-20 bg-gray-50 shadow-sm text-[9px] font-bold text-gray-600 uppercase tracking-tight">
+                    <thead className="sticky top-0 z-20 bg-gray-50 shadow-sm text-[9px] font-bold text-gray-600 uppercase tracking-tight select-none">
                         {/* Group Headers */}
                         <tr className="bg-gray-100 border-b border-gray-200">
                             <th colSpan={3} className="py-1 px-2 text-center border-r border-gray-300">Master Data</th>
@@ -491,50 +521,50 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                             <th colSpan={2} className="py-1 px-2 text-center border-r border-gray-300 bg-green-50 text-green-700">PO Needed</th>
                             <th colSpan={2} className="py-1 px-2 text-center bg-blue-50 text-blue-700">Expedite</th>
                         </tr>
-                        {/* Sub Headers */}
-                        <tr className="border-b border-gray-200">
-                            <th className="py-2 px-2 border-r whitespace-nowrap w-24">Make</th>
-                            <th className="py-2 px-2 border-r whitespace-nowrap w-24">Group</th>
-                            <th className="py-2 px-2 border-r whitespace-nowrap min-w-[200px]">Description</th>
+                        {/* Sub Headers - CLICKABLE FOR SORTING */}
+                        <tr className="border-b border-gray-200 cursor-pointer">
+                            <th onClick={() => handleHeaderSort('make')} className="py-2 px-2 border-r whitespace-nowrap w-24 hover:bg-gray-200 group"><div className="flex items-center gap-1">Make {renderSortArrow('make')}</div></th>
+                            <th onClick={() => handleHeaderSort('materialGroup')} className="py-2 px-2 border-r whitespace-nowrap w-24 hover:bg-gray-200 group"><div className="flex items-center gap-1">Group {renderSortArrow('materialGroup')}</div></th>
+                            <th onClick={() => handleHeaderSort('description')} className="py-2 px-2 border-r whitespace-nowrap min-w-[200px] hover:bg-gray-200 group"><div className="flex items-center gap-1">Description {renderSortArrow('description')}</div></th>
                             
-                            <th className="py-2 px-2 text-right bg-blue-50/30">Qty</th>
-                            <th className="py-2 px-2 text-right border-r bg-blue-50/30">Val</th>
+                            <th onClick={() => handleHeaderSort('stock.qty')} className="py-2 px-2 text-right bg-blue-50/30 hover:bg-blue-100/50 group"><div className="flex items-center justify-end gap-1">Qty {renderSortArrow('stock.qty')}</div></th>
+                            <th onClick={() => handleHeaderSort('stock.val')} className="py-2 px-2 text-right border-r bg-blue-50/30 hover:bg-blue-100/50 group"><div className="flex items-center justify-end gap-1">Val {renderSortArrow('stock.val')}</div></th>
                             
-                            <th className="py-2 px-2 text-right bg-orange-50/30">Qty</th>
-                            <th className="py-2 px-2 text-right border-r bg-orange-50/30">Val</th>
+                            <th onClick={() => handleHeaderSort('so.qty')} className="py-2 px-2 text-right bg-orange-50/30 hover:bg-orange-100/50 group"><div className="flex items-center justify-end gap-1">Qty {renderSortArrow('so.qty')}</div></th>
+                            <th onClick={() => handleHeaderSort('so.val')} className="py-2 px-2 text-right border-r bg-orange-50/30 hover:bg-orange-100/50 group"><div className="flex items-center justify-end gap-1">Val {renderSortArrow('so.val')}</div></th>
                             
-                            <th className="py-2 px-2 text-right bg-purple-50/30">Qty</th>
-                            <th className="py-2 px-2 text-right border-r bg-purple-50/30">Val</th>
+                            <th onClick={() => handleHeaderSort('po.qty')} className="py-2 px-2 text-right bg-purple-50/30 hover:bg-purple-100/50 group"><div className="flex items-center justify-end gap-1">Qty {renderSortArrow('po.qty')}</div></th>
+                            <th onClick={() => handleHeaderSort('po.val')} className="py-2 px-2 text-right border-r bg-purple-50/30 hover:bg-purple-100/50 group"><div className="flex items-center justify-end gap-1">Val {renderSortArrow('po.val')}</div></th>
                             
-                            <th className="py-2 px-2 text-right bg-gray-100 font-extrabold">Qty</th>
-                            <th className="py-2 px-2 text-right border-r bg-gray-100 font-extrabold">Val</th>
+                            <th onClick={() => handleHeaderSort('net.qty')} className="py-2 px-2 text-right bg-gray-100 font-extrabold hover:bg-gray-200 group"><div className="flex items-center justify-end gap-1">Qty {renderSortArrow('net.qty')}</div></th>
+                            <th onClick={() => handleHeaderSort('net.val')} className="py-2 px-2 text-right border-r bg-gray-100 font-extrabold hover:bg-gray-200 group"><div className="flex items-center justify-end gap-1">Val {renderSortArrow('net.val')}</div></th>
                             
-                            <th className="py-2 px-2 text-right bg-yellow-50/30">3M Avg</th>
-                            <th className="py-2 px-2 text-right bg-yellow-50/30">1Y Avg</th>
-                            <th className="py-2 px-2 text-center border-r bg-yellow-50/30">Trend</th>
+                            <th onClick={() => handleHeaderSort('avg3m.qty')} className="py-2 px-2 text-right bg-yellow-50/30 hover:bg-yellow-100/50 group"><div className="flex items-center justify-end gap-1">3M Avg {renderSortArrow('avg3m.qty')}</div></th>
+                            <th onClick={() => handleHeaderSort('avg1y.qty')} className="py-2 px-2 text-right bg-yellow-50/30 hover:bg-yellow-100/50 group"><div className="flex items-center justify-end gap-1">1Y Avg {renderSortArrow('avg1y.qty')}</div></th>
+                            <th onClick={() => handleHeaderSort('growth.pct')} className="py-2 px-2 text-center border-r bg-yellow-50/30 hover:bg-yellow-100/50 group"><div className="flex items-center justify-center gap-1">Trend {renderSortArrow('growth.pct')}</div></th>
                             
-                            <th className="py-2 px-2 text-right bg-teal-50/30">Min Qty</th>
-                            <th className="py-2 px-2 text-right border-r bg-teal-50/30">Min Val</th>
-                            <th className="py-2 px-2 text-right bg-teal-50/30">Reorder Qty</th>
-                            <th className="py-2 px-2 text-right border-r bg-teal-50/30">Reorder Val</th>
-                            <th className="py-2 px-2 text-right bg-teal-50/30">Max Qty</th>
-                            <th className="py-2 px-2 text-right border-r bg-teal-50/30">Max Val</th>
+                            <th onClick={() => handleHeaderSort('levels.min.qty')} className="py-2 px-2 text-right bg-teal-50/30 hover:bg-teal-100/50 group"><div className="flex items-center justify-end gap-1">Min Q {renderSortArrow('levels.min.qty')}</div></th>
+                            <th onClick={() => handleHeaderSort('levels.min.val')} className="py-2 px-2 text-right border-r bg-teal-50/30 hover:bg-teal-100/50 group"><div className="flex items-center justify-end gap-1">Min V {renderSortArrow('levels.min.val')}</div></th>
+                            <th onClick={() => handleHeaderSort('levels.reorder.qty')} className="py-2 px-2 text-right bg-teal-50/30 hover:bg-teal-100/50 group"><div className="flex items-center justify-end gap-1">Re Q {renderSortArrow('levels.reorder.qty')}</div></th>
+                            <th onClick={() => handleHeaderSort('levels.reorder.val')} className="py-2 px-2 text-right border-r bg-teal-50/30 hover:bg-teal-100/50 group"><div className="flex items-center justify-end gap-1">Re V {renderSortArrow('levels.reorder.val')}</div></th>
+                            <th onClick={() => handleHeaderSort('levels.max.qty')} className="py-2 px-2 text-right bg-teal-50/30 hover:bg-teal-100/50 group"><div className="flex items-center justify-end gap-1">Max Q {renderSortArrow('levels.max.qty')}</div></th>
+                            <th onClick={() => handleHeaderSort('levels.max.val')} className="py-2 px-2 text-right border-r bg-teal-50/30 hover:bg-teal-100/50 group"><div className="flex items-center justify-end gap-1">Max V {renderSortArrow('levels.max.val')}</div></th>
                             
-                            <th className="py-2 px-2 text-right bg-red-50/50">Qty</th>
-                            <th className="py-2 px-2 text-right border-r bg-red-50/50">Val</th>
+                            <th onClick={() => handleHeaderSort('actions.excessStock.qty')} className="py-2 px-2 text-right bg-red-50/50 hover:bg-red-100/50 group"><div className="flex items-center justify-end gap-1">Qty {renderSortArrow('actions.excessStock.qty')}</div></th>
+                            <th onClick={() => handleHeaderSort('actions.excessStock.val')} className="py-2 px-2 text-right border-r bg-red-50/50 hover:bg-red-100/50 group"><div className="flex items-center justify-end gap-1">Val {renderSortArrow('actions.excessStock.val')}</div></th>
                             
-                            <th className="py-2 px-2 text-right bg-red-50/50">Qty</th>
-                            <th className="py-2 px-2 text-right border-r bg-red-50/50">Val</th>
+                            <th onClick={() => handleHeaderSort('actions.excessPO.qty')} className="py-2 px-2 text-right bg-red-50/50 hover:bg-red-100/50 group"><div className="flex items-center justify-end gap-1">Qty {renderSortArrow('actions.excessPO.qty')}</div></th>
+                            <th onClick={() => handleHeaderSort('actions.excessPO.val')} className="py-2 px-2 text-right border-r bg-red-50/50 hover:bg-red-100/50 group"><div className="flex items-center justify-end gap-1">Val {renderSortArrow('actions.excessPO.val')}</div></th>
                             
-                            <th className="py-2 px-2 text-right bg-green-50/50">Qty</th>
-                            <th className="py-2 px-2 text-right border-r bg-green-50/50">Val</th>
+                            <th onClick={() => handleHeaderSort('actions.poNeed.qty')} className="py-2 px-2 text-right bg-green-50/50 hover:bg-green-100/50 group"><div className="flex items-center justify-end gap-1">Qty {renderSortArrow('actions.poNeed.qty')}</div></th>
+                            <th onClick={() => handleHeaderSort('actions.poNeed.val')} className="py-2 px-2 text-right border-r bg-green-50/50 hover:bg-green-100/50 group"><div className="flex items-center justify-end gap-1">Val {renderSortArrow('actions.poNeed.val')}</div></th>
                             
-                            <th className="py-2 px-2 text-right bg-blue-50/50">Qty</th>
-                            <th className="py-2 px-2 text-right bg-blue-50/50">Val</th>
+                            <th onClick={() => handleHeaderSort('actions.expedite.qty')} className="py-2 px-2 text-right bg-blue-50/50 hover:bg-blue-100/50 group"><div className="flex items-center justify-end gap-1">Qty {renderSortArrow('actions.expedite.qty')}</div></th>
+                            <th onClick={() => handleHeaderSort('actions.expedite.val')} className="py-2 px-2 text-right bg-blue-50/50 hover:bg-blue-100/50 group"><div className="flex items-center justify-end gap-1">Val {renderSortArrow('actions.expedite.val')}</div></th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 text-[10px] text-gray-700">
-                        {/* TOTALS ROW */}
+                        {/* TOTALS ROW - Sticky under header */}
                         {filteredData.length > 0 && (
                             <tr className="bg-yellow-50 font-bold border-b-2 border-yellow-200 text-gray-900 sticky top-[62px] z-10 shadow-sm">
                                 <td colSpan={3} className="py-2 px-2 text-right border-r uppercase text-[9px] tracking-wide text-gray-500">Filtered Totals:</td>
