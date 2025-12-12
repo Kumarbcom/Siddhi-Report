@@ -12,6 +12,30 @@ interface PivotReportViewProps {
   salesReportItems: SalesReportItem[];
 }
 
+// --- Groups allowed for Stock Planning ---
+const PLANNED_STOCK_GROUPS = new Set([
+  "eaton-ace",
+  "eaton-biesse",
+  "eaton-coffee day",
+  "eaton-enrx pvt ltd",
+  "eaton-eta technology",
+  "eaton-faively",
+  "eaton-planned stock specific customer",
+  "eaton-probat india",
+  "eaton-rinac",
+  "eaton-schenck process",
+  "eaton-planned stock general",
+  "hager-incap contracting",
+  "lapp-ace group",
+  "lapp-ams group",
+  "lapp-disa india",
+  "lapp-engineered customized control",
+  "lapp-kennametal",
+  "lapp-planned stock general",
+  "lapp-rinac",
+  "lapp-titan"
+]);
+
 // --- Helper: Round UP to nearest 10 ---
 const roundToTen = (num: number) => {
     if (num <= 0) return 0;
@@ -222,19 +246,30 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
         const diffQty = avg3mQty - avg1yQty;
         const growthPct = avg1yQty > 0 ? (diffQty / avg1yQty) * 100 : 0;
 
-        // Stock Norms
-        // Rules: 
-        // 1. Min/Reorder/Max Qty -> Round Up to nearest 10
-        // 2. Min/Reorder/Max Val -> Use Sales Rate (rate1y) to determine value
+        // Stock Norms Logic
+        // Only apply norms if Material Group is in the allowed list
+        const isPlannedStock = PLANNED_STOCK_GROUPS.has(normalizedGroup.toLowerCase());
         
-        const minStock = roundToTen(avg1yQty);
-        const minStockVal = minStock * rate1y;
-        
-        const reorderStock = roundToTen(avg1yQty * 1.5);
-        const reorderStockVal = reorderStock * rate1y;
-        
-        const maxStock = roundToTen(avg1yQty * 3);
-        const maxStockVal = maxStock * rate1y;
+        let minStock = 0;
+        let minStockVal = 0;
+        let reorderStock = 0;
+        let reorderStockVal = 0;
+        let maxStock = 0;
+        let maxStockVal = 0;
+
+        if (isPlannedStock) {
+            // Rules: 
+            // 1. Min/Reorder/Max Qty -> Round Up to nearest 10
+            // 2. Min/Reorder/Max Val -> Use Sales Rate (rate1y) to determine value
+            minStock = roundToTen(avg1yQty);
+            minStockVal = minStock * rate1y;
+            
+            reorderStock = roundToTen(avg1yQty * 1.5);
+            reorderStockVal = reorderStock * rate1y;
+            
+            maxStock = roundToTen(avg1yQty * 3);
+            maxStockVal = maxStock * rate1y;
+        }
 
         // Actions
         const excessStockThreshold = so.qty + maxStock;
@@ -506,10 +541,10 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex-1 flex flex-col min-h-0 relative">
             <div className="overflow-auto h-full w-full">
                 <table className="w-full text-left border-collapse">
-                    <thead className="sticky top-0 z-20 bg-gray-50 shadow-sm text-[9px] font-bold text-gray-600 uppercase tracking-tight select-none">
+                    <thead className="sticky top-0 z-50 bg-gray-50 shadow-sm text-[9px] font-bold text-gray-600 uppercase tracking-tight select-none">
                         {/* Group Headers */}
                         <tr className="bg-gray-100 border-b border-gray-200">
-                            <th colSpan={3} className="py-1 px-2 text-center border-r border-gray-300">Master Data</th>
+                            <th colSpan={3} className="sticky left-0 z-50 py-1 px-2 text-center border-r border-gray-300 bg-gray-100">Master Data</th>
                             <th colSpan={2} className="py-1 px-2 text-center border-r border-gray-300 bg-blue-50/50">Current Stock</th>
                             <th colSpan={2} className="py-1 px-2 text-center border-r border-gray-300 bg-orange-50/50">Pending SO</th>
                             <th colSpan={2} className="py-1 px-2 text-center border-r border-gray-300 bg-purple-50/50">Pending PO</th>
@@ -523,9 +558,9 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                         </tr>
                         {/* Sub Headers - CLICKABLE FOR SORTING */}
                         <tr className="border-b border-gray-200 cursor-pointer">
-                            <th onClick={() => handleHeaderSort('make')} className="py-2 px-2 border-r whitespace-nowrap w-24 hover:bg-gray-200 group"><div className="flex items-center gap-1">Make {renderSortArrow('make')}</div></th>
-                            <th onClick={() => handleHeaderSort('materialGroup')} className="py-2 px-2 border-r whitespace-nowrap w-24 hover:bg-gray-200 group"><div className="flex items-center gap-1">Group {renderSortArrow('materialGroup')}</div></th>
-                            <th onClick={() => handleHeaderSort('description')} className="py-2 px-2 border-r whitespace-nowrap min-w-[200px] hover:bg-gray-200 group"><div className="flex items-center gap-1">Description {renderSortArrow('description')}</div></th>
+                            <th onClick={() => handleHeaderSort('make')} className="sticky left-0 z-50 py-2 px-2 border-r whitespace-nowrap w-24 bg-gray-50 hover:bg-gray-200 group border-b border-gray-200"><div className="flex items-center gap-1">Make {renderSortArrow('make')}</div></th>
+                            <th onClick={() => handleHeaderSort('materialGroup')} className="sticky left-[6rem] z-50 py-2 px-2 border-r whitespace-nowrap w-24 bg-gray-50 hover:bg-gray-200 group border-b border-gray-200"><div className="flex items-center gap-1">Group {renderSortArrow('materialGroup')}</div></th>
+                            <th onClick={() => handleHeaderSort('description')} className="sticky left-[12rem] z-50 py-2 px-2 border-r whitespace-nowrap min-w-[200px] bg-gray-50 hover:bg-gray-200 group border-b border-gray-200"><div className="flex items-center gap-1">Description {renderSortArrow('description')}</div></th>
                             
                             <th onClick={() => handleHeaderSort('stock.qty')} className="py-2 px-2 text-right bg-blue-50/30 hover:bg-blue-100/50 group"><div className="flex items-center justify-end gap-1">Qty {renderSortArrow('stock.qty')}</div></th>
                             <th onClick={() => handleHeaderSort('stock.val')} className="py-2 px-2 text-right border-r bg-blue-50/30 hover:bg-blue-100/50 group"><div className="flex items-center justify-end gap-1">Val {renderSortArrow('stock.val')}</div></th>
@@ -564,10 +599,10 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 text-[10px] text-gray-700">
-                        {/* TOTALS ROW - Sticky under header */}
+                        {/* TOTALS ROW - Sticky under header + Sticky Columns */}
                         {filteredData.length > 0 && (
-                            <tr className="bg-yellow-50 font-bold border-b-2 border-yellow-200 text-gray-900 sticky top-[62px] z-10 shadow-sm">
-                                <td colSpan={3} className="py-2 px-2 text-right border-r uppercase text-[9px] tracking-wide text-gray-500">Filtered Totals:</td>
+                            <tr className="bg-yellow-50 font-bold border-b-2 border-yellow-200 text-gray-900 sticky top-[62px] z-40 shadow-sm">
+                                <td colSpan={3} className="sticky left-0 z-40 py-2 px-2 text-right border-r uppercase text-[9px] tracking-wide text-gray-500 bg-yellow-50 border-b-2 border-yellow-200">Filtered Totals:</td>
                                 
                                 <td className="py-2 px-2 text-right bg-blue-100/50">{formatLargeValue(totals.stock.qty)}</td>
                                 <td className="py-2 px-2 text-right border-r bg-blue-100/50">{formatLargeValue(totals.stock.val)}</td>
@@ -611,9 +646,9 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                         ) : (
                             filteredData.map((row, idx) => (
                                 <tr key={row.id} className="hover:bg-gray-50 transition-colors group">
-                                    <td className="py-1 px-2 border-r truncate max-w-[100px]">{row.make}</td>
-                                    <td className="py-1 px-2 border-r truncate max-w-[100px]">{row.materialGroup}</td>
-                                    <td className="py-1 px-2 border-r truncate max-w-[250px] font-medium text-gray-900" title={row.description}>{row.description}</td>
+                                    <td className="sticky left-0 z-10 py-1 px-2 border-r truncate max-w-[100px] bg-white group-hover:bg-gray-50 border-b border-gray-100">{row.make}</td>
+                                    <td className="sticky left-[6rem] z-10 py-1 px-2 border-r truncate max-w-[100px] bg-white group-hover:bg-gray-50 border-b border-gray-100">{row.materialGroup}</td>
+                                    <td className="sticky left-[12rem] z-10 py-1 px-2 border-r truncate max-w-[250px] font-medium text-gray-900 bg-white group-hover:bg-gray-50 border-b border-gray-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" title={row.description}>{row.description}</td>
                                     
                                     <td className="py-1 px-2 text-right bg-blue-50/10 font-medium">{row.stock.qty || '-'}</td>
                                     <td className="py-1 px-2 text-right border-r bg-blue-50/10 text-gray-500">{row.stock.val ? formatVal(row.stock.val) : '-'}</td>
