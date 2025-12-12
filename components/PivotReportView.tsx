@@ -1,7 +1,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { Material, ClosingStockItem, PendingSOItem, PendingPOItem, SalesReportItem } from '../types';
-import { FileDown, Search, ArrowUp, ArrowDown, Filter, AlertTriangle, Minus, ArrowUpDown, Layers } from 'lucide-react';
+import { FileDown, Search, ArrowUp, ArrowDown, Filter, AlertTriangle, Minus, ArrowUpDown, Layers, AlignLeft } from 'lucide-react';
 import { utils, writeFile } from 'xlsx';
 
 interface PivotReportViewProps {
@@ -61,6 +61,7 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
   // Slicers
   const [slicerMake, setSlicerMake] = useState('ALL');
   const [slicerGroup, setSlicerGroup] = useState('ALL');
+  const [filterDescription, setFilterDescription] = useState('');
 
   // Toggles
   const [showExcessStock, setShowExcessStock] = useState(false);
@@ -143,7 +144,7 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
         
         const netQty = stock.qty + po.qty - so.qty;
         
-        // Estimate Rate
+        // Estimate Rate (Stock Valuation Rate)
         let avgRate = 0;
         if (stock.qty > 0) avgRate = stock.val / stock.qty;
         else if (po.qty > 0) avgRate = po.val / po.qty;
@@ -169,10 +170,11 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
             s3TotalVal = bestMatch.val;
         }
 
-        const avg3mQtyRaw = s3TotalQty / 3;
-        const avg3mQty = roundToTen(avg3mQtyRaw);
-        // Use actual sales average rate if available, else use estimated rate
-        const avg3mVal = avg3mQty * (s3TotalQty > 0 ? s3TotalVal / s3TotalQty : avgRate);
+        // NO ROUNDING for Sales Averages
+        const avg3mQty = s3TotalQty / 3;
+        // Determine 3M Rate: Use actual sales rate if available, else fallback to inventory avgRate
+        const rate3m = s3TotalQty > 0 ? s3TotalVal / s3TotalQty : avgRate;
+        const avg3mVal = avg3mQty * rate3m;
 
         // --- 1 Year ---
         const s1Part = (partNoKey && sales1yMap.get(partNoKey)) || { qty: 0, val: 0 };
@@ -190,28 +192,40 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
             s1TotalVal = bestMatch.val;
         }
 
-        const avg1yQtyRaw = s1TotalQty / 12;
-        const avg1yQty = roundToTen(avg1yQtyRaw);
-        const avg1yVal = avg1yQty * (s1TotalQty > 0 ? s1TotalVal / s1TotalQty : avgRate);
+        // NO ROUNDING for Sales Averages
+        const avg1yQty = s1TotalQty / 12;
+        // Determine 1Y Rate: Use actual sales rate if available, else fallback to inventory avgRate
+        const rate1y = s1TotalQty > 0 ? s1TotalVal / s1TotalQty : avgRate;
+        const avg1yVal = avg1yQty * rate1y;
 
         const diffQty = avg3mQty - avg1yQty;
         const growthPct = avg1yQty > 0 ? (diffQty / avg1yQty) * 100 : 0;
 
         // Stock Norms
-        const minStock = avg1yQty;
-        const minStockVal = minStock * avgRate;
-        const reorderStock = roundToTen(avg1yQtyRaw * 1.5);
-        const reorderStockVal = reorderStock * avgRate;
-        const maxStock = roundToTen(avg1yQtyRaw * 3);
-        const maxStockVal = maxStock * avgRate;
+        // Rules: 
+        // 1. Min/Reorder/Max Qty -> Round Up to nearest 10
+        // 2. Min/Reorder/Max Val -> Use Sales Rate (rate1y) to determine value
+        
+        const minStock = roundToTen(avg1yQty);
+        const minStockVal = minStock * rate1y;
+        
+        const reorderStock = roundToTen(avg1yQty * 1.5);
+        const reorderStockVal = reorderStock * rate1y;
+        
+        const maxStock = roundToTen(avg1yQty * 3);
+        const maxStockVal = maxStock * rate1y;
 
         // Actions
         const excessStockThreshold = so.qty + maxStock;
         const excessStockQty = Math.max(0, stock.qty - excessStockThreshold);
-        const excessStockVal = excessStockQty * avgRate;
+        const excessStockVal = excessStockQty * avgRate; // Use Inventory Rate for Excess Stock Value (as it sits in stock)
 
-        const excessPOQty = Math.max(0, netQty - maxStock);
-        const excessPOVal = excessPOQty * avgRate;
+        // Fix: Excess PO Logic
+        // Calculate Total Excess = (Stock + PO - SO) - Max Stock
+        const totalProjectedExcess = Math.max(0, netQty - maxStock);
+        // Excess PO = Total Excess - Excess Stock (Only count the PO portion of the excess)
+        const excessPOQty = Math.max(0, totalProjectedExcess - excessStockQty);
+        const excessPOVal = excessPOQty * avgRate; // Use Inventory Rate (PO rate approx)
 
         const deficit = maxStock - netQty;
         const poNeedQty = deficit > 0 ? deficit : 0;
@@ -278,7 +292,13 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
       if (slicerMake !== 'ALL') data = data.filter(i => i.make === slicerMake);
       if (slicerGroup !== 'ALL') data = data.filter(i => i.materialGroup === slicerGroup);
 
-      // Search
+      // Description Filter (Specific)
+      if (filterDescription) {
+          const lowerDesc = filterDescription.toLowerCase();
+          data = data.filter(i => i.description.toLowerCase().includes(lowerDesc));
+      }
+
+      // Search (Global)
       if (searchTerm) {
           const lower = searchTerm.toLowerCase();
           data = data.filter(i => 
@@ -317,7 +337,7 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
       }
 
       return data;
-  }, [pivotData, searchTerm, slicerMake, slicerGroup, showExcessStock, showExcessPO, showPONeed, showExpedite, sortOption]);
+  }, [pivotData, searchTerm, slicerMake, slicerGroup, filterDescription, showExcessStock, showExcessPO, showPONeed, showExpedite, sortOption]);
 
   // --- Totals ---
   const totals = useMemo(() => {
@@ -353,8 +373,8 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
           "Pending SO Qty": i.so.qty, "Pending SO Val": i.so.val,
           "Pending PO Qty": i.po.qty, "Pending PO Val": i.po.val,
           "Net Stock Qty": i.net.qty, "Net Stock Val": i.net.val,
-          "3M Avg Qty": i.avg3m.qty, "3M Avg Val": i.avg3m.val,
-          "1Y Avg Qty": i.avg1y.qty, "1Y Avg Val": i.avg1y.val,
+          "3M Avg Qty": i.avg3m.qty.toFixed(2), "3M Avg Val": i.avg3m.val,
+          "1Y Avg Qty": i.avg1y.qty.toFixed(2), "1Y Avg Val": i.avg1y.val,
           "Growth %": i.growth.pct.toFixed(1) + '%',
           "Min Qty": i.levels.min.qty, "Min Val": i.levels.min.val,
           "Reorder Qty": i.levels.reorder.qty, "Reorder Val": i.levels.reorder.val,
@@ -371,6 +391,7 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
   };
 
   const formatVal = (v: number) => Math.round(v).toLocaleString('en-IN');
+  const formatDec = (v: number) => v.toFixed(2);
 
   return (
     <div className="flex flex-col h-full gap-3">
@@ -390,7 +411,7 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                 <div className="flex items-center gap-2 w-full md:w-auto">
                     <div className="relative flex-1 md:w-64">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Search className="h-3.5 w-3.5 text-gray-400" /></div>
-                        <input type="text" placeholder="Search..." className="pl-9 pr-3 py-1.5 w-full border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                        <input type="text" placeholder="Global Search..." className="pl-9 pr-3 py-1.5 w-full border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                     </div>
                     <button onClick={handleExport} className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs font-bold border border-green-100 hover:bg-green-100 whitespace-nowrap">
                         <FileDown className="w-3.5 h-3.5" /> Export
@@ -416,6 +437,14 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                         <select value={slicerGroup} onChange={e => setSlicerGroup(e.target.value)} className="bg-transparent text-xs font-bold text-gray-700 outline-none w-24">
                             {slicerOptions.groups.map(g => <option key={g} value={g}>{g}</option>)}
                         </select>
+                    </div>
+                    <div className="w-px h-6 bg-gray-300 mx-1"></div>
+                    <div className="flex flex-col">
+                        <label className="text-[9px] font-bold text-gray-400 uppercase">Description Contains</label>
+                        <div className="flex items-center">
+                            <AlignLeft className="w-3 h-3 text-gray-400 mr-1" />
+                            <input type="text" placeholder="Filter..." value={filterDescription} onChange={e => setFilterDescription(e.target.value)} className="bg-transparent text-xs font-bold text-gray-700 outline-none w-24 placeholder:font-normal placeholder:text-gray-400" />
+                        </div>
                     </div>
                 </div>
 
@@ -522,8 +551,8 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                                 <td className="py-2 px-2 text-right bg-gray-200">{formatLargeValue(totals.net.qty)}</td>
                                 <td className="py-2 px-2 text-right border-r bg-gray-200">{formatLargeValue(totals.net.val)}</td>
                                 
-                                <td className="py-2 px-2 text-right bg-yellow-100/50">{formatLargeValue(totals.avg3m.qty)}</td>
-                                <td className="py-2 px-2 text-right bg-yellow-100/50">{formatLargeValue(totals.avg1y.qty)}</td>
+                                <td className="py-2 px-2 text-right bg-yellow-100/50">{formatDec(totals.avg3m.qty)}</td>
+                                <td className="py-2 px-2 text-right bg-yellow-100/50">{formatDec(totals.avg1y.qty)}</td>
                                 <td className="py-2 px-2 text-center border-r bg-yellow-100/50">-</td>
                                 
                                 <td className="py-2 px-2 text-right bg-teal-100/50">{formatLargeValue(totals.min.qty)}</td>
@@ -568,8 +597,8 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                                     <td className="py-1 px-2 text-right bg-gray-50 font-bold">{row.net.qty}</td>
                                     <td className="py-1 px-2 text-right border-r bg-gray-50 text-gray-600">{formatVal(row.net.val)}</td>
                                     
-                                    <td className="py-1 px-2 text-right bg-yellow-50/10">{row.avg3m.qty}</td>
-                                    <td className="py-1 px-2 text-right bg-yellow-50/10">{row.avg1y.qty}</td>
+                                    <td className="py-1 px-2 text-right bg-yellow-50/10">{formatDec(row.avg3m.qty)}</td>
+                                    <td className="py-1 px-2 text-right bg-yellow-50/10">{formatDec(row.avg1y.qty)}</td>
                                     <td className="py-1 px-2 text-center border-r bg-yellow-50/10">
                                         <div className="flex items-center justify-center gap-0.5">
                                             {row.growth.diff > 0 ? <ArrowUp className="w-2.5 h-2.5 text-green-500" /> : row.growth.diff < 0 ? <ArrowDown className="w-2.5 h-2.5 text-red-500" /> : <Minus className="w-2.5 h-2.5 text-gray-300" />}
