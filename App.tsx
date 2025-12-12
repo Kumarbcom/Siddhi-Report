@@ -10,7 +10,8 @@ import ClosingStockView from './components/ClosingStockView';
 import SalesReportView from './components/SalesReportView';
 import CustomerMasterView from './components/CustomerMasterView';
 import DashboardView from './components/DashboardView';
-import { Database, AlertCircle, ClipboardList, ShoppingCart, TrendingUp, Package, Layers, LayoutDashboard, FileBarChart, Users, ChevronRight, Menu, X, HardDrive } from 'lucide-react';
+import PivotReportView from './components/PivotReportView';
+import { Database, AlertCircle, ClipboardList, ShoppingCart, TrendingUp, Package, Layers, LayoutDashboard, FileBarChart, Users, ChevronRight, Menu, X, HardDrive, Table } from 'lucide-react';
 import { dbService } from './services/db';
 
 const STORAGE_KEY_MASTER = 'material_master_db_v1';
@@ -21,7 +22,7 @@ const STORAGE_KEY_SALES_1Y = 'sales_1year_db_v1';
 const STORAGE_KEY_SALES_3M = 'sales_3months_db_v1';
 const STORAGE_KEY_CUSTOMER_MASTER = 'customer_master_db_v1';
 
-type ActiveTab = 'dashboard' | 'master' | 'customerMaster' | 'closingStock' | 'pendingSO' | 'pendingPO' | 'salesHistory' | 'salesReport';
+type ActiveTab = 'dashboard' | 'master' | 'customerMaster' | 'closingStock' | 'pendingSO' | 'pendingPO' | 'salesHistory' | 'salesReport' | 'pivotReport';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
@@ -104,11 +105,12 @@ const App: React.FC = () => {
     setMaterials(prev => [...newMaterials, ...prev]);
     setError(null);
   };
-
+  const handleUpdateMaterial = (updatedItem: Material) => {
+    setMaterials(prev => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
+  };
   const handleDeleteMaterial = (id: string) => {
     if (window.confirm("Delete this material?")) setMaterials(prev => prev.filter(m => m.id !== id));
   };
-
   const handleClearMaterials = () => {
     if (window.confirm("Are you sure?")) setMaterials([]);
   };
@@ -116,13 +118,9 @@ const App: React.FC = () => {
   // --- Handlers for Sales Report (Using IndexedDB) ---
   const handleBulkAddSalesReport = async (items: Omit<SalesReportItem, 'id' | 'createdAt'>[]) => {
     setIsDbLoading(true);
-    // 1. Prepare items
     const newItems: SalesReportItem[] = items.map(item => ({ ...item, id: crypto.randomUUID(), createdAt: Date.now() }));
-    
-    // 2. Save to DB First (Async)
     try {
         await dbService.addSalesBatch(newItems);
-        // 3. Update State only after successful save
         setSalesReportItems(prev => [...newItems, ...prev]);
     } catch (e) {
         alert("Failed to save to Database! Browser storage might be full.");
@@ -130,12 +128,14 @@ const App: React.FC = () => {
         setIsDbLoading(false);
     }
   };
-
+  const handleUpdateSalesReport = async (updatedItem: SalesReportItem) => {
+    await dbService.updateSale(updatedItem);
+    setSalesReportItems(prev => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
+  };
   const handleDeleteSalesReport = async (id: string) => {
     await dbService.deleteSale(id);
     setSalesReportItems(prev => prev.filter(i => i.id !== id));
   };
-
   const handleClearSalesReport = async () => {
     if (window.confirm("Are you sure you want to delete ALL Sales Report records?")) {
       await dbService.clearAllSales();
@@ -143,27 +143,33 @@ const App: React.FC = () => {
     }
   };
 
-  // --- Other Handlers (Simplified for brevity) ---
+  // --- Other Handlers ---
   const handleBulkAddStock = (items: any) => setClosingStockItems(prev => [...items.map((i:any) => ({...i, id: crypto.randomUUID(), createdAt: Date.now()})), ...prev]);
+  const handleUpdateStock = (updatedItem: ClosingStockItem) => setClosingStockItems(prev => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
   const handleDeleteStock = (id: string) => setClosingStockItems(prev => prev.filter(i => i.id !== id));
   const handleClearStock = () => setClosingStockItems([]);
 
   const handleBulkAddPendingSO = (items: any) => setPendingSOItems(prev => [...items.map((i:any) => ({...i, id: crypto.randomUUID(), createdAt: Date.now()})), ...prev]);
+  const handleUpdatePendingSO = (updatedItem: PendingSOItem) => setPendingSOItems(prev => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
   const handleDeletePendingSO = (id: string) => setPendingSOItems(prev => prev.filter(i => i.id !== id));
   const handleClearPendingSO = () => setPendingSOItems([]);
 
   const handleBulkAddPendingPO = (items: any) => setPendingPOItems(prev => [...items.map((i:any) => ({...i, id: crypto.randomUUID(), createdAt: Date.now()})), ...prev]);
+  const handleUpdatePendingPO = (updatedItem: PendingPOItem) => setPendingPOItems(prev => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
   const handleDeletePendingPO = (id: string) => setPendingPOItems(prev => prev.filter(i => i.id !== id));
   const handleClearPendingPO = () => setPendingPOItems([]);
 
   const handleBulkAddSales1Y = (items: any) => setSales1Year(prev => [...items.map((i:any) => ({...i, id: crypto.randomUUID(), createdAt: Date.now()})), ...prev]);
   const handleBulkAddSales3M = (items: any) => setSales3Months(prev => [...items.map((i:any) => ({...i, id: crypto.randomUUID(), createdAt: Date.now()})), ...prev]);
+  const handleUpdateSales1Y = (updatedItem: SalesRecord) => setSales1Year(prev => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
+  const handleUpdateSales3M = (updatedItem: SalesRecord) => setSales3Months(prev => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
   const handleDeleteSales1Y = (id: string) => setSales1Year(prev => prev.filter(i => i.id !== id));
   const handleDeleteSales3M = (id: string) => setSales3Months(prev => prev.filter(i => i.id !== id));
   const handleClearSales1Y = () => setSales1Year([]);
   const handleClearSales3M = () => setSales3Months([]);
 
   const handleBulkAddCustomerMaster = (items: any) => setCustomerMasterItems(prev => [...items.map((i:any) => ({...i, id: crypto.randomUUID(), createdAt: Date.now()})), ...prev]);
+  const handleUpdateCustomerMaster = (updatedItem: CustomerMasterItem) => setCustomerMasterItems(prev => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
   const handleDeleteCustomerMaster = (id: string) => setCustomerMasterItems(prev => prev.filter(i => i.id !== id));
   const handleClearCustomerMaster = () => setCustomerMasterItems([]);
 
@@ -237,6 +243,7 @@ const App: React.FC = () => {
            <div>
              {isSidebarOpen && <div className="px-3 mb-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Group Dashboard</div>}
              <SidebarItem id="dashboard" label="Dashboard" icon={LayoutDashboard} onClick={setActiveTab} />
+             <SidebarItem id="pivotReport" label="Pivot Strategy Report" icon={Table} onClick={setActiveTab} />
            </div>
            <div>
              {isSidebarOpen && <div className="px-3 mb-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Masters</div>}
@@ -298,6 +305,17 @@ const App: React.FC = () => {
                   setActiveTab={setActiveTab}
               />
             )}
+            {activeTab === 'pivotReport' && (
+              <div className="h-full w-full">
+                <PivotReportView
+                  materials={materials}
+                  closingStock={closingStockItems}
+                  pendingSO={pendingSOItems}
+                  pendingPO={pendingPOItems}
+                  salesReportItems={salesReportItems}
+                />
+              </div>
+            )}
             {activeTab === 'master' && (
               <div className="flex flex-col lg:flex-row gap-4 items-start h-full">
                 <div className="w-full lg:w-56 flex-shrink-0 flex flex-col gap-3 h-full">
@@ -326,17 +344,17 @@ const App: React.FC = () => {
                 <div className="flex-1 w-full min-w-0 flex flex-col gap-3 h-full overflow-hidden">
                   <AddMaterialForm materials={materials} onBulkAdd={handleBulkAddMaterial} onClear={handleClearMaterials} />
                   <div className="flex-1 min-h-0">
-                      <MaterialTable materials={filteredMaterials} onDelete={handleDeleteMaterial} />
+                      <MaterialTable materials={filteredMaterials} onUpdate={handleUpdateMaterial} onDelete={handleDeleteMaterial} />
                   </div>
                 </div>
               </div>
             )}
-            {activeTab === 'customerMaster' && <div className="h-full w-full"><CustomerMasterView items={customerMasterItems} onBulkAdd={handleBulkAddCustomerMaster} onDelete={handleDeleteCustomerMaster} onClear={handleClearCustomerMaster} /></div>}
-            {activeTab === 'closingStock' && <div className="h-full w-full"><ClosingStockView items={closingStockItems} materials={materials} onBulkAdd={handleBulkAddStock} onDelete={handleDeleteStock} onClear={handleClearStock} /></div>}
-            {activeTab === 'pendingSO' && <div className="h-full w-full"><PendingSOView items={pendingSOItems} materials={materials} closingStockItems={closingStockItems} onBulkAdd={handleBulkAddPendingSO} onDelete={handleDeletePendingSO} onClear={handleClearPendingSO} /></div>}
-            {activeTab === 'pendingPO' && <div className="h-full w-full"><PendingPOView items={pendingPOItems} materials={materials} closingStockItems={closingStockItems} onBulkAdd={handleBulkAddPendingPO} onDelete={handleDeletePendingPO} onClear={handleClearPendingPO} /></div>}
-            {activeTab === 'salesReport' && <div className="h-full w-full"><SalesReportView items={salesReportItems} materials={materials} customers={customerMasterItems} onBulkAdd={handleBulkAddSalesReport} onDelete={handleDeleteSalesReport} onClear={handleClearSalesReport} /></div>}
-            {activeTab === 'salesHistory' && <div className="h-full overflow-y-auto custom-scrollbar pr-1"><SalesHistoryView sales1Year={sales1Year} sales3Months={sales3Months} onBulkAdd1Year={handleBulkAddSales1Y} onBulkAdd3Months={handleBulkAddSales3M} onDelete1Year={handleDeleteSales1Y} onDelete3Months={handleDeleteSales3M} onClear1Year={handleClearSales1Y} onClear3Months={handleClearSales3M} /></div>}
+            {activeTab === 'customerMaster' && <div className="h-full w-full"><CustomerMasterView items={customerMasterItems} onBulkAdd={handleBulkAddCustomerMaster} onUpdate={handleUpdateCustomerMaster} onDelete={handleDeleteCustomerMaster} onClear={handleClearCustomerMaster} /></div>}
+            {activeTab === 'closingStock' && <div className="h-full w-full"><ClosingStockView items={closingStockItems} materials={materials} onBulkAdd={handleBulkAddStock} onUpdate={handleUpdateStock} onDelete={handleDeleteStock} onClear={handleClearStock} /></div>}
+            {activeTab === 'pendingSO' && <div className="h-full w-full"><PendingSOView items={pendingSOItems} materials={materials} closingStockItems={closingStockItems} onBulkAdd={handleBulkAddPendingSO} onUpdate={handleUpdatePendingSO} onDelete={handleDeletePendingSO} onClear={handleClearPendingSO} /></div>}
+            {activeTab === 'pendingPO' && <div className="h-full w-full"><PendingPOView items={pendingPOItems} materials={materials} closingStockItems={closingStockItems} onBulkAdd={handleBulkAddPendingPO} onUpdate={handleUpdatePendingPO} onDelete={handleDeletePendingPO} onClear={handleClearPendingPO} /></div>}
+            {activeTab === 'salesReport' && <div className="h-full w-full"><SalesReportView items={salesReportItems} materials={materials} customers={customerMasterItems} onBulkAdd={handleBulkAddSalesReport} onUpdate={handleUpdateSalesReport} onDelete={handleDeleteSalesReport} onClear={handleClearSalesReport} /></div>}
+            {activeTab === 'salesHistory' && <div className="h-full overflow-y-auto custom-scrollbar pr-1"><SalesHistoryView sales1Year={sales1Year} sales3Months={sales3Months} onBulkAdd1Year={handleBulkAddSales1Y} onBulkAdd3Months={handleBulkAddSales3M} onUpdate1Year={handleUpdateSales1Y} onUpdate3Months={handleUpdateSales3M} onDelete1Year={handleDeleteSales1Y} onDelete3Months={handleDeleteSales3M} onClear1Year={handleClearSales1Y} onClear3Months={handleClearSales3M} /></div>}
         </main>
       </div>
     </div>

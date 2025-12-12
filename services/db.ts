@@ -56,6 +56,18 @@ export const dbService = {
     });
   },
 
+  // Update single item
+  async updateSale(item: SalesReportItem): Promise<void> {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_SALES, 'readwrite');
+      const store = transaction.objectStore(STORE_SALES);
+      store.put(item); // put updates if key exists
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+    });
+  },
+
   // Delete single item
   async deleteSale(id: string): Promise<void> {
     const db = await openDB();

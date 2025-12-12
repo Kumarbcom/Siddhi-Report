@@ -1,18 +1,47 @@
 
 import React, { useState, useMemo } from 'react';
 import { Material } from '../types';
-import { Trash2, PackageOpen, Search, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Trash2, PackageOpen, Search, ArrowUpDown, ArrowUp, ArrowDown, Pencil, Save, X } from 'lucide-react';
 
 interface MaterialTableProps {
   materials: Material[];
+  onUpdate: (item: Material) => void;
   onDelete: (id: string) => void;
 }
 
 type SortKey = keyof Material;
 
-const MaterialTable: React.FC<MaterialTableProps> = ({ materials, onDelete }) => {
+const MaterialTable: React.FC<MaterialTableProps> = ({ materials, onUpdate, onDelete }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' } | null>(null);
+  
+  // Editing State
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<Material | null>(null);
+
+  const handleEditClick = (item: Material) => {
+    setEditingId(item.id);
+    setEditForm({ ...item });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditForm(null);
+  };
+
+  const handleSaveEdit = () => {
+    if (editForm) {
+      onUpdate(editForm);
+      setEditingId(null);
+      setEditForm(null);
+    }
+  };
+
+  const handleInputChange = (field: keyof Material, value: string) => {
+    if (editForm) {
+      setEditForm({ ...editForm, [field]: value });
+    }
+  };
 
   const handleSort = (key: SortKey) => {
     let direction: 'asc' | 'desc' = 'asc';
@@ -117,25 +146,39 @@ const MaterialTable: React.FC<MaterialTableProps> = ({ materials, onDelete }) =>
                   processedMaterials.map((material) => (
                     <tr 
                       key={material.id} 
-                      className="hover:bg-blue-50/50 transition-colors duration-150 group"
+                      className={`hover:bg-blue-50/50 transition-colors duration-150 group ${editingId === material.id ? 'bg-blue-50' : ''}`}
                     >
-                      <td className="py-2 px-3 text-xs font-medium text-gray-900">{material.description}</td>
-                      <td className="py-2 px-3 text-xs text-gray-600 font-mono">{material.partNo}</td>
-                      <td className="py-2 px-3 text-xs text-gray-600">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-800 border border-gray-200">
-                          {material.make}
-                        </span>
-                      </td>
-                      <td className="py-2 px-3 text-xs text-gray-600">{material.materialGroup}</td>
-                      <td className="py-2 px-3 text-right">
-                        <button
-                          onClick={() => onDelete(material.id)}
-                          className="text-gray-400 hover:text-red-600 transition-colors p-1 rounded-md hover:bg-red-50"
-                          title="Delete Material"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </td>
+                      {editingId === material.id ? (
+                        <>
+                          <td className="py-2 px-3"><input type="text" className="w-full border border-blue-300 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:border-blue-500" value={editForm?.description || ''} onChange={e => handleInputChange('description', e.target.value)} /></td>
+                          <td className="py-2 px-3"><input type="text" className="w-full border border-blue-300 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:border-blue-500 font-mono" value={editForm?.partNo || ''} onChange={e => handleInputChange('partNo', e.target.value)} /></td>
+                          <td className="py-2 px-3"><input type="text" className="w-full border border-blue-300 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:border-blue-500" value={editForm?.make || ''} onChange={e => handleInputChange('make', e.target.value)} /></td>
+                          <td className="py-2 px-3"><input type="text" className="w-full border border-blue-300 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:border-blue-500" value={editForm?.materialGroup || ''} onChange={e => handleInputChange('materialGroup', e.target.value)} /></td>
+                          <td className="py-2 px-3 text-right">
+                            <div className="flex justify-end gap-1">
+                              <button onClick={handleSaveEdit} className="p-1 rounded bg-green-100 text-green-700 hover:bg-green-200"><Save className="w-3.5 h-3.5" /></button>
+                              <button onClick={handleCancelEdit} className="p-1 rounded bg-red-100 text-red-700 hover:bg-red-200"><X className="w-3.5 h-3.5" /></button>
+                            </div>
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="py-2 px-3 text-xs font-medium text-gray-900">{material.description}</td>
+                          <td className="py-2 px-3 text-xs text-gray-600 font-mono">{material.partNo}</td>
+                          <td className="py-2 px-3 text-xs text-gray-600">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-800 border border-gray-200">
+                              {material.make}
+                            </span>
+                          </td>
+                          <td className="py-2 px-3 text-xs text-gray-600">{material.materialGroup}</td>
+                          <td className="py-2 px-3 text-right">
+                            <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button onClick={() => handleEditClick(material)} className="text-gray-400 hover:text-blue-600 transition-colors p-1 rounded-md hover:bg-blue-50" title="Edit"><Pencil className="w-3.5 h-3.5" /></button>
+                              <button onClick={() => onDelete(material.id)} className="text-gray-400 hover:text-red-600 transition-colors p-1 rounded-md hover:bg-red-50" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
+                            </div>
+                          </td>
+                        </>
+                      )}
                     </tr>
                   ))
               )}
