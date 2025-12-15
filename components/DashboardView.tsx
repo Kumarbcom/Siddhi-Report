@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Material, ClosingStockItem, PendingSOItem, PendingPOItem, SalesRecord, SalesReportItem, CustomerMasterItem } from '../types';
-import { TrendingUp, TrendingDown, Package, ClipboardList, ShoppingCart, Calendar, Filter, PieChart as PieIcon, BarChart3, Users, ArrowRight, Activity, DollarSign, ArrowUpRight, ArrowDownRight, RefreshCw, UserCircle, Minus, Plus, ChevronDown, ChevronUp, Link2Off, AlertTriangle, Layers, Clock, CheckCircle2, AlertCircle, User, Factory, Tag } from 'lucide-react';
+import { TrendingUp, TrendingDown, Package, ClipboardList, ShoppingCart, Calendar, Filter, PieChart as PieIcon, BarChart3, Users, ArrowRight, Activity, DollarSign, ArrowUpRight, ArrowDownRight, RefreshCw, UserCircle, Minus, Plus, ChevronDown, ChevronUp, Link2Off, AlertTriangle, Layers, Clock, CheckCircle2, AlertCircle, User, Factory, Tag, ArrowLeft, BarChart4, Hourglass } from 'lucide-react';
 
 interface DashboardViewProps {
   materials: Material[];
@@ -56,7 +56,7 @@ const getSmoothPath = (points: [number, number][]) => {
   return d;
 };
 
-// --- Component: Interactive Sales Trend Chart ---
+// --- Component: Interactive Sales Trend Chart (Modernized) ---
 const SalesTrendChart = ({ data, maxVal }: { data: { labels: string[], series: any[] }, maxVal: number }) => {
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -82,22 +82,22 @@ const SalesTrendChart = ({ data, maxVal }: { data: { labels: string[], series: a
          {/* Floating Tooltip */}
          {hoverIndex !== null && (
             <div 
-              className="absolute z-20 bg-gray-900/90 backdrop-blur-sm text-white text-[10px] p-2.5 rounded-lg shadow-xl border border-gray-700 pointer-events-none transition-all duration-75 min-w-[120px]"
+              className="absolute z-20 bg-gray-900/95 backdrop-blur text-white text-[10px] p-3 rounded-xl shadow-2xl border border-gray-700 pointer-events-none transition-all duration-75 min-w-[140px]"
               style={{ 
                 left: `${(hoverIndex / (data.labels.length - 1)) * 100}%`, 
-                top: '0',
-                transform: `translateX(${hoverIndex > data.labels.length / 2 ? '-105%' : '5%'})`,
+                top: '10%',
+                transform: `translateX(${hoverIndex > data.labels.length / 2 ? '-110%' : '10%'})`,
               }}
             >
-                <div className="font-bold border-b border-gray-700 pb-1.5 mb-1.5 text-gray-300 text-center">{data.labels[hoverIndex]}</div>
-                <div className="flex flex-col gap-1.5">
+                <div className="font-bold border-b border-gray-600 pb-2 mb-2 text-gray-200 text-center uppercase tracking-wider">{data.labels[hoverIndex]}</div>
+                <div className="flex flex-col gap-2">
                     {data.series.map((s: any, i: number) => (
-                        <div key={i} className="flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-1.5">
-                                <div className="w-2 h-2 rounded-full shadow-sm" style={{backgroundColor: s.color}}></div>
+                        <div key={i} className="flex items-center justify-between gap-4">
+                            <div className="flex items-center gap-2">
+                                <div className="w-2.5 h-2.5 rounded-full shadow-sm ring-1 ring-white/20" style={{backgroundColor: s.color}}></div>
                                 <span className="text-gray-300 font-medium">{s.name}</span>
                             </div>
-                            <span className="font-mono font-bold text-white">{formatLargeValue(s.data[hoverIndex], true)}</span>
+                            <span className="font-mono font-bold text-white text-xs">{formatLargeValue(s.data[hoverIndex], true)}</span>
                         </div>
                     ))}
                 </div>
@@ -108,7 +108,8 @@ const SalesTrendChart = ({ data, maxVal }: { data: { labels: string[], series: a
             <defs>
               {data.series.map((s: any, i: number) => (
                 <linearGradient key={i} id={`grad-${i}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={s.color} stopOpacity="0.2" />
+                  <stop offset="0%" stopColor={s.color} stopOpacity="0.4" />
+                  <stop offset="80%" stopColor={s.color} stopOpacity="0.05" />
                   <stop offset="100%" stopColor={s.color} stopOpacity="0" />
                 </linearGradient>
               ))}
@@ -154,8 +155,17 @@ const SalesTrendChart = ({ data, maxVal }: { data: { labels: string[], series: a
                
                return (
                    <g key={i}>
-                       <path d={areaD} fill={`url(#grad-${i})`} className="transition-opacity duration-300" style={{opacity: hoverIndex !== null ? 0.6 : 0.8}} />
-                       <path d={pathD} fill="none" stroke={s.color} strokeWidth="2.5" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" className="drop-shadow-sm" />
+                       <path d={areaD} fill={`url(#grad-${i})`} className="transition-opacity duration-300" style={{opacity: hoverIndex !== null ? 0.7 : 0.8}} />
+                       <path 
+                         d={pathD} 
+                         fill="none" 
+                         stroke={s.color} 
+                         strokeWidth="3" 
+                         vectorEffect="non-scaling-stroke" 
+                         strokeLinecap="round" 
+                         strokeLinejoin="round" 
+                         className="drop-shadow-sm" 
+                       />
                    </g>
                )
             })}
@@ -167,9 +177,9 @@ const SalesTrendChart = ({ data, maxVal }: { data: { labels: string[], series: a
                    y1="0"
                    x2={(hoverIndex / (data.labels.length - 1)) * 100}
                    y2="100"
-                   stroke="#6b7280"
+                   stroke="#4b5563"
                    strokeWidth="1.5"
-                   strokeDasharray="4"
+                   strokeDasharray="3 3"
                    vectorEffect="non-scaling-stroke"
                  />
             )}
@@ -184,12 +194,12 @@ const SalesTrendChart = ({ data, maxVal }: { data: { labels: string[], series: a
                         key={i} 
                         cx={cx} 
                         cy={cy} 
-                        r="4" 
+                        r="5" 
                         fill="white" 
                         stroke={s.color} 
-                        strokeWidth="2.5" 
+                        strokeWidth="3" 
                         vectorEffect="non-scaling-stroke"
-                        className="drop-shadow-md transition-transform duration-75"
+                        className="drop-shadow-lg transition-transform duration-75"
                     />
                 );
             })}
@@ -224,175 +234,248 @@ const InventoryToggle: React.FC<{ value: Metric; onChange: (m: Metric) => void; 
   </div>
 );
 
-const InventoryDonutChart: React.FC<{ 
-  data: { label: string; value: number; color: string; displayValue: string }[], 
-  metric: Metric,
-  total: number,
-  centerLabelOverride?: string
-}> = ({ data, metric, total, centerLabelOverride }) => {
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
-  let cumulativePercent = 0;
+// --- Component: Interactive Drill-Down Bar Chart (Make -> Group) ---
+const InteractiveDrillDownChart = ({ hierarchyData, metric }: { hierarchyData: any[], metric: Metric }) => {
+    const [view, setView] = useState<'MAKE' | 'GROUP'>('MAKE');
+    const [selectedMake, setSelectedMake] = useState<string | null>(null);
+    const [animationKey, setAnimationKey] = useState(0);
 
-  if (total === 0) return <div className="flex items-center justify-center h-32 text-gray-400 text-[10px]">No Data</div>;
+    const activeData = useMemo(() => {
+        if (view === 'MAKE') {
+            return hierarchyData.map(d => ({ label: d.label, value: d.value, color: '#3B82F6', id: d.label }));
+        } else if (selectedMake) {
+            const makeData = hierarchyData.find(d => d.label === selectedMake);
+            return makeData ? makeData.groups.map((g: any, i: number) => ({ 
+                label: g.label, 
+                value: g.value, 
+                color: COLORS[i % COLORS.length],
+                id: g.label 
+            })) : [];
+        }
+        return [];
+    }, [view, selectedMake, hierarchyData]);
 
-  const slices = data.map(slice => {
-    const percent = slice.value / total;
-    const startPercent = cumulativePercent;
-    cumulativePercent += percent;
-    return { ...slice, percent, startPercent };
-  });
-
-  const getCoordinatesForPercent = (percent: number) => {
-    const x = Math.cos(2 * Math.PI * percent);
-    const y = Math.sin(2 * Math.PI * percent);
-    return [x, y];
-  };
-
-  const centerLabel = hoveredIndex !== null ? data[hoveredIndex].label : (centerLabelOverride || `Total ${metric === 'value' ? 'Val' : 'Qty'}`);
-  
-  const centerValue = hoveredIndex !== null 
-    ? data[hoveredIndex].displayValue 
-    : (metric === 'value' 
-        ? formatLargeValue(total)
-        : Math.round(total).toLocaleString('en-IN'));
-        
-  const centerSubtext = hoveredIndex !== null ? `${(data[hoveredIndex].value / total * 100).toFixed(1)}%` : '';
-
-  return (
-    <div className="flex flex-col items-center gap-3 h-full">
-      <div className="relative w-28 h-28 flex-shrink-0">
-        <svg viewBox="-1 -1 2 2" style={{ transform: 'rotate(-90deg)' }} className="w-full h-full">
-          {slices.map((slice, i) => {
-            if (slice.percent === 1) {
-              return <circle key={i} cx="0" cy="0" r="0.8" fill="transparent" stroke={slice.color} strokeWidth="0.3" pathLength="100" 
-                onMouseEnter={() => setHoveredIndex(i)} onMouseLeave={() => setHoveredIndex(null)} />;
-            }
-            const [startX, startY] = getCoordinatesForPercent(slice.startPercent);
-            const [endX, endY] = getCoordinatesForPercent(slice.startPercent + slice.percent);
-            const largeArcFlag = slice.percent > 0.5 ? 1 : 0;
-            const pathData = [
-              `M ${startX} ${startY}`,
-              `A 1 1 0 ${largeArcFlag} 1 ${endX} ${endY}`,
-              `L ${endX * 0.6} ${endY * 0.6}`,
-              `A 0.6 0.6 0 ${largeArcFlag} 0 ${startX * 0.6} ${startY * 0.6}`,
-              'Z'
-            ].join(' ');
-
-            return (
-              <path
-                key={i}
-                d={pathData}
-                fill={slice.color}
-                className={`transition-all duration-200 cursor-pointer ${hoveredIndex === i ? 'opacity-100 scale-105 stroke-2 stroke-white' : 'opacity-90 hover:opacity-100'}`}
-                onMouseEnter={() => setHoveredIndex(i)}
-                onMouseLeave={() => setHoveredIndex(null)}
-              >
-                <title>{`${slice.label}: ${Math.round(slice.percent * 100)}%`}</title>
-              </path>
-            );
-          })}
-        </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none px-1">
-          <span className="text-[9px] text-gray-400 uppercase font-medium tracking-wider truncate w-full text-center">
-            {centerLabel === 'Unspecified' ? 'Unknown' : centerLabel}
-          </span>
-          <span className="text-[11px] font-bold text-gray-800 leading-tight text-center">
-             {centerValue}
-          </span>
-          {centerSubtext && <span className="text-[9px] text-gray-500 font-medium">{centerSubtext}</span>}
-        </div>
-      </div>
-
-      <div className="flex-1 w-full overflow-hidden flex flex-col min-h-0">
-         <div className="flex items-center justify-between text-[9px] uppercase font-semibold text-gray-400 pb-1 border-b border-gray-100 mb-1">
-            <span>Category</span>
-            <div className="flex gap-2">
-                <span className="w-8 text-right">%</span>
-                <span className="w-20 text-right">{metric === 'value' ? 'Val' : 'Qty'}</span>
-            </div>
-         </div>
-         <div className="overflow-y-auto custom-scrollbar flex-1 space-y-0.5 pr-1">
-            {data.map((item, i) => (
-              <div 
-                key={i} 
-                className={`flex items-center justify-between text-[10px] p-0.5 rounded transition-colors cursor-pointer ${hoveredIndex === i ? 'bg-gray-100' : 'hover:bg-gray-50'}`}
-                onMouseEnter={() => setHoveredIndex(i)}
-                onMouseLeave={() => setHoveredIndex(null)}
-              >
-                <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                  <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }}></span>
-                  <span className="text-gray-700 font-medium truncate" title={item.label}>{item.label}</span>
-                </div>
-                <div className="flex gap-2 items-center flex-shrink-0">
-                    <span className="w-8 text-right text-gray-500 font-mono text-[9px]">{(item.value / total * 100).toFixed(0)}%</span>
-                    <span className="w-20 text-right font-medium text-gray-900 truncate" title={item.displayValue}>{item.displayValue}</span>
-                </div>
-              </div>
-            ))}
-         </div>
-      </div>
-    </div>
-  );
-};
-
-// --- New Component: Interactive Hierarchy List (Make -> Group) ---
-const InventoryHierarchyList = ({ data, metric }: { data: any[], metric: Metric }) => {
-    const [expanded, setExpanded] = useState<Set<string>>(new Set());
-
-    const toggle = (label: string) => {
-        const next = new Set(expanded);
-        if (next.has(label)) next.delete(label);
-        else next.add(label);
-        setExpanded(next);
+    const handleBarClick = (id: string) => {
+        if (view === 'MAKE') {
+            setSelectedMake(id);
+            setView('GROUP');
+            setAnimationKey(k => k + 1);
+        }
     };
 
-    if (data.length === 0) return <div className="flex items-center justify-center h-full text-gray-400 text-[10px]">No Data</div>;
-    
-    const maxValue = data[0]?.value || 1;
+    const handleBack = () => {
+        setView('MAKE');
+        setSelectedMake(null);
+        setAnimationKey(k => k + 1);
+    };
+
+    if (activeData.length === 0) return <div className="flex items-center justify-center h-full text-gray-400 text-xs">No Data</div>;
+
+    const maxVal = Math.max(...activeData.map((d: any) => d.value), 1);
 
     return (
-        <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 space-y-2">
-            {data.map((item, i) => (
-                <div key={i} className="flex flex-col">
-                    {/* Make Row */}
+        <div className="flex flex-col h-full overflow-hidden">
+            {view === 'GROUP' && (
+                <div className="flex items-center gap-2 mb-2 pb-2 border-b border-gray-100 animate-in slide-in-from-left-2">
+                    <button onClick={handleBack} className="p-1 hover:bg-gray-100 rounded-full text-gray-500"><ArrowLeft className="w-3.5 h-3.5" /></button>
+                    <span className="text-xs font-bold text-gray-700">{selectedMake} <span className="font-normal text-gray-400">/ Breakdown</span></span>
+                </div>
+            )}
+            <div key={animationKey} className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-2 animate-in fade-in duration-300">
+                {activeData.map((item: any, i: number) => (
                     <div 
-                        className="flex flex-col gap-1 cursor-pointer hover:bg-gray-50 p-1 rounded transition-colors"
-                        onClick={() => toggle(item.label)}
+                        key={i} 
+                        className={`group flex flex-col gap-1 ${view === 'MAKE' ? 'cursor-pointer' : ''}`}
+                        onClick={() => handleBarClick(item.id)}
                     >
-                        <div className="flex justify-between items-center text-[10px]">
-                            <div className="flex items-center gap-1.5 min-w-0">
-                                {expanded.has(item.label) ? <ChevronUp className="w-3 h-3 text-blue-600"/> : <ChevronDown className="w-3 h-3 text-gray-400"/>}
-                                <span className={`font-bold truncate ${expanded.has(item.label) ? 'text-blue-700' : 'text-gray-700'}`} title={item.label}>{item.label}</span>
-                                <span className="text-[9px] text-gray-400">({item.groups.length})</span>
-                            </div>
-                            <span className="font-bold text-gray-900">{item.displayValue}</span>
+                        <div className="flex justify-between items-end text-[10px]">
+                            <span className={`font-medium truncate w-3/4 transition-colors ${view === 'MAKE' ? 'text-gray-700 group-hover:text-blue-600' : 'text-gray-600'}`}>{item.label}</span>
+                            <span className="font-bold text-gray-900">{metric === 'value' ? formatLargeValue(item.value, true) : item.value.toLocaleString()}</span>
                         </div>
-                        <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
-                             <div className="bg-blue-600 h-full rounded-full" style={{ width: `${(item.value / maxValue) * 100}%` }}></div>
+                        <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden relative">
+                            <div 
+                                className="h-full rounded-full transition-all duration-700 ease-out" 
+                                style={{ width: `${(item.value / maxVal) * 100}%`, backgroundColor: item.color }}
+                            ></div>
                         </div>
                     </div>
+                ))}
+            </div>
+        </div>
+    );
+};
 
-                    {/* Groups Sub-list */}
-                    {expanded.has(item.label) && (
-                        <div className="pl-4 pr-1 py-1 space-y-1.5 border-l-2 border-gray-100 ml-1.5 mt-1 animate-in slide-in-from-top-1">
-                            {item.groups.map((grp: any, j: number) => (
-                                <div key={j} className="flex flex-col gap-0.5">
-                                    <div className="flex justify-between text-[9px]">
-                                        <span className="text-gray-600 truncate w-3/4" title={grp.label}>{grp.label}</span>
-                                        <span className="text-gray-500 font-medium">{grp.displayValue}</span>
-                                    </div>
-                                    <div className="w-full bg-gray-50 h-1 rounded-full overflow-hidden">
-                                         <div className="bg-blue-300 h-full rounded-full" style={{ width: `${(grp.value / item.value) * 100}%` }}></div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
+// --- Component: ABC Analysis Chart ---
+const ABCAnalysisChart = ({ data }: { data: { label: string, value: number, count: number, color: string }[] }) => {
+    const totalVal = data.reduce((a, b) => a + b.value, 0);
+    let startAngle = 0;
+
+    return (
+        <div className="flex flex-col h-full">
+            <div className="flex items-center justify-center py-2 flex-1">
+                <div className="relative w-32 h-32">
+                    <svg viewBox="-1 -1 2 2" style={{ transform: 'rotate(-90deg)' }} className="w-full h-full">
+                        {data.map((slice, i) => {
+                            const pct = slice.value / (totalVal || 1);
+                            const endAngle = startAngle + pct * 2 * Math.PI;
+                            
+                            // Donut slice calculation
+                            const x1 = Math.cos(startAngle);
+                            const y1 = Math.sin(startAngle);
+                            const x2 = Math.cos(endAngle);
+                            const y2 = Math.sin(endAngle);
+                            const largeArc = pct > 0.5 ? 1 : 0;
+                            
+                            const pathData = [
+                                `M ${x1} ${y1}`,
+                                `A 1 1 0 ${largeArc} 1 ${x2} ${y2}`,
+                                `L ${x2 * 0.65} ${y2 * 0.65}`, // Inner radius start
+                                `A 0.65 0.65 0 ${largeArc} 0 ${x1 * 0.65} ${y1 * 0.65}`, // Inner radius arc
+                                'Z'
+                            ].join(' ');
+
+                            startAngle = endAngle;
+
+                            return (
+                                <path 
+                                    key={i} 
+                                    d={pathData} 
+                                    fill={slice.color} 
+                                    stroke="white" 
+                                    strokeWidth="0.02" 
+                                    className="hover:opacity-80 transition-opacity cursor-pointer"
+                                >
+                                    <title>{slice.label}: {Math.round(pct * 100)}%</title>
+                                </path>
+                            );
+                        })}
+                    </svg>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                        <span className="text-[10px] text-gray-400 font-bold">Total Val</span>
+                        <span className="text-xs font-extrabold text-gray-800">{formatLargeValue(totalVal, true)}</span>
+                    </div>
+                </div>
+            </div>
+            <div className="grid grid-cols-3 gap-1 border-t border-gray-100 pt-2">
+                {data.map((item, i) => (
+                    <div key={i} className="flex flex-col items-center text-center">
+                        <span className="text-[9px] font-bold" style={{color: item.color}}>Class {item.label}</span>
+                        <span className="text-[9px] font-medium text-gray-600">{item.count} items</span>
+                        <span className="text-[9px] font-bold text-gray-800">{formatLargeValue(item.value, true)}</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+// --- Component: Value Distribution Histogram ---
+const ValueDistributionChart = ({ data }: { data: { label: string, value: number }[] }) => {
+    const maxVal = Math.max(...data.map(d => d.value), 1);
+    return (
+        <div className="flex items-end justify-between gap-2 h-full pt-4 pb-1">
+            {data.map((bar, i) => (
+                <div key={i} className="flex-1 flex flex-col items-center gap-1 h-full justify-end group">
+                    <span className="text-[9px] font-bold text-gray-600 bg-gray-100 px-1 rounded opacity-0 group-hover:opacity-100 transition-opacity mb-auto">{bar.value}</span>
+                    <div 
+                        className="w-full bg-indigo-100 rounded-t-sm hover:bg-indigo-300 transition-all relative group" 
+                        style={{ height: `${(bar.value / maxVal) * 100}%` }}
+                    >
+                    </div>
+                    <span className="text-[8px] text-gray-400 font-medium text-center leading-tight">{bar.label}</span>
                 </div>
             ))}
         </div>
-    )
-}
+    );
+};
+
+// --- Component: Stacked Bar Chart (Due vs Scheduled) ---
+const StackedBarChart = ({ data, title }: { data: { label: string; due: number; scheduled: number; total: number }[]; title: string }) => {
+    if (data.length === 0) return <div className="flex items-center justify-center h-full text-gray-400 text-xs">No Data</div>;
+    
+    // Sort descending by total and take top 6
+    const chartData = [...data].sort((a,b) => b.total - a.total).slice(0, 6);
+    const maxVal = Math.max(...chartData.map(d => d.total), 1);
+
+    return (
+        <div className="flex flex-col h-full">
+            <div className="flex justify-between items-center mb-2">
+                <h4 className="text-[10px] font-bold text-gray-500 uppercase">{title}</h4>
+                <div className="flex gap-2 text-[9px]">
+                    <span className="flex items-center gap-1"><div className="w-1.5 h-1.5 bg-red-500 rounded-full"></div>Due</span>
+                    <span className="flex items-center gap-1"><div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>Sch</span>
+                </div>
+            </div>
+            <div className="flex-1 flex flex-col gap-2 overflow-y-auto custom-scrollbar pr-1">
+                {chartData.map((item, i) => (
+                    <div key={i} className="flex flex-col gap-0.5 group">
+                        <div className="flex justify-between text-[9px]">
+                            <span className="text-gray-700 font-medium truncate w-1/2" title={item.label}>{item.label}</span>
+                            <span className="text-gray-900 font-bold">{formatLargeValue(item.total, true)}</span>
+                        </div>
+                        <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden flex">
+                            <div className="h-full bg-red-500 transition-all duration-500 relative group/bar" style={{ width: `${(item.due / maxVal) * 100}%` }}>
+                                <title>Due: {formatLargeValue(item.due)}</title>
+                            </div>
+                            <div className="h-full bg-blue-500 transition-all duration-500 relative group/bar" style={{ width: `${(item.scheduled / maxVal) * 100}%` }}>
+                                <title>Scheduled: {formatLargeValue(item.scheduled)}</title>
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+// --- Component: Aging Bar Chart ---
+const AgingBarChart = ({ data }: { data: { label: string; value: number }[] }) => {
+    const maxVal = Math.max(...data.map(d => d.value), 1);
+    return (
+        <div className="flex flex-col h-full">
+            <h4 className="text-[10px] font-bold text-gray-500 uppercase mb-2">Overdue Aging (Value)</h4>
+            <div className="flex items-end justify-between gap-3 h-full pb-1">
+                {data.map((bar, i) => (
+                    <div key={i} className="flex-1 flex flex-col items-center gap-1 h-full justify-end group">
+                        <span className="text-[9px] font-bold text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity">{formatLargeValue(bar.value, true)}</span>
+                        <div 
+                            className={`w-full rounded-t-sm hover:opacity-80 transition-all ${i === 0 ? 'bg-blue-300' : i === 1 ? 'bg-orange-300' : 'bg-red-400'}`} 
+                            style={{ height: `${(bar.value / maxVal) * 100}%` }}
+                        >
+                        </div>
+                        <span className="text-[9px] text-gray-500 font-medium text-center leading-tight whitespace-nowrap">{bar.label}</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+// --- Component: Simple Horizontal Bar Chart ---
+const HorizontalBarChart = ({ data, title, color }: { data: { label: string; value: number }[], title: string, color: string }) => {
+    const sorted = [...data].sort((a,b) => b.value - a.value).slice(0, 8);
+    const maxVal = sorted[0]?.value || 1;
+    return (
+        <div className="flex flex-col h-full">
+            <h4 className="text-[10px] font-bold text-gray-500 uppercase mb-2">{title}</h4>
+            <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 space-y-1.5">
+                {sorted.map((item, i) => (
+                    <div key={i} className="flex items-center gap-2 text-[9px]">
+                        <div className="flex-1 min-w-0">
+                            <div className="flex justify-between mb-0.5">
+                                <span className="truncate text-gray-600 font-medium" title={item.label}>{item.label}</span>
+                                <span className="font-bold text-gray-800">{formatLargeValue(item.value, true)}</span>
+                            </div>
+                            <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                                <div className={`h-full rounded-full bg-${color}-500`} style={{ width: `${(item.value / maxVal) * 100}%` }}></div>
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
 
 
 const DashboardView: React.FC<DashboardViewProps> = ({
@@ -412,7 +495,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   const [selectedFY, setSelectedFY] = useState<string>('');
   
   // Inventory Tab State
-  const [invMakeMetric, setInvMakeMetric] = useState<Metric>('value');
   const [invGroupMetric, setInvGroupMetric] = useState<Metric>('value');
   const [invTopMetric, setInvTopMetric] = useState<Metric>('value');
   const [invSelectedMake, setInvSelectedMake] = useState<string>('ALL');
@@ -432,7 +514,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   
   // New: Collapsible groups for Pending SO
-  const [expandedPendingGroups, setExpandedPendingGroups] = useState<Set<string>>(new Set());
+  const [expandedPendingCustomers, setExpandedPendingCustomers] = useState<Set<string>>(new Set());
 
   // Toggle Group Expansion (Sales)
   const toggleGroup = (groupName: string) => {
@@ -442,12 +524,12 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     setExpandedGroups(newSet);
   };
 
-  // Toggle Pending Group Expansion
-  const togglePendingGroup = (groupName: string) => {
-    const newSet = new Set(expandedPendingGroups);
-    if (newSet.has(groupName)) newSet.delete(groupName);
-    else newSet.add(groupName);
-    setExpandedPendingGroups(newSet);
+  // Toggle Pending Customer Expansion
+  const togglePendingCustomer = (custName: string) => {
+    const newSet = new Set(expandedPendingCustomers);
+    if (newSet.has(custName)) newSet.delete(custName);
+    else newSet.add(custName);
+    setExpandedPendingCustomers(newSet);
   };
 
   // --- Helper: Robust Date Parsing ---
@@ -754,28 +836,28 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     const count = data.length;
     const totalUnmatched = data.filter(i => !i.isLinked).length;
 
-    const makeMap = new Map<string, { qty: number, val: number }>();
-    data.forEach(i => {
-        const m = makeMap.get(i.make) || { qty: 0, val: 0 };
-        m.qty += i.quantity;
-        m.val += i.value;
-        makeMap.set(i.make, m);
-    });
-
-    const formatVal = (val: number, type: Metric) => type === 'value' ? formatLargeValue(val) : Math.round(val).toLocaleString('en-IN');
-
-    const byMake = Array.from(makeMap.entries())
-        .map(([label, data], i) => ({ 
-            label, 
-            value: invMakeMetric === 'value' ? data.val : data.qty,
-            displayValue: formatVal(invMakeMetric === 'value' ? data.val : data.qty, invMakeMetric),
-            color: label === 'Unspecified' ? '#9CA3AF' : COLORS[i % COLORS.length] 
-        }))
-        .sort((a, b) => b.value - a.value);
-
-    // Build Hierarchy: Make -> Group
+    // --- Build Hierarchy: Make -> Group for DrillDown Chart ---
     const hierarchyMap = new Map<string, { qty: number, val: number, groups: Map<string, { qty: number, val: number }> }>();
+    
+    // --- ABC Analysis Prep ---
+    const sortedByVal = [...data].sort((a,b) => b.value - a.value);
+    const abc = { 
+        A: { count: 0, val: 0 }, 
+        B: { count: 0, val: 0 }, 
+        C: { count: 0, val: 0 } 
+    };
+    let cumVal = 0;
+    
+    // --- Distribution Prep ---
+    const distMap = { 
+        '0-1k': 0, 
+        '1k-10k': 0, 
+        '10k-50k': 0, 
+        '50k+': 0 
+    };
+
     data.forEach(i => {
+        // Hierarchy
         const mKey = i.make;
         const gKey = i.group;
         
@@ -788,21 +870,51 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         const gEntry = mEntry.groups.get(gKey)!;
         gEntry.qty += i.quantity;
         gEntry.val += i.value;
+
+        // Distribution
+        if (i.value <= 1000) distMap['0-1k']++;
+        else if (i.value <= 10000) distMap['1k-10k']++;
+        else if (i.value <= 50000) distMap['10k-50k']++;
+        else distMap['50k+']++;
     });
 
+    // ABC Calc Loop (Sorted)
+    sortedByVal.forEach(i => {
+        cumVal += i.value;
+        const pct = cumVal / (totalVal || 1);
+        if (pct <= 0.70) { abc.A.count++; abc.A.val += i.value; }
+        else if (pct <= 0.90) { abc.B.count++; abc.B.val += i.value; }
+        else { abc.C.count++; abc.C.val += i.value; }
+    });
+
+    // Format Hierarchy Data
     const hierarchy = Array.from(hierarchyMap.entries()).map(([make, mData]) => {
         const mValue = invGroupMetric === 'value' ? mData.val : mData.qty;
         return {
             label: make,
             value: mValue,
-            displayValue: formatVal(mValue, invGroupMetric),
+            displayValue: formatLargeValue(mValue, true),
             groups: Array.from(mData.groups.entries()).map(([group, gData]) => ({
                 label: group,
-                value: invGroupMetric === 'value' ? gData.val : gData.qty,
-                displayValue: formatVal(invGroupMetric === 'value' ? gData.val : gData.qty, invGroupMetric)
+                value: invGroupMetric === 'value' ? gData.val : gData.qty
             })).sort((a,b) => b.value - a.value)
         };
     }).sort((a,b) => b.value - a.value);
+
+    // Format ABC Data
+    const abcData = [
+        { label: 'A', value: abc.A.val, count: abc.A.count, color: '#10B981' }, // Green
+        { label: 'B', value: abc.B.val, count: abc.B.count, color: '#F59E0B' }, // Yellow
+        { label: 'C', value: abc.C.val, count: abc.C.count, color: '#EF4444' }  // Red
+    ];
+
+    // Format Distribution Data
+    const distData = [
+        { label: '< 1k', value: distMap['0-1k'] },
+        { label: '1k-10k', value: distMap['1k-10k'] },
+        { label: '10k-50k', value: distMap['10k-50k'] },
+        { label: '> 50k', value: distMap['50k+'] }
+    ];
 
     const topArticles = [...data]
         .sort((a, b) => {
@@ -813,14 +925,14 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         .slice(0, 10) 
         .map(i => ({ 
             label: i.description, 
-            make: i.make, // Ensure make is preserved
+            make: i.make,
             value: invTopMetric === 'value' ? i.value : i.quantity
         }));
 
-    const currentMakeTotal = byMake.reduce((acc, item) => acc + item.value, 0);
+    const formatVal = (val: number, type: Metric) => type === 'value' ? formatLargeValue(val) : Math.round(val).toLocaleString('en-IN');
 
-    return { totalQty, totalVal, count, totalUnmatched, byMake, hierarchy, topArticles, currentMakeTotal, formatVal };
-  }, [filteredStock, invMakeMetric, invGroupMetric, invTopMetric]);
+    return { totalQty, totalVal, count, totalUnmatched, hierarchy, topArticles, abcData, distData, formatVal };
+  }, [filteredStock, invGroupMetric, invTopMetric]);
 
   // --- PENDING SO LOGIC REFACTOR (PROCESS -> FILTER -> AGGREGATE) ---
   
@@ -866,6 +978,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             // Calc Overdue
             const diffTime = today.getTime() - dueDate.getTime();
             const isOverdue = diffTime > 0;
+            const overdueDays = isOverdue ? Math.floor(diffTime / (1000 * 60 * 60 * 24)) : 0;
 
             let allocated = 0;
             let shortage = order.balanceQty;
@@ -887,6 +1000,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 customerGroup: custMap.get(order.partyName.toLowerCase().trim()) || 'Unassigned',
                 isFuture,
                 isOverdue,
+                overdueDays,
                 allocated,
                 shortage,
                 val,
@@ -912,11 +1026,16 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       const stats = {
           totalOrdered: { qty: 0, val: 0, count: 0 },
           totalBalance: { qty: 0, val: 0 },
-          due: { available: { qty: 0, val: 0 }, shortage: { qty: 0, val: 0 } },
-          scheduled: { available: { qty: 0, val: 0 }, shortage: { qty: 0, val: 0 } },
-          byGroup: new Map<string, number>(),
-          byMake: new Map<string, number>(),
-          byStatus: { overdue: 0, due: 0, future: 0 }
+          due: { available: { qty: 0, val: 0 }, shortage: { qty: 0, val: 0 }, total: { qty: 0, val: 0 } },
+          scheduled: { available: { qty: 0, val: 0 }, shortage: { qty: 0, val: 0 }, total: { qty: 0, val: 0 } },
+          
+          // Stacked Data Aggregates
+          byGroup: new Map<string, { due: number, scheduled: number, total: number }>(),
+          byMake: new Map<string, { due: number, scheduled: number, total: number }>(),
+          byCustomer: new Map<string, { due: number, scheduled: number, total: number, items: any[] }>(),
+          
+          aging: { 'Future': 0, '0-30': 0, '30-60': 0, '60-90': 0, '90+': 0 },
+          topItems: new Map<string, number>()
       };
 
       const uniqueOrders = new Set<string>();
@@ -931,72 +1050,82 @@ const DashboardView: React.FC<DashboardViewProps> = ({
           stats.totalBalance.val += item.val;
 
           // Split Logic
-          if (item.isFuture) {
-              stats.scheduled.available.qty += item.allocated;
-              stats.scheduled.available.val += item.allocatedVal;
-              stats.scheduled.shortage.qty += item.shortage;
-              stats.scheduled.shortage.val += item.shortageVal;
-              stats.byStatus.future += item.val;
-          } else {
-              stats.due.available.qty += item.allocated;
-              stats.due.available.val += item.allocatedVal;
-              stats.due.shortage.qty += item.shortage;
-              stats.due.shortage.val += item.shortageVal;
+          const isDue = !item.isFuture;
+          if (isDue) {
+              stats.due.total.val += item.val;
+              stats.due.total.qty += item.balanceQty;
               
-              if (item.isOverdue) stats.byStatus.overdue += item.val;
-              else stats.byStatus.due += item.val;
+              // Aging
+              if (item.overdueDays <= 30) stats.aging['0-30'] += item.val;
+              else if (item.overdueDays <= 60) stats.aging['30-60'] += item.val;
+              else if (item.overdueDays <= 90) stats.aging['60-90'] += item.val;
+              else stats.aging['90+'] += item.val;
+
+          } else {
+              stats.scheduled.total.val += item.val;
+              stats.scheduled.total.qty += item.balanceQty;
+              stats.aging['Future'] += item.val;
           }
 
-          // Charts Aggregation
-          stats.byGroup.set(item.customerGroup, (stats.byGroup.get(item.customerGroup) || 0) + item.val);
-          stats.byMake.set(item.make, (stats.byMake.get(item.make) || 0) + item.val);
+          // Charts Aggregation Helper
+          const aggregate = (map: Map<string, any>, key: string) => {
+              const entry = map.get(key) || { due: 0, scheduled: 0, total: 0, items: [] };
+              if (isDue) entry.due += item.val;
+              else entry.scheduled += item.val;
+              entry.total += item.val;
+              // For Customer drilldown details
+              if(map === stats.byCustomer) {
+                  entry.items.push(item);
+              }
+              map.set(key, entry);
+          };
+
+          aggregate(stats.byGroup, item.customerGroup);
+          aggregate(stats.byMake, item.make);
+          aggregate(stats.byCustomer, item.partyName);
+
+          // Top Items
+          stats.topItems.set(item.itemName, (stats.topItems.get(item.itemName) || 0) + item.val);
       });
 
       stats.totalOrdered.count = uniqueOrders.size;
       return stats;
   }, [filteredSOData]);
 
-  // 4. Aggregate Top 10 Groups Table (Filtered)
-  const topPendingGroups = useMemo(() => {
-      const groupStats: Record<string, { totalVal: number, due: any, scheduled: any, customers: any }> = {};
-
-      filteredSOData.forEach(item => {
-          const g = item.customerGroup;
-          const c = item.partyName;
-
-          if (!groupStats[g]) {
-              groupStats[g] = { totalVal: 0, due: { qty: 0, val: 0 }, scheduled: { qty: 0, val: 0 }, customers: {} };
-          }
-          if (!groupStats[g].customers[c]) {
-              groupStats[g].customers[c] = { due: { qty: 0, val: 0 }, scheduled: { qty: 0, val: 0 }, totalVal: 0 };
-          }
-
-          if (item.isFuture) {
-              groupStats[g].scheduled.qty += item.balanceQty;
-              groupStats[g].scheduled.val += item.val;
-              groupStats[g].customers[c].scheduled.qty += item.balanceQty;
-              groupStats[g].customers[c].scheduled.val += item.val;
-          } else {
-              groupStats[g].due.qty += item.balanceQty;
-              groupStats[g].due.val += item.val;
-              groupStats[g].customers[c].due.qty += item.balanceQty;
-              groupStats[g].customers[c].due.val += item.val;
-          }
-          groupStats[g].totalVal += item.val;
-          groupStats[g].customers[c].totalVal += item.val;
-      });
-
-      return Object.entries(groupStats)
-          .map(([groupName, s]) => ({
-              groupName,
-              ...s,
-              customers: Object.entries(s.customers)
-                  .map(([custName, cs]: any) => ({ custName, ...cs }))
-                  .sort((a: any, b: any) => b.totalVal - a.totalVal)
-          }))
-          .sort((a, b) => b.totalVal - a.totalVal)
+  // 4. Prepare Charts Data
+  const soChartsData = useMemo(() => {
+      // Stacked Bars
+      const formatStacked = (map: Map<string, any>) => Array.from(map.entries()).map(([label, d]) => ({ label, ...d }));
+      
+      // Top Customers (Table)
+      const topCustomers = Array.from(soStats.byCustomer.entries())
+          .map(([name, d]) => ({ name, ...d }))
+          .sort((a, b) => b.total - a.total)
           .slice(0, 10);
-  }, [filteredSOData]);
+
+      // Aging
+      const agingData = [
+          { label: 'Future', value: soStats.aging['Future'] },
+          { label: '0-30 Days', value: soStats.aging['0-30'] },
+          { label: '30-60 Days', value: soStats.aging['30-60'] },
+          { label: '60-90 Days', value: soStats.aging['60-90'] },
+          { label: '>90 Days', value: soStats.aging['90+'] }
+      ];
+
+      // Top Items
+      const topItems = Array.from(soStats.topItems.entries())
+          .map(([label, value]) => ({ label, value }))
+          .sort((a, b) => b.value - a.value)
+          .slice(0, 10);
+
+      return {
+          byGroup: formatStacked(soStats.byGroup),
+          byMake: formatStacked(soStats.byMake),
+          topCustomers,
+          agingData,
+          topItems
+      };
+  }, [soStats]);
 
   // Slicer Options
   const soSlicerOptions = useMemo(() => {
@@ -1445,29 +1574,30 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                      </div>
                  </div>
 
-                 {/* Inventory Charts */}
-                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:h-80">
-                      {/* Make Donut */}
+                 {/* Row 2: Charts */}
+                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:h-96">
+                      
+                      {/* Left: ABC Analysis */}
                       <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col">
                            <div className="flex justify-between items-center mb-2">
-                               <h4 className="text-xs font-bold text-gray-700">Stock by Make</h4>
-                               <InventoryToggle value={invMakeMetric} onChange={setInvMakeMetric} colorClass="text-purple-700" />
+                               <h4 className="text-xs font-bold text-gray-700 flex items-center gap-2"><BarChart4 className="w-4 h-4 text-indigo-600"/> ABC Analysis</h4>
                            </div>
                            <div className="flex-1 min-h-0">
-                                <InventoryDonutChart data={inventoryStats.byMake} metric={invMakeMetric} total={inventoryStats.currentMakeTotal} centerLabelOverride="Total" />
+                                <ABCAnalysisChart data={inventoryStats.abcData} />
                            </div>
+                           <div className="mt-2 text-[9px] text-center text-gray-400">Class A (Top 70%), B (Next 20%), C (Bottom 10%) by Value</div>
                       </div>
                       
-                      {/* Group List (Hierarchical) */}
-                      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col">
+                      {/* Center: Interactive Drill-Down (Make > Group) */}
+                      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col relative overflow-hidden">
                            <div className="flex justify-between items-center mb-2">
-                               <h4 className="text-xs font-bold text-gray-700">Stock by Group</h4>
+                               <h4 className="text-xs font-bold text-gray-700 flex items-center gap-2"><Layers className="w-4 h-4 text-blue-600"/> Stock Composition</h4>
                                <InventoryToggle value={invGroupMetric} onChange={setInvGroupMetric} colorClass="text-blue-700" />
                            </div>
-                           <InventoryHierarchyList data={inventoryStats.hierarchy} metric={invGroupMetric} />
+                           <InteractiveDrillDownChart hierarchyData={inventoryStats.hierarchy} metric={invGroupMetric} />
                       </div>
 
-                      {/* Top Articles */}
+                      {/* Right: Top 10 Articles (List) */}
                       <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col">
                            <div className="flex justify-between items-center mb-2">
                                <div className="flex items-center gap-2">
@@ -1501,80 +1631,130 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                            </div>
                       </div>
                  </div>
+
+                 {/* Row 3: Value Distribution */}
+                 <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col h-48">
+                      <div className="flex justify-between items-center mb-1">
+                          <h4 className="text-xs font-bold text-gray-700">Stock Value Distribution (Item Count)</h4>
+                      </div>
+                      <div className="flex-1 min-h-0">
+                          <ValueDistributionChart data={inventoryStats.distData} />
+                      </div>
+                 </div>
              </div>
         ) : activeSubTab === 'so' ? (
             <div className="flex flex-col gap-4">
-                 {/* SO KPIs - UPDATED LAYOUT */}
-                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                         <p className="text-[10px] text-gray-500 font-bold uppercase">TOTAL BALANCE</p>
-                         <h3 className="text-2xl font-extrabold text-orange-600 mt-0.5">{formatCurrency(soStats.totalBalance.val)}</h3>
-                         <p className="text-[10px] text-gray-400 mt-1 font-medium">{soStats.totalBalance.qty.toLocaleString()} Units</p>
-                     </div>
-                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                         <div className="flex items-center gap-2">
-                             <div className="bg-red-50 p-1.5 rounded text-red-600"><AlertCircle className="w-4 h-4" /></div>
-                             <p className="text-[10px] text-gray-500 font-bold uppercase">DUE FOR DELIVERY</p>
+                 {/* SO KPIs - REDESIGNED */}
+                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+                     {/* Detailed Balance Card (Spans 2 cols) */}
+                     <div className="lg:col-span-2 bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
+                         <div className="flex justify-between items-start">
+                             <div>
+                                 <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Total Balance Overview</p>
+                                 <h3 className="text-3xl font-extrabold text-gray-900 mt-1">{formatCurrency(soStats.totalBalance.val)}</h3>
+                                 <p className="text-xs text-gray-400 font-medium">{soStats.totalBalance.qty.toLocaleString()} Units</p>
+                             </div>
+                             <div className="bg-purple-50 p-2 rounded-lg text-purple-600"><ClipboardList className="w-6 h-6" /></div>
                          </div>
-                         <h3 className="text-2xl font-extrabold text-gray-900 mt-1">{formatCurrency(soStats.byStatus.overdue + soStats.byStatus.due)}</h3>
-                     </div>
-                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                         <div className="flex items-center gap-2">
-                             <div className="bg-blue-50 p-1.5 rounded text-blue-600"><Clock className="w-4 h-4" /></div>
-                             <p className="text-[10px] text-gray-500 font-bold uppercase">SCHEDULED</p>
+                         <div className="mt-4 grid grid-cols-2 gap-4 border-t border-gray-100 pt-3">
+                             <div>
+                                 <div className="flex items-center gap-1.5 mb-1">
+                                     <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                                     <p className="text-[10px] font-bold text-gray-500 uppercase">Immediate Due</p>
+                                 </div>
+                                 <p className="text-sm font-bold text-red-600">{formatCurrency(soStats.due.total.val)}</p>
+                                 <p className="text-[10px] text-gray-400 font-medium">Qty: {soStats.due.total.qty.toLocaleString()}</p>
+                             </div>
+                             <div>
+                                 <div className="flex items-center gap-1.5 mb-1">
+                                     <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                                     <p className="text-[10px] font-bold text-gray-500 uppercase">Scheduled</p>
+                                 </div>
+                                 <p className="text-sm font-bold text-blue-600">{formatCurrency(soStats.scheduled.total.val)}</p>
+                                 <p className="text-[10px] text-gray-400 font-medium">Qty: {soStats.scheduled.total.qty.toLocaleString()}</p>
+                             </div>
                          </div>
-                         <h3 className="text-2xl font-extrabold text-gray-900 mt-1">{formatCurrency(soStats.byStatus.future)}</h3>
+                     </div>
+
+                     {/* Aging Analysis Chart */}
+                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-48 lg:h-auto">
+                         <AgingBarChart data={soChartsData.agingData} />
+                     </div>
+
+                     {/* Delivery Timeline (Future) Placeholder */}
+                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-48 lg:h-auto flex flex-col">
+                         <div className="flex justify-between items-center mb-2">
+                             <h4 className="text-[10px] font-bold text-gray-500 uppercase">Top 10 Items (Pending Val)</h4>
+                         </div>
+                         <HorizontalBarChart data={soChartsData.topItems} title="" color="purple" />
                      </div>
                  </div>
 
-                 {/* Charts */}
+                 {/* Charts Row 2: Stacked Analysis */}
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-64">
                       <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                          <SimpleBarChart data={Array.from(soStats.byGroup.entries()).map(([label, value]) => ({ label, value }))} title="Pending by Group" color="orange" />
+                          <StackedBarChart data={soChartsData.byGroup} title="Pending by Group (Due vs Scheduled)" />
                       </div>
                       <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                          <SimpleBarChart data={Array.from(soStats.byMake.entries()).map(([label, value]) => ({ label, value }))} title="Pending by Make" color="blue" />
+                          <StackedBarChart data={soChartsData.byMake} title="Pending by Make (Due vs Scheduled)" />
                       </div>
                  </div>
 
-                 {/* Top Pending Groups Table */}
+                 {/* Top Pending Customers Table (Renamed from Groups) */}
                  <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                     <h3 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2"><ClipboardList className="w-4 h-4 text-gray-600" /> Top Pending Groups</h3>
+                     <h3 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2"><Users className="w-4 h-4 text-gray-600" /> Top Pending Customers</h3>
                      <div className="overflow-x-auto">
                          <table className="w-full text-left border-collapse">
                              <thead>
                                  <tr className="text-[10px] text-gray-500 uppercase border-b border-gray-100">
-                                     <th className="py-2 pl-2">Group Name</th>
+                                     <th className="py-2 pl-2">Customer Name</th>
                                      <th className="py-2 text-right">Total Pending</th>
                                      <th className="py-2 text-right text-red-600">Immediate Due</th>
                                      <th className="py-2 text-right text-blue-600">Scheduled</th>
                                  </tr>
                              </thead>
                              <tbody className="text-xs">
-                                 {topPendingGroups.map((group, idx) => (
+                                 {soChartsData.topCustomers.map((cust, idx) => (
                                      <React.Fragment key={idx}>
-                                         <tr className={`border-b border-gray-50 hover:bg-gray-50 cursor-pointer ${expandedPendingGroups.has(group.groupName) ? 'bg-gray-50' : ''}`} onClick={() => togglePendingGroup(group.groupName)}>
+                                         <tr className={`border-b border-gray-50 hover:bg-gray-50 cursor-pointer ${expandedPendingCustomers.has(cust.name) ? 'bg-gray-50' : ''}`} onClick={() => togglePendingCustomer(cust.name)}>
                                              <td className="py-3 pl-2 flex items-center gap-2 font-medium text-gray-800">
-                                                 {expandedPendingGroups.has(group.groupName) ? <ChevronUp className="w-3 h-3 text-gray-400" /> : <ChevronDown className="w-3 h-3 text-gray-400" />}
-                                                 {group.groupName}
+                                                 {expandedPendingCustomers.has(cust.name) ? <ChevronUp className="w-3 h-3 text-gray-400" /> : <ChevronDown className="w-3 h-3 text-gray-400" />}
+                                                 {cust.name}
                                              </td>
-                                             <td className="py-3 text-right font-bold">{formatLargeValue(group.totalVal)}</td>
-                                             <td className="py-3 text-right text-red-600 font-medium">{formatLargeValue(group.due.val)}</td>
-                                             <td className="py-3 text-right text-blue-600 font-medium">{formatLargeValue(group.scheduled.val)}</td>
+                                             <td className="py-3 text-right font-bold">{formatLargeValue(cust.total)}</td>
+                                             <td className="py-3 text-right text-red-600 font-medium">{formatLargeValue(cust.due)}</td>
+                                             <td className="py-3 text-right text-blue-600 font-medium">{formatLargeValue(cust.scheduled)}</td>
                                          </tr>
-                                         {expandedPendingGroups.has(group.groupName) && (
+                                         {expandedPendingCustomers.has(cust.name) && (
                                              <tr>
                                                  <td colSpan={4} className="p-0">
                                                      <div className="bg-gray-50/50 p-3 border-b border-gray-100 animate-in slide-in-from-top-1">
                                                          <table className="w-full text-xs">
-                                                             {group.customers.map((cust: any, cIdx: number) => (
-                                                                 <tr key={cIdx} className="border-b border-gray-100 last:border-0">
-                                                                     <td className="py-2 pl-8 text-gray-600 w-1/2">{cust.custName}</td>
-                                                                     <td className="py-2 text-right text-gray-800">{formatLargeValue(cust.totalVal)}</td>
-                                                                     <td className="py-2 text-right text-red-500">{formatLargeValue(cust.due.val)}</td>
-                                                                     <td className="py-2 text-right text-blue-500">{formatLargeValue(cust.scheduled.val)}</td>
+                                                             <thead className="text-[9px] text-gray-400 uppercase text-right">
+                                                                 <tr>
+                                                                     <th className="text-left pl-8 pb-1">Item</th>
+                                                                     <th className="pb-1">Qty</th>
+                                                                     <th className="pb-1">Value</th>
+                                                                     <th className="pb-1">Status</th>
                                                                  </tr>
-                                                             ))}
+                                                             </thead>
+                                                             <tbody>
+                                                                 {cust.items.slice(0, 5).map((item: any, iIdx: number) => (
+                                                                     <tr key={iIdx} className="border-b border-gray-200/50 last:border-0">
+                                                                         <td className="py-1.5 pl-8 text-gray-600 w-1/2 truncate" title={item.itemName}>{item.itemName}</td>
+                                                                         <td className="py-1.5 text-right text-gray-500">{item.balanceQty}</td>
+                                                                         <td className="py-1.5 text-right text-gray-800 font-medium">{formatLargeValue(item.val)}</td>
+                                                                         <td className="py-1.5 text-right">
+                                                                             <span className={`text-[9px] px-1.5 py-0.5 rounded ${!item.isFuture ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
+                                                                                 {!item.isFuture ? 'Due' : 'Sch'}
+                                                                             </span>
+                                                                         </td>
+                                                                     </tr>
+                                                                 ))}
+                                                                 {cust.items.length > 5 && (
+                                                                     <tr><td colSpan={4} className="text-center text-[9px] text-gray-400 pt-1 italic">...and {cust.items.length - 5} more items</td></tr>
+                                                                 )}
+                                                             </tbody>
                                                          </table>
                                                      </div>
                                                  </td>
