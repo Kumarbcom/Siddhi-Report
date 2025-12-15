@@ -263,7 +263,7 @@ const ValueDistributionChart = ({ data }: { data: { label: string, value: number
         <div className="flex items-end justify-between gap-2 h-full pt-4 pb-1">
             {data.map((bar, i) => (
                 <div key={i} className="flex-1 flex flex-col items-center gap-1 h-full justify-end group">
-                    <span className="text-[9px] font-bold text-gray-600 bg-gray-100 px-1 rounded mb-auto">{bar.value}</span>
+                    <span className="text-[9px] font-bold text-gray-600 mb-1">{formatLargeValue(bar.value, true)}</span>
                     <div className="w-full bg-indigo-100 rounded-t-sm hover:bg-indigo-300 transition-all relative group" style={{ height: `${(bar.value / maxVal) * 100}%` }}></div>
                     <span className="text-[8px] text-gray-400 font-medium text-center leading-tight">{bar.label}</span>
                 </div>
@@ -461,6 +461,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   const [invTopMetric, setInvTopMetric] = useState<Metric>('value');
   const [invSelectedMake, setInvSelectedMake] = useState<string>('ALL');
   const [showMakeInTop10, setShowMakeInTop10] = useState<boolean>(false);
+  const [abcTab, setAbcTab] = useState<'A' | 'B' | 'C'>('A');
 
   const [soFilterMake, setSoFilterMake] = useState<string>('ALL');
   const [soFilterGroup, setSoFilterGroup] = useState<string>('ALL');
@@ -652,6 +653,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     const hierarchyMap = new Map<string, { qty: number, val: number, groups: Map<string, { qty: number, val: number }> }>();
     const sortedByVal = [...data].sort((a,b) => b.value - a.value);
     const abc = { A: { count: 0, val: 0 }, B: { count: 0, val: 0 }, C: { count: 0, val: 0 } };
+    const abcLists = { A: [] as any[], B: [] as any[], C: [] as any[] };
     let cumVal = 0;
     const distMap = { '0-1k': 0, '1k-10k': 0, '10k-50k': 0, '50k+': 0 };
 
@@ -667,7 +669,16 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     sortedByVal.forEach(i => {
         cumVal += i.value;
         const pct = cumVal / (totalVal || 1);
-        if (pct <= 0.70) { abc.A.count++; abc.A.val += i.value; } else if (pct <= 0.90) { abc.B.count++; abc.B.val += i.value; } else { abc.C.count++; abc.C.val += i.value; }
+        if (pct <= 0.70) { 
+            abc.A.count++; abc.A.val += i.value; 
+            abcLists.A.push(i);
+        } else if (pct <= 0.90) { 
+            abc.B.count++; abc.B.val += i.value; 
+            abcLists.B.push(i);
+        } else { 
+            abc.C.count++; abc.C.val += i.value; 
+            abcLists.C.push(i);
+        }
     });
 
     const hierarchy = Array.from(hierarchyMap.entries()).map(([make, mData]) => {
@@ -679,7 +690,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     const distData = [ { label: '< 1k', value: distMap['0-1k'] }, { label: '1k-10k', value: distMap['1k-10k'] }, { label: '10k-50k', value: distMap['10k-50k'] }, { label: '> 50k', value: distMap['50k+'] } ];
     const topArticles = [...data].sort((a, b) => { const valA = invTopMetric === 'value' ? a.value : a.quantity; const valB = invTopMetric === 'value' ? b.value : b.quantity; return valB - valA; }).slice(0, 10).map(i => ({ label: i.description, make: i.make, value: invTopMetric === 'value' ? i.value : i.quantity }));
     const formatVal = (val: number, type: Metric) => type === 'value' ? formatLargeValue(val) : Math.round(val).toLocaleString('en-IN');
-    return { totalQty, totalVal, count, totalUnmatched, hierarchy, topArticles, abcData, distData, formatVal };
+    return { totalQty, totalVal, count, totalUnmatched, hierarchy, topArticles, abcData, distData, formatVal, abcLists };
   }, [filteredStock, invGroupMetric, invTopMetric]);
 
   const processedSOData = useMemo(() => {
@@ -848,6 +859,53 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                       <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col"><div className="flex justify-between items-center mb-2"><div className="flex items-center gap-2"><h4 className="text-xs font-bold text-gray-700">Top 10 Articles</h4><button onClick={() => setShowMakeInTop10(!showMakeInTop10)} className={`p-1 rounded transition-colors ${showMakeInTop10 ? 'bg-emerald-100 text-emerald-700' : 'text-gray-400 hover:bg-gray-100'}`} title="Toggle Make visibility"><Tag className="w-3 h-3" /></button></div><InventoryToggle value={invTopMetric} onChange={setInvTopMetric} colorClass="text-emerald-700" /></div><div className="flex-1 overflow-y-auto custom-scrollbar pr-1 space-y-3">{inventoryStats.topArticles.map((a, i) => (<div key={i} className="flex items-center gap-2"><span className="w-5 h-5 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center text-[10px] font-bold shrink-0">{i+1}</span><div className="flex-1 min-w-0"><div className="flex items-baseline justify-between"><p className="text-[10px] font-medium text-gray-800 truncate flex-1" title={a.label}>{a.label}</p>{showMakeInTop10 && <span className="text-[9px] text-gray-400 ml-2 italic shrink-0">{a.make}</span>}</div><div className="w-full bg-gray-100 h-1 rounded-full mt-1"><div className="bg-emerald-500 h-full rounded-full" style={{ width: `${(a.value / (inventoryStats.topArticles[0]?.value || 1)) * 100}%` }}></div></div></div><span className="text-[10px] font-bold text-gray-900">{inventoryStats.formatVal(a.value, invTopMetric)}</span></div>))}</div></div>
                  </div>
                  <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col h-48"><div className="flex justify-between items-center mb-1"><h4 className="text-xs font-bold text-gray-700">Stock Value Distribution (Item Count)</h4></div><div className="flex-1 min-h-0"><ValueDistributionChart data={inventoryStats.distData} /></div></div>
+                 
+                 <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col">
+                    <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2 mb-2"><BarChart4 className="w-4 h-4 text-indigo-600"/> ABC Classification Details</h3>
+                    <div className="text-[10px] text-gray-500 bg-gray-50 p-2 rounded mb-3 border border-gray-100">
+                        <strong>Basis: </strong> 
+                        <span className="text-emerald-700 font-bold px-1">Class A</span> (Top 70% Value), 
+                        <span className="text-yellow-600 font-bold px-1">Class B</span> (Next 20%), 
+                        <span className="text-red-600 font-bold px-1">Class C</span> (Bottom 10%). 
+                        Items are ranked by descending value.
+                    </div>
+                    <div className="flex gap-2 mb-2 border-b border-gray-200">
+                        {(['A', 'B', 'C'] as const).map(cls => (
+                            <button 
+                                key={cls}
+                                onClick={() => setAbcTab(cls)}
+                                className={`px-4 py-1.5 text-xs font-bold border-b-2 transition-colors ${abcTab === cls ? (cls === 'A' ? 'border-emerald-500 text-emerald-700 bg-emerald-50' : cls === 'B' ? 'border-yellow-500 text-yellow-700 bg-yellow-50' : 'border-red-500 text-red-700 bg-red-50') : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+                            >
+                                Class {cls} ({inventoryStats.abcData.find(d => d.label === cls)?.count || 0})
+                            </button>
+                        ))}
+                    </div>
+                    <div className="flex-1 overflow-auto max-h-64 custom-scrollbar border border-gray-100 rounded-lg">
+                        <table className="w-full text-left border-collapse">
+                            <thead className="bg-gray-50 sticky top-0 z-10 text-[10px] text-gray-500 uppercase font-bold">
+                                <tr>
+                                    <th className="py-2 px-3">Description</th>
+                                    <th className="py-2 px-3">Make</th>
+                                    <th className="py-2 px-3 text-right">Qty</th>
+                                    <th className="py-2 px-3 text-right">Value</th>
+                                </tr>
+                            </thead>
+                            <tbody className="text-xs divide-y divide-gray-100">
+                                {inventoryStats.abcLists[abcTab].map((item, idx) => (
+                                    <tr key={idx} className="hover:bg-gray-50">
+                                        <td className="py-1.5 px-3 truncate max-w-[200px]" title={item.description}>{item.description}</td>
+                                        <td className="py-1.5 px-3 text-gray-500">{item.make}</td>
+                                        <td className="py-1.5 px-3 text-right text-gray-600">{item.quantity}</td>
+                                        <td className="py-1.5 px-3 text-right font-medium text-gray-900">{formatLargeValue(item.value)}</td>
+                                    </tr>
+                                ))}
+                                {inventoryStats.abcLists[abcTab].length === 0 && (
+                                    <tr><td colSpan={4} className="py-4 text-center text-gray-400 text-xs">No items in this class.</td></tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                 </div>
              </div>
         ) : activeSubTab === 'so' ? (
             <div className="flex flex-col gap-4">
