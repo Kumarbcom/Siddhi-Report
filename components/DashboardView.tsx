@@ -1,7 +1,7 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Material, ClosingStockItem, PendingSOItem, PendingPOItem, SalesRecord, SalesReportItem, CustomerMasterItem } from '../types';
-import { TrendingUp, TrendingDown, Package, ClipboardList, ShoppingCart, Calendar, Filter, PieChart as PieIcon, BarChart3, Users, ArrowRight, Activity, DollarSign, ArrowUpRight, ArrowDownRight, RefreshCw, UserCircle, Minus, Plus, ChevronDown, ChevronUp, Link2Off, AlertTriangle, Layers, Clock, CheckCircle2, AlertCircle, User, Factory } from 'lucide-react';
+import { TrendingUp, TrendingDown, Package, ClipboardList, ShoppingCart, Calendar, Filter, PieChart as PieIcon, BarChart3, Users, ArrowRight, Activity, DollarSign, ArrowUpRight, ArrowDownRight, RefreshCw, UserCircle, Minus, Plus, ChevronDown, ChevronUp, Link2Off, AlertTriangle, Layers, Clock, CheckCircle2, AlertCircle, User, Factory, Tag } from 'lucide-react';
 
 interface DashboardViewProps {
   materials: Material[];
@@ -34,6 +34,176 @@ const formatLargeValue = (val: number, compact: boolean = false) => {
         return `${prefix}${(val / 100000).toFixed(2)} L`;
     }
     return `${prefix}${Math.round(val).toLocaleString('en-IN')}`;
+};
+
+// --- Helper: Smooth Path Generation ---
+const getSmoothPath = (points: [number, number][]) => {
+  if (points.length < 2) return "";
+  let d = `M ${points[0][0]} ${points[0][1]}`;
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = i > 0 ? points[i - 1] : points[0];
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const p3 = i < points.length - 2 ? points[i + 2] : p2;
+    
+    const cp1x = p1[0] + (p2[0] - p0[0]) / 6;
+    const cp1y = p1[1] + (p2[1] - p0[1]) / 6;
+    const cp2x = p2[0] - (p3[0] - p1[0]) / 6;
+    const cp2y = p2[1] - (p3[1] - p1[1]) / 6;
+    
+    d += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2[0]} ${p2[1]}`;
+  }
+  return d;
+};
+
+// --- Component: Interactive Sales Trend Chart ---
+const SalesTrendChart = ({ data, maxVal }: { data: { labels: string[], series: any[] }, maxVal: number }) => {
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const width = rect.width;
+    const idx = Math.round((x / width) * (data.labels.length - 1));
+    const clampedIdx = Math.max(0, Math.min(idx, data.labels.length - 1));
+    setHoverIndex(clampedIdx);
+  };
+
+  return (
+    <div 
+      className="flex flex-col h-full select-none cursor-crosshair" 
+      ref={containerRef}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={() => setHoverIndex(null)}
+    >
+      <div className="flex-1 relative min-h-0">
+         {/* Floating Tooltip */}
+         {hoverIndex !== null && (
+            <div 
+              className="absolute z-20 bg-gray-900/90 backdrop-blur-sm text-white text-[10px] p-2.5 rounded-lg shadow-xl border border-gray-700 pointer-events-none transition-all duration-75 min-w-[120px]"
+              style={{ 
+                left: `${(hoverIndex / (data.labels.length - 1)) * 100}%`, 
+                top: '0',
+                transform: `translateX(${hoverIndex > data.labels.length / 2 ? '-105%' : '5%'})`,
+              }}
+            >
+                <div className="font-bold border-b border-gray-700 pb-1.5 mb-1.5 text-gray-300 text-center">{data.labels[hoverIndex]}</div>
+                <div className="flex flex-col gap-1.5">
+                    {data.series.map((s: any, i: number) => (
+                        <div key={i} className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-1.5">
+                                <div className="w-2 h-2 rounded-full shadow-sm" style={{backgroundColor: s.color}}></div>
+                                <span className="text-gray-300 font-medium">{s.name}</span>
+                            </div>
+                            <span className="font-mono font-bold text-white">{formatLargeValue(s.data[hoverIndex], true)}</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+         )}
+         
+         <svg className="w-full h-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
+            <defs>
+              {data.series.map((s: any, i: number) => (
+                <linearGradient key={i} id={`grad-${i}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={s.color} stopOpacity="0.2" />
+                  <stop offset="100%" stopColor={s.color} stopOpacity="0" />
+                </linearGradient>
+              ))}
+            </defs>
+
+            {/* Grid Lines (Vertical) */}
+            {data.labels.map((_, i) => (
+                <line 
+                  key={i} 
+                  x1={(i / (data.labels.length - 1)) * 100} 
+                  y1="0" 
+                  x2={(i / (data.labels.length - 1)) * 100} 
+                  y2="100" 
+                  stroke="#f3f4f6" 
+                  strokeWidth="0.5" 
+                  vectorEffect="non-scaling-stroke"
+                />
+            ))}
+            
+             {/* Grid Lines (Horizontal) */}
+             {[0, 0.25, 0.5, 0.75, 1].map((p, i) => (
+                <line 
+                    key={i} 
+                    x1="0" 
+                    y1={p * 100} 
+                    x2="100" 
+                    y2={p * 100} 
+                    stroke="#e5e7eb" 
+                    strokeWidth="1" 
+                    strokeDasharray="4"
+                    vectorEffect="non-scaling-stroke"
+                />
+            ))}
+
+            {/* Charts */}
+            {data.series.map((s: any, i: number) => {
+               const points: [number, number][] = s.data.map((val: number, idx: number) => [
+                   (idx / (data.labels.length - 1)) * 100,
+                   100 - ((val / maxVal) * 100)
+               ]);
+               const pathD = getSmoothPath(points);
+               const areaD = `${pathD} L 100 100 L 0 100 Z`;
+               
+               return (
+                   <g key={i}>
+                       <path d={areaD} fill={`url(#grad-${i})`} className="transition-opacity duration-300" style={{opacity: hoverIndex !== null ? 0.6 : 0.8}} />
+                       <path d={pathD} fill="none" stroke={s.color} strokeWidth="2.5" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" className="drop-shadow-sm" />
+                   </g>
+               )
+            })}
+
+            {/* Hover Line */}
+            {hoverIndex !== null && (
+                 <line 
+                   x1={(hoverIndex / (data.labels.length - 1)) * 100}
+                   y1="0"
+                   x2={(hoverIndex / (data.labels.length - 1)) * 100}
+                   y2="100"
+                   stroke="#6b7280"
+                   strokeWidth="1.5"
+                   strokeDasharray="4"
+                   vectorEffect="non-scaling-stroke"
+                 />
+            )}
+
+            {/* Hover Dots */}
+            {hoverIndex !== null && data.series.map((s: any, i: number) => {
+                const val = s.data[hoverIndex];
+                const cx = (hoverIndex / (data.labels.length - 1)) * 100;
+                const cy = 100 - ((val / maxVal) * 100);
+                return (
+                    <circle 
+                        key={i} 
+                        cx={cx} 
+                        cy={cy} 
+                        r="4" 
+                        fill="white" 
+                        stroke={s.color} 
+                        strokeWidth="2.5" 
+                        vectorEffect="non-scaling-stroke"
+                        className="drop-shadow-md transition-transform duration-75"
+                    />
+                );
+            })}
+         </svg>
+      </div>
+      
+      {/* X-Axis */}
+      <div className="flex justify-between mt-3 text-[9px] text-gray-400 font-medium border-t border-gray-100 pt-2">
+          {data.labels.map((l: string, i: number) => (
+              <span key={i} className={`flex-1 text-center transition-colors ${hoverIndex === i ? 'text-blue-600 font-bold scale-110' : ''}`}>{l}</span>
+          ))}
+      </div>
+    </div>
+  );
 };
 
 // --- Local Components for Inventory Tab ---
@@ -165,6 +335,65 @@ const InventoryDonutChart: React.FC<{
   );
 };
 
+// --- New Component: Interactive Hierarchy List (Make -> Group) ---
+const InventoryHierarchyList = ({ data, metric }: { data: any[], metric: Metric }) => {
+    const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+    const toggle = (label: string) => {
+        const next = new Set(expanded);
+        if (next.has(label)) next.delete(label);
+        else next.add(label);
+        setExpanded(next);
+    };
+
+    if (data.length === 0) return <div className="flex items-center justify-center h-full text-gray-400 text-[10px]">No Data</div>;
+    
+    const maxValue = data[0]?.value || 1;
+
+    return (
+        <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 space-y-2">
+            {data.map((item, i) => (
+                <div key={i} className="flex flex-col">
+                    {/* Make Row */}
+                    <div 
+                        className="flex flex-col gap-1 cursor-pointer hover:bg-gray-50 p-1 rounded transition-colors"
+                        onClick={() => toggle(item.label)}
+                    >
+                        <div className="flex justify-between items-center text-[10px]">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                                {expanded.has(item.label) ? <ChevronUp className="w-3 h-3 text-blue-600"/> : <ChevronDown className="w-3 h-3 text-gray-400"/>}
+                                <span className={`font-bold truncate ${expanded.has(item.label) ? 'text-blue-700' : 'text-gray-700'}`} title={item.label}>{item.label}</span>
+                                <span className="text-[9px] text-gray-400">({item.groups.length})</span>
+                            </div>
+                            <span className="font-bold text-gray-900">{item.displayValue}</span>
+                        </div>
+                        <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                             <div className="bg-blue-600 h-full rounded-full" style={{ width: `${(item.value / maxValue) * 100}%` }}></div>
+                        </div>
+                    </div>
+
+                    {/* Groups Sub-list */}
+                    {expanded.has(item.label) && (
+                        <div className="pl-4 pr-1 py-1 space-y-1.5 border-l-2 border-gray-100 ml-1.5 mt-1 animate-in slide-in-from-top-1">
+                            {item.groups.map((grp: any, j: number) => (
+                                <div key={j} className="flex flex-col gap-0.5">
+                                    <div className="flex justify-between text-[9px]">
+                                        <span className="text-gray-600 truncate w-3/4" title={grp.label}>{grp.label}</span>
+                                        <span className="text-gray-500 font-medium">{grp.displayValue}</span>
+                                    </div>
+                                    <div className="w-full bg-gray-50 h-1 rounded-full overflow-hidden">
+                                         <div className="bg-blue-300 h-full rounded-full" style={{ width: `${(grp.value / item.value) * 100}%` }}></div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            ))}
+        </div>
+    )
+}
+
 
 const DashboardView: React.FC<DashboardViewProps> = ({
   materials,
@@ -187,6 +416,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   const [invGroupMetric, setInvGroupMetric] = useState<Metric>('value');
   const [invTopMetric, setInvTopMetric] = useState<Metric>('value');
   const [invSelectedMake, setInvSelectedMake] = useState<string>('ALL');
+  const [showMakeInTop10, setShowMakeInTop10] = useState<boolean>(false);
 
   // Pending SO Tab State
   const [soFilterMake, setSoFilterMake] = useState<string>('ALL');
@@ -543,21 +773,36 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         }))
         .sort((a, b) => b.value - a.value);
 
-    const groupMap = new Map<string, { qty: number, val: number }>();
+    // Build Hierarchy: Make -> Group
+    const hierarchyMap = new Map<string, { qty: number, val: number, groups: Map<string, { qty: number, val: number }> }>();
     data.forEach(i => {
-         const g = groupMap.get(i.group) || { qty: 0, val: 0 };
-         g.qty += i.quantity;
-         g.val += i.value;
-         groupMap.set(i.group, g);
+        const mKey = i.make;
+        const gKey = i.group;
+        
+        if(!hierarchyMap.has(mKey)) hierarchyMap.set(mKey, { qty: 0, val: 0, groups: new Map() });
+        const mEntry = hierarchyMap.get(mKey)!;
+        mEntry.qty += i.quantity;
+        mEntry.val += i.value;
+
+        if(!mEntry.groups.has(gKey)) mEntry.groups.set(gKey, { qty: 0, val: 0 });
+        const gEntry = mEntry.groups.get(gKey)!;
+        gEntry.qty += i.quantity;
+        gEntry.val += i.value;
     });
 
-    const byGroup = Array.from(groupMap.entries())
-        .map(([label, data]) => ({ 
-            label, 
-            value: invGroupMetric === 'value' ? data.val : data.qty 
-        }))
-        .sort((a, b) => b.value - a.value)
-        .filter(g => g.label !== 'Unspecified');
+    const hierarchy = Array.from(hierarchyMap.entries()).map(([make, mData]) => {
+        const mValue = invGroupMetric === 'value' ? mData.val : mData.qty;
+        return {
+            label: make,
+            value: mValue,
+            displayValue: formatVal(mValue, invGroupMetric),
+            groups: Array.from(mData.groups.entries()).map(([group, gData]) => ({
+                label: group,
+                value: invGroupMetric === 'value' ? gData.val : gData.qty,
+                displayValue: formatVal(invGroupMetric === 'value' ? gData.val : gData.qty, invGroupMetric)
+            })).sort((a,b) => b.value - a.value)
+        };
+    }).sort((a,b) => b.value - a.value);
 
     const topArticles = [...data]
         .sort((a, b) => {
@@ -565,15 +810,16 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             const valB = invTopMetric === 'value' ? b.value : b.quantity;
             return valB - valA;
         })
-        .slice(0, 5)
+        .slice(0, 10) 
         .map(i => ({ 
             label: i.description, 
+            make: i.make, // Ensure make is preserved
             value: invTopMetric === 'value' ? i.value : i.quantity
         }));
 
     const currentMakeTotal = byMake.reduce((acc, item) => acc + item.value, 0);
 
-    return { totalQty, totalVal, count, totalUnmatched, byMake, byGroup, topArticles, currentMakeTotal, formatVal };
+    return { totalQty, totalVal, count, totalUnmatched, byMake, hierarchy, topArticles, currentMakeTotal, formatVal };
   }, [filteredStock, invMakeMetric, invGroupMetric, invTopMetric]);
 
   // --- PENDING SO LOGIC REFACTOR (PROCESS -> FILTER -> AGGREGATE) ---
@@ -903,7 +1149,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                     <span className="text-[10px] text-gray-500 font-bold uppercase hidden md:inline">Fiscal Year:</span>
                     <select value={selectedFY} onChange={e => setSelectedFY(e.target.value)} className="bg-white border border-gray-300 text-xs rounded-md px-2 py-1.5 font-medium outline-none focus:ring-2 focus:ring-blue-500">
                         {uniqueFYs.length > 0 ? (
-                            uniqueFYs.map(fy => <option key={fy} value={fy}>{fy}</option>)
+                            uniqueFYs.map(fy => <option key={fy} value={fy}>{fy}</option>
                         ) : <option value="">No Data</option>}
                     </select>
                   </div>
@@ -1038,21 +1284,21 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                     
                     {/* Line Chart (Trend) */}
                     <div className="lg:col-span-2 bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col min-h-[350px] overflow-hidden">
-                        <div className="flex justify-between items-center mb-2 flex-shrink-0">
+                        <div className="flex justify-between items-center mb-4 flex-shrink-0">
                             <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2"><TrendingUp className="w-4 h-4 text-blue-600" /> Sales Trend Analysis</h3>
-                            <div className="flex items-center gap-3 text-[10px] flex-wrap">
+                            <div className="flex items-center gap-4 text-[10px] flex-wrap">
                                 {lineChartData.series.map((s, i) => (
-                                    <span key={i} className="flex items-center gap-1">
-                                        <div className="w-2.5 h-2.5 rounded-full" style={{backgroundColor: s.color}}></div> 
+                                    <span key={i} className="flex items-center gap-1.5 bg-gray-50 px-2 py-1 rounded-full border border-gray-100">
+                                        <div className="w-2 h-2 rounded-full" style={{backgroundColor: s.color}}></div> 
                                         <span className="text-gray-600 font-medium">{s.name}</span>
                                     </span>
                                 ))}
                             </div>
                         </div>
                         
-                        <div className="flex flex-1 min-h-0 pt-4">
+                        <div className="flex flex-1 min-h-0 pt-2 relative">
                             {/* Y-Axis */}
-                            <div className="flex flex-col justify-between text-[10px] text-gray-400 font-medium pr-3 pb-6 h-full text-right w-12 shrink-0 select-none border-r border-gray-100">
+                            <div className="flex flex-col justify-between text-[9px] text-gray-400 font-medium pr-3 pb-8 h-full text-right w-12 shrink-0 select-none border-r border-gray-50">
                                 <span>{formatAxisValue(chartMax)}</span>
                                 <span>{formatAxisValue(chartMax * 0.75)}</span>
                                 <span>{formatAxisValue(chartMax * 0.5)}</span>
@@ -1061,112 +1307,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                             </div>
 
                             {/* Chart Area */}
-                            <div className="flex-1 flex flex-col min-w-0 relative pl-2">
-                                {/* Graph */}
-                                <div className="flex-1 relative">
-                                    <svg className="w-full h-full absolute inset-0 overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
-                                        {/* Define Gradients */}
-                                        <defs>
-                                            <linearGradient id="gradient-blue" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.2" />
-                                                <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
-                                            </linearGradient>
-                                        </defs>
-
-                                        {/* Grid Lines */}
-                                        {[0, 0.25, 0.5, 0.75, 1].map((p, i) => (
-                                            <line 
-                                                key={i} 
-                                                x1="0" 
-                                                y1={p * 100} 
-                                                x2="100" 
-                                                y2={p * 100} 
-                                                stroke="#f3f4f6" 
-                                                strokeWidth="1" 
-                                                strokeDasharray={p === 1 ? "" : "2"} // Solid line at bottom (100% or 0 value)
-                                                vectorEffect="non-scaling-stroke"
-                                            />
-                                        ))}
-
-                                        {/* Series Paths */}
-                                        {lineChartData.series.map((series, sIdx) => {
-                                            const points = series.data.map((val, i) => {
-                                                const x = (i / (lineChartData.labels.length - 1)) * 100;
-                                                const y = 100 - (val / chartMax * 100);
-                                                return `${x},${y}`;
-                                            }).join(' ');
-                                            
-                                            const areaPoints = `${points} 100,100 0,100`;
-
-                                            return (
-                                                <g key={sIdx}>
-                                                    {sIdx === 0 && (
-                                                        <polygon points={areaPoints} fill="url(#gradient-blue)" />
-                                                    )}
-                                                    <polyline 
-                                                        points={points} 
-                                                        fill="none" 
-                                                        stroke={series.color} 
-                                                        strokeWidth="2"
-                                                        strokeLinecap="round"
-                                                        strokeLinejoin="round"
-                                                        className="transition-all duration-300 ease-out"
-                                                        vectorEffect="non-scaling-stroke"
-                                                    />
-                                                    
-                                                    {/* Data Points and Labels - ENABLED FOR ALL SERIES, INCLUDING PREVIOUS YEAR */}
-                                                    {series.data.map((val, i) => {
-                                                        const x = (i / (lineChartData.labels.length - 1)) * 100;
-                                                        const y = 100 - (val / chartMax * 100);
-                                                        
-                                                        // Update: Fixed smaller font size approx 2.2% of viewbox height (~8-10px visual)
-                                                        // Update: Fill color matches series color
-                                                        
-                                                        // Alternate label position to avoid overlap between Current(sIdx=0) and Previous(sIdx>0)
-                                                        const labelY = sIdx === 0 ? y - 8 : y + 12;
-
-                                                        return (
-                                                            <g key={i}>
-                                                                <circle 
-                                                                    cx={x}
-                                                                    cy={y}
-                                                                    r="2" 
-                                                                    fill="white"
-                                                                    stroke={series.color}
-                                                                    strokeWidth="1.5"
-                                                                    vectorEffect="non-scaling-stroke"
-                                                                    className="hover:scale-125 transition-transform cursor-pointer"
-                                                                >
-                                                                    <title>{`${lineChartData.labels[i]} (${series.name}): ${formatNumber(val)}`}</title>
-                                                                </circle>
-                                                                {val > 0 && (
-                                                                    <text 
-                                                                        x={x} 
-                                                                        y={labelY} 
-                                                                        textAnchor="middle" 
-                                                                        fill={series.color}
-                                                                        fontSize="2.2" 
-                                                                        fontWeight="bold"
-                                                                        style={{ pointerEvents: 'none', textShadow: '0px 0px 2px white' }}
-                                                                    >
-                                                                        {formatCompactNumber(val)}
-                                                                    </text>
-                                                                )}
-                                                            </g>
-                                                        );
-                                                    })}
-                                                </g>
-                                            );
-                                        })}
-                                    </svg>
-                                </div>
-
-                                {/* X-Axis Labels */}
-                                <div className="h-6 flex justify-between items-center mt-2 text-[10px] text-gray-400 font-medium select-none">
-                                    {lineChartData.labels.map((l, i) => (
-                                        <span key={i} className="flex-1 text-center truncate">{l}</span>
-                                    ))}
-                                </div>
+                            <div className="flex-1 flex flex-col min-w-0 relative pl-4 pb-2">
+                                <SalesTrendChart data={lineChartData} maxVal={chartMax} />
                             </div>
                         </div>
                     </div>
@@ -1316,31 +1458,28 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                            </div>
                       </div>
                       
-                      {/* Group List */}
+                      {/* Group List (Hierarchical) */}
                       <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col">
                            <div className="flex justify-between items-center mb-2">
                                <h4 className="text-xs font-bold text-gray-700">Stock by Group</h4>
                                <InventoryToggle value={invGroupMetric} onChange={setInvGroupMetric} colorClass="text-blue-700" />
                            </div>
-                           <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 space-y-3">
-                               {inventoryStats.byGroup.map((g, i) => (
-                                   <div key={i} className="flex flex-col gap-1">
-                                       <div className="flex justify-between text-[10px]">
-                                           <span className="font-medium text-gray-700 truncate">{g.label}</span>
-                                           <span className="font-bold text-gray-900">{inventoryStats.formatVal(g.value, invGroupMetric)}</span>
-                                       </div>
-                                       <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
-                                           <div className="bg-blue-500 h-full rounded-full" style={{ width: `${(g.value / (inventoryStats.byGroup[0]?.value || 1)) * 100}%` }}></div>
-                                       </div>
-                                   </div>
-                               ))}
-                           </div>
+                           <InventoryHierarchyList data={inventoryStats.hierarchy} metric={invGroupMetric} />
                       </div>
 
                       {/* Top Articles */}
                       <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col">
                            <div className="flex justify-between items-center mb-2">
-                               <h4 className="text-xs font-bold text-gray-700">Top 5 Articles</h4>
+                               <div className="flex items-center gap-2">
+                                   <h4 className="text-xs font-bold text-gray-700">Top 10 Articles</h4>
+                                   <button 
+                                     onClick={() => setShowMakeInTop10(!showMakeInTop10)}
+                                     className={`p-1 rounded transition-colors ${showMakeInTop10 ? 'bg-emerald-100 text-emerald-700' : 'text-gray-400 hover:bg-gray-100'}`}
+                                     title="Toggle Make visibility"
+                                   >
+                                     <Tag className="w-3 h-3" />
+                                   </button>
+                               </div>
                                <InventoryToggle value={invTopMetric} onChange={setInvTopMetric} colorClass="text-emerald-700" />
                            </div>
                            <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 space-y-3">
@@ -1348,7 +1487,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                    <div key={i} className="flex items-center gap-2">
                                        <span className="w-5 h-5 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center text-[10px] font-bold shrink-0">{i+1}</span>
                                        <div className="flex-1 min-w-0">
-                                           <p className="text-[10px] font-medium text-gray-800 truncate" title={a.label}>{a.label}</p>
+                                           <div className="flex items-baseline justify-between">
+                                                <p className="text-[10px] font-medium text-gray-800 truncate flex-1" title={a.label}>{a.label}</p>
+                                                {showMakeInTop10 && <span className="text-[9px] text-gray-400 ml-2 italic shrink-0">{a.make}</span>}
+                                           </div>
                                            <div className="w-full bg-gray-100 h-1 rounded-full mt-1">
                                                 <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${(a.value / (inventoryStats.topArticles[0]?.value || 1)) * 100}%` }}></div>
                                            </div>

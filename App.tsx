@@ -13,6 +13,7 @@ import DashboardView from './components/DashboardView';
 import PivotReportView from './components/PivotReportView';
 import { Database, AlertCircle, ClipboardList, ShoppingCart, TrendingUp, Package, Layers, LayoutDashboard, FileBarChart, Users, ChevronRight, Menu, X, HardDrive, Table } from 'lucide-react';
 import { dbService } from './services/db';
+import { materialService } from './services/materialService';
 
 const STORAGE_KEY_MASTER = 'material_master_db_v1';
 const STORAGE_KEY_STOCK = 'closing_stock_db_v1';
@@ -49,9 +50,13 @@ const App: React.FC = () => {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const storedMaster = localStorage.getItem(STORAGE_KEY_MASTER);
-        if (storedMaster) setMaterials(JSON.parse(storedMaster));
+        setIsDbLoading(true);
 
+        // 1. Load Materials from Supabase
+        const dbMaterials = await materialService.getAll();
+        setMaterials(dbMaterials);
+        
+        // 2. Load other data from Local Storage (for now)
         const storedStock = localStorage.getItem(STORAGE_KEY_STOCK);
         if (storedStock) setClosingStockItems(JSON.parse(storedStock));
 
@@ -70,7 +75,7 @@ const App: React.FC = () => {
         const storedCust = localStorage.getItem(STORAGE_KEY_CUSTOMER_MASTER);
         if (storedCust) setCustomerMasterItems(JSON.parse(storedCust));
 
-        // Load Large Sales Data from IndexedDB
+        // 3. Load Large Sales Data from IndexedDB
         try {
            const salesData = await dbService.getAllSales();
            setSalesReportItems(salesData);
@@ -79,7 +84,7 @@ const App: React.FC = () => {
         }
 
       } catch (e) {
-        console.error("Error loading data from local storage", e);
+        console.error("Error loading data", e);
         setError("Failed to load some data. Please check console.");
       } finally {
         setIsDataLoaded(true);
@@ -90,8 +95,7 @@ const App: React.FC = () => {
   }, []);
 
   // --- Save Data Effects (LocalStorage) ---
-  // Note: We DO NOT save SalesReportItems to LocalStorage anymore to avoid quota crash
-  useEffect(() => { if (isDataLoaded) localStorage.setItem(STORAGE_KEY_MASTER, JSON.stringify(materials)); }, [materials, isDataLoaded]);
+  // NOTE: We no longer save 'materials' to LocalStorage as it is now managed by Supabase
   useEffect(() => { if (isDataLoaded) localStorage.setItem(STORAGE_KEY_STOCK, JSON.stringify(closingStockItems)); }, [closingStockItems, isDataLoaded]);
   useEffect(() => { if (isDataLoaded) localStorage.setItem(STORAGE_KEY_PENDING_SO, JSON.stringify(pendingSOItems)); }, [pendingSOItems, isDataLoaded]);
   useEffect(() => { if (isDataLoaded) localStorage.setItem(STORAGE_KEY_PENDING_PO, JSON.stringify(pendingPOItems)); }, [pendingPOItems, isDataLoaded]);
@@ -99,23 +103,49 @@ const App: React.FC = () => {
   useEffect(() => { if (isDataLoaded) localStorage.setItem(STORAGE_KEY_SALES_3M, JSON.stringify(sales3Months)); }, [sales3Months, isDataLoaded]);
   useEffect(() => { if (isDataLoaded) localStorage.setItem(STORAGE_KEY_CUSTOMER_MASTER, JSON.stringify(customerMasterItems)); }, [customerMasterItems, isDataLoaded]);
 
-  // --- Handlers for Material Master ---
-  const handleBulkAddMaterial = (dataList: MaterialFormData[]) => {
-    const newMaterials: Material[] = dataList.map(item => ({ ...item, id: crypto.randomUUID(), createdAt: Date.now() }));
-    setMaterials(prev => [...newMaterials, ...prev]);
-    setError(null);
+  // --- Handlers for Material Master (Supabase Connected) ---
+  const handleBulkAddMaterial = async (dataList: MaterialFormData[]) => {
+    try {
+        // Optimistic UI update could be done here, but let's wait for DB confirmation
+        const newMaterials = await materialService.createBulk(dataList);
+        setMaterials(prev => [...newMaterials, ...prev]);
+        setError(null);
+    } catch (e) {
+        alert("Failed to save materials to database.");
+        console.error(e);
+    }
   };
-  const handleUpdateMaterial = (updatedItem: Material) => {
-    setMaterials(prev => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
+  
+  const handleUpdateMaterial = async (updatedItem: Material) => {
+    try {
+        await materialService.update(updatedItem);
+        setMaterials(prev => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
+    } catch (e) {
+        alert("Failed to update material in database.");
+    }
   };
-  const handleDeleteMaterial = (id: string) => {
-    if (window.confirm("Delete this material?")) setMaterials(prev => prev.filter(m => m.id !== id));
+  
+  const handleDeleteMaterial = async (id: string) => {
+    if (window.confirm("Delete this material?")) {
+        try {
+            await materialService.delete(id);
+            setMaterials(prev => prev.filter(m => m.id !== id));
+        } catch (e) {
+            alert("Failed to delete material from database.");
+        }
+    }
   };
-  const handleClearMaterials = () => {
-    if (window.confirm("Are you sure?")) setMaterials([]);
+  
+  const handleClearMaterials = async () => {
+    if (window.confirm("Are you sure? This will delete all materials from the database.")) {
+         // We'll iterate and delete (Supabase has no simple 'delete all' from client unless we allow it via policy)
+         // For client-side safety/simplicity in this demo, let's just warn user it might be slow or just clear local state
+         // Better approach: Let's assume we don't want to wipe the production DB easily.
+         alert("Bulk delete all is disabled for safety. Please delete items individually.");
+    }
   };
 
-  // --- Handlers for Sales Report (Using IndexedDB) ---
+  // --- Handlers for Sales Report (IndexedDB) ---
   const handleBulkAddSalesReport = async (items: Omit<SalesReportItem, 'id' | 'createdAt'>[]) => {
     setIsDbLoading(true);
     const newItems: SalesReportItem[] = items.map(item => ({ ...item, id: crypto.randomUUID(), createdAt: Date.now() }));
@@ -143,7 +173,7 @@ const App: React.FC = () => {
     }
   };
 
-  // --- Other Handlers ---
+  // --- Other Handlers (LocalStorage) ---
   const handleBulkAddStock = (items: any) => setClosingStockItems(prev => [...items.map((i:any) => ({...i, id: crypto.randomUUID(), createdAt: Date.now()})), ...prev]);
   const handleUpdateStock = (updatedItem: ClosingStockItem) => setClosingStockItems(prev => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
   const handleDeleteStock = (id: string) => setClosingStockItems(prev => prev.filter(i => i.id !== id));
@@ -174,8 +204,8 @@ const App: React.FC = () => {
   const handleClearCustomerMaster = () => setCustomerMasterItems([]);
 
   const handleClearDatabase = async () => {
-    if (window.confirm("Are you sure you want to clear ALL data from ALL tabs? This is irreversible.")) {
-      setMaterials([]);
+    if (window.confirm("Are you sure you want to clear ALL local data from ALL tabs? (Materials in DB will be kept)")) {
+      // setMaterials([]); // Don't clear materials as they are in DB
       setClosingStockItems([]);
       setPendingSOItems([]);
       setPendingPOItems([]);
@@ -273,7 +303,7 @@ const App: React.FC = () => {
                     {isDbLoading ? "Syncing Database..." : "System Connected"}
                  </div>
                  <button onClick={handleClearDatabase} className="text-xs text-red-500 hover:text-red-700 font-medium text-left flex items-center gap-1.5 mt-1">
-                     <AlertCircle className="w-3 h-3" /> Clear All Data
+                     <AlertCircle className="w-3 h-3" /> Clear Local Data
                  </button>
               </div>
            )}
@@ -323,6 +353,7 @@ const App: React.FC = () => {
                     <div className="bg-blue-50 p-2.5 rounded-full mb-2"><Database className="w-5 h-5 text-blue-600" /></div>
                     <p className="text-xs font-medium text-gray-500">Total Materials</p>
                     <p className="text-2xl font-bold text-gray-900 mt-0.5">{materials.length}</p>
+                    <p className="text-[9px] text-green-600 font-medium bg-green-50 px-2 py-0.5 rounded-full mt-1">Live DB</p>
                   </div>
                   <div className="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col flex-1 overflow-hidden min-h-0">
                     <div className="p-3 border-b border-gray-100 bg-gray-50 flex-shrink-0">

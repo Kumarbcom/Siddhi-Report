@@ -1,3 +1,4 @@
+
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 
@@ -8,8 +9,10 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     define: {
-      // Polyfill process.env.API_KEY for the GenAI SDK
-      'process.env.API_KEY': JSON.stringify(env.API_KEY || '')
+      // Polyfill process.env variables for client-side usage
+      'process.env.API_KEY': JSON.stringify(env.API_KEY || ''),
+      'process.env.SUPABASE_URL': JSON.stringify(env.SUPABASE_URL || ''),
+      'process.env.SUPABASE_KEY': JSON.stringify(env.SUPABASE_KEY || '')
     },
     build: {
       chunkSizeWarningLimit: 1500,

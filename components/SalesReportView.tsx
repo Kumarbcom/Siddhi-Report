@@ -106,7 +106,17 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
         const cleanPart = item.particulars.toLowerCase().trim();
         const customer = customerLookup.get(cleanCust);
         const material = materialLookup.get(cleanPart);
-        let dateObj = new Date(); if (item.date instanceof Date) dateObj = item.date; else if (typeof item.date === 'string') dateObj = new Date(item.date); else if (typeof item.date === 'number') dateObj = new Date((item.date - (25567 + 2)) * 86400 * 1000);
+        
+        let dateObj = new Date(); 
+        const rawDate = item.date as any;
+        if (rawDate instanceof Date) {
+            dateObj = rawDate;
+        } else if (typeof rawDate === 'string') {
+            dateObj = new Date(rawDate);
+        } else if (typeof rawDate === 'number') {
+            dateObj = new Date((rawDate - (25567 + 2)) * 86400 * 1000);
+        }
+
         const { fiscalYear, fiscalMonthIndex, weekNumber } = getFiscalInfo(dateObj);
         return { ...item, custGroup: customer?.group || 'Unassigned', salesRep: customer?.salesRep || 'Unassigned', custStatus: customer?.status || 'Unknown', custType: customer?.customerGroup || '', make: material?.make || 'Unspecified', matGroup: material?.materialGroup || 'Unspecified', isCustUnknown: !customer && !!item.customerName, isMatUnknown: !material && !!item.particulars, fiscalYear, fiscalMonthIndex, weekNumber };
     });
