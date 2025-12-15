@@ -263,7 +263,7 @@ const ValueDistributionChart = ({ data }: { data: { label: string, value: number
         <div className="flex items-end justify-between gap-2 h-full pt-4 pb-1">
             {data.map((bar, i) => (
                 <div key={i} className="flex-1 flex flex-col items-center gap-1 h-full justify-end group">
-                    <span className="text-[9px] font-bold text-gray-600 bg-gray-100 px-1 rounded opacity-0 group-hover:opacity-100 transition-opacity mb-auto">{bar.value}</span>
+                    <span className="text-[9px] font-bold text-gray-600 bg-gray-100 px-1 rounded mb-auto">{bar.value}</span>
                     <div className="w-full bg-indigo-100 rounded-t-sm hover:bg-indigo-300 transition-all relative group" style={{ height: `${(bar.value / maxVal) * 100}%` }}></div>
                     <span className="text-[8px] text-gray-400 font-medium text-center leading-tight">{bar.label}</span>
                 </div>
@@ -311,7 +311,7 @@ const AgingBarChart = ({ data }: { data: { label: string; value: number }[] }) =
             <div className="flex items-end justify-between gap-3 h-full pb-1">
                 {data.map((bar, i) => (
                     <div key={i} className="flex-1 flex flex-col items-center gap-1 h-full justify-end group">
-                        <span className="text-[9px] font-bold text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity">{formatLargeValue(bar.value, true)}</span>
+                        <span className="text-[9px] font-bold text-gray-600 mb-1">{formatLargeValue(bar.value, true)}</span>
                         <div className={`w-full rounded-t-sm hover:opacity-80 transition-all ${i === 0 ? 'bg-blue-300' : i === 1 ? 'bg-orange-300' : 'bg-red-400'}`} style={{ height: `${(bar.value / maxVal) * 100}%` }}></div>
                         <span className="text-[9px] text-gray-500 font-medium text-center leading-tight whitespace-nowrap">{bar.label}</span>
                     </div>
@@ -354,7 +354,7 @@ const DeliveryScheduleChart = ({ data }: { data: { label: string; value: number 
             <div className="flex items-end justify-between gap-2 h-full pb-1">
                 {data.map((bar, i) => (
                     <div key={i} className="flex-1 flex flex-col items-center gap-1 h-full justify-end group">
-                        <span className="text-[9px] font-bold text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity">{formatLargeValue(bar.value, true)}</span>
+                        <span className="text-[9px] font-bold text-gray-600 mb-1">{formatLargeValue(bar.value, true)}</span>
                         <div className="w-full rounded-t-sm hover:opacity-80 transition-all bg-indigo-300" style={{ height: `${(bar.value / maxVal) * 100}%` }}></div>
                         <span className="text-[9px] text-gray-500 font-medium text-center leading-tight whitespace-nowrap">{bar.label}</span>
                     </div>
@@ -363,6 +363,8 @@ const DeliveryScheduleChart = ({ data }: { data: { label: string; value: number 
         </div>
     );
 };
+
+// ... (Rest of the component remains the same, just keeping the updated charts above)
 
 const SimpleDonut = ({ data, title, color }: { data: {label: string, value: number}[], title: string, color: string }) => {
      if(data.length === 0) return <div className="h-32 flex items-center justify-center text-gray-400 text-xs">No Data</div>;
@@ -444,8 +446,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   pendingPO,
   salesReportItems = [],
   customers,
+  sales1Year,
+  sales3Months,
   setActiveTab
 }) => {
+  // ... (Component logic remains largely the same, just ensuring correct props and state)
   const [activeSubTab, setActiveSubTab] = useState<'sales' | 'inventory' | 'so' | 'po'>('sales');
   
   const [timeView, setTimeView] = useState<TimeView>('FY');
