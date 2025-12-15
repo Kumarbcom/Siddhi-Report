@@ -82,19 +82,19 @@ const SalesTrendChart = ({ data, maxVal }: { data: { labels: string[], series: a
          {/* Floating Tooltip */}
          {hoverIndex !== null && (
             <div 
-              className="absolute z-20 bg-gray-900/95 backdrop-blur text-white text-[10px] p-3 rounded-xl shadow-2xl border border-gray-700 pointer-events-none transition-all duration-75 min-w-[140px]"
+              className="absolute z-20 bg-gray-900/95 backdrop-blur-md text-white text-[10px] p-3 rounded-xl shadow-2xl border border-gray-700 pointer-events-none transition-all duration-100 ease-out min-w-[140px]"
               style={{ 
                 left: `${(hoverIndex / (data.labels.length - 1)) * 100}%`, 
-                top: '10%',
+                top: '0',
                 transform: `translateX(${hoverIndex > data.labels.length / 2 ? '-110%' : '10%'})`,
               }}
             >
-                <div className="font-bold border-b border-gray-600 pb-2 mb-2 text-gray-200 text-center uppercase tracking-wider">{data.labels[hoverIndex]}</div>
+                <div className="font-bold border-b border-gray-600 pb-2 mb-2 text-gray-100 text-center uppercase tracking-wider text-[11px]">{data.labels[hoverIndex]}</div>
                 <div className="flex flex-col gap-2">
                     {data.series.map((s: any, i: number) => (
-                        <div key={i} className="flex items-center justify-between gap-4">
+                        <div key={i} className={`flex items-center justify-between gap-4 ${!s.active ? 'opacity-50' : ''}`}>
                             <div className="flex items-center gap-2">
-                                <div className="w-2.5 h-2.5 rounded-full shadow-sm ring-1 ring-white/20" style={{backgroundColor: s.color}}></div>
+                                <div className="w-2.5 h-2.5 rounded-full shadow-[0_0_8px_rgba(255,255,255,0.5)]" style={{backgroundColor: s.color}}></div>
                                 <span className="text-gray-300 font-medium">{s.name}</span>
                             </div>
                             <span className="font-mono font-bold text-white text-xs">{formatLargeValue(s.data[hoverIndex], true)}</span>
@@ -109,10 +109,17 @@ const SalesTrendChart = ({ data, maxVal }: { data: { labels: string[], series: a
               {data.series.map((s: any, i: number) => (
                 <linearGradient key={i} id={`grad-${i}`} x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor={s.color} stopOpacity="0.4" />
-                  <stop offset="80%" stopColor={s.color} stopOpacity="0.05" />
+                  <stop offset="70%" stopColor={s.color} stopOpacity="0.05" />
                   <stop offset="100%" stopColor={s.color} stopOpacity="0" />
                 </linearGradient>
               ))}
+              <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur stdDeviation="1.5" result="coloredBlur"/>
+                <feMerge>
+                    <feMergeNode in="coloredBlur"/>
+                    <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+              </filter>
             </defs>
 
             {/* Grid Lines (Vertical) */}
@@ -155,7 +162,7 @@ const SalesTrendChart = ({ data, maxVal }: { data: { labels: string[], series: a
                
                return (
                    <g key={i}>
-                       <path d={areaD} fill={`url(#grad-${i})`} className="transition-opacity duration-300" style={{opacity: hoverIndex !== null ? 0.7 : 0.8}} />
+                       <path d={areaD} fill={`url(#grad-${i})`} className="transition-opacity duration-300" style={{opacity: hoverIndex !== null ? 0.8 : 0.6}} />
                        <path 
                          d={pathD} 
                          fill="none" 
@@ -164,7 +171,9 @@ const SalesTrendChart = ({ data, maxVal }: { data: { labels: string[], series: a
                          vectorEffect="non-scaling-stroke" 
                          strokeLinecap="round" 
                          strokeLinejoin="round" 
-                         className="drop-shadow-sm" 
+                         filter="url(#glow)"
+                         className="drop-shadow-sm transition-all duration-300"
+                         style={{ strokeWidth: hoverIndex !== null ? 3.5 : 2.5 }}
                        />
                    </g>
                )
@@ -199,7 +208,7 @@ const SalesTrendChart = ({ data, maxVal }: { data: { labels: string[], series: a
                         stroke={s.color} 
                         strokeWidth="3" 
                         vectorEffect="non-scaling-stroke"
-                        className="drop-shadow-lg transition-transform duration-75"
+                        className="drop-shadow-lg transition-transform duration-100 ease-out"
                     />
                 );
             })}
@@ -209,7 +218,7 @@ const SalesTrendChart = ({ data, maxVal }: { data: { labels: string[], series: a
       {/* X-Axis */}
       <div className="flex justify-between mt-3 text-[9px] text-gray-400 font-medium border-t border-gray-100 pt-2">
           {data.labels.map((l: string, i: number) => (
-              <span key={i} className={`flex-1 text-center transition-colors ${hoverIndex === i ? 'text-blue-600 font-bold scale-110' : ''}`}>{l}</span>
+              <span key={i} className={`flex-1 text-center transition-colors duration-200 ${hoverIndex === i ? 'text-blue-600 font-bold scale-110' : ''}`}>{l}</span>
           ))}
       </div>
     </div>
@@ -433,7 +442,7 @@ const AgingBarChart = ({ data }: { data: { label: string; value: number }[] }) =
     const maxVal = Math.max(...data.map(d => d.value), 1);
     return (
         <div className="flex flex-col h-full">
-            <h4 className="text-[10px] font-bold text-gray-500 uppercase mb-2">Overdue Aging (Value)</h4>
+            <h4 className="text-[10px] font-bold text-gray-500 uppercase mb-2 flex items-center gap-1"><Hourglass className="w-3 h-3 text-red-500"/> Overdue Aging (Value)</h4>
             <div className="flex items-end justify-between gap-3 h-full pb-1">
                 {data.map((bar, i) => (
                     <div key={i} className="flex-1 flex flex-col items-center gap-1 h-full justify-end group">
@@ -470,6 +479,29 @@ const HorizontalBarChart = ({ data, title, color }: { data: { label: string; val
                                 <div className={`h-full rounded-full bg-${color}-500`} style={{ width: `${(item.value / maxVal) * 100}%` }}></div>
                             </div>
                         </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+// --- Component: Future Delivery Schedule Chart ---
+const DeliveryScheduleChart = ({ data }: { data: { label: string; value: number }[] }) => {
+    const maxVal = Math.max(...data.map(d => d.value), 1);
+    return (
+        <div className="flex flex-col h-full">
+            <h4 className="text-[10px] font-bold text-gray-500 uppercase mb-2 flex items-center gap-1"><Clock className="w-3 h-3 text-blue-500"/> Delivery Schedule (Future)</h4>
+            <div className="flex items-end justify-between gap-2 h-full pb-1">
+                {data.map((bar, i) => (
+                    <div key={i} className="flex-1 flex flex-col items-center gap-1 h-full justify-end group">
+                        <span className="text-[9px] font-bold text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity">{formatLargeValue(bar.value, true)}</span>
+                        <div 
+                            className="w-full rounded-t-sm hover:opacity-80 transition-all bg-indigo-300"
+                            style={{ height: `${(bar.value / maxVal) * 100}%` }}
+                        >
+                        </div>
+                        <span className="text-[9px] text-gray-500 font-medium text-center leading-tight">{bar.label}</span>
                     </div>
                 ))}
             </div>
@@ -1035,7 +1067,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
           byCustomer: new Map<string, { due: number, scheduled: number, total: number, items: any[] }>(),
           
           aging: { 'Future': 0, '0-30': 0, '30-60': 0, '60-90': 0, '90+': 0 },
-          topItems: new Map<string, number>()
+          topItems: new Map<string, number>(),
+          futureSchedule: new Map<string, number>()
       };
 
       const uniqueOrders = new Set<string>();
@@ -1065,6 +1098,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({
               stats.scheduled.total.val += item.val;
               stats.scheduled.total.qty += item.balanceQty;
               stats.aging['Future'] += item.val;
+              
+              // Future Schedule Buckets (Month-Year)
+              if (item.dueDate) {
+                  const d = new Date(item.dueDate);
+                  const key = d.toLocaleString('default', { month: 'short', year: '2-digit' });
+                  stats.futureSchedule.set(key, (stats.futureSchedule.get(key) || 0) + item.val);
+              }
           }
 
           // Charts Aggregation Helper
@@ -1117,13 +1157,24 @@ const DashboardView: React.FC<DashboardViewProps> = ({
           .map(([label, value]) => ({ label, value }))
           .sort((a, b) => b.value - a.value)
           .slice(0, 10);
+      
+      // Future Schedule
+      const deliverySchedule = Array.from(soStats.futureSchedule.entries())
+          .map(([label, value]) => ({ label, value }))
+          // Quick sort by date logic (hacky but works for short-term)
+          .sort((a,b) => {
+             const da = new Date('01 ' + a.label.replace("'", "20"));
+             const db = new Date('01 ' + b.label.replace("'", "20"));
+             return da.getTime() - db.getTime();
+          });
 
       return {
           byGroup: formatStacked(soStats.byGroup),
           byMake: formatStacked(soStats.byMake),
           topCustomers,
           agingData,
-          topItems
+          topItems,
+          deliverySchedule
       };
   }, [soStats]);
 
@@ -1681,22 +1732,22 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                          <AgingBarChart data={soChartsData.agingData} />
                      </div>
 
-                     {/* Delivery Timeline (Future) Placeholder */}
+                     {/* Delivery Timeline (Future) */}
                      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-48 lg:h-auto flex flex-col">
-                         <div className="flex justify-between items-center mb-2">
-                             <h4 className="text-[10px] font-bold text-gray-500 uppercase">Top 10 Items (Pending Val)</h4>
-                         </div>
-                         <HorizontalBarChart data={soChartsData.topItems} title="" color="purple" />
+                         <DeliveryScheduleChart data={soChartsData.deliverySchedule} />
                      </div>
                  </div>
 
-                 {/* Charts Row 2: Stacked Analysis */}
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-64">
+                 {/* Charts Row 2: Stacked Analysis & Top Items */}
+                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-64">
                       <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
                           <StackedBarChart data={soChartsData.byGroup} title="Pending by Group (Due vs Scheduled)" />
                       </div>
                       <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
                           <StackedBarChart data={soChartsData.byMake} title="Pending by Make (Due vs Scheduled)" />
+                      </div>
+                      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                          <HorizontalBarChart data={soChartsData.topItems} title="Top 10 Items (Pending Val)" color="purple" />
                       </div>
                  </div>
 
