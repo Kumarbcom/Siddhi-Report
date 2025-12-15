@@ -14,7 +14,8 @@
     "react-dom": "^18.3.1",
     "lucide-react": "^0.468.0",
     "@google/genai": "*",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "@supabase/supabase-js": "^2.45.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.1",
