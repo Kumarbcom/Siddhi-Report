@@ -150,9 +150,9 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
       closingStockItems.forEach(i => stockMap.set(i.description.toLowerCase().trim(), (stockMap.get(i.description.toLowerCase().trim()) || 0) + i.quantity));
       
       const soMap = new Map<string, number>();
-      // Fallback to empty array if pendingSOItems prop not yet wired in parent (though we added it)
-      const soItems = localStorage.getItem('pending_so_db_v1') ? JSON.parse(localStorage.getItem('pending_so_db_v1')!) : []; 
-      soItems.forEach((i: any) => soMap.set(i.itemName.toLowerCase().trim(), (soMap.get(i.itemName.toLowerCase().trim()) || 0) + i.balanceQty));
+      // Use items passed via prop, fallback to localStorage if prop is empty (safety net)
+      const soSource = (pendingSOItems && pendingSOItems.length > 0) ? pendingSOItems : (localStorage.getItem('pending_so_db_v1') ? JSON.parse(localStorage.getItem('pending_so_db_v1')!) : []); 
+      soSource.forEach((i: any) => soMap.set(i.itemName.toLowerCase().trim(), (soMap.get(i.itemName.toLowerCase().trim()) || 0) + i.balanceQty));
 
       // 2. Iterate POs
       let scheduledVal = 0;
@@ -241,7 +241,7 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
           expedite: { val: expediteVal, count: expediteCount, top: topExpediteItems.sort((a,b) => b.value - a.value).slice(0, 10) },
           topAll: [...topExcessItems, ...topNeedItems, ...topExpediteItems].sort((a,b) => b.value - a.value).slice(0, 10) // Fallback list
       };
-  }, [items, closingStockItems]);
+  }, [items, closingStockItems, pendingSOItems]);
 
   const handleDownloadTemplate = () => { const headers = [{ "Date": "2023-10-01", "Order": "PO-2023-901", "Party's Name": "Steel Supplies Co", "Name of Item": "Steel Rod 10mm", "Material Code": "RAW-STL", "Part No": "STL-10MM", "Ordered": 500, "Balance": 100, "Rate": 15.50, "Discount": 2, "Value": 1550.00, "Due on": "2023-10-20", "OverDue": 0 }]; const ws = utils.json_to_sheet(headers); const wb = utils.book_new(); utils.book_append_sheet(wb, ws, "Pending_PO_Template"); writeFile(wb, "Pending_PO_Template.xlsx"); };
   const handleExport = () => { if (items.length === 0) { alert("No data to export."); return; } const data = items.map(i => ({ "Date": formatDateDisplay(i.date), "Order": i.orderNo, "Party's Name": i.partyName, "Name of Item": i.itemName, "Material Code": i.materialCode, "Part No": i.partNo, "Ordered": i.orderedQty, "Balance": i.balanceQty, "Rate": i.rate, "Discount": i.discount, "Value": i.value, "Due on": formatDateDisplay(i.dueDate), "OverDue": i.overDueDays })); const ws = utils.json_to_sheet(data); const wb = utils.book_new(); utils.book_append_sheet(wb, ws, "Pending_PO"); writeFile(wb, "Pending_PO_Export.xlsx"); };

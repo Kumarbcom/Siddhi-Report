@@ -73,21 +73,30 @@ const SalesTrendChart = ({ data, maxVal }: { data: { labels: string[], series: a
       onMouseLeave={() => setHoverIndex(null)}
     >
       <div className="flex-1 relative min-h-0">
-         {/* Data Labels - Always Visible for Primary Series */}
-         {data.series.length > 0 && data.series[0].data.map((val: number, i: number) => {
-             if (val === 0) return null;
-             const x = (i / (data.labels.length - 1)) * 100;
-             const y = 100 - ((val / maxVal) * 100);
-             return (
-                 <div 
-                    key={i} 
-                    className="absolute text-[9px] font-bold text-blue-700 bg-white/80 backdrop-blur-sm px-1 rounded shadow-sm border border-blue-100 z-10 pointer-events-none transform -translate-x-1/2 -translate-y-[140%]"
-                    style={{ left: `${x}%`, top: `${y}%`, opacity: hoverIndex !== null && hoverIndex !== i ? 0.3 : 1 }}
-                 >
-                     {formatLargeValue(val, true)}
-                 </div>
-             );
-         })}
+         {/* Data Labels - All Series with stagger */}
+         {data.series.map((s: any, sIdx: number) => 
+             s.active && s.data.map((val: number, i: number) => {
+                 if (val === 0) return null;
+                 const x = (i / (data.labels.length - 1)) * 100;
+                 const y = 100 - ((val / maxVal) * 100);
+                 const yOffset = sIdx * 12; // Stagger labels to avoid overlap
+                 const isHovered = hoverIndex === i;
+                 return (
+                     <div 
+                        key={`${sIdx}-${i}`} 
+                        className={`absolute text-[8px] font-bold bg-white/80 backdrop-blur-[1px] px-1 rounded shadow-sm border border-gray-100 z-10 pointer-events-none transform -translate-x-1/2 transition-all duration-200 ${isHovered ? 'scale-125 z-20 border-blue-200' : 'opacity-80'}`}
+                        style={{ 
+                            left: `${x}%`, 
+                            top: `calc(${y}% - ${15 + yOffset}px)`, 
+                            color: s.color,
+                            opacity: hoverIndex !== null && hoverIndex !== i ? 0.2 : 1
+                        }}
+                     >
+                         {formatLargeValue(val, true)}
+                     </div>
+                 );
+             })
+         )}
 
          {hoverIndex !== null && (
             <div 
@@ -136,6 +145,7 @@ const SalesTrendChart = ({ data, maxVal }: { data: { labels: string[], series: a
                 <line key={i} x1="0" y1={p * 100} x2="100" y2={p * 100} stroke="#e5e7eb" strokeWidth="1" strokeDasharray="4" vectorEffect="non-scaling-stroke"/>
             ))}
             {data.series.map((s: any, i: number) => {
+               if (!s.active) return null;
                const points: [number, number][] = s.data.map((val: number, idx: number) => [
                    (idx / (data.labels.length - 1)) * 100,
                    100 - ((val / maxVal) * 100)
@@ -153,6 +163,7 @@ const SalesTrendChart = ({ data, maxVal }: { data: { labels: string[], series: a
                  <line x1={(hoverIndex / (data.labels.length - 1)) * 100} y1="0" x2={(hoverIndex / (data.labels.length - 1)) * 100} y2="100" stroke="#4b5563" strokeWidth="1.5" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
             )}
             {hoverIndex !== null && data.series.map((s: any, i: number) => {
+                if (!s.active) return null;
                 const val = s.data[hoverIndex];
                 const cx = (hoverIndex / (data.labels.length - 1)) * 100;
                 const cy = 100 - ((val / maxVal) * 100);
@@ -169,6 +180,7 @@ const SalesTrendChart = ({ data, maxVal }: { data: { labels: string[], series: a
   );
 };
 
+// ... (Other sub-components unchanged) ...
 const InventoryToggle: React.FC<{ value: Metric; onChange: (m: Metric) => void; colorClass: string }> = ({ value, onChange, colorClass }) => (
   <div className="flex bg-gray-100 p-0.5 rounded-md border border-gray-200">
     <button onClick={() => onChange('quantity')} className={`px-2 py-0.5 text-[9px] font-semibold rounded transition-all ${value === 'quantity' ? `bg-white shadow-sm ${colorClass}` : 'text-gray-500 hover:text-gray-700'}`}>Qty</button>
@@ -385,8 +397,6 @@ const DeliveryScheduleChart = ({ data }: { data: { label: string; value: number 
     );
 };
 
-// ... (Rest of the component remains the same, just keeping the updated charts above)
-
 const SimpleDonut = ({ data, title, color }: { data: {label: string, value: number}[], title: string, color: string }) => {
      if(data.length === 0) return <div className="h-32 flex items-center justify-center text-gray-400 text-xs">No Data</div>;
      const total = data.reduce((a,b) => a+b.value, 0);
@@ -436,30 +446,6 @@ const SimpleDonut = ({ data, title, color }: { data: {label: string, value: numb
      );
 };
 
-const SimpleBarChart = ({ data, title, color }: { data: {label: string, value: number}[], title: string, color: string }) => {
-      if(data.length === 0) return <div className="h-32 flex items-center justify-center text-gray-400 text-xs">No Data</div>;
-      const sorted = [...data].sort((a,b) => b.value - a.value).slice(0, 6);
-      const maxVal = sorted[0].value || 1;
-      return (
-          <div className="flex flex-col h-full">
-              <h4 className="text-[10px] font-bold text-gray-500 uppercase mb-2">{title}</h4>
-              <div className="flex-1 flex flex-col gap-2 overflow-y-auto custom-scrollbar pr-1">
-                  {sorted.map((item, i) => (
-                      <div key={i} className="flex flex-col gap-0.5">
-                          <div className="flex justify-between text-[9px]">
-                              <span className="text-gray-700 truncate font-medium">{item.label}</span>
-                              <span className="text-gray-900 font-bold">{formatLargeValue(item.value, true)}</span>
-                          </div>
-                          <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
-                              <div className={`h-full rounded-full bg-${color}-500`} style={{ width: `${(item.value / maxVal) * 100}%` }}></div>
-                          </div>
-                      </div>
-                  ))}
-              </div>
-          </div>
-      );
-};
-
 const DashboardView: React.FC<DashboardViewProps> = ({
   materials,
   closingStock,
@@ -471,7 +457,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   sales3Months,
   setActiveTab
 }) => {
-  // ... (Component logic remains largely the same, just ensuring correct props and state)
+  // ... (Props and State setup) ...
   const [activeSubTab, setActiveSubTab] = useState<'sales' | 'inventory' | 'so' | 'po'>('sales');
   
   const [timeView, setTimeView] = useState<TimeView>('FY');
@@ -511,6 +497,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     setExpandedPendingCustomers(newSet);
   };
 
+  // ... (Helper Functions like parseDate, getFiscalInfo remain same) ...
   const parseDate = (val: any): Date => {
     if (!val) return new Date();
     if (val instanceof Date) return val;
@@ -544,6 +531,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
   const getFiscalMonthName = (idx: number) => ["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"][idx];
 
+  // ... (Data Enrichment Logic) ...
   const enrichedSales = useMemo(() => {
       const custMap = new Map<string, CustomerMasterItem>();
       customers.forEach(c => custMap.set(c.customerName.toLowerCase().trim(), c));
@@ -588,6 +576,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       }
   }, [enrichedSales, selectedFY, selectedMonth, selectedWeek, timeView, comparisonMode]);
 
+  // ... (KPIs and Chart Data) ...
   const kpis = useMemo(() => {
       const currVal = currentData.reduce((acc, i) => acc + i.value, 0);
       const prevVal = previousData.reduce((acc, i) => acc + i.value, 0);
@@ -624,6 +613,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       }
   }, [currentData, previousData, timeView, selectedFY, enrichedSales, comparisonMode]);
 
+  // ... (Pie Data and Top Customers) ...
   const pieDataGroup = useMemo(() => {
       const map = new Map<string, number>();
       currentData.forEach(i => { let key = i.custGroup || 'Unassigned'; const lowerKey = key.toLowerCase().trim(); if (lowerKey === 'group-giridhar-peenya' || lowerKey === 'group-peenya') { key = 'Group-Giridhar'; } else if (lowerKey.includes('online')) { key = 'Online'; } map.set(key, (map.get(key) || 0) + i.value); });
@@ -651,6 +641,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     return Array.from(breakdownMap.entries()).map(([name, data]) => { const diff = data.current - data.prev; const pct = data.prev !== 0 ? (diff / data.prev) * 100 : 0; return { name, value: data.current, prevValue: data.prev, pct }; }).sort((a, b) => b.value - a.value);
   };
 
+  // ... (Inventory Stats) ...
   const enrichedStock = useMemo(() => {
     const lastSaleMap = new Map<string, number>();
     salesReportItems.forEach(s => {
@@ -747,6 +738,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     return { totalQty, totalVal, count, totalUnmatched, hierarchy, topArticles, abcData, distData, formatVal, abcLists };
   }, [filteredStock, invGroupMetric, invTopMetric]);
 
+  // ... (Pending SO Stats) ...
   const processedSOData = useMemo(() => {
     const today = new Date();
     const endOfCurrentMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0); endOfCurrentMonth.setHours(23, 59, 59, 999);
@@ -859,6 +851,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                  <button key={tab} onClick={() => setActiveSubTab(tab)} className={`px-3 py-1.5 rounded-md text-xs font-bold uppercase transition-all ${activeSubTab === tab ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>{tab === 'so' ? 'Pending SO' : tab === 'po' ? 'Pending PO' : tab}</button>
              ))}
           </div>
+          {/* ... (Sub-tab Filters) ... */}
           {activeSubTab === 'sales' && (
               <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
                   <div className="flex bg-gray-100 p-1 rounded-lg">{(['FY', 'MONTH', 'WEEK'] as const).map(v => (<button key={v} onClick={() => setTimeView(v)} className={`px-3 py-1 rounded-md text-xs font-bold ${timeView === v ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500'}`}>{v}</button>))}</div>
@@ -913,7 +906,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:h-96">
                       <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col"><div className="flex justify-between items-center mb-2"><h4 className="text-xs font-bold text-gray-700 flex items-center gap-2"><BarChart4 className="w-4 h-4 text-indigo-600"/> ABC Analysis</h4></div><div className="flex-1 min-h-0"><ABCAnalysisChart data={inventoryStats.abcData} /></div><div className="mt-2 text-[9px] text-center text-gray-400">Class A (Top 70%), B (Next 20%), C (Bottom 10%) by Value</div></div>
                       <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col relative overflow-hidden"><div className="flex justify-between items-center mb-2"><h4 className="text-xs font-bold text-gray-700 flex items-center gap-2"><Layers className="w-4 h-4 text-blue-600"/> Stock Composition {showNonMoving && <span className="text-[9px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded ml-1">Non-Moving Only</span>}</h4><InventoryToggle value={invGroupMetric} onChange={setInvGroupMetric} colorClass="text-blue-700" /></div><InteractiveDrillDownChart hierarchyData={inventoryStats.hierarchy} metric={invGroupMetric} totalValue={inventoryStats.totalVal} /></div>
-                      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col"><div className="flex justify-between items-center mb-2"><div className="flex items-center gap-2"><h4 className="text-xs font-bold text-gray-700">Top 10 Articles</h4><button onClick={() => setShowMakeInTop10(!showMakeInTop10)} className={`p-1 rounded transition-colors ${showMakeInTop10 ? 'bg-emerald-100 text-emerald-700' : 'text-gray-400 hover:bg-gray-100'}`} title="Toggle Make visibility"><Tag className="w-3 h-3" /></button></div><InventoryToggle value={invTopMetric} onChange={setInvTopMetric} colorClass="text-emerald-700" /></div><div className="flex-1 overflow-y-auto custom-scrollbar pr-1 space-y-3">{inventoryStats.topArticles.map((a, i) => (<div key={i} className="flex items-center gap-2"><span className="w-5 h-5 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center text-[10px] font-bold shrink-0">{i+1}</span><div className="flex-1 min-w-0"><div className="flex items-baseline justify-between"><p className="text-[10px] font-medium text-gray-800 truncate flex-1" title={a.label}>{a.label}</p>{showMakeInTop10 && <span className="text-[9px] text-gray-400 ml-2 italic shrink-0">{a.make}</span>}</div><div className="w-full bg-gray-100 h-1 rounded-full mt-1"><div className="bg-emerald-500 h-full rounded-full" style={{ width: `${(a.value / (inventoryStats.topArticles[0]?.value || 1)) * 100}%` }}></div></div></div><div className="flex flex-col items-end"><span className="text-[10px] font-bold text-gray-900">{inventoryStats.formatVal(a.value, invTopMetric)}</span>{showNonMoving && <span className="text-[9px] text-gray-400">{((a.value / inventoryStats.totalVal) * 100).toFixed(1)}%</span>}</div></div>))}</div></div>
+                      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col"><div className="flex justify-between items-center mb-2"><div className="flex items-center gap-2"><h4 className="text-xs font-bold text-gray-700">Top 10 Articles</h4><button onClick={() => setShowMakeInTop10(!showMakeInTop10)} className={`p-1 rounded transition-colors ${showMakeInTop10 ? 'bg-emerald-100 text-emerald-700' : 'text-gray-400 hover:bg-gray-100'}`} title="Toggle Make visibility"><Tag className="w-3 h-3" /></button></div><InventoryToggle value={invTopMetric} onChange={setInvTopMetric} colorClass="text-emerald-700" /></div><div className="flex-1 overflow-y-auto custom-scrollbar pr-1 space-y-3">{inventoryStats.topArticles.map((a, i) => (<div key={i} className="flex items-center gap-2"><span className="w-5 h-5 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center text-[10px] font-bold shrink-0">{i+1}</span><div className="flex-1 min-w-0"><div className="flex items-baseline justify-between"><p className="text-[10px] font-medium text-gray-800 truncate flex-1" title={a.label}>{a.label}</p>{showMakeInTop10 && <span className="text-[9px] text-gray-400 ml-2 italic shrink-0">{a.make}</span>}</div><div className="w-full bg-gray-100 h-1 rounded-full mt-1"><div className="bg-emerald-500 h-full rounded-full" style={{ width: `${(a.value / (inventoryStats.topArticles[0]?.value || 1)) * 100}%` }}></div></div></div><div className="flex flex-col items-end"><span className="text-[10px] font-bold text-gray-900">{inventoryStats.formatVal(a.value, invTopMetric)}</span><span className="text-[9px] text-gray-400">{((a.value / inventoryStats.totalVal) * 100).toFixed(1)}%</span></div></div>))}</div></div>
                  </div>
                  <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col h-48"><div className="flex justify-between items-center mb-1"><h4 className="text-xs font-bold text-gray-700">Stock Value Distribution (Item Count)</h4></div><div className="flex-1 min-h-0"><ValueDistributionChart data={inventoryStats.distData} /></div></div>
                  
