@@ -1,7 +1,7 @@
 
 import React, { useRef, useMemo, useState } from 'react';
-import { PendingPOItem, Material, ClosingStockItem } from '../types';
-import { Trash2, Download, Upload, ShoppingCart, Search, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, Package, FileDown, Pencil, Save, X } from 'lucide-react';
+import { PendingPOItem, Material, ClosingStockItem, PendingSOItem } from '../types';
+import { Trash2, Download, Upload, ShoppingCart, Search, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, Package, FileDown, Pencil, Save, X, Calendar, PieChart, BarChart3, AlertOctagon, CheckCircle2 } from 'lucide-react';
 import { read, utils, writeFile } from 'xlsx';
 
 interface PendingPOViewProps {
@@ -12,9 +12,88 @@ interface PendingPOViewProps {
   onUpdate: (item: PendingPOItem) => void;
   onDelete: (id: string) => void;
   onClear: () => void;
+  pendingSOItems?: PendingSOItem[]; // Added for logic
 }
 
 type SortKey = keyof PendingPOItem;
+
+// Re-using chart components locally to avoid complex exports/refactors in this specific request scope
+const SimpleDonut = ({ data, title }: { data: {label: string, value: number, color: string}[], title: string }) => {
+    const total = data.reduce((a,b) => a+b.value, 0);
+    let cumPercent = 0;
+    return (
+       <div className="flex flex-col h-full items-center">
+           <h4 className="text-[10px] font-bold text-gray-500 uppercase mb-2 w-full text-left">{title}</h4>
+           <div className="relative w-24 h-24">
+              <svg viewBox="-1 -1 2 2" className="transform -rotate-90 w-full h-full">
+                 {data.map((slice, i) => {
+                     if (slice.value === 0) return null;
+                     const percent = slice.value / (total || 1);
+                     const startX = Math.cos(2 * Math.PI * cumPercent);
+                     const startY = Math.sin(2 * Math.PI * cumPercent);
+                     cumPercent += percent;
+                     const endX = Math.cos(2 * Math.PI * cumPercent);
+                     const endY = Math.sin(2 * Math.PI * cumPercent);
+                     const largeArc = percent > 0.5 ? 1 : 0;
+                     // Handle single slice case
+                     if (percent === 1) return <circle key={i} cx="0" cy="0" r="1" fill={slice.color} />;
+                     return ( <path key={i} d={`M 0 0 L ${startX} ${startY} A 1 1 0 ${largeArc} 1 ${endX} ${endY} Z`} fill={slice.color} stroke="white" strokeWidth="0.05" /> );
+                 })}
+                 <circle cx="0" cy="0" r="0.6" fill="white" />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <span className="text-[8px] text-gray-400 font-bold">Total Val</span>
+                  <span className="text-[10px] font-bold text-gray-800">{(total/1000).toFixed(1)}k</span>
+              </div>
+           </div>
+           <div className="flex flex-col gap-1 mt-2 w-full px-2">
+               {data.map((d, i) => (
+                   <div key={i} className="flex justify-between text-[9px]">
+                       <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full" style={{backgroundColor: d.color}}></div><span className="text-gray-600">{d.label}</span></div>
+                       <span className="font-bold">{d.value.toLocaleString()}</span>
+                   </div>
+               ))}
+           </div>
+       </div>
+    );
+};
+
+const HorizontalBar = ({ data, title, color }: { data: { label: string, value: number }[], title: string, color: string }) => {
+    const maxVal = Math.max(...data.map(d => d.value), 1);
+    return (
+        <div className="flex flex-col h-full">
+            <h4 className="text-[10px] font-bold text-gray-500 uppercase mb-2">{title}</h4>
+            <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 space-y-1.5">
+                {data.map((item, i) => (
+                    <div key={i} className="flex items-center gap-2 text-[9px]">
+                        <div className="flex-1 min-w-0">
+                            <div className="flex justify-between mb-0.5">
+                                <span className="truncate text-gray-600 font-medium" title={item.label}>{item.label}</span>
+                                <span className="font-bold text-gray-800">{Math.round(item.value).toLocaleString()}</span>
+                            </div>
+                            <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                                <div className={`h-full rounded-full bg-${color}-500`} style={{ width: `${(item.value / maxVal) * 100}%` }}></div>
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+const ActionCard = ({ title, value, count, color, icon: Icon }: any) => (
+    <div className={`bg-${color}-50 p-3 rounded-xl border border-${color}-100 flex flex-col justify-between h-full`}>
+        <div className="flex justify-between items-start">
+            <p className={`text-[10px] font-bold text-${color}-700 uppercase`}>{title}</p>
+            <Icon className={`w-4 h-4 text-${color}-600`} />
+        </div>
+        <div>
+            <h3 className={`text-xl font-extrabold text-${color}-900`}>{value}</h3>
+            <p className={`text-[10px] text-${color}-600 font-medium`}>{count} Items</p>
+        </div>
+    </div>
+);
 
 const PendingPOView: React.FC<PendingPOViewProps> = ({ 
   items, 
@@ -23,7 +102,8 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
   onBulkAdd, 
   onUpdate,
   onDelete,
-  onClear
+  onClear,
+  pendingSOItems = [] // Use items passed via context/props even if optional in type def
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -63,6 +143,106 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
   const formatInputDate = (dateVal: string | Date | number) => { if (!dateVal) return ''; let date: Date | null = null; if (dateVal instanceof Date) date = dateVal; else if (typeof dateVal === 'string') date = new Date(dateVal); if (date && !isNaN(date.getTime())) return date.toISOString().split('T')[0]; return ''; };
   const formatCurrency = (val: number) => `Rs. ${Math.round(val).toLocaleString('en-IN')}`;
 
+  // --- Optimization Logic ---
+  const optimizationStats = useMemo(() => {
+      // 1. Map Stock & SO by Item Name
+      const stockMap = new Map<string, number>();
+      closingStockItems.forEach(i => stockMap.set(i.description.toLowerCase().trim(), (stockMap.get(i.description.toLowerCase().trim()) || 0) + i.quantity));
+      
+      const soMap = new Map<string, number>();
+      // Fallback to empty array if pendingSOItems prop not yet wired in parent (though we added it)
+      const soItems = localStorage.getItem('pending_so_db_v1') ? JSON.parse(localStorage.getItem('pending_so_db_v1')!) : []; 
+      soItems.forEach((i: any) => soMap.set(i.itemName.toLowerCase().trim(), (soMap.get(i.itemName.toLowerCase().trim()) || 0) + i.balanceQty));
+
+      // 2. Iterate POs
+      let scheduledVal = 0;
+      let dueVal = 0;
+      let excessVal = 0;
+      let excessCount = 0;
+      let expediteVal = 0;
+      let expediteCount = 0;
+      
+      // Need Place PO is tricky because it depends on items NOT in PO. 
+      // But user asked: "Add Stock + PO - SO then show Need place PO". 
+      // This implies checking the Net Balance for items involved in POs or generally. 
+      // To show "Need Place PO" generally, we'd need to iterate ALL items. 
+      // However, usually in a "Pending PO" view, we focus on the POs themselves. 
+      // But the prompt specifically asks to calculate shortage.
+      // Let's iterate all UNIQUE items found in Stock + SO + PO for a global view? 
+      // Or restrict to items currently IN PO? 
+      // Let's create a global set of items for correct "Need" calculation.
+      const allItems = new Set<string>([...stockMap.keys(), ...soMap.keys(), ...items.map(i => i.itemName.toLowerCase().trim())]);
+      
+      let totalShortageVal = 0;
+      let totalShortageCount = 0;
+
+      const topExcessItems: any[] = [];
+      const topExpediteItems: any[] = [];
+      const topNeedItems: any[] = [];
+
+      allItems.forEach(itemKey => {
+          const stockQty = stockMap.get(itemKey) || 0;
+          const soQty = soMap.get(itemKey) || 0;
+          // Sum PO for this item
+          const itemPOs = items.filter(i => i.itemName.toLowerCase().trim() === itemKey);
+          const poQty = itemPOs.reduce((a,b) => a + b.balanceQty, 0);
+          // Rate Estimate (from PO or Stock)
+          const rate = itemPOs.length > 0 ? itemPOs[0].rate : (closingStockItems.find(s => s.description.toLowerCase().trim() === itemKey)?.rate || 0);
+
+          // Logic: Stock + PO - SO
+          const net = stockQty + poQty - soQty;
+
+          // 1. Need Place PO (Shortage) -> If Net < 0
+          if (net < 0) {
+              const shortageQty = Math.abs(net);
+              const val = shortageQty * rate;
+              totalShortageVal += val;
+              totalShortageCount++;
+              if (val > 0) topNeedItems.push({ label: itemKey, value: val });
+          }
+
+          // 2. Excess PO -> If (Stock + PO - SO) > 0 AND PO > 0
+          // Excess amount is the portion of PO that pushes Net > 0.
+          if (net > 0 && poQty > 0) {
+              // Excess is min(Net, PO). i.e. if Net is 10 and PO is 5, Excess is 5. If Net is 5 and PO is 10, Excess is 5.
+              const excessQty = Math.min(net, poQty);
+              const val = excessQty * rate;
+              excessVal += val;
+              excessCount++;
+              if (val > 0) topExcessItems.push({ label: itemKey, value: val });
+          }
+
+          // 3. Expedite PO -> If Stock < SO (Immediate Shortage) BUT Stock + PO >= SO (PO covers it)
+          // or Stock + PO is still < SO but PO exists (Partial Cover).
+          // Basically: There is a PO, and Stock < SO.
+          if (stockQty < soQty && poQty > 0) {
+              // The amount to expedite is the gap `SO - Stock`, capped by `PO`.
+              const gap = soQty - stockQty;
+              const expediteQty = Math.min(gap, poQty);
+              const val = expediteQty * rate;
+              expediteVal += val;
+              expediteCount++;
+              if (val > 0) topExpediteItems.push({ label: itemKey, value: val });
+          }
+      });
+
+      // PO Schedule Stats (Only iterate PO Items)
+      const today = new Date();
+      items.forEach(i => {
+          const val = (i.balanceQty || 0) * (i.rate || 0);
+          if (i.dueDate && new Date(i.dueDate) < today) dueVal += val;
+          else scheduledVal += val;
+      });
+
+      return {
+          schedule: { due: dueVal, scheduled: scheduledVal },
+          excess: { val: excessVal, count: excessCount, top: topExcessItems.sort((a,b) => b.value - a.value).slice(0, 10) },
+          need: { val: totalShortageVal, count: totalShortageCount, top: topNeedItems.sort((a,b) => b.value - a.value).slice(0, 10) },
+          expedite: { val: expediteVal, count: expediteCount, top: topExpediteItems.sort((a,b) => b.value - a.value).slice(0, 10) },
+          topAll: [...topExcessItems, ...topNeedItems, ...topExpediteItems].sort((a,b) => b.value - a.value).slice(0, 10) // Fallback list
+      };
+  }, [items, closingStockItems]);
+
   const handleDownloadTemplate = () => { const headers = [{ "Date": "2023-10-01", "Order": "PO-2023-901", "Party's Name": "Steel Supplies Co", "Name of Item": "Steel Rod 10mm", "Material Code": "RAW-STL", "Part No": "STL-10MM", "Ordered": 500, "Balance": 100, "Rate": 15.50, "Discount": 2, "Value": 1550.00, "Due on": "2023-10-20", "OverDue": 0 }]; const ws = utils.json_to_sheet(headers); const wb = utils.book_new(); utils.book_append_sheet(wb, ws, "Pending_PO_Template"); writeFile(wb, "Pending_PO_Template.xlsx"); };
   const handleExport = () => { if (items.length === 0) { alert("No data to export."); return; } const data = items.map(i => ({ "Date": formatDateDisplay(i.date), "Order": i.orderNo, "Party's Name": i.partyName, "Name of Item": i.itemName, "Material Code": i.materialCode, "Part No": i.partNo, "Ordered": i.orderedQty, "Balance": i.balanceQty, "Rate": i.rate, "Discount": i.discount, "Value": i.value, "Due on": formatDateDisplay(i.dueDate), "OverDue": i.overDueDays })); const ws = utils.json_to_sheet(data); const wb = utils.book_new(); utils.book_append_sheet(wb, ws, "Pending_PO"); writeFile(wb, "Pending_PO_Export.xlsx"); };
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -87,14 +267,42 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
 
   return (
     <div className="flex flex-col h-full gap-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 flex-shrink-0">
-          <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200"><p className="text-[10px] text-gray-500 font-medium uppercase mb-0.5">Total Ordered ({totals.uniqueOrderCount} Orders)</p><div className="flex flex-col"><span className="text-base font-bold text-blue-600">Qty: {totals.ordered.toLocaleString()}</span><span className="text-xs font-bold text-gray-800">{formatCurrency(totals.orderedValue)}</span></div></div>
-          <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200"><p className="text-[10px] text-gray-500 font-medium uppercase mb-0.5">Total Balance</p><div className="flex flex-col"><span className="text-base font-bold text-orange-600">Qty: {totals.balance.toLocaleString()}</span><span className="text-xs font-bold text-gray-800">{formatCurrency(totals.value)}</span></div></div>
+      {/* Dashboard Section */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex flex-col gap-4 flex-shrink-0">
+          <div className="flex items-center gap-2 mb-2">
+              <div className="bg-orange-100 p-1.5 rounded text-orange-700"><ShoppingCart className="w-4 h-4"/></div>
+              <h2 className="text-sm font-bold text-gray-800">PO Dashboard & Optimization</h2>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 h-32">
+              <ActionCard title="Need to Place PO" value={formatCurrency(optimizationStats.need.val)} count={optimizationStats.need.count} color="red" icon={AlertOctagon} />
+              <ActionCard title="Expedite PO" value={formatCurrency(optimizationStats.expedite.val)} count={optimizationStats.expedite.count} color="blue" icon={CheckCircle2} />
+              <ActionCard title="Excess PO" value={formatCurrency(optimizationStats.excess.val)} count={optimizationStats.excess.count} color="orange" icon={AlertTriangle} />
+              <div className="bg-white p-2 rounded-xl border border-gray-200 flex flex-col items-center">
+                  <SimpleDonut 
+                    title="PO Schedule" 
+                    data={[
+                        {label: 'Scheduled', value: optimizationStats.schedule.scheduled, color: '#3B82F6'}, 
+                        {label: 'Overdue', value: optimizationStats.schedule.due, color: '#EF4444'}
+                    ]} 
+                  />
+              </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-48 border-t border-gray-100 pt-3">
+              <HorizontalBar title="Top 10 Expedite (Value)" data={optimizationStats.expedite.top} color="blue" />
+              <HorizontalBar title="Top 10 Need Place (Shortage)" data={optimizationStats.need.top} color="red" />
+              <HorizontalBar title="Top 10 Excess PO (Surplus)" data={optimizationStats.excess.top} color="orange" />
+          </div>
       </div>
 
+      {/* Table Section */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 flex flex-col gap-3 flex-shrink-0">
          <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
-            <h2 className="text-sm font-semibold text-gray-800 flex items-center gap-2"><ShoppingCart className="w-4 h-4 text-orange-600" /> Pending PO Actions</h2>
+            <div className="flex gap-4 items-center">
+                <h2 className="text-sm font-semibold text-gray-800">Pending Order List</h2>
+                <div className="text-[10px] text-gray-500 bg-gray-50 px-2 py-1 rounded border border-gray-100">Total: {totals.uniqueOrderCount} Orders | Val: {formatCurrency(totals.value)}</div>
+            </div>
             <div className="flex flex-wrap gap-2">
                 <button onClick={handleExport} className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-50 border border-gray-200 shadow-sm"><FileDown className="w-3.5 h-3.5" /> Export All</button>
                 <button onClick={handleDownloadTemplate} className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-600 rounded-lg text-xs border hover:bg-gray-50 transition-colors"><Download className="w-3.5 h-3.5" /> Template</button>

@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Material, ClosingStockItem, PendingSOItem, PendingPOItem, SalesRecord, SalesReportItem, CustomerMasterItem } from '../types';
-import { TrendingUp, TrendingDown, Package, ClipboardList, ShoppingCart, Calendar, Filter, PieChart as PieIcon, BarChart3, Users, ArrowRight, Activity, DollarSign, ArrowUpRight, ArrowDownRight, RefreshCw, UserCircle, Minus, Plus, ChevronDown, ChevronUp, Link2Off, AlertTriangle, Layers, Clock, CheckCircle2, AlertCircle, User, Factory, Tag, ArrowLeft, BarChart4, Hourglass } from 'lucide-react';
+import { TrendingUp, TrendingDown, Package, ClipboardList, ShoppingCart, Calendar, Filter, PieChart as PieIcon, BarChart3, Users, ArrowRight, Activity, DollarSign, ArrowUpRight, ArrowDownRight, RefreshCw, UserCircle, Minus, Plus, ChevronDown, ChevronUp, Link2Off, AlertTriangle, Layers, Clock, CheckCircle2, AlertCircle, User, Factory, Tag, ArrowLeft, BarChart4, Hourglass, History } from 'lucide-react';
 
 interface DashboardViewProps {
   materials: Material[];
@@ -73,6 +73,22 @@ const SalesTrendChart = ({ data, maxVal }: { data: { labels: string[], series: a
       onMouseLeave={() => setHoverIndex(null)}
     >
       <div className="flex-1 relative min-h-0">
+         {/* Data Labels - Always Visible for Primary Series */}
+         {data.series.length > 0 && data.series[0].data.map((val: number, i: number) => {
+             if (val === 0) return null;
+             const x = (i / (data.labels.length - 1)) * 100;
+             const y = 100 - ((val / maxVal) * 100);
+             return (
+                 <div 
+                    key={i} 
+                    className="absolute text-[9px] font-bold text-blue-700 bg-white/80 backdrop-blur-sm px-1 rounded shadow-sm border border-blue-100 z-10 pointer-events-none transform -translate-x-1/2 -translate-y-[140%]"
+                    style={{ left: `${x}%`, top: `${y}%`, opacity: hoverIndex !== null && hoverIndex !== i ? 0.3 : 1 }}
+                 >
+                     {formatLargeValue(val, true)}
+                 </div>
+             );
+         })}
+
          {hoverIndex !== null && (
             <div 
               className="absolute z-20 bg-gray-900/95 backdrop-blur-md text-white text-[10px] p-3 rounded-xl shadow-2xl border border-gray-700 pointer-events-none transition-all duration-100 ease-out min-w-[140px]"
@@ -160,7 +176,7 @@ const InventoryToggle: React.FC<{ value: Metric; onChange: (m: Metric) => void; 
   </div>
 );
 
-const InteractiveDrillDownChart = ({ hierarchyData, metric }: { hierarchyData: any[], metric: Metric }) => {
+const InteractiveDrillDownChart = ({ hierarchyData, metric, totalValue }: { hierarchyData: any[], metric: Metric, totalValue: number }) => {
     const [view, setView] = useState<'MAKE' | 'GROUP'>('MAKE');
     const [selectedMake, setSelectedMake] = useState<string | null>(null);
     const [animationKey, setAnimationKey] = useState(0);
@@ -205,7 +221,12 @@ const InteractiveDrillDownChart = ({ hierarchyData, metric }: { hierarchyData: a
                     <div key={i} className={`group flex flex-col gap-1 ${view === 'MAKE' ? 'cursor-pointer' : ''}`} onClick={() => handleBarClick(item.id)}>
                         <div className="flex justify-between items-end text-[10px]">
                             <span className={`font-medium truncate w-3/4 transition-colors ${view === 'MAKE' ? 'text-gray-700 group-hover:text-blue-600' : 'text-gray-600'}`}>{item.label}</span>
-                            <span className="font-bold text-gray-900">{metric === 'value' ? formatLargeValue(item.value, true) : item.value.toLocaleString()}</span>
+                            <div className="flex gap-2">
+                                <span className="text-gray-500 font-medium">
+                                    {totalValue > 0 ? ((item.value / totalValue) * 100).toFixed(1) + '%' : '0%'}
+                                </span>
+                                <span className="font-bold text-gray-900">{metric === 'value' ? formatLargeValue(item.value, true) : item.value.toLocaleString()}</span>
+                            </div>
                         </div>
                         <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden relative">
                             <div className="h-full rounded-full transition-all duration-700 ease-out" style={{ width: `${(item.value / maxVal) * 100}%`, backgroundColor: item.color }}></div>
@@ -462,6 +483,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   const [invSelectedMake, setInvSelectedMake] = useState<string>('ALL');
   const [showMakeInTop10, setShowMakeInTop10] = useState<boolean>(false);
   const [abcTab, setAbcTab] = useState<'A' | 'B' | 'C'>('A');
+  const [showNonMoving, setShowNonMoving] = useState<boolean>(false);
 
   const [soFilterMake, setSoFilterMake] = useState<string>('ALL');
   const [soFilterGroup, setSoFilterGroup] = useState<string>('ALL');
@@ -630,8 +652,34 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   };
 
   const enrichedStock = useMemo(() => {
-    return closingStock.map(item => { const itemDesc = item.description.toLowerCase().trim(); const mat = materials.find(m => m.description.toLowerCase().trim() === itemDesc); return { ...item, make: mat ? mat.make : 'Unspecified', group: mat ? mat.materialGroup : 'Unspecified', isLinked: !!mat }; });
-  }, [closingStock, materials]);
+    const lastSaleMap = new Map<string, number>();
+    salesReportItems.forEach(s => {
+        const key = s.particulars.toLowerCase().trim();
+        const date = parseDate(s.date).getTime();
+        const current = lastSaleMap.get(key) || 0;
+        if(date > current) lastSaleMap.set(key, date);
+    });
+
+    const now = Date.now();
+    const SIXTY_DAYS_MS = 60 * 24 * 60 * 60 * 1000;
+
+    return closingStock.map(item => { 
+        const itemDesc = item.description.toLowerCase().trim(); 
+        const mat = materials.find(m => m.description.toLowerCase().trim() === itemDesc); 
+        const lastSaleDate = lastSaleMap.get(itemDesc);
+        const daysSinceLastSale = lastSaleDate ? Math.floor((now - lastSaleDate) / (24 * 60 * 60 * 1000)) : 9999;
+        const isNonMoving = daysSinceLastSale > 60;
+
+        return { 
+            ...item, 
+            make: mat ? mat.make : 'Unspecified', 
+            group: mat ? mat.materialGroup : 'Unspecified', 
+            isLinked: !!mat,
+            isNonMoving,
+            daysSinceLastSale
+        }; 
+    });
+  }, [closingStock, materials, salesReportItems]);
 
   const inventoryUniqueMakes = useMemo(() => {
      const makes = new Set(enrichedStock.map(i => i.make));
@@ -640,9 +688,15 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   }, [enrichedStock]);
 
   const filteredStock = useMemo(() => {
-      if (invSelectedMake === 'ALL') return enrichedStock;
-      return enrichedStock.filter(i => i.make === invSelectedMake);
-  }, [enrichedStock, invSelectedMake]);
+      let data = enrichedStock;
+      if (invSelectedMake !== 'ALL') {
+          data = data.filter(i => i.make === invSelectedMake);
+      }
+      if (showNonMoving) {
+          data = data.filter(i => i.isNonMoving);
+      }
+      return data;
+  }, [enrichedStock, invSelectedMake, showNonMoving]);
 
   const inventoryStats = useMemo(() => {
     const data = filteredStock; 
@@ -816,7 +870,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({
               </div>
           )}
           {activeSubTab === 'inventory' && (
-              <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto"><div className="flex items-center gap-1.5"><Filter className="w-3.5 h-3.5 text-gray-500" /><span className="text-[10px] text-gray-500 font-bold uppercase hidden md:inline">Filter Make:</span><select value={invSelectedMake} onChange={e => setInvSelectedMake(e.target.value)} className="bg-white border border-gray-300 text-xs rounded-md px-2 py-1.5 font-medium outline-none focus:ring-2 focus:ring-blue-500 min-w-[120px]">{inventoryUniqueMakes.map(m => <option key={m} value={m}>{m}</option>)}</select></div></div>
+              <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
+                  <div className="flex items-center gap-1.5"><Filter className="w-3.5 h-3.5 text-gray-500" /><span className="text-[10px] text-gray-500 font-bold uppercase hidden md:inline">Filter Make:</span><select value={invSelectedMake} onChange={e => setInvSelectedMake(e.target.value)} className="bg-white border border-gray-300 text-xs rounded-md px-2 py-1.5 font-medium outline-none focus:ring-2 focus:ring-blue-500 min-w-[120px]">{inventoryUniqueMakes.map(m => <option key={m} value={m}>{m}</option>)}</select></div>
+                  <button onClick={() => setShowNonMoving(!showNonMoving)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase border transition-all ${showNonMoving ? 'bg-red-50 text-red-700 border-red-200' : 'bg-white text-gray-500 border-gray-300 hover:bg-gray-50'}`}><History className="w-3.5 h-3.5" /> Show Non-Moving (>60 Days)</button>
+              </div>
           )}
           {activeSubTab === 'so' && (
               <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
@@ -855,13 +912,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                  </div>
                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:h-96">
                       <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col"><div className="flex justify-between items-center mb-2"><h4 className="text-xs font-bold text-gray-700 flex items-center gap-2"><BarChart4 className="w-4 h-4 text-indigo-600"/> ABC Analysis</h4></div><div className="flex-1 min-h-0"><ABCAnalysisChart data={inventoryStats.abcData} /></div><div className="mt-2 text-[9px] text-center text-gray-400">Class A (Top 70%), B (Next 20%), C (Bottom 10%) by Value</div></div>
-                      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col relative overflow-hidden"><div className="flex justify-between items-center mb-2"><h4 className="text-xs font-bold text-gray-700 flex items-center gap-2"><Layers className="w-4 h-4 text-blue-600"/> Stock Composition</h4><InventoryToggle value={invGroupMetric} onChange={setInvGroupMetric} colorClass="text-blue-700" /></div><InteractiveDrillDownChart hierarchyData={inventoryStats.hierarchy} metric={invGroupMetric} /></div>
-                      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col"><div className="flex justify-between items-center mb-2"><div className="flex items-center gap-2"><h4 className="text-xs font-bold text-gray-700">Top 10 Articles</h4><button onClick={() => setShowMakeInTop10(!showMakeInTop10)} className={`p-1 rounded transition-colors ${showMakeInTop10 ? 'bg-emerald-100 text-emerald-700' : 'text-gray-400 hover:bg-gray-100'}`} title="Toggle Make visibility"><Tag className="w-3 h-3" /></button></div><InventoryToggle value={invTopMetric} onChange={setInvTopMetric} colorClass="text-emerald-700" /></div><div className="flex-1 overflow-y-auto custom-scrollbar pr-1 space-y-3">{inventoryStats.topArticles.map((a, i) => (<div key={i} className="flex items-center gap-2"><span className="w-5 h-5 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center text-[10px] font-bold shrink-0">{i+1}</span><div className="flex-1 min-w-0"><div className="flex items-baseline justify-between"><p className="text-[10px] font-medium text-gray-800 truncate flex-1" title={a.label}>{a.label}</p>{showMakeInTop10 && <span className="text-[9px] text-gray-400 ml-2 italic shrink-0">{a.make}</span>}</div><div className="w-full bg-gray-100 h-1 rounded-full mt-1"><div className="bg-emerald-500 h-full rounded-full" style={{ width: `${(a.value / (inventoryStats.topArticles[0]?.value || 1)) * 100}%` }}></div></div></div><span className="text-[10px] font-bold text-gray-900">{inventoryStats.formatVal(a.value, invTopMetric)}</span></div>))}</div></div>
+                      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col relative overflow-hidden"><div className="flex justify-between items-center mb-2"><h4 className="text-xs font-bold text-gray-700 flex items-center gap-2"><Layers className="w-4 h-4 text-blue-600"/> Stock Composition {showNonMoving && <span className="text-[9px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded ml-1">Non-Moving Only</span>}</h4><InventoryToggle value={invGroupMetric} onChange={setInvGroupMetric} colorClass="text-blue-700" /></div><InteractiveDrillDownChart hierarchyData={inventoryStats.hierarchy} metric={invGroupMetric} totalValue={inventoryStats.totalVal} /></div>
+                      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col"><div className="flex justify-between items-center mb-2"><div className="flex items-center gap-2"><h4 className="text-xs font-bold text-gray-700">Top 10 Articles</h4><button onClick={() => setShowMakeInTop10(!showMakeInTop10)} className={`p-1 rounded transition-colors ${showMakeInTop10 ? 'bg-emerald-100 text-emerald-700' : 'text-gray-400 hover:bg-gray-100'}`} title="Toggle Make visibility"><Tag className="w-3 h-3" /></button></div><InventoryToggle value={invTopMetric} onChange={setInvTopMetric} colorClass="text-emerald-700" /></div><div className="flex-1 overflow-y-auto custom-scrollbar pr-1 space-y-3">{inventoryStats.topArticles.map((a, i) => (<div key={i} className="flex items-center gap-2"><span className="w-5 h-5 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center text-[10px] font-bold shrink-0">{i+1}</span><div className="flex-1 min-w-0"><div className="flex items-baseline justify-between"><p className="text-[10px] font-medium text-gray-800 truncate flex-1" title={a.label}>{a.label}</p>{showMakeInTop10 && <span className="text-[9px] text-gray-400 ml-2 italic shrink-0">{a.make}</span>}</div><div className="w-full bg-gray-100 h-1 rounded-full mt-1"><div className="bg-emerald-500 h-full rounded-full" style={{ width: `${(a.value / (inventoryStats.topArticles[0]?.value || 1)) * 100}%` }}></div></div></div><div className="flex flex-col items-end"><span className="text-[10px] font-bold text-gray-900">{inventoryStats.formatVal(a.value, invTopMetric)}</span>{showNonMoving && <span className="text-[9px] text-gray-400">{((a.value / inventoryStats.totalVal) * 100).toFixed(1)}%</span>}</div></div>))}</div></div>
                  </div>
                  <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col h-48"><div className="flex justify-between items-center mb-1"><h4 className="text-xs font-bold text-gray-700">Stock Value Distribution (Item Count)</h4></div><div className="flex-1 min-h-0"><ValueDistributionChart data={inventoryStats.distData} /></div></div>
                  
                  <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col">
-                    <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2 mb-2"><BarChart4 className="w-4 h-4 text-indigo-600"/> ABC Classification Details</h3>
+                    <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2 mb-2"><BarChart4 className="w-4 h-4 text-indigo-600"/> ABC Classification Details {showNonMoving && "(Non-Moving Only)"}</h3>
                     <div className="text-[10px] text-gray-500 bg-gray-50 p-2 rounded mb-3 border border-gray-100">
                         <strong>Basis: </strong> 
                         <span className="text-emerald-700 font-bold px-1">Class A</span> (Top 70% Value), 
@@ -888,6 +945,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                     <th className="py-2 px-3">Make</th>
                                     <th className="py-2 px-3 text-right">Qty</th>
                                     <th className="py-2 px-3 text-right">Value</th>
+                                    {showNonMoving && <th className="py-2 px-3 text-right">Last Billed</th>}
                                 </tr>
                             </thead>
                             <tbody className="text-xs divide-y divide-gray-100">
@@ -897,10 +955,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                         <td className="py-1.5 px-3 text-gray-500">{item.make}</td>
                                         <td className="py-1.5 px-3 text-right text-gray-600">{item.quantity}</td>
                                         <td className="py-1.5 px-3 text-right font-medium text-gray-900">{formatLargeValue(item.value)}</td>
+                                        {showNonMoving && <td className="py-1.5 px-3 text-right text-red-500">{item.daysSinceLastSale > 365 ? '> 1 Year' : item.daysSinceLastSale + ' Days'}</td>}
                                     </tr>
                                 ))}
                                 {inventoryStats.abcLists[abcTab].length === 0 && (
-                                    <tr><td colSpan={4} className="py-4 text-center text-gray-400 text-xs">No items in this class.</td></tr>
+                                    <tr><td colSpan={showNonMoving ? 5 : 4} className="py-4 text-center text-gray-400 text-xs">No items in this class.</td></tr>
                                 )}
                             </tbody>
                         </table>
