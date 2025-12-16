@@ -872,7 +872,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
           {activeSubTab === 'inventory' && (
               <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
                   <div className="flex items-center gap-1.5"><Filter className="w-3.5 h-3.5 text-gray-500" /><span className="text-[10px] text-gray-500 font-bold uppercase hidden md:inline">Filter Make:</span><select value={invSelectedMake} onChange={e => setInvSelectedMake(e.target.value)} className="bg-white border border-gray-300 text-xs rounded-md px-2 py-1.5 font-medium outline-none focus:ring-2 focus:ring-blue-500 min-w-[120px]">{inventoryUniqueMakes.map(m => <option key={m} value={m}>{m}</option>)}</select></div>
-                  <button onClick={() => setShowNonMoving(!showNonMoving)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase border transition-all ${showNonMoving ? 'bg-red-50 text-red-700 border-red-200' : 'bg-white text-gray-500 border-gray-300 hover:bg-gray-50'}`}><History className="w-3.5 h-3.5" /> Show Non-Moving (>60 Days)</button>
+                  <button onClick={() => setShowNonMoving(!showNonMoving)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase border transition-all ${showNonMoving ? 'bg-red-50 text-red-700 border-red-200' : 'bg-white text-gray-500 border-gray-300 hover:bg-gray-50'}`}><History className="w-3.5 h-3.5" /> Show Non-Moving (&gt;60 Days)</button>
               </div>
           )}
           {activeSubTab === 'so' && (
