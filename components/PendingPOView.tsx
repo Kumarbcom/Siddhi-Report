@@ -61,22 +61,22 @@ const SimpleDonut = ({ data, title }: { data: {label: string, value: number, col
 const HorizontalBar = ({ data, title, color }: { data: { label: string, value: number }[], title: string, color: string }) => {
     const maxVal = Math.max(...data.map(d => d.value), 1);
     return (
-        <div className="flex flex-col h-full">
-            <h4 className="text-[10px] font-bold text-gray-500 uppercase mb-2">{title}</h4>
-            <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 space-y-1.5">
-                {data.map((item, i) => (
-                    <div key={i} className="flex items-center gap-2 text-[9px]">
-                        <div className="flex-1 min-w-0">
-                            <div className="flex justify-between mb-0.5">
-                                <span className="truncate text-gray-600 font-medium" title={item.label}>{item.label}</span>
-                                <span className="font-bold text-gray-800">{Math.round(item.value).toLocaleString()}</span>
+        <div className="flex flex-col h-full w-full">
+            <h4 className="text-[11px] font-bold text-gray-600 uppercase mb-3 border-b border-gray-100 pb-1">{title}</h4>
+            <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
+                <div className="flex flex-col gap-3">
+                    {data.map((item, i) => (
+                        <div key={i} className="flex flex-col gap-1">
+                            <div className="flex justify-between items-end text-[10px]">
+                                <span className="truncate text-gray-700 font-medium max-w-[70%]" title={item.label}>{item.label}</span>
+                                <span className="font-bold text-gray-900">{Math.round(item.value).toLocaleString()}</span>
                             </div>
                             <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
                                 <div className={`h-full rounded-full bg-${color}-500`} style={{ width: `${(item.value / maxVal) * 100}%` }}></div>
                             </div>
                         </div>
-                    </div>
-                ))}
+                    ))}
+                </div>
             </div>
         </div>
     );
@@ -289,7 +289,7 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
               </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-48 border-t border-gray-100 pt-3">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-80 border-t border-gray-100 pt-3">
               <HorizontalBar title="Top 10 Expedite (Value)" data={optimizationStats.expedite.top} color="blue" />
               <HorizontalBar title="Top 10 Need Place (Shortage)" data={optimizationStats.need.top} color="red" />
               <HorizontalBar title="Top 10 Excess PO (Surplus)" data={optimizationStats.excess.top} color="orange" />

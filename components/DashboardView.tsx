@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Material, ClosingStockItem, PendingSOItem, PendingPOItem, SalesRecord, SalesReportItem, CustomerMasterItem } from '../types';
-import { TrendingUp, TrendingDown, Package, ClipboardList, ShoppingCart, Calendar, Filter, PieChart as PieIcon, BarChart3, Users, ArrowRight, Activity, DollarSign, ArrowUpRight, ArrowDownRight, RefreshCw, UserCircle, Minus, Plus, ChevronDown, ChevronUp, Link2Off, AlertTriangle, Layers, Clock, CheckCircle2, AlertCircle, User, Factory, Tag, ArrowLeft, BarChart4, Hourglass, History } from 'lucide-react';
+import { TrendingUp, TrendingDown, Package, ClipboardList, ShoppingCart, Calendar, Filter, PieChart as PieIcon, BarChart3, Users, ArrowRight, Activity, DollarSign, ArrowUpRight, ArrowDownRight, RefreshCw, UserCircle, Minus, Plus, ChevronDown, ChevronUp, Link2Off, AlertTriangle, Layers, Clock, CheckCircle2, AlertCircle, User, Factory, Tag, ArrowLeft, BarChart4, Hourglass, History, AlertOctagon } from 'lucide-react';
 
 interface DashboardViewProps {
   materials: Material[];
@@ -180,7 +180,6 @@ const SalesTrendChart = ({ data, maxVal }: { data: { labels: string[], series: a
   );
 };
 
-// ... (Other sub-components unchanged) ...
 const InventoryToggle: React.FC<{ value: Metric; onChange: (m: Metric) => void; colorClass: string }> = ({ value, onChange, colorClass }) => (
   <div className="flex bg-gray-100 p-0.5 rounded-md border border-gray-200">
     <button onClick={() => onChange('quantity')} className={`px-2 py-0.5 text-[9px] font-semibold rounded transition-all ${value === 'quantity' ? `bg-white shadow-sm ${colorClass}` : 'text-gray-500 hover:text-gray-700'}`}>Qty</button>
@@ -355,25 +354,25 @@ const AgingBarChart = ({ data }: { data: { label: string; value: number }[] }) =
 };
 
 const HorizontalBarChart = ({ data, title, color }: { data: { label: string; value: number }[], title: string, color: string }) => {
-    const sorted = [...data].sort((a,b) => b.value - a.value).slice(0, 8);
+    const sorted = [...data].sort((a,b) => b.value - a.value).slice(0, 10);
     const maxVal = sorted[0]?.value || 1;
     return (
-        <div className="flex flex-col h-full">
-            <h4 className="text-[10px] font-bold text-gray-500 uppercase mb-2">{title}</h4>
-            <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 space-y-1.5">
-                {sorted.map((item, i) => (
-                    <div key={i} className="flex items-center gap-2 text-[9px]">
-                        <div className="flex-1 min-w-0">
-                            <div className="flex justify-between mb-0.5">
-                                <span className="truncate text-gray-600 font-medium" title={item.label}>{item.label}</span>
-                                <span className="font-bold text-gray-800">{formatLargeValue(item.value, true)}</span>
+        <div className="flex flex-col h-full w-full">
+            <h4 className="text-[11px] font-bold text-gray-600 uppercase mb-3 border-b border-gray-100 pb-1">{title}</h4>
+            <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
+                <div className="flex flex-col gap-3">
+                    {sorted.map((item, i) => (
+                        <div key={i} className="flex flex-col gap-1">
+                            <div className="flex justify-between items-end text-[10px]">
+                                <span className="truncate text-gray-700 font-medium max-w-[70%]" title={item.label}>{item.label}</span>
+                                <span className="font-bold text-gray-900">{formatLargeValue(item.value, true)}</span>
                             </div>
                             <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
                                 <div className={`h-full rounded-full bg-${color}-500`} style={{ width: `${(item.value / maxVal) * 100}%` }}></div>
                             </div>
                         </div>
-                    </div>
-                ))}
+                    ))}
+                </div>
             </div>
         </div>
     );
@@ -397,7 +396,7 @@ const DeliveryScheduleChart = ({ data }: { data: { label: string; value: number 
     );
 };
 
-const SimpleDonut = ({ data, title, color }: { data: {label: string, value: number}[], title: string, color: string }) => {
+const SimpleDonut = ({ data, title, color }: { data: {label: string, value: number, color?: string}[], title: string, color: string }) => {
      if(data.length === 0) return <div className="h-32 flex items-center justify-center text-gray-400 text-xs">No Data</div>;
      const total = data.reduce((a,b) => a+b.value, 0);
      let cumPercent = 0;
@@ -414,14 +413,14 @@ const SimpleDonut = ({ data, title, color }: { data: {label: string, value: numb
                 <div className="w-20 h-20 relative flex-shrink-0">
                    <svg viewBox="-1 -1 2 2" className="transform -rotate-90 w-full h-full">
                       {displayData.map((slice, i) => {
-                          const percent = slice.value / total;
+                          const percent = slice.value / (total || 1);
                           const startX = Math.cos(2 * Math.PI * cumPercent);
                           const startY = Math.sin(2 * Math.PI * cumPercent);
                           cumPercent += percent;
                           const endX = Math.cos(2 * Math.PI * cumPercent);
                           const endY = Math.sin(2 * Math.PI * cumPercent);
                           const largeArc = percent > 0.5 ? 1 : 0;
-                          const sliceColor = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#9CA3AF'][i % 6];
+                          const sliceColor = slice.color || ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#9CA3AF'][i % 6];
                           return ( <path key={i} d={`M ${startX} ${startY} A 1 1 0 ${largeArc} 1 ${endX} ${endY} L 0 0`} fill={sliceColor} stroke="white" strokeWidth="0.05" /> );
                       })}
                       <circle cx="0" cy="0" r="0.6" fill="white" />
@@ -434,7 +433,7 @@ const SimpleDonut = ({ data, title, color }: { data: {label: string, value: numb
                     {displayData.map((d, i) => (
                         <div key={i} className="flex justify-between items-center mb-1">
                              <div className="flex items-center gap-1.5 truncate flex-1 min-w-0">
-                                <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{backgroundColor: ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#9CA3AF'][i % 6]}}></div>
+                                <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{backgroundColor: d.color || ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#9CA3AF'][i % 6]}}></div>
                                 <span className="text-gray-600 truncate" title={d.label}>{d.label}</span>
                              </div>
                              <span className="font-bold text-gray-800 whitespace-nowrap ml-2">{formatLargeValue(d.value, true)}</span>
@@ -445,6 +444,19 @@ const SimpleDonut = ({ data, title, color }: { data: {label: string, value: numb
         </div>
      );
 };
+
+const ActionCard = ({ title, value, count, color, icon: Icon }: any) => (
+    <div className={`bg-${color}-50 p-4 rounded-xl border border-${color}-200 flex flex-col justify-between h-full shadow-sm`}>
+        <div className="flex justify-between items-start">
+            <p className={`text-[10px] font-bold text-${color}-700 uppercase tracking-wider`}>{title}</p>
+            <div className={`bg-white p-1.5 rounded-full shadow-sm border border-${color}-100`}><Icon className={`w-4 h-4 text-${color}-600`} /></div>
+        </div>
+        <div className="mt-2">
+            <h3 className={`text-xl font-extrabold text-${color}-900`}>{value}</h3>
+            <p className={`text-[10px] text-${color}-600 font-medium mt-0.5`}>{count} Items</p>
+        </div>
+    </div>
+);
 
 const DashboardView: React.FC<DashboardViewProps> = ({
   materials,
@@ -843,6 +855,125 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   const formatCurrency = (val: number) => formatLargeValue(val);
   const formatCompactNumber = (val: number) => formatLargeValue(val, true);
 
+  // --- PO DASHBOARD STATS ---
+  const poStats = useMemo(() => {
+      const stockMap = new Map<string, number>();
+      closingStock.forEach(i => stockMap.set(i.description.toLowerCase().trim(), (stockMap.get(i.description.toLowerCase().trim()) || 0) + i.quantity));
+      
+      const soMap = new Map<string, number>();
+      pendingSO.forEach(i => soMap.set(i.itemName.toLowerCase().trim(), (soMap.get(i.itemName.toLowerCase().trim()) || 0) + i.balanceQty));
+
+      let scheduledVal = 0;
+      let dueVal = 0;
+      let excessVal = 0;
+      let excessCount = 0;
+      let expediteVal = 0;
+      let expediteCount = 0;
+      let totalShortageVal = 0;
+      let totalShortageCount = 0;
+      let totalPOValue = 0;
+
+      const topExcessItems: any[] = [];
+      const topExpediteItems: any[] = [];
+      const topNeedItems: any[] = [];
+
+      const allItems = new Set<string>([...stockMap.keys(), ...soMap.keys(), ...pendingPO.map(i => i.itemName.toLowerCase().trim())]);
+      const today = new Date();
+
+      // Scheduled vs Due Val Calculation from POs
+      pendingPO.forEach(i => {
+          const val = (i.balanceQty || 0) * (i.rate || 0);
+          totalPOValue += val;
+          if (i.dueDate && new Date(i.dueDate) < today) dueVal += val;
+          else scheduledVal += val;
+      });
+
+      allItems.forEach(itemKey => {
+          const stockQty = stockMap.get(itemKey) || 0;
+          const soQty = soMap.get(itemKey) || 0;
+          const itemPOs = pendingPO.filter(i => i.itemName.toLowerCase().trim() === itemKey);
+          const poQty = itemPOs.reduce((a,b) => a + b.balanceQty, 0);
+          const rate = itemPOs.length > 0 ? itemPOs[0].rate : (closingStock.find(s => s.description.toLowerCase().trim() === itemKey)?.rate || 0);
+
+          const net = stockQty + poQty - soQty;
+
+          // Need Place PO
+          if (net < 0) {
+              const shortageQty = Math.abs(net);
+              const val = shortageQty * rate;
+              totalShortageVal += val;
+              totalShortageCount++;
+              if (val > 0) topNeedItems.push({ label: itemKey, value: val });
+          }
+
+          // Excess PO
+          if (net > 0 && poQty > 0) {
+              const excessQty = Math.min(net, poQty);
+              const val = excessQty * rate;
+              excessVal += val;
+              excessCount++;
+              if (val > 0) topExcessItems.push({ label: itemKey, value: val });
+          }
+
+          // Expedite PO
+          if (stockQty < soQty && poQty > 0) {
+              const gap = soQty - stockQty;
+              const expediteQty = Math.min(gap, poQty);
+              const val = expediteQty * rate;
+              expediteVal += val;
+              expediteCount++;
+              if (val > 0) topExpediteItems.push({ label: itemKey, value: val });
+          }
+      });
+
+      return {
+          totalVal: totalPOValue,
+          count: pendingPO.length,
+          schedule: { due: dueVal, scheduled: scheduledVal },
+          excess: { val: excessVal, count: excessCount, top: topExcessItems.sort((a,b) => b.value - a.value).slice(0, 10) },
+          need: { val: totalShortageVal, count: totalShortageCount, top: topNeedItems.sort((a,b) => b.value - a.value).slice(0, 10) },
+          expedite: { val: expediteVal, count: expediteCount, top: topExpediteItems.sort((a,b) => b.value - a.value).slice(0, 10) }
+      };
+  }, [pendingPO, closingStock, pendingSO]);
+
+  const ActionCard = ({ title, value, count, color, icon: Icon }: any) => (
+    <div className={`bg-${color}-50 p-4 rounded-xl border border-${color}-200 flex flex-col justify-between h-full shadow-sm`}>
+        <div className="flex justify-between items-start">
+            <p className={`text-[10px] font-bold text-${color}-700 uppercase tracking-wider`}>{title}</p>
+            <div className={`bg-white p-1.5 rounded-full shadow-sm border border-${color}-100`}><Icon className={`w-4 h-4 text-${color}-600`} /></div>
+        </div>
+        <div className="mt-2">
+            <h3 className={`text-xl font-extrabold text-${color}-900`}>{value}</h3>
+            <p className={`text-[10px] text-${color}-600 font-medium mt-0.5`}>{count} Items</p>
+        </div>
+    </div>
+  );
+
+  const HorizontalBarChart = ({ data, title, color }: { data: { label: string; value: number }[], title: string, color: string }) => {
+    const sorted = [...data].sort((a,b) => b.value - a.value).slice(0, 10);
+    const maxVal = sorted[0]?.value || 1;
+    return (
+        <div className="flex flex-col h-full w-full">
+            <h4 className="text-[11px] font-bold text-gray-600 uppercase mb-3 border-b border-gray-100 pb-1">{title}</h4>
+            <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
+                <div className="flex flex-col gap-3">
+                    {sorted.map((item, i) => (
+                        <div key={i} className="flex flex-col gap-1">
+                            <div className="flex justify-between items-end text-[10px]">
+                                <span className="truncate text-gray-700 font-medium max-w-[70%]" title={item.label}>{item.label}</span>
+                                <span className="font-bold text-gray-900">{formatLargeValue(item.value, true)}</span>
+                            </div>
+                            <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                                <div className={`h-full rounded-full bg-${color}-500`} style={{ width: `${(item.value / maxVal) * 100}%` }}></div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+  };
+
   return (
     <div className="h-full w-full flex flex-col bg-gray-50/50 overflow-hidden">
       <div className="bg-white border-b border-gray-200 px-4 py-3 flex flex-col xl:flex-row gap-4 items-start xl:items-center justify-between flex-shrink-0 shadow-sm z-10">
@@ -983,7 +1114,40 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
         ) : (
             <div className="flex flex-col gap-4">
-                <div className="bg-blue-50 border border-blue-200 rounded-xl p-8 text-center"><ShoppingCart className="w-12 h-12 text-blue-300 mx-auto mb-3" /><h3 className="text-lg font-bold text-blue-900">Purchase Orders Overview</h3><p className="text-sm text-blue-600 mb-6"> {pendingPO.length} Pending Orders</p><div className="flex justify-center gap-8"><div className="text-center"><p className="text-xs uppercase font-bold text-blue-400">Total Ordered</p><p className="text-2xl font-bold text-blue-800">{pendingPO.reduce((acc, i) => acc + (i.orderedQty || 0), 0).toLocaleString()}</p></div><div className="text-center"><p className="text-xs uppercase font-bold text-blue-400">Pending Qty</p><p className="text-2xl font-bold text-blue-800">{pendingPO.reduce((acc, i) => acc + (i.balanceQty || 0), 0).toLocaleString()}</p></div><div className="text-center"><p className="text-xs uppercase font-bold text-blue-400">Pending Value</p><p className="text-2xl font-bold text-blue-800">{formatCurrency(pendingPO.reduce((acc, i) => acc + ((i.balanceQty || 0) * (i.rate || 0)), 0))}</p></div></div></div>
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex flex-col gap-4 flex-shrink-0">
+                    <div className="flex items-center gap-2 mb-2">
+                        <div className="bg-blue-100 p-1.5 rounded text-blue-700"><ShoppingCart className="w-4 h-4"/></div>
+                        <h2 className="text-sm font-bold text-gray-800">PO Optimization & Analysis</h2>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 h-32">
+                        <ActionCard title="Need to Place PO" value={formatCurrency(poStats.need.val)} count={poStats.need.count} color="red" icon={AlertOctagon} />
+                        <ActionCard title="Expedite PO" value={formatCurrency(poStats.expedite.val)} count={poStats.expedite.count} color="blue" icon={CheckCircle2} />
+                        <ActionCard title="Excess PO" value={formatCurrency(poStats.excess.val)} count={poStats.excess.count} color="orange" icon={AlertTriangle} />
+                        <div className="bg-white p-2 rounded-xl border border-gray-200 flex flex-col items-center shadow-sm">
+                            <SimpleDonut 
+                                title="PO Schedule" 
+                                data={[
+                                    {label: 'Scheduled', value: poStats.schedule.scheduled, color: '#3B82F6'}, 
+                                    {label: 'Overdue', value: poStats.schedule.due, color: '#EF4444'}
+                                ]} 
+                                color="blue"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-80 border-t border-gray-100 pt-3">
+                        <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex flex-col">
+                            <HorizontalBarChart title="Top 10 Expedite (Value)" data={poStats.expedite.top} color="blue" />
+                        </div>
+                        <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex flex-col">
+                            <HorizontalBarChart title="Top 10 Need Place (Shortage)" data={poStats.need.top} color="red" />
+                        </div>
+                        <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex flex-col">
+                            <HorizontalBarChart title="Top 10 Excess PO (Surplus)" data={poStats.excess.top} color="orange" />
+                        </div>
+                    </div>
+                </div>
             </div>
         )}
       </div>
