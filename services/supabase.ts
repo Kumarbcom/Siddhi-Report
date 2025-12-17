@@ -1,11 +1,13 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// These should be replaced with your actual project URL and Anon Key from Supabase Dashboard
-const supabaseUrl = process.env.SUPABASE_URL || 'https://placeholder.supabase.co';
-const supabaseKey = process.env.SUPABASE_KEY || 'placeholder-key';
+// Configuration from user request
+const supabaseUrl = 'https://lgxzqobcabiatqoklyuc.supabase.co';
+// WARNING: Using the secret key on the client side is insecure. 
+// Ideally, use the ANON PUBLIC KEY (usually starts with 'ey...') for client-side operations.
+// We are using the provided 'sb_publishable' key here as requested.
+const supabaseKey = 'sb_publishable_sVtiXZDvmU1g6O9V0mahDg_bJ0o94iI';
 
-// Create a client with a configuration that avoids throwing errors immediately if URL is invalid
 export const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
     persistSession: true,

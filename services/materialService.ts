@@ -5,33 +5,52 @@ import { Material, MaterialFormData } from '../types';
 const LOCAL_STORAGE_KEY = 'material_master_db_v1';
 
 export const materialService = {
-  // Fetch all materials
+  // Fetch all materials (with batching for >1000 records)
   async getAll(): Promise<Material[]> {
     let dbData: Material[] = [];
     let useLocal = false;
 
     try {
-      const { data, error } = await supabase
-        .from('materials')
-        .select('*')
-        .order('created_at', { ascending: false });
+      let hasMore = true;
+      let page = 0;
+      const pageSize = 1000;
 
-      if (error) {
-        // Log detailed error for debugging, then fall back
-        console.warn('Supabase fetch failed (Using Local Storage):', error.message);
-        useLocal = true;
-      } else {
-        dbData = (data || []).map((row: any) => ({
-          id: row.id,
-          description: row.description,
-          partNo: row.part_no,
-          make: row.make,
-          materialGroup: row.material_group,
-          createdAt: Number(row.created_at)
-        }));
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from('material_master')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .range(page * pageSize, (page + 1) * pageSize - 1);
+
+        if (error) {
+          console.warn('Supabase fetch failed:', error.message);
+          useLocal = true;
+          break;
+        }
+
+        if (data && data.length > 0) {
+          const mapped = data.map((row: any) => ({
+            id: row.id,
+            description: row.description,
+            partNo: row.part_no,
+            make: row.make,
+            materialGroup: row.material_group,
+            createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now()
+          }));
+          
+          // Use push for better memory performance on large arrays than spread
+          mapped.forEach((m: Material) => dbData.push(m));
+
+          if (data.length < pageSize) {
+            hasMore = false;
+          } else {
+            page++;
+          }
+        } else {
+          hasMore = false;
+        }
       }
     } catch (e) {
-      // This catches network errors or invalid URL configuration
       console.warn('Supabase connection error (Using Local Storage).');
       useLocal = true;
     }
@@ -62,17 +81,19 @@ export const materialService = {
           part_no: m.partNo,
           make: m.make,
           material_group: m.materialGroup,
-          created_at: m.createdAt
+          created_at: new Date(m.createdAt).toISOString()
         }));
 
-        const { error } = await supabase.from('materials').insert(rows);
-        if (error) {
-            console.error('Supabase insert error:', error.message);
-            throw error;
+        // Insert in chunks of 1000 to avoid payload limits
+        const CHUNK_SIZE = 1000;
+        for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
+            const chunk = rows.slice(i, i + CHUNK_SIZE);
+            const { error } = await supabase.from('material_master').insert(chunk);
+            if (error) throw error;
         }
         success = true;
     } catch (e) {
-        console.warn('Falling back to local storage for save.');
+        console.warn('Falling back to local storage for save.', e);
     }
 
     // Always save to local storage as backup/fallback
@@ -90,7 +111,7 @@ export const materialService = {
     let success = false;
     try {
         const { error } = await supabase
-        .from('materials')
+        .from('material_master')
         .update({
             description: material.description,
             part_no: material.partNo,
@@ -116,7 +137,7 @@ export const materialService = {
   async delete(id: string): Promise<void> {
     let success = false;
     try {
-        const { error } = await supabase.from('materials').delete().eq('id', id);
+        const { error } = await supabase.from('material_master').delete().eq('id', id);
         if (error) throw error;
         success = true;
     } catch (e) {
@@ -128,5 +149,18 @@ export const materialService = {
         const updated = current.filter(m => m.id !== id);
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
     }
+  },
+
+  // Clear all materials
+  async clearAll(): Promise<void> {
+    try {
+        // Delete all rows in Supabase (using a condition that is always true for UUIDs)
+        const { error } = await supabase.from('material_master').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        if (error) throw error;
+    } catch (e) {
+        console.warn('Supabase clear failed (Materials), clearing local only.', e);
+    }
+    // Always clear local storage
+    localStorage.removeItem(LOCAL_STORAGE_KEY);
   }
 };

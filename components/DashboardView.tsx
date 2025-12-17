@@ -1,7 +1,10 @@
 
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Material, ClosingStockItem, PendingSOItem, PendingPOItem, SalesRecord, SalesReportItem, CustomerMasterItem } from '../types';
+import { Material, ClosingStockItem, PendingSOItem, PendingPOItem, SalesReportItem, CustomerMasterItem, SalesRecord } from '../types';
 import { TrendingUp, TrendingDown, Package, ClipboardList, ShoppingCart, Calendar, Filter, PieChart as PieIcon, BarChart3, Users, ArrowRight, Activity, DollarSign, ArrowUpRight, ArrowDownRight, RefreshCw, UserCircle, Minus, Plus, ChevronDown, ChevronUp, Link2Off, AlertTriangle, Layers, Clock, CheckCircle2, AlertCircle, User, Factory, Tag, ArrowLeft, BarChart4, Hourglass, History, AlertOctagon } from 'lucide-react';
+
+const COLORS = ['#10B981', '#3B82F6', '#6366F1', '#8B5CF6', '#EC4899', '#F59E0B', '#EF4444', '#6B7280', '#059669', '#2563EB'];
 
 const formatLargeValue = (val: number, compact: boolean = false) => {
     if (val === 0) return '0';
@@ -284,6 +287,8 @@ const ValueDistributionChart = ({ data }: { data: { label: string, value: number
 };
 
 const StackedBarChart = ({ data, title }: { data: { label: string; due: number; scheduled: number; total: number }[]; title: string }) => {
+    const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+
     if (data.length === 0) return <div className="flex items-center justify-center h-full text-gray-400 text-xs">No Data</div>;
     const chartData = [...data].sort((a,b) => b.total - a.total).slice(0, 6);
     const maxVal = Math.max(...chartData.map(d => d.total), 1);
@@ -298,14 +303,33 @@ const StackedBarChart = ({ data, title }: { data: { label: string; due: number; 
             </div>
             <div className="flex-1 flex flex-col gap-2 overflow-y-auto custom-scrollbar pr-1">
                 {chartData.map((item, i) => (
-                    <div key={i} className="flex flex-col gap-0.5 group">
-                        <div className="flex justify-between text-[9px]">
-                            <span className="text-gray-700 font-medium truncate w-1/2" title={item.label}>{item.label}</span>
-                            <span className="text-gray-900 font-bold">{formatLargeValue(item.total, true)}</span>
+                    <div 
+                        key={i} 
+                        className="flex flex-col gap-0.5 group cursor-pointer"
+                        onMouseEnter={() => setHoveredIndex(i)}
+                        onMouseLeave={() => setHoveredIndex(null)}
+                    >
+                        <div className="flex justify-between items-end text-[9px] h-4">
+                            <span className={`font-medium truncate w-1/3 transition-colors ${hoveredIndex === i ? 'text-purple-600' : 'text-gray-700'}`} title={item.label}>{item.label}</span>
+                            
+                            {hoveredIndex === i ? (
+                                <div className="flex gap-2 items-center animate-in fade-in duration-200">
+                                    <div className="flex items-center gap-1" title={`Due: ${formatLargeValue(item.due)}`}>
+                                        <div className="w-1.5 h-1.5 bg-red-500 rounded-full"></div>
+                                        <span className="text-red-700 font-bold">{formatLargeValue(item.due, true)}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1" title={`Scheduled: ${formatLargeValue(item.scheduled)}`}>
+                                        <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+                                        <span className="text-blue-700 font-bold">{formatLargeValue(item.scheduled, true)}</span>
+                                    </div>
+                                </div>
+                            ) : (
+                                <span className="text-gray-900 font-bold">{formatLargeValue(item.total, true)}</span>
+                            )}
                         </div>
-                        <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden flex">
-                            <div className="h-full bg-red-500 transition-all duration-500 relative group/bar" style={{ width: `${(item.due / maxVal) * 100}%` }}><title>Due: {formatLargeValue(item.due)}</title></div>
-                            <div className="h-full bg-blue-500 transition-all duration-500 relative group/bar" style={{ width: `${(item.scheduled / maxVal) * 100}%` }}><title>Scheduled: {formatLargeValue(item.scheduled)}</title></div>
+                        <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden flex relative">
+                            <div className="h-full bg-red-500 transition-all duration-500 relative group/bar" style={{ width: `${(item.due / maxVal) * 100}%` }}></div>
+                            <div className="h-full bg-blue-500 transition-all duration-500 relative group/bar" style={{ width: `${(item.scheduled / maxVal) * 100}%` }}></div>
                         </div>
                     </div>
                 ))}
@@ -529,7 +553,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     else fyFirstThu.setDate(fyFirstThu.getDate() + (4 - fyFirstThu.getDay() + 7));
     const checkDate = new Date(date); checkDate.setHours(0,0,0,0);
     const baseDate = new Date(fyFirstThu); baseDate.setHours(0,0,0,0);
-    const diffTime = checkDate.getTime() - baseDate.getTime();
+    const diffTime = Number(checkDate.getTime()) - Number(baseDate.getTime());
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
     const weekNumber = diffDays >= 0 ? Math.floor(diffDays / 7) + 2 : 1; 
     return { fiscalYear, fiscalMonthIndex, weekNumber, year, month };
@@ -672,7 +696,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         const itemDesc = item.description.toLowerCase().trim(); 
         const mat = materials.find(m => m.description.toLowerCase().trim() === itemDesc); 
         const lastSaleDate = lastSaleMap.get(itemDesc);
-        const daysSinceLastSale = lastSaleDate ? Math.floor((now - lastSaleDate) / (24 * 60 * 60 * 1000)) : 9999;
+        // Ensure lastSaleDate is treated as number if defined, to avoid TS errors. Explicit number cast for safety.
+        const daysSinceLastSale = (lastSaleDate !== undefined) ? Math.floor((now - Number(lastSaleDate)) / (24 * 60 * 60 * 1000)) : 9999;
         const isNonMoving = daysSinceLastSale > 60;
 
         return { 
@@ -861,7 +886,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         groupOrders.forEach(order => {
             const dueDate = order.dueDate ? new Date(order.dueDate) : new Date('9999-12-31');
             const isFuture = dueDate > endOfCurrentMonth;
-            const diffTime = today.getTime() - dueDate.getTime(); const isOverdue = diffTime > 0; const overdueDays = isOverdue ? Math.floor(diffTime / (1000 * 60 * 60 * 24)) : 0;
+            // Explicit type casting for arithmetic
+            const diffTime = Number(today.getTime()) - Number(dueDate.getTime()); 
+            const isOverdue = diffTime > 0; 
+            const overdueDays = isOverdue ? Math.floor(diffTime / (1000 * 60 * 60 * 24)) : 0;
             let allocated = 0; let shortage = order.balanceQty;
             if (!isFuture) { const required = order.balanceQty; allocated = Math.min(runningStock, required); shortage = required - allocated; runningStock = Math.max(0, runningStock - allocated); }
             const val = (order.balanceQty || 0) * (order.rate || 0); const allocatedVal = allocated * (order.rate || 0); const shortageVal = shortage * (order.rate || 0);
@@ -1085,7 +1113,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                       <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><HorizontalBarChart data={soChartsData.topItems} title="Top 10 Items (Pending Val)" color="purple" /></div>
                  </div>
                  <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><h3 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2"><Users className="w-4 h-4 text-gray-600" /> Top Pending Customers</h3>
-                     <div className="overflow-x-auto"><table className="w-full text-left border-collapse"><thead><tr className="text-[10px] text-gray-500 uppercase border-b border-gray-100"><th className="py-2 pl-2">Customer Name</th><th className="py-2 text-right">Total Pending</th><th className="py-2 text-right text-red-600">Immediate Due</th><th className="py-2 text-right text-blue-600">Scheduled</th></tr></thead><tbody className="text-xs">{soChartsData.topCustomers.map((cust, idx) => (<React.Fragment key={idx}><tr className={`border-b border-gray-50 hover:bg-gray-50 cursor-pointer ${expandedPendingCustomers.has(cust.name) ? 'bg-gray-50' : ''}`} onClick={() => togglePendingCustomer(cust.name)}><td className="py-3 pl-2 flex items-center gap-2 font-medium text-gray-800">{expandedPendingCustomers.has(cust.name) ? <ChevronUp className="w-3 h-3 text-gray-400" /> : <ChevronDown className="w-3 h-3 text-gray-400" />}{cust.name}</td><td className="py-3 text-right font-bold">{formatLargeValue(cust.total)}</td><td className="py-3 text-right text-red-600 font-medium">{formatLargeValue(cust.due)}</td><td className="py-3 text-right text-blue-600 font-medium">{formatLargeValue(cust.scheduled)}</td></tr>{expandedPendingCustomers.has(cust.name) && (<tr><td colSpan={4} className="p-0"><div className="bg-gray-50/50 p-3 border-b border-gray-100 animate-in slide-in-from-top-1"><table className="w-full text-xs"><thead className="text-[9px] text-gray-400 uppercase text-right"><tr><th className="text-left pl-8 pb-1">Item</th><th className="pb-1">Qty</th><th className="pb-1">Value</th><th className="pb-1">Status</th></tr></thead><tbody>{cust.items.slice(0, 5).map((item: any, iIdx: number) => (<tr key={iIdx} className="border-b border-gray-200/50 last:border-0"><td className="py-1.5 pl-8 text-gray-600 w-1/2 truncate" title={item.itemName}>{item.itemName}</td><td className="py-1.5 text-right text-gray-500">{item.balanceQty}</td><td className="py-1.5 text-right text-gray-800 font-medium">{formatLargeValue(item.val)}</td><td className="py-1.5 text-right"><span className={`text-[9px] px-1.5 py-0.5 rounded ${!item.isFuture ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>{!item.isFuture ? 'Due' : 'Sch'}</span></td></tr>))}{cust.items.length > 5 && (<tr><td colSpan={4} className="text-center text-[9px] text-gray-400 pt-1 italic">...and {cust.items.length - 5} more items</td></tr>)}</tbody></table></div></td></tr>)}</React.Fragment>))}</tbody></table></div>
+                     <div className="overflow-x-auto"><table className="w-full text-left border-collapse"><thead><tr className="text-[10px] text-gray-500 uppercase border-b border-gray-100"><th className="py-2 pl-2">Customer Name</th><th className="py-2 text-right">Total Pending</th><th className="py-2 text-right text-red-600">Immediate Due</th><th className="py-2 text-right text-blue-600">Scheduled</th></tr></thead><tbody className="text-xs">{soChartsData.topCustomers.map((cust, idx) => (<React.Fragment key={idx}><tr className={`border-b border-gray-50 hover:bg-gray-50 cursor-pointer ${expandedPendingCustomers.has(cust.name) ? 'bg-gray-50' : ''}`} onClick={() => togglePendingCustomer(cust.name)}><td className="py-3 pl-2 flex items-center gap-2 font-medium text-gray-800">{expandedPendingCustomers.has(cust.name) ? <ChevronUp className="w-3 h-3 text-gray-400" /> : <ChevronDown className="w-3 h-3 text-gray-400" />}{cust.name}</td><td className="py-3 text-right font-bold">{formatLargeValue(cust.total)}</td><td className="py-3 text-right text-red-600 font-medium">{formatLargeValue(cust.due)}</td><td className="py-3 text-right text-blue-600 font-medium">{formatLargeValue(cust.scheduled)}</td></tr>{expandedPendingCustomers.has(cust.name) && (<tr><td colSpan={4} className="p-0"><div className="bg-gray-50/50 p-3 border-b border-gray-100 animate-in slide-in-from-top-1"><table className="w-full text-xs"><thead className="text-[9px] text-gray-400 uppercase text-right"><tr><th className="text-left pl-8 pb-1">Item</th><th className="pb-1">Qty</th><th className="pb-1">Value</th><th className="pb-1">Status</th></tr></thead><tbody>{cust.items.slice(0, 5).map((item: any, iIdx: number) => (<tr key={iIdx} className="border-b border-gray-200/50 last:border-0"><td className="py-1.5 pl-8 text-gray-600 w-1/2 truncate" title={item.itemName}>{item.itemName}</td><td className="py-1.5 text-right text-gray-500">{item.balanceQty}</td><td className="py-1.5 text-right text-gray-800 font-medium">{formatLargeValue(item.val)}</td><td className="py-1.5 text-right"><span className={`text-[9px] px-1.5 py-0.5 rounded ${!item.isFuture ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>{!item.isFuture ? 'Due' : 'Sch'}</span></td></tr>))}{cust.items && cust.items.length > 5 && (<tr><td colSpan={4} className="text-center text-[9px] text-gray-400 pt-1 italic">...and {(cust.items?.length || 0) - 5} more items</td></tr>)}</tbody></table></div></td></tr>)}</React.Fragment>))}</tbody></table></div>
                  </div>
             </div>
         ) : (

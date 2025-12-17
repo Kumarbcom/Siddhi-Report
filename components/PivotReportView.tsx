@@ -327,8 +327,6 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
 
   }, [materials, closingStock, pendingSO, pendingPO, salesReportItems]);
 
-  // ... rest of the component
-  
   // --- Slicer Data ---
   const slicerOptions = useMemo(() => {
       const makes = new Set<string>();
@@ -405,6 +403,13 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
   // --- Totals ---
   // STRICT CALCULATION on filteredData
   const totals = useMemo(() => {
+      const initialTotals = {
+          stock: { qty: 0, val: 0 }, so: { qty: 0, val: 0 }, po: { qty: 0, val: 0 }, net: { qty: 0, val: 0 },
+          avg3m: { qty: 0, val: 0 }, avg1y: { qty: 0, val: 0 },
+          min: { qty: 0, val: 0 }, reorder: { qty: 0, val: 0 }, max: { qty: 0, val: 0 },
+          excessStock: { qty: 0, val: 0 }, excessPO: { qty: 0, val: 0 }, poNeed: { qty: 0, val: 0 }, expedite: { qty: 0, val: 0 }
+      };
+
       return filteredData.reduce((acc, row) => ({
           stock: { qty: acc.stock.qty + (Number(row.stock.qty) || 0), val: acc.stock.val + (Number(row.stock.val) || 0) },
           so: { qty: acc.so.qty + (Number(row.so.qty) || 0), val: acc.so.val + (Number(row.so.val) || 0) },
@@ -419,12 +424,7 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
           excessPO: { qty: acc.excessPO.qty + (Number(row.actions.excessPO.qty) || 0), val: acc.excessPO.val + (Number(row.actions.excessPO.val) || 0) },
           poNeed: { qty: acc.poNeed.qty + (Number(row.actions.poNeed.qty) || 0), val: acc.poNeed.val + (Number(row.actions.poNeed.val) || 0) },
           expedite: { qty: acc.expedite.qty + (Number(row.actions.expedite.qty) || 0), val: acc.expedite.val + (Number(row.actions.expedite.val) || 0) },
-      }), {
-          stock: { qty: 0, val: 0 }, so: { qty: 0, val: 0 }, po: { qty: 0, val: 0 }, net: { qty: 0, val: 0 },
-          avg3m: { qty: 0, val: 0 }, avg1y: { qty: 0, val: 0 },
-          min: { qty: 0, val: 0 }, reorder: { qty: 0, val: 0 }, max: { qty: 0, val: 0 },
-          excessStock: { qty: 0, val: 0 }, excessPO: { qty: 0, val: 0 }, poNeed: { qty: 0, val: 0 }, expedite: { qty: 0, val: 0 }
-      });
+      }), initialTotals);
   }, [filteredData]);
 
   // --- Export ---
