@@ -3,25 +3,6 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Material, ClosingStockItem, PendingSOItem, PendingPOItem, SalesRecord, SalesReportItem, CustomerMasterItem } from '../types';
 import { TrendingUp, TrendingDown, Package, ClipboardList, ShoppingCart, Calendar, Filter, PieChart as PieIcon, BarChart3, Users, ArrowRight, Activity, DollarSign, ArrowUpRight, ArrowDownRight, RefreshCw, UserCircle, Minus, Plus, ChevronDown, ChevronUp, Link2Off, AlertTriangle, Layers, Clock, CheckCircle2, AlertCircle, User, Factory, Tag, ArrowLeft, BarChart4, Hourglass, History, AlertOctagon } from 'lucide-react';
 
-interface DashboardViewProps {
-  materials: Material[];
-  closingStock: ClosingStockItem[];
-  pendingSO: PendingSOItem[];
-  pendingPO: PendingPOItem[];
-  salesReportItems: SalesReportItem[];
-  customers: CustomerMasterItem[];
-  sales1Year: SalesRecord[];
-  sales3Months: SalesRecord[];
-  setActiveTab: (tab: any) => void;
-}
-
-type TimeView = 'FY' | 'MONTH' | 'WEEK';
-type ComparisonMode = 'PREV_PERIOD' | 'PREV_YEAR';
-type Metric = 'quantity' | 'value';
-
-const COLORS = ['#10B981', '#3B82F6', '#6366F1', '#8B5CF6', '#EC4899', '#F59E0B', '#EF4444', '#6B7280', '#059669', '#2563EB'];
-
-// --- Helpers ---
 const formatLargeValue = (val: number, compact: boolean = false) => {
     if (val === 0) return '0';
     const absVal = Math.abs(val);
@@ -48,8 +29,6 @@ const getSmoothPath = (points: [number, number][]) => {
   }
   return d;
 };
-
-// --- Sub-Components ---
 
 const SalesTrendChart = ({ data, maxVal }: { data: { labels: string[], series: any[] }, maxVal: number }) => {
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
@@ -359,15 +338,15 @@ const HorizontalBarChart = ({ data, title, color }: { data: { label: string; val
     return (
         <div className="flex flex-col h-full w-full">
             <h4 className="text-[11px] font-bold text-gray-600 uppercase mb-3 border-b border-gray-100 pb-1">{title}</h4>
-            <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
-                <div className="flex flex-col gap-3">
+            <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 mt-1">
+                <div className="flex flex-col gap-4">
                     {sorted.map((item, i) => (
-                        <div key={i} className="flex flex-col gap-1">
-                            <div className="flex justify-between items-end text-[10px]">
-                                <span className="truncate text-gray-700 font-medium max-w-[70%]" title={item.label}>{item.label}</span>
-                                <span className="font-bold text-gray-900">{formatLargeValue(item.value, true)}</span>
+                        <div key={i} className="flex flex-col gap-1.5">
+                            <div className="flex justify-between items-center text-[10px]">
+                                <span className="truncate text-gray-700 font-medium flex-1 min-w-0 pr-3" title={item.label}>{item.label}</span>
+                                <span className="font-bold text-gray-900 flex-shrink-0 bg-white pl-1">{formatLargeValue(item.value, true)}</span>
                             </div>
-                            <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                            <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
                                 <div className={`h-full rounded-full bg-${color}-500`} style={{ width: `${(item.value / maxVal) * 100}%` }}></div>
                             </div>
                         </div>
@@ -458,6 +437,22 @@ const ActionCard = ({ title, value, count, color, icon: Icon }: any) => (
     </div>
 );
 
+interface DashboardViewProps {
+  materials: Material[];
+  closingStock: ClosingStockItem[];
+  pendingSO: PendingSOItem[];
+  pendingPO: PendingPOItem[];
+  salesReportItems: SalesReportItem[];
+  customers: CustomerMasterItem[];
+  sales1Year: SalesRecord[];
+  sales3Months: SalesRecord[];
+  setActiveTab: (tab: any) => void;
+}
+
+type TimeView = 'FY' | 'MONTH' | 'WEEK';
+type ComparisonMode = 'PREV_PERIOD' | 'PREV_YEAR';
+type Metric = 'quantity' | 'value';
+
 const DashboardView: React.FC<DashboardViewProps> = ({
   materials,
   closingStock,
@@ -469,7 +464,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   sales3Months,
   setActiveTab
 }) => {
-  // ... (Props and State setup) ...
   const [activeSubTab, setActiveSubTab] = useState<'sales' | 'inventory' | 'so' | 'po'>('sales');
   
   const [timeView, setTimeView] = useState<TimeView>('FY');
@@ -509,7 +503,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     setExpandedPendingCustomers(newSet);
   };
 
-  // ... (Helper Functions like parseDate, getFiscalInfo remain same) ...
+  // --- Helpers ---
   const parseDate = (val: any): Date => {
     if (!val) return new Date();
     if (val instanceof Date) return val;
@@ -543,7 +537,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
   const getFiscalMonthName = (idx: number) => ["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"][idx];
 
-  // ... (Data Enrichment Logic) ...
+  // --- Sales Data Enrichment ---
   const enrichedSales = useMemo(() => {
       const custMap = new Map<string, CustomerMasterItem>();
       customers.forEach(c => custMap.set(c.customerName.toLowerCase().trim(), c));
@@ -588,16 +582,27 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       }
   }, [enrichedSales, selectedFY, selectedMonth, selectedWeek, timeView, comparisonMode]);
 
-  // ... (KPIs and Chart Data) ...
   const kpis = useMemo(() => {
       const currVal = currentData.reduce((acc, i) => acc + i.value, 0);
       const prevVal = previousData.reduce((acc, i) => acc + i.value, 0);
       const currQty = currentData.reduce((acc, i) => acc + i.quantity, 0);
-      const uniqueCusts = new Set(currentData.map(i => i.customerName)).size;
+      
+      const uniqueCustsSet = new Set<string>();
+      const statusBreakdown: Record<string, number> = {};
+
+      currentData.forEach(i => {
+          if (!uniqueCustsSet.has(i.customerName)) {
+              uniqueCustsSet.add(i.customerName);
+              const s = i.custStatus || 'Unknown';
+              statusBreakdown[s] = (statusBreakdown[s] || 0) + 1;
+          }
+      });
+
+      const uniqueCusts = uniqueCustsSet.size;
       const avgOrder = currentData.length ? currVal / currentData.length : 0;
       const diff = currVal - prevVal;
       const pct = prevVal ? ((diff / prevVal) * 100) : 0;
-      return { currVal, prevVal, diff, pct, currQty, uniqueCusts, avgOrder };
+      return { currVal, prevVal, diff, pct, currQty, uniqueCusts, avgOrder, statusBreakdown };
   }, [currentData, previousData]);
 
   const lineChartData = useMemo(() => {
@@ -625,7 +630,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       }
   }, [currentData, previousData, timeView, selectedFY, enrichedSales, comparisonMode]);
 
-  // ... (Pie Data and Top Customers) ...
   const pieDataGroup = useMemo(() => {
       const map = new Map<string, number>();
       currentData.forEach(i => { let key = i.custGroup || 'Unassigned'; const lowerKey = key.toLowerCase().trim(); if (lowerKey === 'group-giridhar-peenya' || lowerKey === 'group-peenya') { key = 'Group-Giridhar'; } else if (lowerKey.includes('online')) { key = 'Online'; } map.set(key, (map.get(key) || 0) + i.value); });
@@ -653,7 +657,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     return Array.from(breakdownMap.entries()).map(([name, data]) => { const diff = data.current - data.prev; const pct = data.prev !== 0 ? (diff / data.prev) * 100 : 0; return { name, value: data.current, prevValue: data.prev, pct }; }).sort((a, b) => b.value - a.value);
   };
 
-  // ... (Inventory Stats) ...
   const enrichedStock = useMemo(() => {
     const lastSaleMap = new Map<string, number>();
     salesReportItems.forEach(s => {
@@ -664,7 +667,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     });
 
     const now = Date.now();
-    const SIXTY_DAYS_MS = 60 * 24 * 60 * 60 * 1000;
 
     return closingStock.map(item => { 
         const itemDesc = item.description.toLowerCase().trim(); 
@@ -750,7 +752,100 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     return { totalQty, totalVal, count, totalUnmatched, hierarchy, topArticles, abcData, distData, formatVal, abcLists };
   }, [filteredStock, invGroupMetric, invTopMetric]);
 
-  // ... (Pending SO Stats) ...
+  // --- PO Stats Calculation ---
+  const poStats = useMemo(() => {
+      const stockMap = new Map<string, number>();
+      closingStock.forEach(i => {
+          if (!i.description) return;
+          const key = i.description.toLowerCase().trim();
+          stockMap.set(key, (stockMap.get(key) || 0) + (i.quantity || 0));
+      });
+      
+      const soMap = new Map<string, number>();
+      pendingSO.forEach(i => {
+          if (!i.itemName) return;
+          const key = i.itemName.toLowerCase().trim();
+          soMap.set(key, (soMap.get(key) || 0) + (i.balanceQty || 0));
+      });
+
+      let scheduledVal = 0;
+      let dueVal = 0;
+      let excessVal = 0;
+      let excessCount = 0;
+      let expediteVal = 0;
+      let expediteCount = 0;
+      let totalShortageVal = 0;
+      let totalShortageCount = 0;
+      let totalPOValue = 0;
+
+      const topExcessItems: any[] = [];
+      const topExpediteItems: any[] = [];
+      const topNeedItems: any[] = [];
+
+      const allItems = new Set<string>([...stockMap.keys(), ...soMap.keys(), ...pendingPO.map(i => i.itemName?.toLowerCase().trim()).filter(Boolean) as string[]]);
+      const today = new Date();
+
+      // Scheduled vs Due Val Calculation from POs
+      pendingPO.forEach(i => {
+          // Explicit casting to prevent TS errors on arithmetic
+          const bal = Number(i.balanceQty) || 0;
+          const rate = Number(i.rate) || 0;
+          const val = bal * rate;
+          totalPOValue += val;
+          if (i.dueDate && new Date(i.dueDate) < today) dueVal += val;
+          else scheduledVal += val;
+      });
+
+      allItems.forEach(itemKey => {
+          const stockQty = stockMap.get(itemKey) || 0;
+          const soQty = soMap.get(itemKey) || 0;
+          const itemPOs = pendingPO.filter(i => i.itemName?.toLowerCase().trim() === itemKey);
+          
+          const poQty = itemPOs.reduce((a, b) => a + (Number(b.balanceQty) || 0), 0);
+          const rate = itemPOs.length > 0 ? (Number(itemPOs[0].rate) || 0) : ((closingStock.find(s => s.description.toLowerCase().trim() === itemKey)?.rate || 0));
+
+          const net = stockQty + poQty - soQty;
+
+          // Need Place PO
+          if (net < 0) {
+              const shortageQty = Math.abs(net);
+              const val = shortageQty * rate;
+              totalShortageVal += val;
+              totalShortageCount++;
+              if (val > 0) topNeedItems.push({ label: itemKey, value: val });
+          }
+
+          // Excess PO
+          if (net > 0 && poQty > 0) {
+              const excessQty = Math.min(net, poQty);
+              const val = excessQty * rate;
+              excessVal += val;
+              excessCount++;
+              if (val > 0) topExcessItems.push({ label: itemKey, value: val });
+          }
+
+          // Expedite PO
+          if (stockQty < soQty && poQty > 0) {
+              const gap = soQty - stockQty;
+              const expediteQty = Math.min(gap, poQty);
+              const val = expediteQty * rate;
+              expediteVal += val;
+              expediteCount++;
+              if (val > 0) topExpediteItems.push({ label: itemKey, value: val });
+          }
+      });
+
+      return {
+          totalVal: totalPOValue,
+          count: pendingPO.length,
+          schedule: { due: dueVal, scheduled: scheduledVal },
+          excess: { val: excessVal, count: excessCount, top: topExcessItems.sort((a,b) => b.value - a.value).slice(0, 10) },
+          need: { val: totalShortageVal, count: totalShortageCount, top: topNeedItems.sort((a,b) => b.value - a.value).slice(0, 10) },
+          expedite: { val: expediteVal, count: expediteCount, top: topExpediteItems.sort((a,b) => b.value - a.value).slice(0, 10) }
+      };
+  }, [pendingPO, closingStock, pendingSO]);
+
+  // --- Pending SO Logic ---
   const processedSOData = useMemo(() => {
     const today = new Date();
     const endOfCurrentMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0); endOfCurrentMonth.setHours(23, 59, 59, 999);
@@ -855,125 +950,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   const formatCurrency = (val: number) => formatLargeValue(val);
   const formatCompactNumber = (val: number) => formatLargeValue(val, true);
 
-  // --- PO DASHBOARD STATS ---
-  const poStats = useMemo(() => {
-      const stockMap = new Map<string, number>();
-      closingStock.forEach(i => stockMap.set(i.description.toLowerCase().trim(), (stockMap.get(i.description.toLowerCase().trim()) || 0) + i.quantity));
-      
-      const soMap = new Map<string, number>();
-      pendingSO.forEach(i => soMap.set(i.itemName.toLowerCase().trim(), (soMap.get(i.itemName.toLowerCase().trim()) || 0) + i.balanceQty));
-
-      let scheduledVal = 0;
-      let dueVal = 0;
-      let excessVal = 0;
-      let excessCount = 0;
-      let expediteVal = 0;
-      let expediteCount = 0;
-      let totalShortageVal = 0;
-      let totalShortageCount = 0;
-      let totalPOValue = 0;
-
-      const topExcessItems: any[] = [];
-      const topExpediteItems: any[] = [];
-      const topNeedItems: any[] = [];
-
-      const allItems = new Set<string>([...stockMap.keys(), ...soMap.keys(), ...pendingPO.map(i => i.itemName.toLowerCase().trim())]);
-      const today = new Date();
-
-      // Scheduled vs Due Val Calculation from POs
-      pendingPO.forEach(i => {
-          const val = (i.balanceQty || 0) * (i.rate || 0);
-          totalPOValue += val;
-          if (i.dueDate && new Date(i.dueDate) < today) dueVal += val;
-          else scheduledVal += val;
-      });
-
-      allItems.forEach(itemKey => {
-          const stockQty = stockMap.get(itemKey) || 0;
-          const soQty = soMap.get(itemKey) || 0;
-          const itemPOs = pendingPO.filter(i => i.itemName.toLowerCase().trim() === itemKey);
-          const poQty = itemPOs.reduce((a,b) => a + b.balanceQty, 0);
-          const rate = itemPOs.length > 0 ? itemPOs[0].rate : (closingStock.find(s => s.description.toLowerCase().trim() === itemKey)?.rate || 0);
-
-          const net = stockQty + poQty - soQty;
-
-          // Need Place PO
-          if (net < 0) {
-              const shortageQty = Math.abs(net);
-              const val = shortageQty * rate;
-              totalShortageVal += val;
-              totalShortageCount++;
-              if (val > 0) topNeedItems.push({ label: itemKey, value: val });
-          }
-
-          // Excess PO
-          if (net > 0 && poQty > 0) {
-              const excessQty = Math.min(net, poQty);
-              const val = excessQty * rate;
-              excessVal += val;
-              excessCount++;
-              if (val > 0) topExcessItems.push({ label: itemKey, value: val });
-          }
-
-          // Expedite PO
-          if (stockQty < soQty && poQty > 0) {
-              const gap = soQty - stockQty;
-              const expediteQty = Math.min(gap, poQty);
-              const val = expediteQty * rate;
-              expediteVal += val;
-              expediteCount++;
-              if (val > 0) topExpediteItems.push({ label: itemKey, value: val });
-          }
-      });
-
-      return {
-          totalVal: totalPOValue,
-          count: pendingPO.length,
-          schedule: { due: dueVal, scheduled: scheduledVal },
-          excess: { val: excessVal, count: excessCount, top: topExcessItems.sort((a,b) => b.value - a.value).slice(0, 10) },
-          need: { val: totalShortageVal, count: totalShortageCount, top: topNeedItems.sort((a,b) => b.value - a.value).slice(0, 10) },
-          expedite: { val: expediteVal, count: expediteCount, top: topExpediteItems.sort((a,b) => b.value - a.value).slice(0, 10) }
-      };
-  }, [pendingPO, closingStock, pendingSO]);
-
-  const ActionCard = ({ title, value, count, color, icon: Icon }: any) => (
-    <div className={`bg-${color}-50 p-4 rounded-xl border border-${color}-200 flex flex-col justify-between h-full shadow-sm`}>
-        <div className="flex justify-between items-start">
-            <p className={`text-[10px] font-bold text-${color}-700 uppercase tracking-wider`}>{title}</p>
-            <div className={`bg-white p-1.5 rounded-full shadow-sm border border-${color}-100`}><Icon className={`w-4 h-4 text-${color}-600`} /></div>
-        </div>
-        <div className="mt-2">
-            <h3 className={`text-xl font-extrabold text-${color}-900`}>{value}</h3>
-            <p className={`text-[10px] text-${color}-600 font-medium mt-0.5`}>{count} Items</p>
-        </div>
-    </div>
-  );
-
-  const HorizontalBarChart = ({ data, title, color }: { data: { label: string; value: number }[], title: string, color: string }) => {
-    const sorted = [...data].sort((a,b) => b.value - a.value).slice(0, 10);
-    const maxVal = sorted[0]?.value || 1;
-    return (
-        <div className="flex flex-col h-full w-full">
-            <h4 className="text-[11px] font-bold text-gray-600 uppercase mb-3 border-b border-gray-100 pb-1">{title}</h4>
-            <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
-                <div className="flex flex-col gap-3">
-                    {sorted.map((item, i) => (
-                        <div key={i} className="flex flex-col gap-1">
-                            <div className="flex justify-between items-end text-[10px]">
-                                <span className="truncate text-gray-700 font-medium max-w-[70%]" title={item.label}>{item.label}</span>
-                                <span className="font-bold text-gray-900">{formatLargeValue(item.value, true)}</span>
-                            </div>
-                            <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
-                                <div className={`h-full rounded-full bg-${color}-500`} style={{ width: `${(item.value / maxVal) * 100}%` }}></div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        </div>
-    );
-  };
-
   return (
     <div className="h-full w-full flex flex-col bg-gray-50/50 overflow-hidden">
       <div className="bg-white border-b border-gray-200 px-4 py-3 flex flex-col xl:flex-row gap-4 items-start xl:items-center justify-between flex-shrink-0 shadow-sm z-10">
@@ -1017,7 +993,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm relative overflow-hidden"><div className="flex justify-between items-start"><div><p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Current Sales</p><h3 className="text-2xl font-extrabold text-gray-900 mt-1">{formatCurrency(kpis.currVal)}</h3></div><div className="bg-blue-50 p-2 rounded-lg text-blue-600"><DollarSign className="w-5 h-5" /></div></div><div className="mt-3 flex items-center justify-between"><div className="flex items-center gap-1.5 bg-gray-50 px-2 py-1 rounded-lg border border-gray-100"><span className={`flex items-center text-xs font-bold ${kpis.diff >= 0 ? 'text-green-600' : 'text-red-600'}`}>{kpis.diff >= 0 ? <ArrowUpRight className="w-3.5 h-3.5 mr-0.5" /> : <ArrowDownRight className="w-3.5 h-3.5 mr-0.5" />}{Math.abs(kpis.pct).toFixed(1)}%</span></div><span className="text-[10px] text-gray-400 font-medium">{comparisonLabel}: {formatCompactNumber(kpis.prevVal)}</span></div></div>
                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><div className="flex justify-between items-start"><div><p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Sales Quantity</p><h3 className="text-2xl font-extrabold text-gray-900 mt-1">{kpis.currQty.toLocaleString()}</h3></div><div className="bg-orange-50 p-2 rounded-lg text-orange-600"><Package className="w-5 h-5" /></div></div><p className="mt-3 text-[10px] text-gray-400">Total units sold in period</p></div>
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><div className="flex justify-between items-start"><div><p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Active Customers</p><h3 className="text-2xl font-extrabold text-gray-900 mt-1">{kpis.uniqueCusts}</h3></div><div className="bg-teal-50 p-2 rounded-lg text-teal-600"><Users className="w-5 h-5" /></div></div><p className="mt-3 text-[10px] text-gray-400">Unique billed parties</p></div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><div className="flex justify-between items-start"><div><p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Active Customers</p><h3 className="text-2xl font-extrabold text-gray-900 mt-1">{kpis.uniqueCusts}</h3></div><div className="bg-teal-50 p-2 rounded-lg text-teal-600"><Users className="w-5 h-5" /></div></div><div className="mt-3 flex flex-wrap gap-1.5">{Object.entries(kpis.statusBreakdown).sort((a,b) => b[1] - a[1]).map(([status, count]) => { const sLower = status.toLowerCase(); const colorClass = sLower === 'active' ? 'bg-green-100 text-green-700 border-green-200' : sLower === 'inactive' ? 'bg-gray-100 text-gray-600 border-gray-200' : sLower === 'blocked' ? 'bg-red-100 text-red-700 border-red-200' : 'bg-orange-100 text-orange-700 border-orange-200'; return (<span key={status} className={`text-[9px] px-1.5 py-0.5 rounded border font-medium whitespace-nowrap ${colorClass}`}>{status}: {count}</span>);})}</div></div>
                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><div className="flex justify-between items-start"><div><p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Avg Order Value</p><h3 className="text-2xl font-extrabold text-gray-900 mt-1">{formatCurrency(kpis.avgOrder)}</h3></div><div className="bg-purple-50 p-2 rounded-lg text-purple-600"><Activity className="w-5 h-5" /></div></div><p className="mt-3 text-[10px] text-gray-400">Revenue per transaction</p></div>
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:h-96">

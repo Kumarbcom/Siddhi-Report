@@ -221,15 +221,23 @@ const App: React.FC = () => {
   };
 
   // Stats for "Records by Make"
+  // CLUBBED: Normalizing make to UPPERCASE to group 'Lapp' and 'LAPP'
   const makeStats = useMemo(() => {
     const counts: Record<string, number> = {};
-    materials.forEach(m => { const make = m.make?.trim() || 'Unspecified'; counts[make] = (counts[make] || 0) + 1; });
+    materials.forEach(m => { 
+        const makeRaw = m.make?.trim() || 'Unspecified';
+        const makeKey = makeRaw.toUpperCase();
+        counts[makeKey] = (counts[makeKey] || 0) + 1; 
+    });
     return Object.entries(counts).sort((a, b) => b[1] - a[1]);
   }, [materials]);
 
   const filteredMaterials = useMemo(() => {
     if (selectedMake === 'ALL') return materials;
-    return materials.filter(m => (m.make?.trim() || 'Unspecified') === selectedMake);
+    return materials.filter(m => {
+        const makeRaw = m.make?.trim() || 'Unspecified';
+        return makeRaw.toUpperCase() === selectedMake;
+    });
   }, [materials, selectedMake]);
 
   // Sidebar Helper

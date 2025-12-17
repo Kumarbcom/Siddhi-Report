@@ -180,7 +180,8 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
         const partNoKey = mat.partNo ? mat.partNo.toLowerCase().trim() : '';
         
         // Normalize Make and Group for consistent filtering
-        const normalizedMake = String(mat.make || '').trim() || 'Unspecified';
+        // CLUBBED: Normalizing Make to uppercase to merge 'Lapp' and 'LAPP'
+        const normalizedMake = String(mat.make || '').trim().toUpperCase() || 'UNSPECIFIED';
         const normalizedGroup = String(mat.materialGroup || '').trim() || 'Unspecified';
 
         const stock = stockMap.get(descriptionKey) || { qty: 0, val: 0 };
@@ -199,8 +200,8 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
 
         // Sales Averages (Dual Match Logic: Part No + Description)
         // --- 3 Months ---
-        const s3Part = (partNoKey && sales3mMap.get(partNoKey)) || { qty: 0, val: 0 };
-        const s3Desc = (descriptionKey && sales3mMap.get(descriptionKey)) || { qty: 0, val: 0 };
+        const s3Part = sales3mMap.get(partNoKey) || { qty: 0, val: 0 };
+        const s3Desc = sales3mMap.get(descriptionKey) || { qty: 0, val: 0 };
         
         let s3TotalQty = 0;
         let s3TotalVal = 0;
@@ -222,8 +223,8 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
         const avg3mVal = avg3mQty * rate3m;
 
         // --- 1 Year ---
-        const s1Part = (partNoKey && sales1yMap.get(partNoKey)) || { qty: 0, val: 0 };
-        const s1Desc = (descriptionKey && sales1yMap.get(descriptionKey)) || { qty: 0, val: 0 };
+        const s1Part = sales1yMap.get(partNoKey) || { qty: 0, val: 0 };
+        const s1Desc = sales1yMap.get(descriptionKey) || { qty: 0, val: 0 };
 
         let s1TotalQty = 0;
         let s1TotalVal = 0;
@@ -326,6 +327,8 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
 
   }, [materials, closingStock, pendingSO, pendingPO, salesReportItems]);
 
+  // ... rest of the component
+  
   // --- Slicer Data ---
   const slicerOptions = useMemo(() => {
       const makes = new Set<string>();

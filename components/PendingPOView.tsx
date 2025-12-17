@@ -63,15 +63,15 @@ const HorizontalBar = ({ data, title, color }: { data: { label: string, value: n
     return (
         <div className="flex flex-col h-full w-full">
             <h4 className="text-[11px] font-bold text-gray-600 uppercase mb-3 border-b border-gray-100 pb-1">{title}</h4>
-            <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
-                <div className="flex flex-col gap-3">
+            <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 mt-1">
+                <div className="flex flex-col gap-4">
                     {data.map((item, i) => (
-                        <div key={i} className="flex flex-col gap-1">
-                            <div className="flex justify-between items-end text-[10px]">
-                                <span className="truncate text-gray-700 font-medium max-w-[70%]" title={item.label}>{item.label}</span>
-                                <span className="font-bold text-gray-900">{Math.round(item.value).toLocaleString()}</span>
+                        <div key={i} className="flex flex-col gap-1.5">
+                            <div className="flex justify-between items-center text-[10px]">
+                                <span className="truncate text-gray-700 font-medium flex-1 min-w-0 pr-3" title={item.label}>{item.label}</span>
+                                <span className="font-bold text-gray-900 flex-shrink-0 bg-white pl-1">{Math.round(item.value).toLocaleString()}</span>
                             </div>
-                            <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                            <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
                                 <div className={`h-full rounded-full bg-${color}-500`} style={{ width: `${(item.value / maxVal) * 100}%` }}></div>
                             </div>
                         </div>
