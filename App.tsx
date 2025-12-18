@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Material, MaterialFormData, PendingSOItem, PendingPOItem, SalesRecord, ClosingStockItem, SalesReportItem, CustomerMasterItem } from './types';
 import MaterialTable from './components/MaterialTable';
@@ -53,7 +52,6 @@ const App: React.FC = () => {
       try {
         setIsDbLoading(true);
 
-        // 1. Load All Data from Supabase Services (parallel fetch)
         const [
             dbMaterials,
             dbCustomers,
@@ -77,7 +75,6 @@ const App: React.FC = () => {
         setPendingPOItems(dbPO);
         setSalesReportItems(dbSales);
 
-        // 2. Load legacy local storage data (Sales History 1Y/3M - keeping local for now as user didn't ask for table for these specifically)
         const storedS1Y = localStorage.getItem(STORAGE_KEY_SALES_1Y);
         if (storedS1Y) setSales1Year(JSON.parse(storedS1Y));
 
@@ -95,7 +92,7 @@ const App: React.FC = () => {
     loadData();
   }, []);
 
-  // --- Save Data Effects (LocalStorage Backup for Sales History only now) ---
+  // --- Save Data Effects (LocalStorage Backup) ---
   useEffect(() => { if (isDataLoaded) localStorage.setItem(STORAGE_KEY_SALES_1Y, JSON.stringify(sales1Year)); }, [sales1Year, isDataLoaded]);
   useEffect(() => { if (isDataLoaded) localStorage.setItem(STORAGE_KEY_SALES_3M, JSON.stringify(sales3Months)); }, [sales3Months, isDataLoaded]);
 
@@ -109,7 +106,10 @@ const App: React.FC = () => {
     setMaterials(prev => prev.map(m => m.id === item.id ? item : m));
   };
   const handleDeleteMaterial = async (id: string) => {
-    if (confirm("Delete?")) { await materialService.delete(id); setMaterials(prev => prev.filter(m => m.id !== id)); }
+    if (confirm("Delete material?")) { 
+        await materialService.delete(id); 
+        setMaterials(prev => prev.filter(m => m.id !== id)); 
+    }
   };
   const handleClearMaterials = async () => {
     if (confirm("Are you sure you want to delete ALL Materials? This cannot be undone.")) {
@@ -132,13 +132,12 @@ const App: React.FC = () => {
       setCustomerMasterItems(prev => prev.filter(i => i.id !== id));
   };
   const handleClearCustomer = async () => { 
-      if (confirm("Are you sure you want to delete ALL Customers? This cannot be undone.")) {
+      if (confirm("Are you sure you want to delete ALL Customers?")) {
           await customerService.clearAll();
           setCustomerMasterItems([]);
       }
   };
 
-  // --- Handlers: Stock ---
   const handleBulkAddStock = async (items: any) => {
       const newItems = await stockService.createBulk(items);
       setClosingStockItems(prev => [...newItems, ...prev]);
@@ -152,13 +151,12 @@ const App: React.FC = () => {
       setClosingStockItems(prev => prev.filter(i => i.id !== id));
   };
   const handleClearStock = async () => { 
-      if (confirm("Are you sure you want to delete ALL Closing Stock records?")) {
+      if (confirm("Are you sure you want to delete ALL Stock?")) {
           await stockService.clearAll();
           setClosingStockItems([]);
       }
   };
 
-  // --- Handlers: SO ---
   const handleBulkAddSO = async (items: any) => {
       const newItems = await soService.createBulk(items);
       setPendingSOItems(prev => [...newItems, ...prev]);
@@ -172,13 +170,12 @@ const App: React.FC = () => {
       setPendingSOItems(prev => prev.filter(i => i.id !== id));
   };
   const handleClearSO = async () => { 
-      if (confirm("Are you sure you want to delete ALL Pending Sales Orders?")) {
+      if (confirm("Are you sure you want to delete ALL SOs?")) {
           await soService.clearAll();
           setPendingSOItems([]);
       }
   };
 
-  // --- Handlers: PO ---
   const handleBulkAddPO = async (items: any) => {
       const newItems = await poService.createBulk(items);
       setPendingPOItems(prev => [...newItems, ...prev]);
@@ -192,13 +189,12 @@ const App: React.FC = () => {
       setPendingPOItems(prev => prev.filter(i => i.id !== id));
   };
   const handleClearPO = async () => { 
-      if (confirm("Are you sure you want to delete ALL Pending Purchase Orders?")) {
+      if (confirm("Are you sure you want to delete ALL POs?")) {
           await poService.clearAll();
           setPendingPOItems([]);
       }
   };
 
-  // --- Handlers: Sales Report ---
   const handleBulkAddSales = async (items: any) => {
       setIsDbLoading(true);
       const newItems = await salesService.createBulk(items);
@@ -214,30 +210,19 @@ const App: React.FC = () => {
       setSalesReportItems(prev => prev.filter(i => i.id !== id));
   };
   const handleClearSales = async () => {
-      if(confirm("Clear all sales data? This will delete all records from Supabase.")) {
+      if(confirm("Clear all sales data?")) {
           await salesService.clearAll();
           setSalesReportItems([]);
       }
   };
 
-  // --- Legacy Handlers (Local Only) ---
-  const handleBulkAddSales1Y = (items: any) => setSales1Year(prev => [...items.map((i:any) => ({...i, id: crypto.randomUUID(), createdAt: Date.now()})), ...prev]);
-  const handleBulkAddSales3M = (items: any) => setSales3Months(prev => [...items.map((i:any) => ({...i, id: crypto.randomUUID(), createdAt: Date.now()})), ...prev]);
-  const handleUpdateSales1Y = (updatedItem: SalesRecord) => setSales1Year(prev => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
-  const handleUpdateSales3M = (updatedItem: SalesRecord) => setSales3Months(prev => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
-  const handleDeleteSales1Y = (id: string) => setSales1Year(prev => prev.filter(i => i.id !== id));
-  const handleDeleteSales3M = (id: string) => setSales3Months(prev => prev.filter(i => i.id !== id));
-  const handleClearSales1Y = () => setSales1Year([]);
-  const handleClearSales3M = () => setSales3Months([]);
-
   const handleClearDatabase = async () => {
-    if (window.confirm("This will clear LOCAL storage caches. DB data remains. Continue?")) {
+    if (window.confirm("This will clear LOCAL storage caches. Continue?")) {
       localStorage.clear();
       window.location.reload();
     }
   };
 
-  // Stats for "Records by Make"
   const makeStats = useMemo(() => {
     const counts: Record<string, number> = {};
     materials.forEach(m => { 
@@ -256,7 +241,6 @@ const App: React.FC = () => {
     });
   }, [materials, selectedMake]);
 
-  // Sidebar Helper
   const SidebarItem = ({ id, label, icon: Icon, count, onClick }: any) => (
     <button
       onClick={() => onClick(id)}
@@ -279,7 +263,6 @@ const App: React.FC = () => {
       
       {/* Sidebar */}
       <aside className={`bg-white border-r border-gray-200 flex flex-col flex-shrink-0 transition-all duration-300 ${isSidebarOpen ? 'w-64' : 'w-0 -ml-64 md:w-16 md:ml-0 overflow-hidden'}`}>
-        {/* Sidebar Header */}
         <div className="h-14 flex items-center px-4 border-b border-gray-200 flex-shrink-0">
           <div className="flex items-center gap-2">
             <div className="bg-blue-600 p-1.5 rounded-lg text-white flex-shrink-0">
@@ -287,12 +270,11 @@ const App: React.FC = () => {
             </div>
             <div className={`${isSidebarOpen ? 'opacity-100' : 'opacity-0 hidden'} transition-opacity`}>
                <h1 className="text-sm font-bold text-gray-900 leading-tight">Siddhi Kabel Corp.</h1>
-               <p className="text-[9px] text-gray-500 font-medium">Supabase Connected</p>
+               <p className="text-[9px] text-gray-500 font-medium">Reports Engine</p>
             </div>
           </div>
         </div>
 
-        {/* Sidebar Content */}
         <div className="flex-1 overflow-y-auto custom-scrollbar py-4 px-3 space-y-6">
            <div>
              {isSidebarOpen && <div className="px-3 mb-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Group Dashboard</div>}
@@ -314,12 +296,10 @@ const App: React.FC = () => {
                 <SidebarItem id="pendingSO" label="Pending SO" icon={ClipboardList} count={pendingSOItems.length} onClick={setActiveTab} />
                 <SidebarItem id="pendingPO" label="Pending PO" icon={ShoppingCart} count={pendingPOItems.length} onClick={setActiveTab} />
                 <SidebarItem id="salesReport" label="Sales Report" icon={FileBarChart} count={salesReportItems.length} onClick={setActiveTab} />
-                <SidebarItem id="salesHistory" label="Sales History" icon={TrendingUp} count={sales1Year.length + sales3Months.length} onClick={setActiveTab} />
              </div>
            </div>
         </div>
 
-        {/* Sidebar Footer */}
         <div className="p-4 border-t border-gray-200 bg-gray-50 flex-shrink-0">
            {isSidebarOpen && (
               <div className="flex flex-col gap-2">
@@ -335,7 +315,6 @@ const App: React.FC = () => {
         </div>
       </aside>
 
-      {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 h-full">
         <header className="bg-white border-b border-gray-200 h-14 flex items-center justify-between px-4 flex-shrink-0 md:hidden">
             <div className="flex items-center gap-2">
@@ -394,7 +373,7 @@ const App: React.FC = () => {
                   </div>
                   <div className="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col flex-1 overflow-hidden min-h-0">
                     <div className="p-3 border-b border-gray-100 bg-gray-50 flex-shrink-0">
-                      <h3 className="text-xs font-bold text-gray-700 flex items-center gap-2">Layers Filter by Make</h3>
+                      <h3 className="text-xs font-bold text-gray-700 flex items-center gap-2">Filters by Make</h3>
                     </div>
                     <div className="overflow-y-auto custom-scrollbar p-1 space-y-0.5 flex-1">
                       <button onClick={() => setSelectedMake('ALL')} className={`w-full text-left px-3 py-1.5 rounded-md text-xs flex justify-between items-center transition-colors ${selectedMake === 'ALL' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700 hover:bg-gray-100'}`}>
@@ -410,7 +389,7 @@ const App: React.FC = () => {
                   </div>
                 </div>
                 <div className="flex-1 w-full min-w-0 flex flex-col gap-3 h-full overflow-hidden">
-                  <AddMaterialForm materials={materials} onBulkAdd={handleBulkAddMaterial} onClear={handleClearMaterials} />
+                  <AddMaterialForm materials={materials} onBulkAdd={handleBulkAddMaterial} onClear={handleClearMaterials} setMaterials={setMaterials} />
                   <div className="flex-1 min-h-0">
                       <MaterialTable materials={filteredMaterials} onUpdate={handleUpdateMaterial} onDelete={handleDeleteMaterial} />
                   </div>
@@ -419,10 +398,10 @@ const App: React.FC = () => {
             )}
             {activeTab === 'customerMaster' && <div className="h-full w-full"><CustomerMasterView items={customerMasterItems} onBulkAdd={handleBulkAddCustomer} onUpdate={handleUpdateCustomer} onDelete={handleDeleteCustomer} onClear={handleClearCustomer} /></div>}
             {activeTab === 'closingStock' && <div className="h-full w-full"><ClosingStockView items={closingStockItems} materials={materials} onBulkAdd={handleBulkAddStock} onUpdate={handleUpdateStock} onDelete={handleDeleteStock} onClear={handleClearStock} /></div>}
-            {activeTab === 'pendingSO' && <div className="h-full w-full"><PendingSOView items={pendingSOItems} materials={materials} closingStockItems={closingStockItems} onBulkAdd={handleBulkAddSO} onUpdate={handleUpdateSO} onDelete={handleDeleteSO} onClear={handleClearSO} /></div>}
-            {activeTab === 'pendingPO' && <div className="h-full w-full"><PendingPOView items={pendingPOItems} materials={materials} closingStockItems={closingStockItems} pendingSOItems={pendingSOItems} onBulkAdd={handleBulkAddPO} onUpdate={handleUpdatePO} onDelete={handleDeletePO} onClear={handleClearPO} /></div>}
+            {activeTab === 'pendingSO' && <div className="h-full w-full"><PendingSOView items={pendingSOItems} materials={materials} customers={customerMasterItems} closingStockItems={closingStockItems} onBulkAdd={handleBulkAddSO} onUpdate={handleUpdateSO} onDelete={handleDeleteSO} onClear={handleClearSO} /></div>}
+            {activeTab === 'pendingPO' && <div className="h-full w-full"><PendingPOView items={pendingPOItems} materials={materials} customers={customerMasterItems} closingStockItems={closingStockItems} pendingSOItems={pendingSOItems} onBulkAdd={handleBulkAddPO} onUpdate={handleUpdatePO} onDelete={handleDeletePO} onClear={handleClearPO} /></div>}
             {activeTab === 'salesReport' && <div className="h-full w-full"><SalesReportView items={salesReportItems} materials={materials} customers={customerMasterItems} onBulkAdd={handleBulkAddSales} onUpdate={handleUpdateSales} onDelete={handleDeleteSales} onClear={handleClearSales} /></div>}
-            {activeTab === 'salesHistory' && <div className="h-full overflow-y-auto custom-scrollbar pr-1"><SalesHistoryView sales1Year={sales1Year} sales3Months={sales3Months} onBulkAdd1Year={handleBulkAddSales1Y} onBulkAdd3Months={handleBulkAddSales3M} onUpdate1Year={handleUpdateSales1Y} onUpdate3Months={handleUpdateSales3M} onDelete1Year={handleDeleteSales1Y} onDelete3Months={handleDeleteSales3M} onClear1Year={handleClearSales1Y} onClear3Months={handleClearSales3M} /></div>}
+            {activeTab === 'salesHistory' && <div className="h-full text-center py-20 text-gray-400">Legacy View - Please use Sales Report</div>}
         </main>
       </div>
     </div>

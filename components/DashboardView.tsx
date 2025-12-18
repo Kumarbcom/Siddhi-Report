@@ -1,8 +1,6 @@
-
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Material, ClosingStockItem, PendingSOItem, PendingPOItem, SalesReportItem, CustomerMasterItem, SalesRecord } from '../types';
-import { TrendingUp, TrendingDown, Package, ClipboardList, ShoppingCart, Calendar, Filter, PieChart as PieIcon, BarChart3, Users, ArrowRight, Activity, DollarSign, ArrowUpRight, ArrowDownRight, RefreshCw, UserCircle, Minus, Plus, ChevronDown, ChevronUp, Link2Off, AlertTriangle, Layers, Clock, CheckCircle2, AlertCircle, User, Factory, Tag, ArrowLeft, BarChart4, Hourglass, History, AlertOctagon } from 'lucide-react';
+import { TrendingUp, TrendingDown, Package, ClipboardList, ShoppingCart, Calendar, Filter, PieChart as PieIcon, BarChart3, Users, ArrowRight, Activity, DollarSign, ArrowUpRight, ArrowDownRight, RefreshCw, UserCircle, Minus, Plus, ChevronDown, ChevronUp, Link2Off, AlertTriangle, Layers, Clock, CheckCircle2, AlertCircle, User, Factory, Tag, ArrowLeft, BarChart4, Hourglass, History, AlertOctagon, Hash, ExternalLink } from 'lucide-react';
 
 const COLORS = ['#10B981', '#3B82F6', '#6366F1', '#8B5CF6', '#EC4899', '#F59E0B', '#EF4444', '#6B7280', '#059669', '#2563EB'];
 
@@ -55,13 +53,12 @@ const SalesTrendChart = ({ data, maxVal }: { data: { labels: string[], series: a
       onMouseLeave={() => setHoverIndex(null)}
     >
       <div className="flex-1 relative min-h-0">
-         {/* Data Labels - All Series with stagger */}
          {data.series.map((s: any, sIdx: number) => 
              s.active && s.data.map((val: number, i: number) => {
                  if (val === 0) return null;
                  const x = (i / (data.labels.length - 1)) * 100;
                  const y = 100 - ((val / maxVal) * 100);
-                 const yOffset = sIdx * 12; // Stagger labels to avoid overlap
+                 const yOffset = sIdx * 12;
                  const isHovered = hoverIndex === i;
                  return (
                      <div 
@@ -123,7 +120,7 @@ const SalesTrendChart = ({ data, maxVal }: { data: { labels: string[], series: a
             {data.labels.map((_, i) => (
                 <line key={i} x1={(i / (data.labels.length - 1)) * 100} y1="0" x2={(i / (data.labels.length - 1)) * 100} y2="100" stroke="#f3f4f6" strokeWidth="0.5" vectorEffect="non-scaling-stroke"/>
             ))}
-             {[0, 0.25, 0.5, 0.75, 1].map((p, i) => (
+            {[0, 0.25, 0.5, 0.75, 1].map((p, i) => (
                 <line key={i} x1="0" y1={p * 100} x2="100" y2={p * 100} stroke="#e5e7eb" strokeWidth="1" strokeDasharray="4" vectorEffect="non-scaling-stroke"/>
             ))}
             {data.series.map((s: any, i: number) => {
@@ -226,6 +223,33 @@ const InteractiveDrillDownChart = ({ hierarchyData, metric, totalValue }: { hier
                         </div>
                     </div>
                 ))}
+            </div>
+        </div>
+    );
+};
+
+const HorizontalBarChart = ({ data, title, color }: { data: { label: string; value: number }[], title: string, color: string }) => {
+    const sorted = [...data].sort((a,b) => b.value - a.value).slice(0, 10);
+    const maxVal = sorted[0]?.value || 1;
+    const barColorClass = color === 'blue' ? 'bg-blue-500' : color === 'red' ? 'bg-red-500' : 'bg-orange-500';
+    
+    return (
+        <div className="flex flex-col h-full w-full">
+            <h4 className="text-[11px] font-bold text-gray-600 uppercase mb-3 border-b border-gray-100 pb-1">{title}</h4>
+            <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 mt-1">
+                <div className="flex flex-col gap-4">
+                    {sorted.map((item, i) => (
+                        <div key={i} className="flex flex-col gap-1.5">
+                            <div className="flex justify-between items-center text-[10px]">
+                                <span className="truncate text-gray-700 font-medium flex-1 min-w-0 pr-3" title={item.label}>{item.label}</span>
+                                <span className="font-bold text-gray-900 flex-shrink-0 bg-white pl-1">{formatLargeValue(item.value, true)}</span>
+                            </div>
+                            <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
+                                <div className={`h-full rounded-full ${barColorClass}`} style={{ width: `${(item.value / maxVal) * 100}%` }}></div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
             </div>
         </div>
     );
@@ -356,31 +380,6 @@ const AgingBarChart = ({ data }: { data: { label: string; value: number }[] }) =
     );
 };
 
-const HorizontalBarChart = ({ data, title, color }: { data: { label: string; value: number }[], title: string, color: string }) => {
-    const sorted = [...data].sort((a,b) => b.value - a.value).slice(0, 10);
-    const maxVal = sorted[0]?.value || 1;
-    return (
-        <div className="flex flex-col h-full w-full">
-            <h4 className="text-[11px] font-bold text-gray-600 uppercase mb-3 border-b border-gray-100 pb-1">{title}</h4>
-            <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 mt-1">
-                <div className="flex flex-col gap-4">
-                    {sorted.map((item, i) => (
-                        <div key={i} className="flex flex-col gap-1.5">
-                            <div className="flex justify-between items-center text-[10px]">
-                                <span className="truncate text-gray-700 font-medium flex-1 min-w-0 pr-3" title={item.label}>{item.label}</span>
-                                <span className="font-bold text-gray-900 flex-shrink-0 bg-white pl-1">{formatLargeValue(item.value, true)}</span>
-                            </div>
-                            <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
-                                <div className={`h-full rounded-full bg-${color}-500`} style={{ width: `${(item.value / maxVal) * 100}%` }}></div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        </div>
-    );
-};
-
 const DeliveryScheduleChart = ({ data }: { data: { label: string; value: number }[] }) => {
     const maxVal = Math.max(...data.map(d => d.value), 1);
     return (
@@ -409,6 +408,8 @@ const SimpleDonut = ({ data, title, color }: { data: {label: string, value: numb
          const otherVal = data.slice(5).reduce((a,b) => a+b.value, 0);
          displayData = [...top5, { label: 'Others', value: otherVal }];
      }
+     const colorPalette = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#9CA3AF'];
+     
      return (
         <div className="flex flex-col h-full">
             <h4 className="text-[10px] font-bold text-gray-500 uppercase mb-2">{title}</h4>
@@ -423,20 +424,20 @@ const SimpleDonut = ({ data, title, color }: { data: {label: string, value: numb
                           const endX = Math.cos(2 * Math.PI * cumPercent);
                           const endY = Math.sin(2 * Math.PI * cumPercent);
                           const largeArc = percent > 0.5 ? 1 : 0;
-                          const sliceColor = slice.color || ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#9CA3AF'][i % 6];
+                          const sliceColor = slice.color || colorPalette[i % colorPalette.length];
                           return ( <path key={i} d={`M ${startX} ${startY} A 1 1 0 ${largeArc} 1 ${endX} ${endY} L 0 0`} fill={sliceColor} stroke="white" strokeWidth="0.05" /> );
                       })}
                       <circle cx="0" cy="0" r="0.6" fill="white" />
                    </svg>
                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                       <span className={`text-[8px] font-bold text-${color}-600`}>{formatLargeValue(total, true)}</span>
+                       <span className={`text-[8px] font-bold ${color === 'blue' ? 'text-blue-600' : 'text-green-600'}`}>{formatLargeValue(total, true)}</span>
                    </div>
                 </div>
                 <div className="flex-1 overflow-y-auto custom-scrollbar h-24 text-[9px]">
                     {displayData.map((d, i) => (
-                        <div key={i} className="flex justify-between items-center mb-1">
+                        <div key={i} className={`flex justify-between items-center mb-1`}>
                              <div className="flex items-center gap-1.5 truncate flex-1 min-w-0">
-                                <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{backgroundColor: d.color || ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#9CA3AF'][i % 6]}}></div>
+                                <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{backgroundColor: d.color || colorPalette[i % colorPalette.length]}}></div>
                                 <span className="text-gray-600 truncate" title={d.label}>{d.label}</span>
                              </div>
                              <span className="font-bold text-gray-800 whitespace-nowrap ml-2">{formatLargeValue(d.value, true)}</span>
@@ -447,19 +448,6 @@ const SimpleDonut = ({ data, title, color }: { data: {label: string, value: numb
         </div>
      );
 };
-
-const ActionCard = ({ title, value, count, color, icon: Icon }: any) => (
-    <div className={`bg-${color}-50 p-4 rounded-xl border border-${color}-200 flex flex-col justify-between h-full shadow-sm`}>
-        <div className="flex justify-between items-start">
-            <p className={`text-[10px] font-bold text-${color}-700 uppercase tracking-wider`}>{title}</p>
-            <div className={`bg-white p-1.5 rounded-full shadow-sm border border-${color}-100`}><Icon className={`w-4 h-4 text-${color}-600`} /></div>
-        </div>
-        <div className="mt-2">
-            <h3 className={`text-xl font-extrabold text-${color}-900`}>{value}</h3>
-            <p className={`text-[10px] text-${color}-600 font-medium mt-0.5`}>{count} Items</p>
-        </div>
-    </div>
-);
 
 interface DashboardViewProps {
   materials: Material[];
@@ -549,11 +537,19 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     const fiscalMonthIndex = month >= 3 ? month - 3 : month + 9;
     const fyStart = new Date(startYear, 3, 1);
     let fyFirstThu = new Date(fyStart);
-    if (fyFirstThu.getDay() <= 4) fyFirstThu.setDate(fyFirstThu.getDate() + (4 - fyFirstThu.getDay()));
-    else fyFirstThu.setDate(fyFirstThu.getDate() + (4 - fyFirstThu.getDay() + 7));
-    const checkDate = new Date(date); checkDate.setHours(0,0,0,0);
-    const baseDate = new Date(fyFirstThu); baseDate.setHours(0,0,0,0);
-    const diffTime = Number(checkDate.getTime()) - Number(baseDate.getTime());
+    // Fix: Using a numeric day-of-week variable to ensure safe arithmetic subtraction
+    const dayOfWeek = fyFirstThu.getDay();
+    if (dayOfWeek <= 4) {
+      fyFirstThu.setDate(fyFirstThu.getDate() + (4 - dayOfWeek));
+    } else {
+      fyFirstThu.setDate(fyFirstThu.getDate() + (4 - dayOfWeek + 7));
+    }
+    const checkDate = new Date(date); 
+    checkDate.setHours(0,0,0,0);
+    const baseDate = new Date(fyFirstThu); 
+    baseDate.setHours(0,0,0,0);
+    // Fix: Redundant Number() removed; using .getTime() to perform arithmetic on numeric timestamps
+    const diffTime = checkDate.getTime() - baseDate.getTime();
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
     const weekNumber = diffDays >= 0 ? Math.floor(diffDays / 7) + 2 : 1; 
     return { fiscalYear, fiscalMonthIndex, weekNumber, year, month };
@@ -592,6 +588,29 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   };
 
   const currentData = useMemo(() => getDataForPeriod(selectedFY, selectedMonth, selectedWeek), [enrichedSales, selectedFY, selectedMonth, selectedWeek, timeView]);
+  
+  const recentVouchers = useMemo(() => {
+      const seen = new Set<string>();
+      const result: { voucherNo: string, customerName: string, value: number, date: string, item: string }[] = [];
+      const sorted = [...currentData].sort((a,b) => b.rawDate.getTime() - a.rawDate.getTime());
+      
+      for (const s of sorted) {
+          const vNo = s.voucherNo || 'N/A';
+          if (!seen.has(vNo)) {
+              seen.add(vNo);
+              result.push({
+                  voucherNo: vNo,
+                  customerName: s.customerName,
+                  value: s.value,
+                  date: s.date,
+                  item: s.particulars
+              });
+          }
+          if (result.length >= 10) break;
+      }
+      return result;
+  }, [currentData]);
+
   const previousData = useMemo(() => {
       if (!selectedFY) return [];
       const startYear = parseInt(selectedFY.split('-')[0]);
@@ -668,7 +687,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
   const topCustomers = useMemo(() => {
       const currentMap = new Map<string, { value: number, isGroup: boolean }>();
-      currentData.forEach(i => { const key = i.derivedGroup; const existing = currentMap.get(key) || { value: 0, isGroup: false }; existing.value += i.value; if (i.isGrouped) existing.isGroup = true; currentMap.set(key, existing); });
+      currentData.forEach(i => { 
+        const key = i.derivedGroup; 
+        const existing = currentMap.get(key) || { value: 0, isGroup: false }; 
+        existing.value += i.value; 
+        if (i.isGrouped) existing.isGroup = true; 
+        currentMap.set(key, existing); 
+      });
       const prevMap = new Map<string, number>();
       previousData.forEach(i => { const key = i.derivedGroup; prevMap.set(key, (prevMap.get(key) || 0) + i.value); });
       return Array.from(currentMap.entries()).map(([label, { value, isGroup }]) => { const prevValue = prevMap.get(label) || 0; const diff = value - prevValue; const pct = prevValue !== 0 ? (diff / prevValue) * 100 : 0; return { label, value, prevValue, diff, pct, isGroup }; }).sort((a, b) => b.value - a.value).slice(0, 10);
@@ -696,7 +721,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         const itemDesc = item.description.toLowerCase().trim(); 
         const mat = materials.find(m => m.description.toLowerCase().trim() === itemDesc); 
         const lastSaleDate = lastSaleMap.get(itemDesc);
-        // Ensure lastSaleDate is treated as number if defined, to avoid TS errors. Explicit number cast for safety.
         const daysSinceLastSale = (lastSaleDate !== undefined) ? Math.floor((now - Number(lastSaleDate)) / (24 * 60 * 60 * 1000)) : 9999;
         const isNonMoving = daysSinceLastSale > 60;
 
@@ -737,7 +761,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     const hierarchyMap = new Map<string, { qty: number, val: number, groups: Map<string, { qty: number, val: number }> }>();
     const sortedByVal = [...data].sort((a,b) => b.value - a.value);
     const abc = { A: { count: 0, val: 0 }, B: { count: 0, val: 0 }, C: { count: 0, val: 0 } };
-    const abcLists = { A: [] as any[], B: [] as any[], C: [] as any[] };
+    const abcLists = { A: [] as any[], B: [] as any[] , C: [] as any[] };
     let cumVal = 0;
     const distMap = { '0-1k': 0, '1k-10k': 0, '10k-50k': 0, '50k+': 0 };
 
@@ -777,7 +801,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     return { totalQty, totalVal, count, totalUnmatched, hierarchy, topArticles, abcData, distData, formatVal, abcLists };
   }, [filteredStock, invGroupMetric, invTopMetric]);
 
-  // --- PO Stats Calculation ---
   const poStats = useMemo(() => {
       const stockMap = new Map<string, number>();
       closingStock.forEach(i => {
@@ -810,9 +833,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       const allItems = new Set<string>([...stockMap.keys(), ...soMap.keys(), ...pendingPO.map(i => i.itemName?.toLowerCase().trim()).filter(Boolean) as string[]]);
       const today = new Date();
 
-      // Scheduled vs Due Val Calculation from POs
       pendingPO.forEach(i => {
-          // Explicit casting to prevent TS errors on arithmetic
           const bal = Number(i.balanceQty) || 0;
           const rate = Number(i.rate) || 0;
           const val = bal * rate;
@@ -831,7 +852,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
           const net = stockQty + poQty - soQty;
 
-          // Need Place PO
           if (net < 0) {
               const shortageQty = Math.abs(net);
               const val = shortageQty * rate;
@@ -840,7 +860,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
               if (val > 0) topNeedItems.push({ label: itemKey, value: val });
           }
 
-          // Excess PO
           if (net > 0 && poQty > 0) {
               const excessQty = Math.min(net, poQty);
               const val = excessQty * rate;
@@ -849,7 +868,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
               if (val > 0) topExcessItems.push({ label: itemKey, value: val });
           }
 
-          // Expedite PO
           if (stockQty < soQty && poQty > 0) {
               const gap = soQty - stockQty;
               const expediteQty = Math.min(gap, poQty);
@@ -870,7 +888,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       };
   }, [pendingPO, closingStock, pendingSO]);
 
-  // --- Pending SO Logic ---
   const processedSOData = useMemo(() => {
     const today = new Date();
     const endOfCurrentMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0); endOfCurrentMonth.setHours(23, 59, 59, 999);
@@ -927,7 +944,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
       filteredSOData.forEach(item => {
           if (item.orderNo) uniqueOrders.add(item.orderNo);
-          // Fix here: explicit Number casting
           stats.totalOrdered.qty += Number(item.orderedQty || 0); stats.totalOrdered.val += (Number(item.orderedQty || 0) * Number(item.rate || 0));
           stats.totalBalance.qty += Number(item.balanceQty || 0); stats.totalBalance.val += Number(item.val || 0);
           const isDue = !item.isFuture;
@@ -960,11 +976,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
   const soChartsData = useMemo(() => {
       const formatStacked = (map: Map<string, any>) => Array.from(map.entries()).map(([label, d]) => ({ label, ...d }));
-      const topCustomers = Array.from(soStats.byCustomer.entries()).map(([name, d]) => ({ name, ...d })).sort((a, b) => b.total - a.total).slice(0, 10);
+      const topCustomersList = Array.from(soStats.byCustomer.entries()).map(([name, d]) => ({ name, ...d })).sort((a, b) => b.total - a.total).slice(0, 10);
       const agingData = [ { label: 'Future', value: soStats.aging['Future'] }, { label: '0-30 Days', value: soStats.aging['0-30'] }, { label: '30-60 Days', value: soStats.aging['30-60'] }, { label: '60-90 Days', value: soStats.aging['60-90'] }, { label: '>90 Days', value: soStats.aging['90+'] } ];
       const topItems = Array.from(soStats.topItems.entries()).map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value).slice(0, 10);
       const deliverySchedule = Array.from(soStats.futureSchedule.entries()).map(([label, data]) => ({ label, value: data.val, sortKey: data.sortKey })).sort((a,b) => a.sortKey.localeCompare(b.sortKey));
-      return { byGroup: formatStacked(soStats.byGroup), byMake: formatStacked(soStats.byMake), topCustomers, agingData, topItems, deliverySchedule };
+      return { byGroup: formatStacked(soStats.byGroup), byMake: formatStacked(soStats.byMake), topCustomers: topCustomersList, agingData, topItems, deliverySchedule };
   }, [soStats]);
 
   const soSlicerOptions = useMemo(() => {
@@ -993,12 +1009,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                  <button key={tab} onClick={() => setActiveSubTab(tab)} className={`px-3 py-1.5 rounded-md text-xs font-bold uppercase transition-all ${activeSubTab === tab ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>{tab === 'so' ? 'Pending SO' : tab === 'po' ? 'Pending PO' : tab}</button>
              ))}
           </div>
-          {/* ... (Sub-tab Filters) ... */}
           {activeSubTab === 'sales' && (
               <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
                   <div className="flex bg-gray-100 p-1 rounded-lg">{(['FY', 'MONTH', 'WEEK'] as const).map(v => (<button key={v} onClick={() => setTimeView(v)} className={`px-3 py-1 rounded-md text-xs font-bold ${timeView === v ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500'}`}>{v}</button>))}</div>
                   <div className="flex items-center gap-1.5"><span className="text-[10px] text-gray-500 font-bold uppercase hidden md:inline">Fiscal Year:</span><select value={selectedFY} onChange={e => setSelectedFY(e.target.value)} className="bg-white border border-gray-300 text-xs rounded-md px-2 py-1.5 font-medium outline-none focus:ring-2 focus:ring-blue-500">{uniqueFYs.length > 0 ? (uniqueFYs.map(fy => <option key={fy} value={fy}>{fy}</option>)) : <option value="">No Data</option>}</select></div>
-                  {(timeView === 'MONTH' || timeView === 'WEEK') && (<select value={selectedMonth} onChange={e => setSelectedMonth(Number(e.target.value))} className="bg-white border border-gray-300 text-xs rounded-md px-2 py-1.5 font-medium outline-none focus:ring-2 focus:ring-blue-500">{[0,1,2,3,4,5,6,7,8,9,10,11].map(m => <option key={m} value={m}>{getFiscalMonthName(m)}</option>)}</select>)}
+                  {(timeView === 'MONTH' || timeView === 'WEEK') && (<select value={selectedMonth} onChange={e => setSelectedMonth(Number(e.target.value))} className="bg-white border border-gray-300 text-xs rounded-md px-3 py-1.5 outline-none focus:ring-2 focus:ring-blue-500">{[0,1,2,3,4,5,6,7,8,9,10,11].map(m => <option key={m} value={m}>{getFiscalMonthName(m)}</option>)}</select>)}
                   {timeView === 'WEEK' && (<div className="flex items-center gap-1 bg-white border border-gray-300 rounded-md px-2 py-1"><span className="text-[10px] text-gray-500 font-bold uppercase">Week</span><input type="number" min={1} max={53} value={selectedWeek} onChange={e => setSelectedWeek(Number(e.target.value))} className="w-10 text-xs outline-none font-bold text-center" /></div>)}
                   <div className="w-px h-6 bg-gray-300 mx-1"></div>
                   <div className="flex items-center gap-2"><span className="text-[10px] font-bold text-gray-400 uppercase hidden md:inline">Compare:</span><div className="flex bg-gray-100 p-1 rounded-lg"><button onClick={() => setComparisonMode('PREV_YEAR')} className={`px-2 py-1 rounded text-[10px] font-bold ${comparisonMode === 'PREV_YEAR' ? 'bg-white text-purple-600 shadow' : 'text-gray-500'}`}>Last Year</button><button onClick={() => setComparisonMode('PREV_PERIOD')} className={`px-2 py-1 rounded text-[10px] font-bold ${comparisonMode === 'PREV_PERIOD' ? 'bg-white text-purple-600 shadow' : 'text-gray-500'}`}>Previous</button></div></div>
@@ -1031,11 +1046,50 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><div className="flex justify-between items-start"><div><p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Active Customers</p><h3 className="text-2xl font-extrabold text-gray-900 mt-1">{kpis.uniqueCusts}</h3></div><div className="bg-teal-50 p-2 rounded-lg text-teal-600"><Users className="w-5 h-5" /></div></div><div className="mt-3 flex flex-wrap gap-1.5">{Object.entries(kpis.statusBreakdown).sort((a,b) => b[1] - a[1]).map(([status, count]) => { const sLower = status.toLowerCase(); const colorClass = sLower === 'active' ? 'bg-green-100 text-green-700 border-green-200' : sLower === 'inactive' ? 'bg-gray-100 text-gray-600 border-gray-200' : sLower === 'blocked' ? 'bg-red-100 text-red-700 border-red-200' : 'bg-orange-100 text-orange-700 border-orange-200'; return (<span key={status} className={`text-[9px] px-1.5 py-0.5 rounded border font-medium whitespace-nowrap ${colorClass}`}>{status}: {count}</span>);})}</div></div>
                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><div className="flex justify-between items-start"><div><p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Avg Order Value</p><h3 className="text-2xl font-extrabold text-gray-900 mt-1">{formatCurrency(kpis.avgOrder)}</h3></div><div className="bg-purple-50 p-2 rounded-lg text-purple-600"><Activity className="w-5 h-5" /></div></div><p className="mt-3 text-[10px] text-gray-400">Revenue per transaction</p></div>
                 </div>
+                
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:h-96">
                     <div className="lg:col-span-2 bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col min-h-[350px] overflow-hidden"><div className="flex justify-between items-center mb-4 flex-shrink-0"><h3 className="text-sm font-bold text-gray-800 flex items-center gap-2"><TrendingUp className="w-4 h-4 text-blue-600" /> Sales Trend Analysis</h3><div className="flex items-center gap-4 text-[10px] flex-wrap">{lineChartData.series.map((s, i) => (<span key={i} className="flex items-center gap-1.5 bg-gray-50 px-2 py-1 rounded-full border border-gray-100"><div className="w-2 h-2 rounded-full" style={{backgroundColor: s.color}}></div><span className="text-gray-600 font-medium">{s.name}</span></span>))}</div></div><div className="flex flex-1 min-h-0 pt-2 relative"><div className="flex flex-col justify-between text-[9px] text-gray-400 font-medium pr-3 pb-8 h-full text-right w-12 shrink-0 select-none border-r border-gray-50"><span>{formatAxisValue(chartMax)}</span><span>{formatAxisValue(chartMax * 0.75)}</span><span>{formatAxisValue(chartMax * 0.5)}</span><span>{formatAxisValue(chartMax * 0.25)}</span><span>0</span></div><div className="flex-1 flex flex-col min-w-0 relative pl-4 pb-2"><SalesTrendChart data={lineChartData} maxVal={chartMax} /></div></div></div>
                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col min-h-[350px]"><div className="flex justify-between items-center mb-2 flex-shrink-0"><h3 className="text-sm font-bold text-gray-800 flex items-center gap-2"><PieIcon className="w-4 h-4 text-purple-600" /> Sales Mix</h3></div><div className="flex-1 flex flex-col gap-4 overflow-hidden min-h-0"><div className="flex-1 min-h-0 border-b border-dashed border-gray-200 pb-2"><SimpleDonut data={pieDataGroup} title="Account Group (Consolidated)" color="blue" /></div><div className="flex-1 min-h-0 pt-2"><SimpleDonut data={pieDataStatus} title="By Status" color="green" /></div></div></div>
                 </div>
-                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col"><div className="flex justify-between items-center mb-4"><h3 className="text-sm font-bold text-gray-800 flex items-center gap-2"><Layers className="w-4 h-4 text-gray-600" /> Top Customers / Groups</h3></div><div className="overflow-x-auto"><table className="w-full text-left border-collapse"><thead><tr className="text-[10px] text-gray-500 uppercase border-b border-gray-100"><th className="py-2 pl-2 w-8">#</th><th className="py-2">Name</th><th className="py-2 text-right">Sales</th><th className="py-2 text-right hidden sm:table-cell">Prev</th><th className="py-2 text-right">Growth</th></tr></thead><tbody className="text-xs">{topCustomers.map((item, idx) => (<React.Fragment key={idx}><tr className={`border-b border-gray-50 hover:bg-gray-50 ${expandedGroups.has(item.label) ? 'bg-gray-50' : ''}`}><td className="py-3 pl-2 text-gray-400 font-mono text-[10px]">{idx + 1}</td><td className="py-3"><div className="flex flex-col"><div className="flex items-center gap-2">{item.isGroup && (<button onClick={() => toggleGroup(item.label)} className="p-0.5 hover:bg-gray-200 rounded">{expandedGroups.has(item.label) ? <ChevronUp className="w-3 h-3 text-gray-500" /> : <ChevronDown className="w-3 h-3 text-gray-500" />}</button>)}<span className="font-bold text-gray-800">{item.label}</span>{item.isGroup && <span className="text-[9px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded border border-blue-100 uppercase tracking-wide">Group</span>}</div><div className="w-full max-w-md h-1.5 bg-gray-100 rounded-full mt-1.5 overflow-hidden"><div className="h-full bg-blue-500 rounded-full" style={{ width: `${(item.value / (topCustomers[0]?.value || 1)) * 100}%` }}></div></div></div></td><td className="py-3 text-right font-bold text-gray-900">{formatLargeValue(item.value)}</td><td className="py-3 text-right text-gray-500 hidden sm:table-cell">{formatLargeValue(item.prevValue)}</td><td className="py-3 text-right"><span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${item.pct >= 0 ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>{item.pct >= 0 ? <Plus className="w-2 h-2 mr-0.5" /> : <Minus className="w-2 h-2 mr-0.5" />}{Math.abs(item.pct).toFixed(1)}%</span></td></tr>{item.isGroup && expandedGroups.has(item.label) && (<tr><td colSpan={5} className="p-0"><div className="bg-gray-50/50 p-3 border-b border-gray-100 animate-in slide-in-from-top-1"><table className="w-full text-xs"><thead><tr className="text-[9px] text-gray-400 uppercase border-b border-gray-100 text-right"><th className="py-1 text-left pl-8">Customer Name</th><th className="py-1">Prev</th><th className="py-1">Current</th><th className="py-1">Growth</th></tr></thead><tbody>{getGroupBreakdown(item.label).map((sub, sIdx) => (<tr key={sIdx} className="border-b border-gray-100 last:border-0 hover:bg-gray-100/50"><td className="py-2 pl-8 text-gray-600 w-1/2 font-medium">{sub.name}</td><td className="py-2 text-right text-gray-400">{formatLargeValue(sub.prevValue)}</td><td className="py-2 text-right font-bold text-gray-800">{formatLargeValue(sub.value)}</td><td className="py-2 text-right"><span className={`text-[10px] font-bold ${sub.pct >= 0 ? 'text-green-600' : 'text-red-600'}`}>{sub.pct > 0 ? '+' : ''}{Math.round(sub.pct)}%</span></td></tr>))}</tbody></table></div></td></tr>)}</React.Fragment>))}</tbody></table></div></div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col"><div className="flex justify-between items-center mb-4"><h3 className="text-sm font-bold text-gray-800 flex items-center gap-2"><Layers className="w-4 h-4 text-gray-600" /> Top Customers / Groups</h3></div><div className="overflow-x-auto"><table className="w-full text-left border-collapse"><thead><tr className="text-[10px] text-gray-500 uppercase border-b border-gray-100"><th className="py-2 pl-2 w-8">#</th><th className="py-2">Name</th><th className="py-2 text-right">Sales</th><th className="py-2 text-right hidden sm:table-cell">Prev</th><th className="py-2 text-right">Growth</th></tr></thead><tbody className="text-xs">{topCustomers.map((item, idx) => (<React.Fragment key={idx}><tr className={`border-b border-gray-50 hover:bg-gray-50 ${expandedGroups.has(item.label) ? 'bg-gray-50' : ''}`}><td className="py-3 pl-2 text-gray-400 font-mono text-[10px]">{idx + 1}</td><td className="py-3"><div className="flex flex-col"><div className="flex items-center gap-2">{item.isGroup && (<button onClick={() => toggleGroup(item.label)} className="p-0.5 hover:bg-gray-200 rounded">{expandedGroups.has(item.label) ? <ChevronUp className="w-3 h-3 text-gray-500" /> : <ChevronDown className="w-3 h-3 text-gray-500" />}</button>)}<span className="font-bold text-gray-800">{item.label}</span>{item.isGroup && <span className="text-[9px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded border border-blue-100 uppercase tracking-wide">Group</span>}</div><div className="w-full max-w-md h-1.5 bg-gray-100 rounded-full mt-1.5 overflow-hidden"><div className="h-full bg-blue-500 rounded-full" style={{ width: `${(item.value / (topCustomers[0]?.value || 1)) * 100}%` }}></div></div></div></td><td className="py-3 text-right font-bold text-gray-900">{formatLargeValue(item.value)}</td><td className="py-3 text-right text-gray-500 hidden sm:table-cell">{formatLargeValue(item.prevValue)}</td><td className="py-3 text-right"><span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${item.pct >= 0 ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>{item.pct >= 0 ? <Plus className="w-2 h-2 mr-0.5" /> : <Minus className="w-2 h-2 mr-0.5" />}{Math.abs(item.pct).toFixed(1)}%</span></td></tr>{item.isGroup && expandedGroups.has(item.label) && (<tr><td colSpan={5} className="p-0"><div className="bg-gray-50/50 p-3 border-b border-gray-100 animate-in slide-in-from-top-1"><table className="w-full text-xs"><thead><tr className="text-[9px] text-gray-400 uppercase border-b border-gray-100 text-right"><th className="py-1 text-left pl-8">Customer Name</th><th className="py-1">Prev</th><th className="py-1">Current</th><th className="py-1">Growth</th></tr></thead><tbody>{getGroupBreakdown(item.label).map((sub, sIdx) => (<tr key={sIdx} className="border-b border-gray-100 last:border-0 hover:bg-gray-100/50"><td className="py-2 pl-8 text-gray-600 w-1/2 font-medium">{sub.name}</td><td className="py-2 text-right text-gray-400">{formatLargeValue(sub.prevValue)}</td><td className="py-2 text-right font-bold text-gray-800">{formatLargeValue(sub.value)}</td><td className="py-2 text-right"><span className={`text-[10px] font-bold ${sub.pct >= 0 ? 'text-green-600' : 'text-red-600'}`}>{sub.pct > 0 ? '+' : ''}{Math.round(sub.pct)}%</span></td></tr>))}</tbody></table></div></td></tr>)}</React.Fragment>))}</tbody></table></div></div>
+                    
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                                <Hash className="w-4 h-4 text-blue-600" /> Recent Sales Vouchers
+                            </h3>
+                            <button onClick={() => setActiveTab('salesReport')} className="text-[10px] font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 bg-blue-50 px-2 py-1 rounded">View All <ExternalLink className="w-3 h-3" /></button>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="text-[10px] text-gray-500 uppercase border-b border-gray-100">
+                                        <th className="py-2">Voucher No</th>
+                                        <th className="py-2">Date</th>
+                                        <th className="py-2">Customer</th>
+                                        <th className="py-2 text-right">Value</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="text-xs">
+                                    {recentVouchers.length === 0 ? (
+                                        <tr><td colSpan={4} className="py-10 text-center text-gray-400">No recent vouchers found.</td></tr>
+                                    ) : (
+                                        recentVouchers.map((v, i) => (
+                                            <tr key={i} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                                                <td className="py-3 font-mono font-bold text-blue-700">{v.voucherNo}</td>
+                                                <td className="py-3 text-gray-500">{new Date(v.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</td>
+                                                <td className="py-3 text-gray-800 truncate max-w-[120px]" title={v.customerName}>{v.customerName}</td>
+                                                <td className="py-3 text-right font-bold text-gray-900">{formatLargeValue(v.value, true)}</td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
             </div>
         ) : activeSubTab === 'inventory' ? (
              <div className="flex flex-col gap-4">
@@ -1051,55 +1105,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                       <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col"><div className="flex justify-between items-center mb-2"><div className="flex items-center gap-2"><h4 className="text-xs font-bold text-gray-700">Top 10 Articles</h4><button onClick={() => setShowMakeInTop10(!showMakeInTop10)} className={`p-1 rounded transition-colors ${showMakeInTop10 ? 'bg-emerald-100 text-emerald-700' : 'text-gray-400 hover:bg-gray-100'}`} title="Toggle Make visibility"><Tag className="w-3 h-3" /></button></div><InventoryToggle value={invTopMetric} onChange={setInvTopMetric} colorClass="text-emerald-700" /></div><div className="flex-1 overflow-y-auto custom-scrollbar pr-1 space-y-3">{inventoryStats.topArticles.map((a, i) => (<div key={i} className="flex items-center gap-2"><span className="w-5 h-5 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center text-[10px] font-bold shrink-0">{i+1}</span><div className="flex-1 min-w-0"><div className="flex items-baseline justify-between"><p className="text-[10px] font-medium text-gray-800 truncate flex-1" title={a.label}>{a.label}</p>{showMakeInTop10 && <span className="text-[9px] text-gray-400 ml-2 italic shrink-0">{a.make}</span>}</div><div className="w-full bg-gray-100 h-1 rounded-full mt-1"><div className="bg-emerald-500 h-full rounded-full" style={{ width: `${(a.value / (inventoryStats.topArticles[0]?.value || 1)) * 100}%` }}></div></div></div><div className="flex flex-col items-end"><span className="text-[10px] font-bold text-gray-900">{inventoryStats.formatVal(a.value, invTopMetric)}</span><span className="text-[9px] text-gray-400">{((a.value / inventoryStats.totalVal) * 100).toFixed(1)}%</span></div></div>))}</div></div>
                  </div>
                  <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col h-48"><div className="flex justify-between items-center mb-1"><h4 className="text-xs font-bold text-gray-700">Stock Value Distribution (Item Count)</h4></div><div className="flex-1 min-h-0"><ValueDistributionChart data={inventoryStats.distData} /></div></div>
-                 
-                 <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col">
-                    <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2 mb-2"><BarChart4 className="w-4 h-4 text-indigo-600"/> ABC Classification Details {showNonMoving && "(Non-Moving Only)"}</h3>
-                    <div className="text-[10px] text-gray-500 bg-gray-50 p-2 rounded mb-3 border border-gray-100">
-                        <strong>Basis: </strong> 
-                        <span className="text-emerald-700 font-bold px-1">Class A</span> (Top 70% Value), 
-                        <span className="text-yellow-600 font-bold px-1">Class B</span> (Next 20%), 
-                        <span className="text-red-600 font-bold px-1">Class C</span> (Bottom 10%). 
-                        Items are ranked by descending value.
-                    </div>
-                    <div className="flex gap-2 mb-2 border-b border-gray-200">
-                        {(['A', 'B', 'C'] as const).map(cls => (
-                            <button 
-                                key={cls}
-                                onClick={() => setAbcTab(cls)}
-                                className={`px-4 py-1.5 text-xs font-bold border-b-2 transition-colors ${abcTab === cls ? (cls === 'A' ? 'border-emerald-500 text-emerald-700 bg-emerald-50' : cls === 'B' ? 'border-yellow-500 text-yellow-700 bg-yellow-50' : 'border-red-500 text-red-700 bg-red-50') : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
-                            >
-                                Class {cls} ({inventoryStats.abcData.find(d => d.label === cls)?.count || 0})
-                            </button>
-                        ))}
-                    </div>
-                    <div className="flex-1 overflow-auto max-h-64 custom-scrollbar border border-gray-100 rounded-lg">
-                        <table className="w-full text-left border-collapse">
-                            <thead className="bg-gray-50 sticky top-0 z-10 text-[10px] text-gray-500 uppercase font-bold">
-                                <tr>
-                                    <th className="py-2 px-3">Description</th>
-                                    <th className="py-2 px-3">Make</th>
-                                    <th className="py-2 px-3 text-right">Qty</th>
-                                    <th className="py-2 px-3 text-right">Value</th>
-                                    {showNonMoving && <th className="py-2 px-3 text-right">Last Billed</th>}
-                                </tr>
-                            </thead>
-                            <tbody className="text-xs divide-y divide-gray-100">
-                                {inventoryStats.abcLists[abcTab].map((item, idx) => (
-                                    <tr key={idx} className="hover:bg-gray-50">
-                                        <td className="py-1.5 px-3 truncate max-w-[200px]" title={item.description}>{item.description}</td>
-                                        <td className="py-1.5 px-3 text-gray-500">{item.make}</td>
-                                        <td className="py-1.5 px-3 text-right text-gray-600">{item.quantity}</td>
-                                        <td className="py-1.5 px-3 text-right font-medium text-gray-900">{formatLargeValue(item.value)}</td>
-                                        {showNonMoving && <td className="py-1.5 px-3 text-right text-red-500">{item.daysSinceLastSale > 365 ? '> 1 Year' : item.daysSinceLastSale + ' Days'}</td>}
-                                    </tr>
-                                ))}
-                                {inventoryStats.abcLists[abcTab].length === 0 && (
-                                    <tr><td colSpan={showNonMoving ? 5 : 4} className="py-4 text-center text-gray-400 text-xs">No items in this class.</td></tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                 </div>
              </div>
         ) : activeSubTab === 'so' ? (
             <div className="flex flex-col gap-4">
@@ -1117,49 +1122,44 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-64">
                       <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><StackedBarChart data={soChartsData.byGroup} title="Pending by Group (Due vs Scheduled)" /></div>
                       <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><StackedBarChart data={soChartsData.byMake} title="Pending by Make (Due vs Scheduled)" /></div>
-                      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><HorizontalBarChart data={soChartsData.topItems} title="Top 10 Items (Pending Val)" color="purple" /></div>
-                 </div>
-                 <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><h3 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2"><Users className="w-4 h-4 text-gray-600" /> Top Pending Customers</h3>
-                     <div className="overflow-x-auto"><table className="w-full text-left border-collapse"><thead><tr className="text-[10px] text-gray-500 uppercase border-b border-gray-100"><th className="py-2 pl-2">Customer Name</th><th className="py-2 text-right">Total Pending</th><th className="py-2 text-right text-red-600">Immediate Due</th><th className="py-2 text-right text-blue-600">Scheduled</th></tr></thead><tbody className="text-xs">{soChartsData.topCustomers.map((cust, idx) => (<React.Fragment key={idx}><tr className={`border-b border-gray-50 hover:bg-gray-50 cursor-pointer ${expandedPendingCustomers.has(cust.name) ? 'bg-gray-50' : ''}`} onClick={() => togglePendingCustomer(cust.name)}><td className="py-3 pl-2 flex items-center gap-2 font-medium text-gray-800">{expandedPendingCustomers.has(cust.name) ? <ChevronUp className="w-3 h-3 text-gray-400" /> : <ChevronDown className="w-3 h-3 text-gray-400" />}{cust.name}</td><td className="py-3 text-right font-bold">{formatLargeValue(cust.total)}</td><td className="py-3 text-right text-red-600 font-medium">{formatLargeValue(cust.due)}</td><td className="py-3 text-right text-blue-600 font-medium">{formatLargeValue(cust.scheduled)}</td></tr>{expandedPendingCustomers.has(cust.name) && (<tr><td colSpan={4} className="p-0"><div className="bg-gray-50/50 p-3 border-b border-gray-100 animate-in slide-in-from-top-1"><table className="w-full text-xs"><thead className="text-[9px] text-gray-400 uppercase text-right"><tr><th className="text-left pl-8 pb-1">Item</th><th className="pb-1">Qty</th><th className="pb-1">Value</th><th className="pb-1">Status</th></tr></thead><tbody>{cust.items.slice(0, 5).map((item: any, iIdx: number) => (<tr key={iIdx} className="border-b border-gray-200/50 last:border-0"><td className="py-1.5 pl-8 text-gray-600 w-1/2 truncate" title={item.itemName}>{item.itemName}</td><td className="py-1.5 text-right text-gray-500">{item.balanceQty}</td><td className="py-1.5 text-right text-gray-800 font-medium">{formatLargeValue(item.val)}</td><td className="py-1.5 text-right"><span className={`text-[9px] px-1.5 py-0.5 rounded ${!item.isFuture ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>{!item.isFuture ? 'Due' : 'Sch'}</span></td></tr>))}{cust.items && cust.items.length > 5 && (<tr><td colSpan={4} className="text-center text-[9px] text-gray-400 pt-1 italic">...and {(cust.items?.length || 0) - 5} more items</td></tr>)}</tbody></table></div></td></tr>)}</React.Fragment>))}</tbody></table></div>
+                      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><HorizontalBarChart data={soStats.topItems} title="Top 10 Items (Pending Val)" color="purple" /></div>
                  </div>
             </div>
         ) : (
-            <div className="flex flex-col gap-4">
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex flex-col gap-4 flex-shrink-0">
-                    <div className="flex items-center gap-2 mb-2">
-                        <div className="bg-blue-100 p-1.5 rounded text-blue-700"><ShoppingCart className="w-4 h-4"/></div>
-                        <h2 className="text-sm font-bold text-gray-800">PO Optimization & Analysis</h2>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 h-32">
-                        <ActionCard title="Need to Place PO" value={formatCurrency(poStats.need.val)} count={poStats.need.count} color="red" icon={AlertOctagon} />
-                        <ActionCard title="Expedite PO" value={formatCurrency(poStats.expedite.val)} count={poStats.expedite.count} color="blue" icon={CheckCircle2} />
-                        <ActionCard title="Excess PO" value={formatCurrency(poStats.excess.val)} count={poStats.excess.count} color="orange" icon={AlertTriangle} />
-                        <div className="bg-white p-2 rounded-xl border border-gray-200 flex flex-col items-center shadow-sm">
-                            <SimpleDonut 
-                                title="PO Schedule" 
-                                data={[
-                                    {label: 'Scheduled', value: poStats.schedule.scheduled, color: '#3B82F6'}, 
-                                    {label: 'Overdue', value: poStats.schedule.due, color: '#EF4444'}
-                                ]} 
-                                color="blue"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-80 border-t border-gray-100 pt-3">
-                        <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex flex-col">
-                            <HorizontalBarChart title="Top 10 Expedite (Value)" data={poStats.expedite.top} color="blue" />
-                        </div>
-                        <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex flex-col">
-                            <HorizontalBarChart title="Top 10 Need Place (Shortage)" data={poStats.need.top} color="red" />
-                        </div>
-                        <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex flex-col">
-                            <HorizontalBarChart title="Top 10 Excess PO (Surplus)" data={poStats.excess.top} color="orange" />
-                        </div>
-                    </div>
-                </div>
-            </div>
+             <div className="flex flex-col gap-4">
+                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-orange-600 font-bold uppercase">Total PO Val</p><h3 className="text-xl font-extrabold text-gray-900 mt-0.5">{formatCurrency(poStats.totalVal)}</h3></div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-blue-600 font-bold uppercase">Open POs</p><h3 className="text-xl font-extrabold text-gray-900 mt-0.5">{poStats.count}</h3></div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-red-600 font-bold uppercase">Overdue POs</p><h3 className="text-xl font-extrabold text-gray-900 mt-0.5">{formatCurrency(poStats.schedule.due)}</h3></div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-green-600 font-bold uppercase">Scheduled</p><h3 className="text-xl font-extrabold text-gray-900 mt-0.5">{formatCurrency(poStats.schedule.scheduled)}</h3></div>
+                 </div>
+                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-80">
+                      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
+                          <h4 className="text-xs font-bold text-gray-700 flex items-center gap-2"><AlertCircle className="w-4 h-4 text-red-500" /> Need Place PO</h4>
+                          <div className="flex flex-col items-center">
+                              <span className="text-2xl font-extrabold text-red-600">{formatCurrency(poStats.need.val)}</span>
+                              <span className="text-xs text-gray-400">{poStats.need.count} items short of requirement</span>
+                          </div>
+                          <div className="h-40 overflow-hidden"><HorizontalBarChart data={poStats.need.top} title="Top 10 Gaps" color="red" /></div>
+                      </div>
+                      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
+                          <h4 className="text-xs font-bold text-gray-700 flex items-center gap-2"><RefreshCw className="w-4 h-4 text-blue-500" /> Expedite PO</h4>
+                          <div className="flex flex-col items-center">
+                              <span className="text-2xl font-extrabold text-blue-600">{formatCurrency(poStats.expedite.val)}</span>
+                              <span className="text-xs text-gray-400">{poStats.expedite.count} POs needed urgently</span>
+                          </div>
+                          <div className="h-40 overflow-hidden"><HorizontalBarChart data={poStats.expedite.top} title="Top Expedite" color="blue" /></div>
+                      </div>
+                      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
+                          <h4 className="text-xs font-bold text-gray-700 flex items-center gap-2"><AlertTriangle className="w-4 h-4 text-orange-500" /> Excess PO</h4>
+                          <div className="flex flex-col items-center">
+                              <span className="text-2xl font-extrabold text-orange-600">{formatCurrency(poStats.excess.val)}</span>
+                              <span className="text-xs text-gray-400">{poStats.excess.count} items exceeding max norm</span>
+                          </div>
+                          <div className="h-40 overflow-hidden"><HorizontalBarChart data={poStats.excess.top} title="Top Excess" color="orange" /></div>
+                      </div>
+                 </div>
+             </div>
         )}
       </div>
     </div>

@@ -1,36 +1,27 @@
 
 import { supabase } from './supabase';
 import { SalesReportItem } from '../types';
-import { dbService } from './db';
+import { dbService, STORES } from './db';
 
-// Optimize batching for large datasets
 const BATCH_SIZE = 1000;
 
 export const salesService = {
-  // Fetch all items from Supabase with pagination
   async getAll(): Promise<SalesReportItem[]> {
     const allData: SalesReportItem[] = [];
     try {
       let hasMore = true;
       let page = 0;
-
-      // Check if table exists/connection works
-      const check = await supabase.from('sales_report').select('id').limit(1);
-      if (check.error) throw check.error;
-
       while(hasMore) {
         const { data, error } = await supabase
-            .from('sales_report')
+            .from('sales_report_voucher')
             .select('*')
-            .order('date', { ascending: false })
+            .order('report_date', { ascending: false })
             .range(page * BATCH_SIZE, (page + 1) * BATCH_SIZE - 1);
-        
         if (error) throw error;
-
         if (data && data.length > 0) {
             const mapped = data.map((row: any) => ({
                 id: row.id,
-                date: row.date,
+                date: row.report_date,
                 customerName: row.customer_name,
                 particulars: row.particulars,
                 consignee: row.consignee,
@@ -40,33 +31,26 @@ export const salesService = {
                 value: Number(row.value),
                 createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now()
             }));
-            
-            // Push to array in place
-            for (let i = 0; i < mapped.length; i++) {
-                allData.push(mapped[i]);
-            }
-
+            mapped.forEach((m: SalesReportItem) => allData.push(m));
             if (data.length < BATCH_SIZE) hasMore = false;
             else page++;
-        } else {
-            hasMore = false;
-        }
+        } else { hasMore = false; }
       }
+      await dbService.clearStore(STORES.SALES);
+      await dbService.putBatch(STORES.SALES, allData);
       return allData;
     } catch (e) {
-      console.warn('Supabase fetch failed (Sales), falling back to local IndexedDB.', e);
-      return await dbService.getAllSales();
+      console.warn('Supabase fetch failed (Sales), using IndexedDB.');
+      return await dbService.getAll<SalesReportItem>(STORES.SALES);
     }
   },
 
-  // Create bulk items (Chunked + Parallel for 100k records support)
   async createBulk(items: Omit<SalesReportItem, 'id' | 'createdAt'>[]): Promise<SalesReportItem[]> {
     const timestamp = Date.now();
     const newItems = items.map(i => ({ ...i, id: crypto.randomUUID(), createdAt: timestamp }));
-    
     const rows = newItems.map(r => ({
         id: r.id,
-        date: r.date,
+        report_date: r.date,
         customer_name: r.customerName,
         particulars: r.particulars,
         consignee: r.consignee,
@@ -77,40 +61,23 @@ export const salesService = {
         created_at: new Date(r.createdAt).toISOString()
     }));
 
-    let sbSuccess = true;
     try {
         const chunks = [];
-        for (let i = 0; i < rows.length; i += BATCH_SIZE) {
-            chunks.push(rows.slice(i, i + BATCH_SIZE));
-        }
-
-        // Parallel processing with concurrency limit to speed up upload without overwhelming network
+        for (let i = 0; i < rows.length; i += BATCH_SIZE) chunks.push(rows.slice(i, i + BATCH_SIZE));
         const CONCURRENCY = 5;
         for (let i = 0; i < chunks.length; i += CONCURRENCY) {
             const batch = chunks.slice(i, i + CONCURRENCY);
-            await Promise.all(batch.map(chunk => 
-                supabase.from('sales_report').insert(chunk).then(({ error }) => {
-                    if (error) throw error;
-                })
-            ));
+            await Promise.all(batch.map(chunk => supabase.from('sales_report_voucher').insert(chunk)));
         }
-    } catch (e) {
-        console.warn('Supabase insert failed (Sales), falling back to local DB.', e);
-        sbSuccess = false;
-    }
-
-    if (!sbSuccess) {
-        await dbService.addSalesBatch(newItems);
-    }
-    
+    } catch (e) { console.warn('Supabase bulk insert failed (Sales), synced locally.'); }
+    await dbService.putBatch(STORES.SALES, newItems);
     return newItems;
   },
 
-  // Update Item
   async update(item: SalesReportItem): Promise<void> {
     try {
-        const { error } = await supabase.from('sales_report').update({
-            date: item.date,
+        await supabase.from('sales_report_voucher').update({
+            report_date: item.date,
             customer_name: item.customerName,
             particulars: item.particulars,
             consignee: item.consignee,
@@ -119,33 +86,21 @@ export const salesService = {
             quantity: item.quantity,
             value: item.value
         }).eq('id', item.id);
-        
-        if (error) throw error;
-    } catch (e) { 
-        console.warn('Supabase update failed, updating local.', e);
-        await dbService.updateSale(item);
-    }
+    } catch (e) { console.warn('Supabase update failed.'); }
+    await dbService.putBatch(STORES.SALES, [item]);
   },
 
-  // Delete Item
   async delete(id: string): Promise<void> {
     try {
-        const { error } = await supabase.from('sales_report').delete().eq('id', id);
-        if (error) throw error;
-    } catch (e) { 
-        console.warn('Supabase delete failed, deleting local.', e);
-        await dbService.deleteSale(id);
-    }
+        await supabase.from('sales_report_voucher').delete().eq('id', id);
+    } catch (e) { console.warn('Supabase delete failed.'); }
+    await dbService.deleteOne(STORES.SALES, id);
   },
 
-  // Clear All Items
   async clearAll(): Promise<void> {
       try {
-          const { error } = await supabase.from('sales_report').delete().neq('id', '00000000-0000-0000-0000-000000000000'); 
-          if (error) throw error;
-      } catch (e) {
-          console.warn('Supabase clear failed (Sales).', e);
-      }
-      await dbService.clearAllSales();
+          await supabase.from('sales_report_voucher').delete().neq('id', '00000000-0000-0000-0000-000000000000'); 
+      } catch (e) { console.warn('Supabase clear failed.'); }
+      await dbService.clearStore(STORES.SALES);
   }
 };

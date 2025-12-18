@@ -1,11 +1,18 @@
 
-import { SalesReportItem } from '../types';
+import { SalesReportItem, Material, CustomerMasterItem, ClosingStockItem, PendingSOItem, PendingPOItem } from '../types';
 
-const DB_NAME = 'MaterialMasterAI_DB';
-const DB_VERSION = 1;
-const STORE_SALES = 'sales_report';
+const DB_NAME = 'SiddhiReports_DB_v2';
+const DB_VERSION = 2;
 
-// Helper to open DB
+export const STORES = {
+  SALES: 'sales_report',
+  MATERIALS: 'materials',
+  CUSTOMERS: 'customers',
+  STOCK: 'closing_stock',
+  SO: 'pending_so',
+  PO: 'pending_po'
+};
+
 const openDB = (): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
@@ -15,76 +22,53 @@ const openDB = (): Promise<IDBDatabase> => {
 
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
-      if (!db.objectStoreNames.contains(STORE_SALES)) {
-        // Create store with 'id' as keyPath
-        db.createObjectStore(STORE_SALES, { keyPath: 'id' });
-      }
+      Object.values(STORES).forEach(storeName => {
+        if (!db.objectStoreNames.contains(storeName)) {
+          db.createObjectStore(storeName, { keyPath: 'id' });
+        }
+      });
     };
   });
 };
 
 export const dbService = {
-  // Load all items (FAST)
-  async getAllSales(): Promise<SalesReportItem[]> {
-    try {
-      const db = await openDB();
-      return new Promise((resolve, reject) => {
-        const transaction = db.transaction(STORE_SALES, 'readonly');
-        const store = transaction.objectStore(STORE_SALES);
-        const request = store.getAll();
-
-        request.onsuccess = () => resolve(request.result || []);
-        request.onerror = () => reject(request.error);
-      });
-    } catch (error) {
-      console.error("DB Load Error:", error);
-      return [];
-    }
-  },
-
-  // Bulk add items (Transaction safe)
-  async addSalesBatch(items: SalesReportItem[]): Promise<void> {
+  async getAll<T>(storeName: string): Promise<T[]> {
     const db = await openDB();
     return new Promise((resolve, reject) => {
-      const transaction = db.transaction(STORE_SALES, 'readwrite');
-      const store = transaction.objectStore(STORE_SALES);
+      const transaction = db.transaction(storeName, 'readonly');
+      const store = transaction.objectStore(storeName);
+      const request = store.getAll();
+      request.onsuccess = () => resolve(request.result || []);
+      request.onerror = () => reject(request.error);
+    });
+  },
 
+  async putBatch<T>(storeName: string, items: T[]): Promise<void> {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(storeName, 'readwrite');
+      const store = transaction.objectStore(storeName);
       items.forEach(item => store.put(item));
-
       transaction.oncomplete = () => resolve();
       transaction.onerror = () => reject(transaction.error);
     });
   },
 
-  // Update single item
-  async updateSale(item: SalesReportItem): Promise<void> {
+  async deleteOne(storeName: string, id: string): Promise<void> {
     const db = await openDB();
     return new Promise((resolve, reject) => {
-      const transaction = db.transaction(STORE_SALES, 'readwrite');
-      const store = transaction.objectStore(STORE_SALES);
-      store.put(item); // put updates if key exists
-      transaction.oncomplete = () => resolve();
-      transaction.onerror = () => reject(transaction.error);
-    });
-  },
-
-  // Delete single item
-  async deleteSale(id: string): Promise<void> {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(STORE_SALES, 'readwrite');
-      const store = transaction.objectStore(STORE_SALES);
+      const transaction = db.transaction(storeName, 'readwrite');
+      const store = transaction.objectStore(storeName);
       store.delete(id);
       transaction.oncomplete = () => resolve();
     });
   },
 
-  // Clear all data
-  async clearAllSales(): Promise<void> {
+  async clearStore(storeName: string): Promise<void> {
     const db = await openDB();
     return new Promise((resolve, reject) => {
-      const transaction = db.transaction(STORE_SALES, 'readwrite');
-      const store = transaction.objectStore(STORE_SALES);
+      const transaction = db.transaction(storeName, 'readwrite');
+      const store = transaction.objectStore(storeName);
       store.clear();
       transaction.oncomplete = () => resolve();
     });

@@ -1,33 +1,24 @@
 
 import { supabase } from './supabase';
 import { Material, MaterialFormData } from '../types';
+import { dbService, STORES } from './db';
 
-const LOCAL_STORAGE_KEY = 'material_master_db_v1';
+const BATCH_SIZE = 1000;
 
 export const materialService = {
-  // Fetch all materials (with batching for >1000 records)
   async getAll(): Promise<Material[]> {
-    let dbData: Material[] = [];
-    let useLocal = false;
-
+    const allData: Material[] = [];
     try {
       let hasMore = true;
       let page = 0;
-      const pageSize = 1000;
-
       while (hasMore) {
         const { data, error } = await supabase
           .from('material_master')
           .select('*')
           .order('created_at', { ascending: false })
-          .range(page * pageSize, (page + 1) * pageSize - 1);
+          .range(page * BATCH_SIZE, (page + 1) * BATCH_SIZE - 1);
 
-        if (error) {
-          console.warn('Supabase fetch failed:', error.message);
-          useLocal = true;
-          break;
-        }
-
+        if (error) throw error;
         if (data && data.length > 0) {
           const mapped = data.map((row: any) => ({
             id: row.id,
@@ -37,128 +28,88 @@ export const materialService = {
             materialGroup: row.material_group,
             createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now()
           }));
-          
-          // Use push for better memory performance on large arrays than spread
-          mapped.forEach((m: Material) => dbData.push(m));
-
-          if (data.length < pageSize) {
-            hasMore = false;
-          } else {
-            page++;
-          }
+          mapped.forEach((m: Material) => allData.push(m));
+          if (data.length < BATCH_SIZE) hasMore = false;
+          else page++;
         } else {
           hasMore = false;
         }
       }
+      await dbService.clearStore(STORES.MATERIALS);
+      await dbService.putBatch(STORES.MATERIALS, allData);
+      return allData;
     } catch (e) {
-      console.warn('Supabase connection error (Using Local Storage).');
-      useLocal = true;
+      console.warn('Supabase fetch failed (Materials), using IndexedDB.');
+      return await dbService.getAll<Material>(STORES.MATERIALS);
     }
-
-    if (useLocal) {
-        const local = localStorage.getItem(LOCAL_STORAGE_KEY);
-        return local ? JSON.parse(local) : [];
-    }
-
-    return dbData;
   },
 
-  // Create multiple materials (Bulk Import)
+  // Added deduplicate method to merge items with identical technical keys and resolve TypeScript error.
+  async deduplicate(): Promise<Material[]> {
+    const materials = await this.getAll();
+    const seen = new Set<string>();
+    const unique: Material[] = [];
+    for (const m of materials) {
+      const key = `${m.description.toLowerCase().trim()}|${m.partNo.toLowerCase().trim()}|${m.make.toLowerCase().trim()}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        unique.push(m);
+      }
+    }
+    return unique;
+  },
+
   async createBulk(materials: MaterialFormData[]): Promise<Material[]> {
     const timestamp = Date.now();
-    const newItems = materials.map(m => ({
-      ...m,
-      id: crypto.randomUUID(),
-      createdAt: timestamp
+    const newItems = materials.map(m => ({ ...m, id: crypto.randomUUID(), createdAt: timestamp }));
+    const rows = newItems.map(m => ({
+      id: m.id,
+      description: m.description,
+      part_no: m.partNo,
+      make: m.make,
+      material_group: m.materialGroup,
+      created_at: new Date(m.createdAt).toISOString()
     }));
 
-    let success = false;
-
     try {
-        const rows = newItems.map(m => ({
-          id: m.id,
-          description: m.description,
-          part_no: m.partNo,
-          make: m.make,
-          material_group: m.materialGroup,
-          created_at: new Date(m.createdAt).toISOString()
-        }));
-
-        // Insert in chunks of 1000 to avoid payload limits
-        const CHUNK_SIZE = 1000;
-        for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
-            const chunk = rows.slice(i, i + CHUNK_SIZE);
-            const { error } = await supabase.from('material_master').insert(chunk);
-            if (error) throw error;
-        }
-        success = true;
+      const chunks = [];
+      for (let i = 0; i < rows.length; i += BATCH_SIZE) chunks.push(rows.slice(i, i + BATCH_SIZE));
+      const CONCURRENCY = 5;
+      for (let i = 0; i < chunks.length; i += CONCURRENCY) {
+        const batch = chunks.slice(i, i + CONCURRENCY);
+        await Promise.all(batch.map(chunk => supabase.from('material_master').insert(chunk)));
+      }
     } catch (e) {
-        console.warn('Falling back to local storage for save.', e);
+      console.warn('Supabase bulk insert failed (Materials), synced locally.');
     }
 
-    // Always save to local storage as backup/fallback
-    if (!success) {
-        const current = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
-        const updated = [...newItems, ...current];
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
-    }
-
+    await dbService.putBatch(STORES.MATERIALS, newItems);
     return newItems;
   },
 
-  // Update a material
   async update(material: Material): Promise<void> {
-    let success = false;
     try {
-        const { error } = await supabase
-        .from('material_master')
-        .update({
-            description: material.description,
-            part_no: material.partNo,
-            make: material.make,
-            material_group: material.materialGroup
-        })
-        .eq('id', material.id);
-        
-        if (error) throw error;
-        success = true;
-    } catch (e) {
-        console.warn('Falling back to local storage for update.');
-    }
-
-    if (!success) {
-        const current: Material[] = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
-        const updated = current.map(m => m.id === material.id ? material : m);
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
-    }
+      await supabase.from('material_master').update({
+        description: material.description,
+        part_no: material.partNo,
+        make: material.make,
+        material_group: material.materialGroup
+      }).eq('id', material.id);
+    } catch (e) { console.warn('Supabase update failed.'); }
+    await dbService.putBatch(STORES.MATERIALS, [material]);
   },
 
-  // Delete a material
   async delete(id: string): Promise<void> {
-    let success = false;
     try {
-        const { error } = await supabase.from('material_master').delete().eq('id', id);
-        if (error) throw error;
-        success = true;
-    } catch (e) {
-        console.warn('Falling back to local storage for delete.');
-    }
-
-    if (!success) {
-        const current: Material[] = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
-        const updated = current.filter(m => m.id !== id);
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
-    }
+      await supabase.from('material_master').delete().eq('id', id);
+    } catch (e) { console.warn('Supabase delete failed.'); }
+    await dbService.deleteOne(STORES.MATERIALS, id);
   },
 
-  // Clear all materials
   async clearAll(): Promise<void> {
     try {
-        const { error } = await supabase.from('material_master').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-        if (error) throw error;
-    } catch (e) {
-        console.warn('Supabase clear failed (Materials), clearing local only.', e);
-    }
-    localStorage.removeItem(LOCAL_STORAGE_KEY);
+      await supabase.from('material_master').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    } catch (e) { console.warn('Supabase clear failed.'); }
+    await dbService.clearStore(STORES.MATERIALS);
   }
 };
