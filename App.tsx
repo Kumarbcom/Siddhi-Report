@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Material, MaterialFormData, PendingSOItem, PendingPOItem, SalesRecord, ClosingStockItem, SalesReportItem, CustomerMasterItem } from './types';
 import MaterialTable from './components/MaterialTable';
@@ -11,19 +12,19 @@ import CustomerMasterView from './components/CustomerMasterView';
 import DashboardView from './components/DashboardView';
 import PivotReportView from './components/PivotReportView';
 import ChatView from './components/ChatView';
-import { Database, AlertCircle, ClipboardList, ShoppingCart, TrendingUp, Package, Layers, LayoutDashboard, FileBarChart, Users, ChevronRight, Menu, X, HardDrive, Table, MessageSquare } from 'lucide-react';
-import { dbService } from './services/db';
+import { Database, AlertCircle, ClipboardList, ShoppingCart, TrendingUp, Package, Layers, LayoutDashboard, FileBarChart, Users, ChevronRight, Menu, X, HardDrive, Table, MessageSquare, Wrench, CheckCircle, Loader2 } from 'lucide-react';
 import { materialService } from './services/materialService';
 import { customerService } from './services/customerService';
 import { stockService } from './services/stockService';
 import { soService } from './services/soService';
 import { poService } from './services/poService';
 import { salesService } from './services/salesService';
+import { repairService, RepairSummary } from './services/repairService';
 
 const STORAGE_KEY_SALES_1Y = 'sales_1year_db_v1';
 const STORAGE_KEY_SALES_3M = 'sales_3months_db_v1';
 
-type ActiveTab = 'dashboard' | 'chat' | 'master' | 'customerMaster' | 'closingStock' | 'pendingSO' | 'pendingPO' | 'salesHistory' | 'salesReport' | 'pivotReport';
+type ActiveTab = 'dashboard' | 'chat' | 'master' | 'customerMaster' | 'closingStock' | 'pendingSO' | 'pendingPO' | 'salesHistory' | 'salesReport' | 'pivotReport' | 'maintenance';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
@@ -42,54 +43,57 @@ const App: React.FC = () => {
   // Loading State
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [isDbLoading, setIsDbLoading] = useState(true);
+  const [isRepairing, setIsRepairing] = useState(false);
+  const [repairResult, setRepairResult] = useState<RepairSummary[] | null>(null);
 
   const [selectedMake, setSelectedMake] = useState<string | 'ALL'>('ALL');
   const [error, setError] = useState<string | null>(null);
 
   // --- Load Data Effects ---
+  const loadAllData = async () => {
+    try {
+      setIsDbLoading(true);
+
+      const [
+          dbMaterials,
+          dbCustomers,
+          dbStock,
+          dbSO,
+          dbPO,
+          dbSales
+      ] = await Promise.all([
+          materialService.getAll(),
+          customerService.getAll(),
+          stockService.getAll(),
+          soService.getAll(),
+          poService.getAll(),
+          salesService.getAll()
+      ]);
+
+      setMaterials(dbMaterials);
+      setCustomerMasterItems(dbCustomers);
+      setClosingStockItems(dbStock);
+      setPendingSOItems(dbSO);
+      setPendingPOItems(dbPO);
+      setSalesReportItems(dbSales);
+
+      const storedS1Y = localStorage.getItem(STORAGE_KEY_SALES_1Y);
+      if (storedS1Y) setSales1Year(JSON.parse(storedS1Y));
+
+      const storedS3M = localStorage.getItem(STORAGE_KEY_SALES_3M);
+      if (storedS3M) setSales3Months(JSON.parse(storedS3M));
+
+    } catch (e) {
+      console.error("Error loading data", e);
+      setError("Failed to load some data. Please check console.");
+    } finally {
+      setIsDataLoaded(true);
+      setIsDbLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        setIsDbLoading(true);
-
-        const [
-            dbMaterials,
-            dbCustomers,
-            dbStock,
-            dbSO,
-            dbPO,
-            dbSales
-        ] = await Promise.all([
-            materialService.getAll(),
-            customerService.getAll(),
-            stockService.getAll(),
-            soService.getAll(),
-            poService.getAll(),
-            salesService.getAll()
-        ]);
-
-        setMaterials(dbMaterials);
-        setCustomerMasterItems(dbCustomers);
-        setClosingStockItems(dbStock);
-        setPendingSOItems(dbSO);
-        setPendingPOItems(dbPO);
-        setSalesReportItems(dbSales);
-
-        const storedS1Y = localStorage.getItem(STORAGE_KEY_SALES_1Y);
-        if (storedS1Y) setSales1Year(JSON.parse(storedS1Y));
-
-        const storedS3M = localStorage.getItem(STORAGE_KEY_SALES_3M);
-        if (storedS3M) setSales3Months(JSON.parse(storedS3M));
-
-      } catch (e) {
-        console.error("Error loading data", e);
-        setError("Failed to load some data. Please check console.");
-      } finally {
-        setIsDataLoaded(true);
-        setIsDbLoading(false);
-      }
-    };
-    loadData();
+    loadAllData();
   }, []);
 
   // --- Save Data Effects (LocalStorage Backup) ---
@@ -223,6 +227,22 @@ const App: React.FC = () => {
     }
   };
 
+  const handlePerformDateRepair = async () => {
+    if (!confirm("This will add exactly +1 day to ALL records in the specified tables to correct the systematic offset. Continue?")) return;
+    
+    setIsRepairing(true);
+    setRepairResult(null);
+    try {
+        const result = await repairService.performSystematicFix();
+        setRepairResult(result);
+        await loadAllData(); // Reload UI state from corrected database
+    } catch (e: any) {
+        alert("Repair failed: " + e.message);
+    } finally {
+        setIsRepairing(false);
+    }
+  };
+
   const makeStats = useMemo(() => {
     const counts: Record<string, number> = {};
     materials.forEach(m => { 
@@ -298,6 +318,10 @@ const App: React.FC = () => {
                 <SidebarItem id="salesReport" label="Sales Report" icon={FileBarChart} count={salesReportItems.length} onClick={setActiveTab} />
              </div>
            </div>
+           <div>
+             {isSidebarOpen && <div className="px-3 mb-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">System</div>}
+             <SidebarItem id="maintenance" label="Data Repair Tool" icon={Wrench} onClick={setActiveTab} />
+           </div>
         </div>
 
         <div className="p-4 border-t border-gray-200 bg-gray-50 flex-shrink-0">
@@ -362,6 +386,74 @@ const App: React.FC = () => {
                 />
               </div>
             )}
+            {activeTab === 'maintenance' && (
+                <div className="max-w-2xl mx-auto space-y-6">
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                        <div className="flex items-center gap-4 mb-6">
+                            <div className="bg-orange-100 p-3 rounded-full text-orange-600">
+                                <Wrench className="w-6 h-6" />
+                            </div>
+                            <div>
+                                <h2 className="text-xl font-bold text-gray-900">Database Date Repair Tool</h2>
+                                <p className="text-sm text-gray-500">Correct the systematic 1-day offset caused by timezone shifts.</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4 bg-gray-50 p-4 rounded-xl border border-gray-200 mb-6">
+                            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                                <AlertCircle className="w-3.5 h-3.5" /> Effected Fields
+                            </h3>
+                            <ul className="text-xs text-gray-600 space-y-2 list-disc list-inside">
+                                <li><strong>sales_report_voucher:</strong> report_date</li>
+                                <li><strong>pending_sales_orders:</strong> so_date, due_on</li>
+                                <li><strong>pending_purchase_orders:</strong> po_date, due_on</li>
+                            </ul>
+                        </div>
+
+                        {!repairResult ? (
+                            <div className="flex flex-col items-center gap-4 py-4">
+                                <p className="text-xs text-gray-500 text-center max-w-md">
+                                    Clicking the button below will increment all date values in the target columns by exactly 1 day. 
+                                    Ensure you have verified the data before proceeding.
+                                </p>
+                                <button 
+                                    onClick={handlePerformDateRepair}
+                                    disabled={isRepairing}
+                                    className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all disabled:opacity-50 shadow-md"
+                                >
+                                    {isRepairing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Wrench className="w-5 h-5" />}
+                                    {isRepairing ? "Repairing Database..." : "Execute Systematic Correction"}
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-500">
+                                <div className="bg-green-50 border border-green-200 p-4 rounded-xl flex items-center gap-3">
+                                    <CheckCircle className="w-6 h-6 text-green-600" />
+                                    <p className="text-sm font-bold text-green-800">Repair Complete!</p>
+                                </div>
+                                <div className="grid grid-cols-1 gap-2">
+                                    {repairResult.map((res, idx) => (
+                                        <div key={idx} className="flex justify-between items-center p-3 bg-white border border-gray-200 rounded-lg shadow-sm">
+                                            <span className="text-xs font-mono font-medium text-gray-700">{res.table}</span>
+                                            {res.error ? (
+                                                <span className="text-[10px] text-red-600 font-bold bg-red-50 px-2 py-0.5 rounded border border-red-100">Error: {res.error}</span>
+                                            ) : (
+                                                <span className="text-xs font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">{res.updatedCount} rows updated</span>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                                <button 
+                                    onClick={() => setRepairResult(null)}
+                                    className="w-full py-2 text-xs font-bold text-gray-500 hover:text-gray-800 transition-colors"
+                                >
+                                    Done
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
             {activeTab === 'master' && (
               <div className="flex flex-col lg:flex-row gap-4 items-start h-full">
                 <div className="w-full lg:w-56 flex-shrink-0 flex flex-col gap-3 h-full">
@@ -399,7 +491,7 @@ const App: React.FC = () => {
             {activeTab === 'customerMaster' && <div className="h-full w-full"><CustomerMasterView items={customerMasterItems} onBulkAdd={handleBulkAddCustomer} onUpdate={handleUpdateCustomer} onDelete={handleDeleteCustomer} onClear={handleClearCustomer} /></div>}
             {activeTab === 'closingStock' && <div className="h-full w-full"><ClosingStockView items={closingStockItems} materials={materials} onBulkAdd={handleBulkAddStock} onUpdate={handleUpdateStock} onDelete={handleDeleteStock} onClear={handleClearStock} /></div>}
             {activeTab === 'pendingSO' && <div className="h-full w-full"><PendingSOView items={pendingSOItems} materials={materials} customers={customerMasterItems} closingStockItems={closingStockItems} onBulkAdd={handleBulkAddSO} onUpdate={handleUpdateSO} onDelete={handleDeleteSO} onClear={handleClearSO} /></div>}
-            {activeTab === 'pendingPO' && <div className="h-full w-full"><PendingPOView items={pendingPOItems} materials={materials} customers={customerMasterItems} closingStockItems={closingStockItems} pendingSOItems={pendingSOItems} onBulkAdd={handleBulkAddPO} onUpdate={handleUpdatePO} onDelete={handleDeletePO} onClear={handleClearPO} /></div>}
+            {activeTab === 'pendingPO' && <div className="h-full w-full"><PendingPOView items={pendingPOItems} materials={materials} customers={customerMasterItems} closingStockItems={closingStockItems} pendingSOItems={pendingSOItems} salesReportItems={salesReportItems} onBulkAdd={handleBulkAddPO} onUpdate={handleUpdatePO} onDelete={handleDeletePO} onClear={handleClearPO} /></div>}
             {activeTab === 'salesReport' && <div className="h-full w-full"><SalesReportView items={salesReportItems} materials={materials} customers={customerMasterItems} onBulkAdd={handleBulkAddSales} onUpdate={handleUpdateSales} onDelete={handleDeleteSales} onClear={handleClearSales} /></div>}
             {activeTab === 'salesHistory' && <div className="h-full text-center py-20 text-gray-400">Legacy View - Please use Sales Report</div>}
         </main>

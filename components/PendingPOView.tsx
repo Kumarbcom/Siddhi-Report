@@ -1,6 +1,5 @@
-
 import React, { useRef, useMemo, useState } from 'react';
-import { PendingPOItem, Material, ClosingStockItem, PendingSOItem, CustomerMasterItem } from '../types';
+import { PendingPOItem, Material, ClosingStockItem, PendingSOItem, CustomerMasterItem, SalesReportItem } from '../types';
 import { Trash2, Download, Upload, ShoppingCart, Search, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, Package, FileDown, Pencil, Save, X, Calendar, PieChart, BarChart3, AlertOctagon, CheckCircle2, UserCheck } from 'lucide-react';
 import { read, utils, writeFile } from 'xlsx';
 
@@ -14,9 +13,22 @@ interface PendingPOViewProps {
   onDelete: (id: string) => void;
   onClear: () => void;
   pendingSOItems?: PendingSOItem[];
+  salesReportItems?: SalesReportItem[];
 }
 
 type SortKey = keyof PendingPOItem;
+
+const PLANNED_STOCK_GROUPS = new Set([
+  "eaton-ace", "eaton-biesse", "eaton-coffee day", "eaton-enrx pvt ltd",
+  "eaton-eta technology", "eaton-faively", "eaton-planned stock specific customer",
+  "eaton-probat india", "eaton-rinac", "eaton-schenck process",
+  "eaton-planned stock general", "hager-incap contracting",
+  "lapp-ace group", "lapp-ams group", "lapp-disa india",
+  "lapp-engineered customized control", "lapp-kennametal",
+  "lapp-planned stock general", "lapp-rinac", "lapp-titan"
+]);
+
+const roundToTen = (num: number) => num <= 0 ? 0 : Math.ceil(num / 10) * 10;
 
 const SimpleDonut = ({ data, title }: { data: {label: string, value: number, color: string}[], title: string }) => {
     const total = data.reduce((a,b) => a+b.value, 0);
@@ -79,7 +91,8 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
   onUpdate,
   onDelete,
   onClear,
-  pendingSOItems = []
+  pendingSOItems = [],
+  salesReportItems = []
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -126,9 +139,10 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
       closingStockItems.forEach(i => stockMap.set(i.description.toLowerCase().trim(), (stockMap.get(i.description.toLowerCase().trim()) || 0) + i.quantity));
       
       return items.map(item => {
+          const itemDesc = item.itemName.toLowerCase().trim();
           const isCustUnknown = !customerLookup.has(item.partyName.toLowerCase().trim());
-          const isMatUnknown = !materialLookup.has(item.itemName.toLowerCase().trim());
-          const currentStock = stockMap.get(item.itemName.toLowerCase().trim()) || 0;
+          const isMatUnknown = !materialLookup.has(itemDesc);
+          const currentStock = stockMap.get(itemDesc) || 0;
           return { ...item, isCustUnknown, isMatUnknown, currentStock };
       });
   }, [items, closingStockItems, customerLookup, materialLookup]);
@@ -153,21 +167,82 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
   }, [processedDataWithValidation, searchTerm, sortConfig, showErrorsOnly]);
 
   const optimizationStats = useMemo(() => {
-      let scheduledVal = 0;
-      let dueVal = 0;
+      const allItemKeys = new Set<string>();
+      materials.forEach(m => allItemKeys.add(m.description.toLowerCase().trim()));
+      closingStockItems.forEach(s => allItemKeys.add(s.description.toLowerCase().trim()));
+      pendingSOItems.forEach(so => allItemKeys.add(so.itemName.toLowerCase().trim()));
+      items.forEach(po => allItemKeys.add(po.itemName.toLowerCase().trim()));
+
+      const stockMap = new Map<string, number>();
+      closingStockItems.forEach(i => { const key = i.description.toLowerCase().trim(); stockMap.set(key, (stockMap.get(key) || 0) + i.quantity); });
+      const soMap = new Map<string, number>();
+      pendingSOItems.forEach(i => { const key = i.itemName.toLowerCase().trim(); soMap.set(key, (soMap.get(key) || 0) + i.balanceQty); });
+      const poMap = new Map<string, number>();
+      items.forEach(i => { const key = i.itemName.toLowerCase().trim(); poMap.set(key, (poMap.get(key) || 0) + i.balanceQty); });
+
+      const oneYearAgo = new Date(); oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+      const sales1yMap = new Map<string, number>();
+      salesReportItems.forEach(s => {
+          const d = new Date(s.date);
+          if (d >= oneYearAgo) {
+            const key = s.particulars.toLowerCase().trim();
+            sales1yMap.set(key, (sales1yMap.get(key) || 0) + s.quantity);
+          }
+      });
+
+      let excessVal = 0, excessCount = 0, needVal = 0, needCount = 0, expediteVal = 0, expediteCount = 0, scheduledVal = 0, dueVal = 0;
       const today = new Date();
+
+      allItemKeys.forEach(key => {
+          const mat = materials.find(m => m.description.toLowerCase().trim() === key);
+          const group = (mat?.materialGroup || '').toLowerCase().trim();
+          const stockQty = stockMap.get(key) || 0;
+          const soQty = soMap.get(key) || 0;
+          const poQty = poMap.get(key) || 0;
+          const salesQty = sales1yMap.get(key) || 0;
+          const avg1yQty = salesQty / 12;
+          const rate = mat ? 
+                 (closingStockItems.find(s => s.description.toLowerCase().trim() === key)?.rate || 
+                  items.find(p => p.itemName.toLowerCase().trim() === key)?.rate || 0) : 0;
+
+          let maxStock = 0;
+          if (PLANNED_STOCK_GROUPS.has(group)) {
+              maxStock = roundToTen(avg1yQty * 3);
+          }
+
+          const netQty = stockQty + poQty - soQty;
+          const totalExcess = Math.max(0, netQty - maxStock);
+          if (totalExcess > 0 && poQty > 0) {
+              excessVal += Math.min(totalExcess, poQty) * rate;
+              excessCount++;
+          }
+
+          const deficit = maxStock - netQty;
+          if (deficit > 0) {
+              needVal += deficit * rate;
+              needCount++;
+          }
+
+          const immediateGap = (soQty + Math.min(maxStock, roundToTen(avg1yQty))) - stockQty;
+          if (immediateGap > 0 && poQty > 0) {
+              expediteVal += Math.min(poQty, immediateGap) * rate;
+              expediteCount++;
+          }
+      });
+
       items.forEach(i => {
           const val = (Number(i.balanceQty) || 0) * (Number(i.rate) || 0);
-          if (i.dueDate && new Date(i.dueDate) < today) dueVal += val;
+          if (i.dueDate && new Date(i.dueDate).getTime() < today.getTime()) dueVal += val;
           else scheduledVal += val;
       });
+
       return {
           schedule: { due: dueVal, scheduled: scheduledVal },
-          excess: { val: 0, count: 0 },
-          need: { val: 0, count: 0 },
-          expedite: { val: 0, count: 0 }
+          excess: { val: excessVal, count: excessCount },
+          need: { val: needVal, count: needCount },
+          expedite: { val: expediteVal, count: expediteCount }
       };
-  }, [items]);
+  }, [items, materials, closingStockItems, pendingSOItems, salesReportItems]);
 
   const handleDownloadTemplate = () => {
     // Exact headers from user image
@@ -313,7 +388,7 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
          <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
             <h2 className="text-sm font-semibold text-gray-800">Pending Purchase Orders</h2>
             <div className="flex flex-wrap gap-2">
-                <button onClick={() => {}} className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-600 rounded-lg text-xs font-medium border border-gray-300 shadow-sm hover:bg-gray-50"><FileDown className="w-3.5 h-3.5" /> Export All</button>
+                <button onClick={() => {}} className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-700 rounded-lg text-xs font-medium border border-gray-300 shadow-sm hover:bg-gray-50"><FileDown className="w-3.5 h-3.5" /> Export All</button>
                 <button onClick={handleDownloadTemplate} className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold border border-indigo-100 hover:bg-indigo-100 transition-colors shadow-sm"><Download className="w-3.5 h-3.5" /> Template</button>
                 <input type="file" ref={fileInputRef} className="hidden" accept=".xlsx, .xls" onChange={handleFileUpload} />
                 <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-xs border border-emerald-100 hover:bg-emerald-100 transition-colors font-bold"><Upload className="w-3.5 h-3.5" /> Import Excel</button>
@@ -352,8 +427,8 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
                                         <td className="py-2 px-3"><input type="text" className="w-full border border-orange-300 rounded px-1.5 py-0.5 text-xs focus:outline-none" value={editForm?.itemName || ''} onChange={e => handleInputChange('itemName', e.target.value)} /></td>
                                         <td colSpan={6} className="py-2 px-3 text-right">
                                             <div className="flex justify-end gap-1">
-                                                <button onClick={handleSaveEdit} className="p-1 rounded bg-green-100 text-green-700 hover:bg-green-200 shadow-sm"><Save className="w-3.5 h-3.5" /></button>
-                                                <button onClick={handleCancelEdit} className="p-1 rounded bg-red-100 text-red-700 hover:bg-red-200 shadow-sm"><X className="w-3.5 h-3.5" /></button>
+                                                <button onClick={handleSaveEdit} className="p-1 rounded bg-green-100 text-green-700 hover:bg-green-200"><Save className="w-3.5 h-3.5" /></button>
+                                                <button onClick={handleCancelEdit} className="p-1 rounded bg-red-100 text-red-700 hover:bg-red-200"><X className="w-3.5 h-3.5" /></button>
                                             </div>
                                         </td>
                                     </>
@@ -362,7 +437,9 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
                                         <td className="py-2 px-3 whitespace-nowrap">{formatDateDisplay(item.date)}</td>
                                         <td className="py-2 px-3 font-medium">{item.orderNo}</td>
                                         <td className="py-2 px-3 truncate max-w-[150px]" title={item.partyName}>{item.partyName}</td>
-                                        <td className="py-2 px-3 font-medium text-gray-900 truncate" title={item.itemName}>{item.itemName}</td>
+                                        <td className="py-2 px-3 font-medium text-gray-900 truncate" title={item.itemName}>
+                                            {item.isMatUnknown ? <span className="text-red-600 bg-red-50 px-1 py-px rounded font-mono" title="Item not in Master. Showing Part No.">{item.partNo || item.itemName}</span> : item.itemName}
+                                        </td>
                                         <td className="py-2 px-3 text-center bg-gray-50/40">{item.currentStock}</td>
                                         <td className="py-2 px-3 text-right text-gray-500">{item.orderedQty}</td>
                                         <td className="py-2 px-3 text-right font-medium text-blue-600">{item.balanceQty}</td>

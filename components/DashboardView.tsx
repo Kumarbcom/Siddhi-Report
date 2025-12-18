@@ -449,6 +449,10 @@ const SimpleDonut = ({ data, title, color }: { data: {label: string, value: numb
      );
 };
 
+type TimeView = 'FY' | 'MONTH' | 'WEEK';
+type ComparisonMode = 'PREV_PERIOD' | 'PREV_YEAR';
+type Metric = 'quantity' | 'value';
+
 interface DashboardViewProps {
   materials: Material[];
   closingStock: ClosingStockItem[];
@@ -460,10 +464,6 @@ interface DashboardViewProps {
   sales3Months: SalesRecord[];
   setActiveTab: (tab: any) => void;
 }
-
-type TimeView = 'FY' | 'MONTH' | 'WEEK';
-type ComparisonMode = 'PREV_PERIOD' | 'PREV_YEAR';
-type Metric = 'quantity' | 'value';
 
 const DashboardView: React.FC<DashboardViewProps> = ({
   materials,
@@ -518,13 +518,27 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   // --- Helpers ---
   const parseDate = (val: any): Date => {
     if (!val) return new Date();
-    if (val instanceof Date) return val;
-    if (typeof val === 'number') return new Date((val - (25567 + 2)) * 86400 * 1000);
+    if (val instanceof Date) {
+        const d = new Date(val.getTime());
+        d.setHours(12, 0, 0, 0);
+        return d;
+    }
+    if (typeof val === 'number') {
+        const d = new Date((val - (25567 + 2)) * 86400 * 1000);
+        d.setHours(12, 0, 0, 0);
+        return d;
+    }
     if (typeof val === 'string') {
         const d = new Date(val);
-        if (!isNaN(d.getTime())) return d;
+        if (!isNaN(d.getTime())) {
+            d.setHours(12, 0, 0, 0);
+            return d;
+        }
         const parts = val.split(/[-/.]/);
-        if (parts.length === 3) return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+        if (parts.length === 3) {
+            const d2 = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]), 12, 0, 0);
+            return d2;
+        }
     }
     return new Date();
   };
@@ -555,7 +569,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
   const getFiscalMonthName = (idx: number) => ["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"][idx];
 
-  // --- Sales Data Enrichment ---
+  // --- Data Logic ---
   const enrichedSales = useMemo(() => {
       const custMap = new Map<string, CustomerMasterItem>();
       customers.forEach(c => custMap.set(c.customerName.toLowerCase().trim(), c));
@@ -586,32 +600,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   };
 
   const currentData = useMemo(() => getDataForPeriod(selectedFY, selectedMonth, selectedWeek), [enrichedSales, selectedFY, selectedMonth, selectedWeek, timeView]);
-  
-  const recentVouchers = useMemo(() => {
-      const seen = new Set<string>();
-      const result: { voucherNo: string, customerName: string, value: number, date: string, item: string }[] = [];
-      const sorted = [...currentData].sort((a,b) => b.rawDate.getTime() - a.rawDate.getTime());
-      
-      for (const s of sorted) {
-          const vNo = s.voucherNo || 'N/A';
-          if (!seen.has(vNo)) {
-              seen.add(vNo);
-              result.push({
-                  voucherNo: vNo,
-                  customerName: s.customerName,
-                  value: s.value,
-                  date: s.date,
-                  item: s.particulars
-              });
-          }
-          if (result.length >= 10) break;
-      }
-      return result;
-  }, [currentData]);
-
   const previousData = useMemo(() => {
       if (!selectedFY) return [];
-      const startYear = parseInt(selectedFY.split('-')[0]);
+      const startYearRaw = selectedFY.split('-')[0];
+      const startYear = parseInt(startYearRaw);
       if (isNaN(startYear)) return [];
       if (comparisonMode === 'PREV_YEAR') {
           const prevFY = `${startYear - 1}-${startYear}`;
@@ -623,14 +615,24 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       }
   }, [enrichedSales, selectedFY, selectedMonth, selectedWeek, timeView, comparisonMode]);
 
+  const recentVouchers = useMemo(() => {
+      const seen = new Set<string>();
+      const result: any[] = [];
+      const sorted = [...currentData].sort((a,b) => b.rawDate.getTime() - a.rawDate.getTime());
+      for (const s of sorted) {
+          const vNo = s.voucherNo || 'N/A';
+          if (!seen.has(vNo)) { seen.add(vNo); result.push({ voucherNo: vNo, customerName: s.customerName, value: s.value, date: s.date, item: s.particulars }); }
+          if (result.length >= 10) break;
+      }
+      return result;
+  }, [currentData]);
+
   const kpis = useMemo(() => {
       const currVal = currentData.reduce((acc, i) => acc + i.value, 0);
       const prevVal = previousData.reduce((acc, i) => acc + i.value, 0);
       const currQty = currentData.reduce((acc, i) => acc + i.quantity, 0);
-      
       const uniqueCustsSet = new Set<string>();
       const statusBreakdown: Record<string, number> = {};
-
       currentData.forEach(i => {
           if (!uniqueCustsSet.has(i.customerName)) {
               uniqueCustsSet.add(i.customerName);
@@ -638,7 +640,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
               statusBreakdown[s] = (statusBreakdown[s] || 0) + 1;
           }
       });
-
       const uniqueCusts = uniqueCustsSet.size;
       const avgOrder = currentData.length ? currVal / currentData.length : 0;
       const diff = currVal - prevVal;
@@ -650,7 +651,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       if (timeView === 'FY' && selectedFY) {
           const labels = ["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"];
           const startYear = parseInt(selectedFY.split('-')[0]);
-          if(isNaN(startYear)) return { labels: [], series: [], isMultiYear: true };
+          if(isNaN(startYear)) return { labels: [], series: [] };
           const fy1 = selectedFY;
           const fy2 = `${startYear - 1}-${startYear}`;
           const fy3 = `${startYear - 2}-${startYear - 1}`;
@@ -659,7 +660,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
               enrichedSales.filter(i => i.fiscalYear === fy).forEach(i => arr[i.fiscalMonthIndex] += i.value);
               return arr;
           };
-          return { labels, series: [ { name: fy1, data: getSeries(fy1), color: '#3b82f6', active: true }, { name: fy2, data: getSeries(fy2), color: '#a855f7', active: true }, { name: fy3, data: getSeries(fy3), color: '#9ca3af', active: true } ], isMultiYear: true };
+          return { labels, series: [ { name: fy1, data: getSeries(fy1), color: '#3b82f6', active: true }, { name: fy2, data: getSeries(fy2), color: '#a855f7', active: true }, { name: fy3, data: getSeries(fy3), color: '#9ca3af', active: true } ] };
       } else {
           const daysInView = timeView === 'MONTH' ? 31 : 7;
           const labels = Array.from({length: daysInView}, (_, i) => (i + 1).toString());
@@ -667,7 +668,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
           const prevSeries = new Array(daysInView).fill(0);
           currentData.forEach(i => { let idx = 0; if (timeView === 'MONTH') idx = i.rawDate.getDate() - 1; else idx = i.rawDate.getDay(); if (idx >= 0 && idx < daysInView) currSeries[idx] += i.value; });
           previousData.forEach(i => { let idx = 0; if (timeView === 'MONTH') idx = i.rawDate.getDate() - 1; else idx = i.rawDate.getDay(); if (idx >= 0 && idx < daysInView) prevSeries[idx] += i.value; });
-          return { labels, series: [ { name: 'Current', data: currSeries, color: '#3b82f6', active: true }, { name: comparisonMode === 'PREV_YEAR' ? 'Last Year' : 'Prev Period', data: prevSeries, color: '#cbd5e1', active: true } ], isMultiYear: false };
+          return { labels, series: [ { name: 'Current', data: currSeries, color: '#3b82f6', active: true }, { name: comparisonMode === 'PREV_YEAR' ? 'Last Year' : 'Prev Period', data: prevSeries, color: '#cbd5e1', active: true } ] };
       }
   }, [currentData, previousData, timeView, selectedFY, enrichedSales, comparisonMode]);
 
@@ -704,300 +705,90 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     return Array.from(breakdownMap.entries()).map(([name, data]) => { const diff = data.current - data.prev; const pct = data.prev !== 0 ? (diff / data.prev) * 100 : 0; return { name, value: data.current, prevValue: data.prev, pct }; }).sort((a, b) => b.value - a.value);
   };
 
-  const enrichedStock = useMemo(() => {
-    const lastSaleMap = new Map<string, number>();
-    salesReportItems.forEach(s => {
-        const key = s.particulars.toLowerCase().trim();
-        const date = parseDate(s.date).getTime();
-        const current = lastSaleMap.get(key) || 0;
-        if(date > current) lastSaleMap.set(key, date);
-    });
-
-    const now = Date.now();
-
-    return closingStock.map(item => { 
-        const itemDesc = item.description.toLowerCase().trim(); 
-        const mat = materials.find(m => m.description.toLowerCase().trim() === itemDesc); 
-        const lastSaleDate = lastSaleMap.get(itemDesc);
-        const daysSinceLastSale = (lastSaleDate !== undefined) ? Math.floor((now - Number(lastSaleDate)) / (24 * 60 * 60 * 1000)) : 9999;
-        const isNonMoving = daysSinceLastSale > 60;
-
-        return { 
-            ...item, 
-            make: mat ? mat.make : 'Unspecified', 
-            group: mat ? mat.materialGroup : 'Unspecified', 
-            isLinked: !!mat,
-            isNonMoving,
-            daysSinceLastSale
-        }; 
-    });
-  }, [closingStock, materials, salesReportItems]);
-
-  const inventoryUniqueMakes = useMemo(() => {
-     const makes = new Set(enrichedStock.map(i => i.make));
-     const list = Array.from(makes).sort();
-     return ['ALL', ...list];
-  }, [enrichedStock]);
-
-  const filteredStock = useMemo(() => {
-      let data = enrichedStock;
-      if (invSelectedMake !== 'ALL') {
-          data = data.filter(i => i.make === invSelectedMake);
-      }
-      if (showNonMoving) {
-          data = data.filter(i => i.isNonMoving);
-      }
-      return data;
-  }, [enrichedStock, invSelectedMake, showNonMoving]);
-
   const inventoryStats = useMemo(() => {
-    const data = filteredStock; 
-    const totalQty = data.reduce((acc, i) => acc + i.quantity, 0);
-    const totalVal = data.reduce((acc, i) => acc + i.value, 0);
-    const count = data.length;
-    const totalUnmatched = data.filter(i => !i.isLinked).length;
+    const data = closingStock.map(i => {
+        const mat = materials.find(m => m.description.toLowerCase().trim() === i.description.toLowerCase().trim());
+        return { ...i, make: mat ? mat.make : 'Unspecified', group: mat ? mat.materialGroup : 'Unspecified' };
+    });
+    const totalVal = data.reduce((a, b) => a + b.value, 0);
+    const totalQty = data.reduce((a, b) => a + b.quantity, 0);
+    
     const hierarchyMap = new Map<string, { qty: number, val: number, groups: Map<string, { qty: number, val: number }> }>();
-    const sortedByVal = [...data].sort((a,b) => b.value - a.value);
-    const abc = { A: { count: 0, val: 0 }, B: { count: 0, val: 0 }, C: { count: 0, val: 0 } };
-    const abcLists = { A: [] as any[], B: [] as any[] , C: [] as any[] };
-    let cumVal = 0;
-    const distMap = { '0-1k': 0, '1k-10k': 0, '10k-50k': 0, '50k+': 0 };
-
     data.forEach(i => {
         const mKey = i.make; const gKey = i.group;
         if(!hierarchyMap.has(mKey)) hierarchyMap.set(mKey, { qty: 0, val: 0, groups: new Map() });
         const mEntry = hierarchyMap.get(mKey)!; mEntry.qty += i.quantity; mEntry.val += i.value;
         if(!mEntry.groups.has(gKey)) mEntry.groups.set(gKey, { qty: 0, val: 0 });
         const gEntry = mEntry.groups.get(gKey)!; gEntry.qty += i.quantity; gEntry.val += i.value;
-        if (i.value <= 1000) distMap['0-1k']++; else if (i.value <= 10000) distMap['1k-10k']++; else if (i.value <= 50000) distMap['10k-50k']++; else distMap['50k+']++;
     });
 
+    const hierarchy = Array.from(hierarchyMap.entries()).map(([make, mData]) => ({
+        label: make, value: invGroupMetric === 'value' ? mData.val : mData.qty,
+        groups: Array.from(mData.groups.entries()).map(([group, gData]) => ({ label: group, value: invGroupMetric === 'value' ? gData.val : gData.qty })).sort((a,b) => b.value - a.value)
+    })).sort((a,b) => b.value - a.value);
+
+    const sortedByVal = [...data].sort((a,b) => b.value - a.value);
+    const abc = { A: { count: 0, val: 0 }, B: { count: 0, val: 0 }, C: { count: 0, val: 0 } };
+    let cumVal = 0;
     sortedByVal.forEach(i => {
         cumVal += i.value;
         const pct = cumVal / (totalVal || 1);
-        if (pct <= 0.70) { 
-            abc.A.count++; abc.A.val += i.value; 
-            abcLists.A.push(i);
-        } else if (pct <= 0.90) { 
-            abc.B.count++; abc.B.val += i.value; 
-            abcLists.B.push(i);
-        } else { 
-            abc.C.count++; abc.C.val += i.value; 
-            abcLists.C.push(i);
-        }
+        if (pct <= 0.70) { abc.A.count++; abc.A.val += i.value; } 
+        else if (pct <= 0.90) { abc.B.count++; abc.B.val += i.value; } 
+        else { abc.C.count++; abc.C.val += i.value; }
     });
-
-    const hierarchy = Array.from(hierarchyMap.entries()).map(([make, mData]) => {
-        const mValue = invGroupMetric === 'value' ? mData.val : mData.qty;
-        return { label: make, value: mValue, displayValue: formatLargeValue(mValue, true), groups: Array.from(mData.groups.entries()).map(([group, gData]) => ({ label: group, value: invGroupMetric === 'value' ? gData.val : gData.qty })).sort((a,b) => b.value - a.value) };
-    }).sort((a,b) => b.value - a.value);
-
     const abcData = [ { label: 'A', value: abc.A.val, count: abc.A.count, color: '#10B981' }, { label: 'B', value: abc.B.val, count: abc.B.count, color: '#F59E0B' }, { label: 'C', value: abc.C.val, count: abc.C.count, color: '#EF4444' } ];
-    const distData = [ { label: '< 1k', value: distMap['0-1k'] }, { label: '1k-10k', value: distMap['1k-10k'] }, { label: '10k-50k', value: distMap['10k-50k'] }, { label: '> 50k', value: distMap['50k+'] } ];
-    const topArticles = [...data].sort((a, b) => { const valA = invTopMetric === 'value' ? a.value : a.quantity; const valB = invTopMetric === 'value' ? b.value : b.quantity; return valB - valA; }).slice(0, 10).map(i => ({ label: i.description, make: i.make, value: invTopMetric === 'value' ? i.value : i.quantity }));
-    const formatVal = (val: number, type: Metric) => type === 'value' ? formatLargeValue(val) : Math.round(val).toLocaleString('en-IN');
-    return { totalQty, totalVal, count, totalUnmatched, hierarchy, topArticles, abcData, distData, formatVal, abcLists };
-  }, [filteredStock, invGroupMetric, invTopMetric]);
+
+    return { totalVal, totalQty, count: data.length, hierarchy, abcData };
+  }, [closingStock, materials, invGroupMetric]);
 
   const poStats = useMemo(() => {
-      const stockMap = new Map<string, number>();
-      closingStock.forEach(i => {
-          if (!i.description) return;
-          const key = i.description.toLowerCase().trim();
-          stockMap.set(key, (stockMap.get(key) || 0) + (i.quantity || 0));
-      });
-      
-      const soMap = new Map<string, number>();
-      pendingSO.forEach(i => {
-          if (!i.itemName) return;
-          const key = i.itemName.toLowerCase().trim();
-          soMap.set(key, (soMap.get(key) || 0) + (i.balanceQty || 0));
-      });
-
-      let scheduledVal = 0;
-      let dueVal = 0;
-      let excessVal = 0;
-      let excessCount = 0;
-      let expediteVal = 0;
-      let expediteCount = 0;
-      let totalShortageVal = 0;
-      let totalShortageCount = 0;
-      let totalPOValue = 0;
-
-      const topExcessItems: any[] = [];
-      const topExpediteItems: any[] = [];
-      const topNeedItems: any[] = [];
-
-      const allItems = new Set<string>([...stockMap.keys(), ...soMap.keys(), ...pendingPO.map(i => i.itemName?.toLowerCase().trim()).filter(Boolean) as string[]]);
-      const today = new Date();
-
-      pendingPO.forEach(i => {
-          const bal = Number(i.balanceQty) || 0;
-          const rate = Number(i.rate) || 0;
-          const val = bal * rate;
-          totalPOValue += val;
-          if (i.dueDate && new Date(i.dueDate).getTime() < today.getTime()) dueVal += val;
-          else scheduledVal += val;
-      });
-
-      allItems.forEach(itemKey => {
-          const stockQty = stockMap.get(itemKey) || 0;
-          const soQty = soMap.get(itemKey) || 0;
-          const itemPOs = pendingPO.filter(i => i.itemName?.toLowerCase().trim() === itemKey);
-          
-          const poQty = itemPOs.reduce((a, b) => a + (Number(b.balanceQty) || 0), 0);
-          const rate = itemPOs.length > 0 ? (Number(itemPOs[0].rate) || 0) : ((closingStock.find(s => s.description.toLowerCase().trim() === itemKey)?.rate || 0));
-
-          const net = stockQty + poQty - soQty;
-
-          if (net < 0) {
-              const shortageQty = Math.abs(net);
-              const val = shortageQty * rate;
-              totalShortageVal += val;
-              totalShortageCount++;
-              if (val > 0) topNeedItems.push({ label: itemKey, value: val });
-          }
-
-          if (net > 0 && poQty > 0) {
-              const excessQty = Math.min(net, poQty);
-              const val = excessQty * rate;
-              excessVal += val;
-              excessCount++;
-              if (val > 0) topExcessItems.push({ label: itemKey, value: val });
-          }
-
-          if (stockQty < soQty && poQty > 0) {
-              const gap = soQty - stockQty;
-              const expediteQty = Math.min(gap, poQty);
-              const val = expediteQty * rate;
-              expediteVal += val;
-              expediteCount++;
-              if (val > 0) topExpediteItems.push({ label: itemKey, value: val });
-          }
-      });
-
-      return {
-          totalVal: totalPOValue,
-          count: pendingPO.length,
-          schedule: { due: dueVal, scheduled: scheduledVal },
-          excess: { val: excessVal, count: excessCount, top: topExcessItems.sort((a,b) => b.value - a.value).slice(0, 10) },
-          need: { val: totalShortageVal, count: totalShortageCount, top: topNeedItems.sort((a,b) => b.value - a.value).slice(0, 10) },
-          expedite: { val: expediteVal, count: expediteCount, top: topExpediteItems.sort((a,b) => b.value - a.value).slice(0, 10) }
-      };
-  }, [pendingPO, closingStock, pendingSO]);
-
-  const processedSOData = useMemo(() => {
+    const totalVal = pendingPO.reduce((a,b) => a + (b.balanceQty * b.rate), 0);
     const today = new Date();
-    const endOfCurrentMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0); endOfCurrentMonth.setHours(23, 59, 59, 999);
-    const matMap = new Map<string, string>(); materials.forEach(m => matMap.set(m.description.toLowerCase().trim(), m.make));
-    const custMap = new Map<string, string>(); customers.forEach(c => custMap.set(c.customerName.toLowerCase().trim(), c.customerGroup || 'Unassigned'));
-    const groupedItems: Record<string, PendingSOItem[]> = {}; pendingSO.forEach(item => { const key = item.itemName.toLowerCase().trim(); if (!groupedItems[key]) groupedItems[key] = []; groupedItems[key].push(item); });
-    const results: any[] = [];
-    Object.keys(groupedItems).forEach(key => {
-        const groupOrders = groupedItems[key];
-        const stockItem = closingStock.find(s => s.description.toLowerCase().trim() === key);
-        const totalStock = stockItem ? stockItem.quantity : 0; let runningStock = totalStock;
-        groupOrders.sort((a, b) => { const dateA = new Date(a.dueDate || '9999-12-31').getTime(); const dateB = new Date(b.dueDate || '9999-12-31').getTime(); return dateA - dateB; });
-        groupOrders.forEach(order => {
-            const dueDate = order.dueDate ? new Date(order.dueDate) : new Date('9999-12-31');
-            const isFuture = dueDate.getTime() > endOfCurrentMonth.getTime();
-            const diffTime = today.getTime() - dueDate.getTime();
-            const isOverdue = diffTime > 0; 
-            const overdueDays = isOverdue ? Math.floor(diffTime / (1000 * 60 * 60 * 24)) : 0;
-            let allocated = 0; let shortage = order.balanceQty;
-            if (!isFuture) { const required = order.balanceQty; allocated = Math.min(runningStock, required); shortage = required - allocated; runningStock = Math.max(0, runningStock - allocated); }
-            const val = (order.balanceQty || 0) * (order.rate || 0); const allocatedVal = allocated * (order.rate || 0); const shortageVal = shortage * (order.rate || 0);
-            results.push({ ...order, make: matMap.get(key) || 'Unspecified', customerGroup: custMap.get(order.partyName.toLowerCase().trim()) || 'Unassigned', isFuture, isOverdue, overdueDays, allocated, shortage, val, allocatedVal, shortageVal });
-        });
-    });
-    return results;
-  }, [pendingSO, materials, customers, closingStock]);
-
-  const filteredSOData = useMemo(() => {
-      return processedSOData.filter(item => { if (soFilterMake !== 'ALL' && item.make !== soFilterMake) return false; if (soFilterGroup !== 'ALL' && item.customerGroup !== soFilterGroup) return false; return true; });
-  }, [processedSOData, soFilterMake, soFilterGroup]);
+    const dueVal = pendingPO.reduce((a,b) => {
+        const d = b.dueDate ? new Date(b.dueDate) : null;
+        return (d && d < today) ? a + (b.balanceQty * b.rate) : a;
+    }, 0);
+    return { totalVal, count: pendingPO.length, dueVal, scheduledVal: totalVal - dueVal };
+  }, [pendingPO]);
 
   const soStats = useMemo(() => {
-      const stats = {
-          totalOrdered: { qty: 0, val: 0, count: 0 },
-          totalBalance: { qty: 0, val: 0 },
-          due: { available: { qty: 0, val: 0 }, shortage: { qty: 0, val: 0 }, total: { qty: 0, val: 0 } },
-          scheduled: { available: { qty: 0, val: 0 }, shortage: { qty: 0, val: 0 }, total: { qty: 0, val: 0 } },
-          byGroup: new Map<string, { due: number, scheduled: number, total: number }>(),
-          byMake: new Map<string, { due: number, scheduled: number, total: number }>(),
-          byCustomer: new Map<string, { due: number, scheduled: number, total: number, items: any[] }>(),
-          aging: { 'Future': 0, '0-30': 0, '30-60': 0, '60-90': 0, '90+': 0 },
-          topItems: new Map<string, number>(),
-          futureSchedule: new Map<string, { val: number, sortKey: string }>()
-      };
-      const uniqueOrders = new Set<string>();
-      
-      const aggregate = (map: any, key: string, item: any, isDue: boolean) => {
-          const entry = map.get(key) || { due: 0, scheduled: 0, total: 0, items: [] };
-          if (isDue) entry.due += item.val; else entry.scheduled += item.val;
-          entry.total += item.val;
-          if(map === stats.byCustomer) entry.items.push(item);
-          map.set(key, entry);
-      };
-
-      filteredSOData.forEach(item => {
-          if (item.orderNo) uniqueOrders.add(item.orderNo);
-          stats.totalOrdered.qty += Number(item.orderedQty || 0); stats.totalOrdered.val += (Number(item.orderedQty || 0) * Number(item.rate || 0));
-          stats.totalBalance.qty += Number(item.balanceQty || 0); stats.totalBalance.val += Number(item.val || 0);
-          const isDue = !item.isFuture;
-          if (isDue) {
-              stats.due.total.val += Number(item.val || 0); stats.due.total.qty += Number(item.balanceQty || 0);
-              if (item.overdueDays <= 30) stats.aging['0-30'] += Number(item.val || 0); 
-              else if (item.overdueDays <= 60) stats.aging['30-60'] += Number(item.val || 0); 
-              else if (item.overdueDays <= 90) stats.aging['60-90'] += Number(item.val || 0); 
-              else stats.aging['90+'] += Number(item.val || 0);
-          } else {
-              stats.scheduled.total.val += Number(item.val || 0); stats.scheduled.total.qty += Number(item.balanceQty || 0);
-              stats.aging['Future'] += Number(item.val || 0);
-              if (item.dueDate) {
-                  const d = new Date(item.dueDate);
-                  const label = d.toLocaleString('default', { month: 'short', year: '2-digit' });
-                  const sortKey = d.toISOString().slice(0, 7);
-                  const existing = stats.futureSchedule.get(label) || { val: 0, sortKey };
-                  existing.val += Number(item.val || 0);
-                  stats.futureSchedule.set(label, existing);
-              }
+      const totalVal = pendingSO.reduce((a,b) => a + (b.balanceQty * b.rate), 0);
+      const aging = { 'Future': 0, '0-30': 0, '30-60': 0, '60-90': 0, '90+': 0 };
+      const today = new Date();
+      pendingSO.forEach(s => {
+          const due = s.dueDate ? new Date(s.dueDate) : null;
+          const val = s.balanceQty * s.rate;
+          if (!due || due > today) aging['Future'] += val;
+          else {
+              const diff = Math.floor((today.getTime() - due.getTime()) / (24*3600*1000));
+              if (diff <= 30) aging['0-30'] += val;
+              else if (diff <= 60) aging['30-60'] += val;
+              else if (diff <= 90) aging['60-90'] += val;
+              else aging['90+'] += val;
           }
-          aggregate(stats.byGroup, item.customerGroup, item, isDue);
-          aggregate(stats.byMake, item.make, item, isDue);
-          aggregate(stats.byCustomer, item.partyName, item, isDue);
-          stats.topItems.set(item.itemName, (stats.topItems.get(item.itemName) || 0) + Number(item.val || 0));
       });
-      stats.totalOrdered.count = uniqueOrders.size;
-      return stats;
-  }, [filteredSOData]);
+      const agingData = Object.entries(aging).map(([label, value]) => ({ label, value }));
+      return { totalVal, count: pendingSO.length, agingData };
+  }, [pendingSO]);
 
-  const soChartsData = useMemo(() => {
-      const formatStacked = (map: Map<string, any>) => Array.from(map.entries()).map(([label, d]) => ({ label, ...d }));
-      const topCustomersList = Array.from(soStats.byCustomer.entries()).map(([name, d]) => ({ name, ...d })).sort((a, b) => b.total - a.total).slice(0, 10);
-      const agingData = [ { label: 'Future', value: soStats.aging['Future'] }, { label: '0-30 Days', value: soStats.aging['0-30'] }, { label: '30-60 Days', value: soStats.aging['30-60'] }, { label: '60-90 Days', value: soStats.aging['60-90'] }, { label: '>90 Days', value: soStats.aging['90+'] } ];
-      const topItems = Array.from(soStats.topItems.entries()).map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value).slice(0, 10);
-      const deliverySchedule = Array.from(soStats.futureSchedule.entries()).map(([label, data]) => ({ label, value: data.val, sortKey: data.sortKey })).sort((a,b) => a.sortKey.localeCompare(b.sortKey));
-      return { byGroup: formatStacked(soStats.byGroup), byMake: formatStacked(soStats.byMake), topCustomers: topCustomersList, agingData, topItems, deliverySchedule };
-  }, [soStats]);
+  // Use explicit typing for chartMax to ensure arithmetic operations are valid.
+  const chartMax = useMemo<number>(() => {
+    const allValues = lineChartData.series.flatMap(s => (s.data as number[]) || []);
+    const maxValue = allValues.length > 0 ? Math.max(...allValues) : 0;
+    return Number(Math.max(maxValue, 1000)) * 1.1;
+  }, [lineChartData]);
 
-  const soSlicerOptions = useMemo(() => {
-      const makes = new Set(processedSOData.map(i => i.make));
-      const groups = new Set(processedSOData.map(i => i.customerGroup));
-      return { makes: ['ALL', ...Array.from(makes).sort()], groups: ['ALL', ...Array.from(groups).sort()] };
-  }, [processedSOData]);
+  // Ensure val is treated as a number for arithmetic operations on line 811.
+  const formatAxisValue = (val: number): string => {
+    const n = Number(val);
+    if (n >= 10000000) return (n / 10000000).toFixed(1) + 'Cr';
+    if (n >= 100000) return (n / 100000).toFixed(1) + 'L';
+    if (n >= 1000) return (n / 1000).toFixed(0) + 'k';
+    return n.toFixed(0);
+  };
 
-  const comparisonLabel = useMemo(() => {
-    if (comparisonMode === 'PREV_YEAR') return 'Last Year';
-    if (timeView === 'FY') return 'Prev FY';
-    if (timeView === 'MONTH') { const prevM = selectedMonth - 1; return prevM < 0 ? 'Mar (Prev FY)' : getFiscalMonthName(prevM); }
-    return 'Prev Period';
-  }, [comparisonMode, timeView, selectedMonth]);
-
-  const chartMax = useMemo(() => { const allValues = lineChartData.series.flatMap(s => s.data); return Math.max(...allValues, 1000) * 1.1; }, [lineChartData]);
-  const formatAxisValue = (val: number) => { if (val >= 10000000) return (val / 10000000).toFixed(1) + 'Cr'; if (val >= 100000) return (val / 100000).toFixed(1) + 'L'; if (val >= 1000) return (val / 1000).toFixed(0) + 'k'; return val.toFixed(0); };
-  const formatCurrency = (val: number) => formatLargeValue(val);
-  const formatCompactNumber = (val: number) => formatLargeValue(val, true);
+  const comparisonLabel = useMemo(() => comparisonMode === 'PREV_YEAR' ? 'Last Year' : 'Prev Period', [comparisonMode]);
 
   return (
     <div className="h-full w-full flex flex-col bg-gray-50/50 overflow-hidden">
@@ -1011,26 +802,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
               <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
                   <div className="flex bg-gray-100 p-1 rounded-lg">{(['FY', 'MONTH', 'WEEK'] as const).map(v => (<button key={v} onClick={() => setTimeView(v)} className={`px-3 py-1 rounded-md text-xs font-bold ${timeView === v ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500'}`}>{v}</button>))}</div>
                   <div className="flex items-center gap-1.5"><span className="text-[10px] text-gray-500 font-bold uppercase hidden md:inline">Fiscal Year:</span><select value={selectedFY} onChange={e => setSelectedFY(e.target.value)} className="bg-white border border-gray-300 text-xs rounded-md px-2 py-1.5 font-medium outline-none focus:ring-2 focus:ring-blue-500">{uniqueFYs.length > 0 ? (uniqueFYs.map(fy => <option key={fy} value={fy}>{fy}</option>)) : <option value="">No Data</option>}</select></div>
-                  {(timeView === 'MONTH' || timeView === 'WEEK') && (<select value={selectedMonth} onChange={e => setSelectedMonth(Number(e.target.value))} className="bg-white border border-gray-300 text-xs rounded-md px-3 py-1.5 outline-none focus:ring-2 focus:ring-blue-500">{[0,1,2,3,4,5,6,7,8,9,10,11].map(m => <option key={m} value={m}>{getFiscalMonthName(m)}</option>)}</select>)}
-                  {timeView === 'WEEK' && (<div className="flex items-center gap-1 bg-white border border-gray-300 rounded-md px-2 py-1"><span className="text-[10px] text-gray-500 font-bold uppercase">Week</span><input type="number" min={1} max={53} value={selectedWeek} onChange={e => setSelectedWeek(Number(e.target.value))} className="w-10 text-xs outline-none font-bold text-center" /></div>)}
+                  {(timeView === 'MONTH' || timeView === 'WEEK') && (<select value={selectedMonth} onChange={(e) => setSelectedMonth(Number(e.target.value))} className="bg-white border border-gray-300 text-xs rounded-md px-3 py-1.5 outline-none focus:ring-2 focus:ring-blue-500">{[0,1,2,3,4,5,6,7,8,9,10,11].map(m => <option key={m} value={m}>{getFiscalMonthName(m)}</option>)}</select>)}
                   <div className="w-px h-6 bg-gray-300 mx-1"></div>
                   <div className="flex items-center gap-2"><span className="text-[10px] font-bold text-gray-400 uppercase hidden md:inline">Compare:</span><div className="flex bg-gray-100 p-1 rounded-lg"><button onClick={() => setComparisonMode('PREV_YEAR')} className={`px-2 py-1 rounded text-[10px] font-bold ${comparisonMode === 'PREV_YEAR' ? 'bg-white text-purple-600 shadow' : 'text-gray-500'}`}>Last Year</button><button onClick={() => setComparisonMode('PREV_PERIOD')} className={`px-2 py-1 rounded text-[10px] font-bold ${comparisonMode === 'PREV_PERIOD' ? 'bg-white text-purple-600 shadow' : 'text-gray-500'}`}>Previous</button></div></div>
-              </div>
-          )}
-          {activeSubTab === 'inventory' && (
-              <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
-                  <div className="flex items-center gap-1.5"><Filter className="w-3.5 h-3.5 text-gray-500" /><span className="text-[10px] text-gray-500 font-bold uppercase hidden md:inline">Filter Make:</span><select value={invSelectedMake} onChange={e => setInvSelectedMake(e.target.value)} className="bg-white border border-gray-300 text-xs rounded-md px-2 py-1.5 font-medium outline-none focus:ring-2 focus:ring-blue-500 min-w-[120px]">{inventoryUniqueMakes.map(m => <option key={m} value={m}>{m}</option>)}</select></div>
-                  <button onClick={() => setShowNonMoving(!showNonMoving)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase border transition-all ${showNonMoving ? 'bg-red-50 text-red-700 border-red-200' : 'bg-white text-gray-500 border-gray-300 hover:bg-gray-50'}`}><History className="w-3.5 h-3.5" /> Show Non-Moving (&gt;60 Days)</button>
-              </div>
-          )}
-          {activeSubTab === 'so' && (
-              <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
-                  <div className="flex items-center gap-1.5 bg-gray-50 p-1 rounded-lg border border-gray-200">
-                      <Filter className="w-3.5 h-3.5 text-purple-500 ml-1" />
-                      <div className="flex flex-col px-1"><label className="text-[9px] font-bold text-gray-400 uppercase">Make</label><select value={soFilterMake} onChange={e => setSoFilterMake(e.target.value)} className="bg-transparent text-xs font-bold text-gray-700 outline-none w-24">{soSlicerOptions.makes.map(m => <option key={m} value={m}>{m}</option>)}</select></div>
-                      <div className="w-px h-6 bg-gray-300 mx-1"></div>
-                      <div className="flex flex-col px-1"><label className="text-[9px] font-bold text-gray-400 uppercase">Cust Group</label><select value={soFilterGroup} onChange={e => setSoFilterGroup(e.target.value)} className="bg-transparent text-xs font-bold text-gray-700 outline-none w-28">{soSlicerOptions.groups.map(g => <option key={g} value={g}>{g}</option>)}</select></div>
-                  </div>
               </div>
           )}
       </div>
@@ -1039,195 +813,53 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         {activeSubTab === 'sales' ? (
             <div className="flex flex-col gap-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm relative overflow-hidden"><div className="flex justify-between items-start"><div><p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Current Sales</p><h3 className="text-2xl font-extrabold text-gray-900 mt-1">{formatCurrency(kpis.currVal)}</h3></div><div className="bg-blue-50 p-2 rounded-lg text-blue-600"><DollarSign className="w-5 h-5" /></div></div><div className="mt-3 flex items-center justify-between"><div className="flex items-center gap-1.5 bg-gray-50 px-2 py-1 rounded-lg border border-gray-100"><span className={`flex items-center text-xs font-bold ${kpis.diff >= 0 ? 'text-green-600' : 'text-red-600'}`}>{kpis.diff >= 0 ? <ArrowUpRight className="w-3.5 h-3.5 mr-0.5" /> : <ArrowDownRight className="w-3.5 h-3.5 mr-0.5" />}{Math.abs(kpis.pct).toFixed(1)}%</span></div><span className="text-[10px] text-gray-400 font-medium">{comparisonLabel}: {formatCompactNumber(kpis.prevVal)}</span></div></div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm relative overflow-hidden"><div className="flex justify-between items-start"><div><p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Current Sales</p><h3 className="text-2xl font-extrabold text-gray-900 mt-1">{formatLargeValue(kpis.currVal)}</h3></div><div className="bg-blue-50 p-2 rounded-lg text-blue-600"><DollarSign className="w-5 h-5" /></div></div><div className="mt-3 flex items-center justify-between"><div className="flex items-center gap-1.5 bg-gray-50 px-2 py-1 rounded-lg border border-gray-100"><span className={`flex items-center text-xs font-bold ${kpis.diff >= 0 ? 'text-green-600' : 'text-red-600'}`}>{kpis.diff >= 0 ? <ArrowUpRight className="w-3.5 h-3.5 mr-0.5" /> : <ArrowDownRight className="w-3.5 h-3.5 mr-0.5" />}{Math.abs(kpis.pct).toFixed(1)}%</span></div><span className="text-[10px] text-gray-400 font-medium">{comparisonLabel}: {formatLargeValue(kpis.prevVal, true)}</span></div></div>
                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><div className="flex justify-between items-start"><div><p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Sales Quantity</p><h3 className="text-2xl font-extrabold text-gray-900 mt-1">{kpis.currQty.toLocaleString()}</h3></div><div className="bg-orange-50 p-2 rounded-lg text-orange-600"><Package className="w-5 h-5" /></div></div><p className="mt-3 text-[10px] text-gray-400">Total units sold in period</p></div>
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><div className="flex justify-between items-start"><div><p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Active Customers</p><h3 className="text-2xl font-extrabold text-gray-900 mt-1">{kpis.uniqueCusts}</h3></div><div className="bg-teal-50 p-2 rounded-lg text-teal-600"><Users className="w-5 h-5" /></div></div><div className="mt-3 flex flex-wrap gap-1.5">{Object.entries(kpis.statusBreakdown).sort((a,b) => b[1] - a[1]).map(([status, count]) => { const sLower = status.toLowerCase(); const colorClass = sLower === 'active' ? 'bg-green-100 text-green-700 border-green-200' : sLower === 'inactive' ? 'bg-gray-100 text-gray-600 border-gray-200' : sLower === 'blocked' ? 'bg-red-100 text-red-700 border-red-200' : 'bg-orange-100 text-orange-700 border-orange-200'; return (<span key={status} className={`text-[9px] px-1.5 py-0.5 rounded border font-medium whitespace-nowrap ${colorClass}`}>{status}: {count}</span>);})}</div></div>
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><div className="flex justify-between items-start"><div><p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Avg Order Value</p><h3 className="text-2xl font-extrabold text-gray-900 mt-1">{formatCurrency(kpis.avgOrder)}</h3></div><div className="bg-purple-50 p-2 rounded-lg text-purple-600"><Activity className="w-5 h-5" /></div></div><p className="mt-3 text-[10px] text-gray-400">Revenue per transaction</p></div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><div className="flex justify-between items-start"><div><p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Active Customers</p><h3 className="text-2xl font-extrabold text-gray-900 mt-1">{kpis.uniqueCusts}</h3></div><div className="bg-teal-50 p-2 rounded-lg text-teal-600"><Users className="w-5 h-5" /></div></div><div className="mt-3 flex flex-wrap gap-1.5">{Object.entries(kpis.statusBreakdown).sort((a,b) => b[1] - a[1]).map(([status, count]) => (<span key={status} className={`text-[9px] px-1.5 py-0.5 rounded border font-medium whitespace-nowrap bg-gray-100`}>{status}: {count}</span>))}</div></div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><div className="flex justify-between items-start"><div><p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Avg Order Value</p><h3 className="text-2xl font-extrabold text-gray-900 mt-1">{formatLargeValue(kpis.avgOrder)}</h3></div><div className="bg-purple-50 p-2 rounded-lg text-purple-600"><Activity className="w-5 h-5" /></div></div><p className="mt-3 text-[10px] text-gray-400">Revenue per transaction</p></div>
                 </div>
-                
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:h-96">
-                    <div className="lg:col-span-2 bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col min-h-[350px] overflow-hidden"><div className="flex justify-between items-center mb-4 flex-shrink-0"><h3 className="text-sm font-bold text-gray-800 flex items-center gap-2"><TrendingUp className="w-4 h-4 text-blue-600" /> Sales Trend Analysis</h3><div className="flex items-center gap-4 text-[10px] flex-wrap">{lineChartData.series.map((s, i) => (<span key={i} className="flex items-center gap-1.5 bg-gray-50 px-2 py-1 rounded-full border border-gray-100"><div className="w-2 h-2 rounded-full" style={{backgroundColor: s.color}}></div><span className="text-gray-600 font-medium">{s.name}</span></span>))}</div></div><div className="flex flex-1 min-h-0 pt-2 relative"><div className="flex flex-col justify-between text-[9px] text-gray-400 font-medium pr-3 pb-8 h-full text-right w-12 shrink-0 select-none border-r border-gray-50"><span>{formatAxisValue(chartMax)}</span><span>{formatAxisValue(chartMax * 0.75)}</span><span>{formatAxisValue(chartMax * 0.5)}</span><span>{formatAxisValue(chartMax * 0.25)}</span><span>0</span></div><div className="flex-1 flex flex-col min-w-0 relative pl-4 pb-2"><SalesTrendChart data={lineChartData} maxVal={chartMax} /></div></div></div>
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col min-h-[350px]"><div className="flex justify-between items-center mb-2 flex-shrink-0"><h3 className="text-sm font-bold text-gray-800 flex items-center gap-2"><PieIcon className="w-4 h-4 text-purple-600" /> Sales Mix</h3></div><div className="flex-1 flex flex-col gap-4 overflow-hidden min-h-0"><div className="flex-1 min-h-0 border-b border-dashed border-gray-200 pb-2"><SimpleDonut data={pieDataGroup} title="Account Group (Consolidated)" color="blue" /></div><div className="flex-1 min-h-0 pt-2"><SimpleDonut data={pieDataStatus} title="By Status" color="green" /></div></div></div>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    <div className="lg:col-span-2 bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col h-96"><div className="flex justify-between items-center mb-4"><h3 className="text-sm font-bold text-gray-800 flex items-center gap-2"><TrendingUp className="w-4 h-4 text-blue-600" /> Sales Trend Analysis</h3></div><div className="flex flex-1 pt-2"><div className="flex flex-col justify-between text-[9px] text-gray-400 font-medium pr-3 pb-8 text-right w-12 border-r border-gray-50"><span>{formatAxisValue(chartMax)}</span><span>{formatAxisValue(chartMax * 0.5)}</span><span>0</span></div><div className="flex-1 relative pl-4 pb-2"><SalesTrendChart data={lineChartData} maxVal={chartMax} /></div></div></div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col h-96"><div className="flex justify-between items-center mb-2"><h3 className="text-sm font-bold text-gray-800 flex items-center gap-2"><PieIcon className="w-4 h-4 text-purple-600" /> Sales Mix</h3></div><div className="flex-1 flex flex-col gap-4 overflow-hidden"><div className="flex-1 pb-2 border-b border-dashed border-gray-200"><SimpleDonut data={pieDataGroup} title="Account Group" color="blue" /></div><div className="flex-1 pt-2"><SimpleDonut data={pieDataStatus} title="By Status" color="green" /></div></div></div>
                 </div>
-
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col"><div className="flex justify-between items-center mb-4"><h3 className="text-sm font-bold text-gray-800 flex items-center gap-2"><Layers className="w-4 h-4 text-gray-600" /> Top Customers / Groups</h3></div><div className="overflow-x-auto"><table className="w-full text-left border-collapse"><thead><tr className="text-[10px] text-gray-500 uppercase border-b border-gray-100"><th className="py-2 pl-2 w-8">#</th><th className="py-2">Name</th><th className="py-2 text-right">Sales</th><th className="py-2 text-right hidden sm:table-cell">Prev</th><th className="py-2 text-right">Growth</th></tr></thead><tbody className="text-xs">
-                        {topCustomers.map((item, idx) => {
-                            // Fix: Use Number() to ensure type safety for arithmetic operations on line 1044
-                            const topValue = Number(topCustomers[0]?.value || 1);
-                            const itemValue = Number(item.value);
-                            const progressWidth = (itemValue / topValue) * 100;
-                            return (
-                                <React.Fragment key={idx}>
-                                    <tr className={`border-b border-gray-50 hover:bg-gray-50 ${expandedGroups.has(item.label) ? 'bg-gray-50' : ''}`}>
-                                        <td className="py-3 pl-2 text-gray-400 font-mono text-[10px]">{idx + 1}</td>
-                                        <td className="py-3">
-                                            <div className="flex flex-col">
-                                                <div className="flex items-center gap-2">
-                                                    {item.isGroup && (
-                                                        <button onClick={() => toggleGroup(item.label)} className="p-0.5 hover:bg-gray-200 rounded">
-                                                            {expandedGroups.has(item.label) ? <ChevronUp className="w-3 h-3 text-gray-500" /> : <ChevronDown className="w-3 h-3 text-gray-500" />}
-                                                        </button>
-                                                    )}
-                                                    <span className="font-bold text-gray-800">{item.label}</span>
-                                                    {item.isGroup && <span className="text-[9px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded border border-blue-100 uppercase tracking-wide">Group</span>}
-                                                </div>
-                                                <div className="w-full max-w-md h-1.5 bg-gray-100 rounded-full mt-1.5 overflow-hidden">
-                                                    <div className="h-full bg-blue-500 rounded-full" style={{ width: `${progressWidth}%` }}></div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="py-3 text-right font-bold text-gray-900">{formatLargeValue(item.value)}</td>
-                                        <td className="py-3 text-right text-gray-500 hidden sm:table-cell">{formatLargeValue(item.prevValue)}</td>
-                                        <td className="py-3 text-right">
-                                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${item.pct >= 0 ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
-                                                {item.pct >= 0 ? <Plus className="w-2 h-2 mr-0.5" /> : <Minus className="w-2 h-2 mr-0.5" />}
-                                                {Math.abs(item.pct).toFixed(1)}%
-                                            </span>
-                                        </td>
-                                    </tr>
-                                    {item.isGroup && expandedGroups.has(item.label) && (
-                                        <tr>
-                                            <td colSpan={5} className="p-0">
-                                                <div className="bg-gray-50/50 p-3 border-b border-gray-100 animate-in slide-in-from-top-1">
-                                                    <table className="w-full text-xs">
-                                                        <thead>
-                                                            <tr className="text-[9px] text-gray-400 uppercase border-b border-gray-100 text-right">
-                                                                <th className="py-1 text-left pl-8">Customer Name</th>
-                                                                <th className="py-1">Prev</th>
-                                                                <th className="py-1">Current</th>
-                                                                <th className="py-1">Growth</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody>
-                                                            {getGroupBreakdown(item.label).map((sub, sIdx) => (
-                                                                <tr key={sIdx} className="border-b border-gray-100 last:border-0 hover:bg-gray-100/50">
-                                                                    <td className="py-2 pl-8 text-gray-600 w-1/2 font-medium">{sub.name}</td>
-                                                                    <td className="py-2 text-right text-gray-400">{formatLargeValue(sub.prevValue)}</td>
-                                                                    <td className="py-2 text-right font-bold text-gray-800">{formatLargeValue(sub.value)}</td>
-                                                                    <td className="py-2 text-right">
-                                                                        <span className={`text-[10px] font-bold ${sub.pct >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                                                            {sub.pct > 0 ? '+' : ''}{Math.round(sub.pct)}%
-                                                                        </span>
-                                                                    </td>
-                                                                </tr>
-                                                            ))}
-                                                        </tbody>
-                                                    </table>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    )}
-                                </React.Fragment>
-                            );
-                        })}
-                    </tbody></table></div></div>
-                    
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
-                                <Hash className="w-4 h-4 text-blue-600" /> Recent Sales Vouchers
-                            </h3>
-                            <button onClick={() => setActiveTab('salesReport')} className="text-[10px] font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 bg-blue-50 px-2 py-1 rounded">View All <ExternalLink className="w-3 h-3" /></button>
-                        </div>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse">
-                                <thead>
-                                    <tr className="text-[10px] text-gray-500 uppercase border-b border-gray-100">
-                                        <th className="py-2">Voucher No</th>
-                                        <th className="py-2">Date</th>
-                                        <th className="py-2">Customer</th>
-                                        <th className="py-2 text-right">Value</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="text-xs">
-                                    {recentVouchers.length === 0 ? (
-                                        <tr><td colSpan={4} className="py-10 text-center text-gray-400">No recent vouchers found.</td></tr>
-                                    ) : (
-                                        recentVouchers.map((v, i) => (
-                                            <tr key={i} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                                                <td className="py-3 font-mono font-bold text-blue-700">{v.voucherNo}</td>
-                                                <td className="py-3 text-gray-500">{new Date(v.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</td>
-                                                <td className="py-3 text-gray-800 truncate max-w-[120px]" title={v.customerName}>{v.customerName}</td>
-                                                <td className="py-3 text-right font-bold text-gray-900">{formatLargeValue(v.value, true)}</td>
-                                            </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col"><h3 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2"><Layers className="w-4 h-4 text-gray-600" /> Top Customers</h3><table className="w-full text-left text-xs"><thead><tr className="text-[10px] text-gray-500 uppercase border-b border-gray-100"><th className="py-2 pl-2">Name</th><th className="py-2 text-right">Sales</th><th className="py-2 text-right">Growth</th></tr></thead><tbody>{topCustomers.map((item, idx) => (
+                        <tr key={idx} className="border-b border-gray-50 hover:bg-gray-50"><td className="py-3 pl-2"><div className="flex items-center gap-2 font-bold text-gray-800">{item.label}</div></td><td className="py-3 text-right font-bold text-gray-900">{formatLargeValue(item.value)}</td><td className="py-3 text-right"><span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${item.pct >= 0 ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>{item.pct.toFixed(1)}%</span></td></tr>
+                    ))}</tbody></table></div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col"><h3 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2"><Hash className="w-4 h-4 text-blue-600" /> Recent Vouchers</h3><table className="w-full text-left text-xs"><thead><tr className="text-[10px] text-gray-500 uppercase border-b border-gray-100"><th className="py-2">Voucher No</th><th className="py-2">Date</th><th className="py-2 text-right">Value</th></tr></thead><tbody>{recentVouchers.map((v, i) => (
+                        <tr key={i} className="border-b border-gray-50 hover:bg-gray-50"><td className="py-3 font-mono font-bold text-blue-700">{v.voucherNo}</td><td className="py-3 text-gray-500">{new Date(v.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</td><td className="py-3 text-right font-bold text-gray-900">{formatLargeValue(v.value, true)}</td></tr>
+                    ))}</tbody></table></div>
                 </div>
             </div>
         ) : activeSubTab === 'inventory' ? (
              <div className="flex flex-col gap-4">
                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-emerald-600 font-bold uppercase">Total Value</p><h3 className="text-xl font-extrabold text-gray-900 mt-0.5">{formatLargeValue(inventoryStats.totalVal)}</h3></div>
-                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-blue-600 font-bold uppercase">Total Items</p><h3 className="text-xl font-extrabold text-gray-900 mt-0.5">{inventoryStats.count.toLocaleString()}</h3></div>
-                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-gray-500 font-bold uppercase">Total Qty</p><h3 className="text-xl font-extrabold text-gray-900 mt-0.5">{inventoryStats.totalQty.toLocaleString()}</h3></div>
-                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><div className="flex items-center gap-1">{inventoryStats.totalUnmatched > 0 ? <Link2Off className="w-3.5 h-3.5 text-red-500" /> : <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />}<p className="text-[10px] text-gray-500 font-bold uppercase">Master Status</p></div><h3 className={`text-xl font-extrabold mt-0.5 ${inventoryStats.totalUnmatched > 0 ? 'text-red-600' : 'text-green-600'}`}>{inventoryStats.totalUnmatched > 0 ? `${inventoryStats.totalUnmatched} Unmatched` : 'All Linked'}</h3></div>
+                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-emerald-600 font-bold uppercase">Stock Val</p><h3 className="text-xl font-extrabold text-gray-900 mt-0.5">{formatLargeValue(inventoryStats.totalVal)}</h3></div>
+                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-blue-600 font-bold uppercase">Items</p><h3 className="text-xl font-extrabold text-gray-900 mt-0.5">{inventoryStats.count}</h3></div>
+                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-gray-500 font-bold uppercase">Qty</p><h3 className="text-xl font-extrabold text-gray-900 mt-0.5">{inventoryStats.totalQty.toLocaleString()}</h3></div>
                  </div>
-                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:h-96">
-                      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col"><div className="flex justify-between items-center mb-2"><h4 className="text-xs font-bold text-gray-700 flex items-center gap-2"><BarChart4 className="w-4 h-4 text-indigo-600"/> ABC Analysis</h4></div><div className="flex-1 min-h-0"><ABCAnalysisChart data={inventoryStats.abcData} /></div><div className="mt-2 text-[9px] text-center text-gray-400">Class A (Top 70%), B (Next 20%), C (Bottom 10%) by Value</div></div>
-                      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col relative overflow-hidden"><div className="flex justify-between items-center mb-2"><h4 className="text-xs font-bold text-gray-700 flex items-center gap-2"><Layers className="w-4 h-4 text-blue-600"/> Stock Composition {showNonMoving && <span className="text-[9px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded ml-1">Non-Moving Only</span>}</h4><InventoryToggle value={invGroupMetric} onChange={setInvGroupMetric} colorClass="text-blue-700" /></div><InteractiveDrillDownChart hierarchyData={inventoryStats.hierarchy} metric={invGroupMetric} totalValue={inventoryStats.totalVal} /></div>
-                      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col"><div className="flex justify-between items-center mb-2"><div className="flex items-center gap-2"><h4 className="text-xs font-bold text-gray-700">Top 10 Articles</h4><button onClick={() => setShowMakeInTop10(!showMakeInTop10)} className={`p-1 rounded transition-colors ${showMakeInTop10 ? 'bg-emerald-100 text-emerald-700' : 'text-gray-400 hover:bg-gray-100'}`} title="Toggle Make visibility"><Tag className="w-3 h-3" /></button></div><InventoryToggle value={invTopMetric} onChange={setInvTopMetric} colorClass="text-emerald-700" /></div><div className="flex-1 overflow-y-auto custom-scrollbar pr-1 space-y-3">{inventoryStats.topArticles.map((a, i) => (<div key={i} className="flex items-center gap-2"><span className="w-5 h-5 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center text-[10px] font-bold shrink-0">{i+1}</span><div className="flex-1 min-w-0"><div className="flex items-baseline justify-between"><p className="text-[10px] font-medium text-gray-800 truncate flex-1" title={a.label}>{a.label}</p>{showMakeInTop10 && <span className="text-[9px] text-gray-400 ml-2 italic shrink-0">{a.make}</span>}</div><div className="w-full bg-gray-100 h-1 rounded-full mt-1"><div className="bg-emerald-500 h-full rounded-full" style={{ width: `${(a.value / (inventoryStats.topArticles[0]?.value || 1)) * 100}%` }}></div></div></div><div className="flex flex-col items-end"><span className="text-[10px] font-bold text-gray-900">{inventoryStats.formatVal(a.value, invTopMetric)}</span><span className="text-[9px] text-gray-400">{((a.value / inventoryStats.totalVal) * 100).toFixed(1)}%</span></div></div>))}</div></div>
+                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80"><h4 className="text-xs font-bold text-gray-700 mb-2"><BarChart4 className="w-4 h-4 text-indigo-600 inline mr-1"/> ABC Analysis</h4><ABCAnalysisChart data={inventoryStats.abcData} /></div>
+                      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80"><h4 className="text-xs font-bold text-gray-700 mb-2"><Layers className="w-4 h-4 text-blue-600 inline mr-1"/> Composition</h4><InteractiveDrillDownChart hierarchyData={inventoryStats.hierarchy} metric={invGroupMetric} totalValue={inventoryStats.totalVal} /></div>
                  </div>
-                 <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col h-48"><div className="flex justify-between items-center mb-1"><h4 className="text-xs font-bold text-gray-700">Stock Value Distribution (Item Count)</h4></div><div className="flex-1 min-h-0"><ValueDistributionChart data={inventoryStats.distData} /></div></div>
              </div>
         ) : activeSubTab === 'so' ? (
             <div className="flex flex-col gap-4">
-                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-                     <div className="lg:col-span-2 bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
-                         <div className="flex justify-between items-start"><div><p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Total Balance Overview</p><h3 className="text-3xl font-extrabold text-gray-900 mt-1">{formatCurrency(soStats.totalBalance.val)}</h3><p className="text-xs text-gray-400 font-medium">{soStats.totalBalance.qty.toLocaleString()} Units</p></div><div className="bg-purple-50 p-2 rounded-lg text-purple-600"><ClipboardList className="w-6 h-6" /></div></div>
-                         <div className="mt-4 grid grid-cols-2 gap-4 border-t border-gray-100 pt-3">
-                             <div><div className="flex items-center gap-1.5 mb-1"><div className="w-2 h-2 rounded-full bg-red-500"></div><p className="text-[10px] font-bold text-gray-500 uppercase">Immediate Due</p></div><p className="text-sm font-bold text-red-600">{formatCurrency(soStats.due.total.val)}</p><p className="text-[10px] text-gray-400 font-medium">Qty: {soStats.due.total.qty.toLocaleString()}</p></div>
-                             <div><div className="flex items-center gap-1.5 mb-1"><div className="w-2 h-2 rounded-full bg-blue-500"></div><p className="text-[10px] font-bold text-gray-500 uppercase">Scheduled</p></div><p className="text-sm font-bold text-blue-600">{formatCurrency(soStats.scheduled.total.val)}</p><p className="text-[10px] text-gray-400 font-medium">Qty: {soStats.scheduled.total.qty.toLocaleString()}</p></div>
-                         </div>
-                     </div>
-                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-48 lg:h-auto"><AgingBarChart data={soChartsData.agingData} /></div>
-                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-48 lg:h-auto flex flex-col"><DeliveryScheduleChart data={soChartsData.deliverySchedule} /></div>
-                 </div>
-                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-64">
-                      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><StackedBarChart data={soChartsData.byGroup} title="Pending by Group (Due vs Scheduled)" /></div>
-                      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><StackedBarChart data={soChartsData.byMake} title="Pending by Make (Due vs Scheduled)" /></div>
-                      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><HorizontalBarChart data={Array.from(soStats.topItems.entries()).map(([label, value]) => ({ label, value }))} title="Top 10 Items (Pending Val)" color="purple" /></div>
-                 </div>
+                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80 flex flex-col"><h4 className="text-sm font-bold text-gray-800 mb-4">Pending SO Aging</h4><div className="flex-1"><AgingBarChart data={soStats.agingData} /></div></div>
             </div>
         ) : (
-             <div className="flex flex-col gap-4">
-                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-orange-600 font-bold uppercase">Total PO Val</p><h3 className="text-xl font-extrabold text-gray-900 mt-0.5">{formatCurrency(poStats.totalVal)}</h3></div>
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-blue-600 font-bold uppercase">Open POs</p><h3 className="text-xl font-extrabold text-gray-900 mt-0.5">{poStats.count}</h3></div>
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-red-600 font-bold uppercase">Overdue POs</p><h3 className="text-xl font-extrabold text-gray-900 mt-0.5">{formatCurrency(poStats.schedule.due)}</h3></div>
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-green-600 font-bold uppercase">Scheduled</p><h3 className="text-xl font-extrabold text-gray-900 mt-0.5">{formatCurrency(poStats.schedule.scheduled)}</h3></div>
-                 </div>
-                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-80">
-                      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
-                          <h4 className="text-xs font-bold text-gray-700 flex items-center gap-2"><AlertCircle className="w-4 h-4 text-red-500" /> Need Place PO</h4>
-                          <div className="flex flex-col items-center">
-                              <span className="text-2xl font-extrabold text-red-600">{formatCurrency(poStats.need.val)}</span>
-                              <span className="text-xs text-gray-400">{poStats.need.count} items short of requirement</span>
-                          </div>
-                          <div className="h-40 overflow-hidden"><HorizontalBarChart data={poStats.need.top} title="Top 10 Gaps" color="red" /></div>
-                      </div>
-                      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
-                          <h4 className="text-xs font-bold text-gray-700 flex items-center gap-2"><RefreshCw className="w-4 h-4 text-blue-500" /> Expedite PO</h4>
-                          <div className="flex flex-col items-center">
-                              <span className="text-2xl font-extrabold text-blue-600">{formatCurrency(poStats.expedite.val)}</span>
-                              <span className="text-xs text-gray-400">{poStats.expedite.count} POs needed urgently</span>
-                          </div>
-                          <div className="h-40 overflow-hidden"><HorizontalBarChart data={poStats.expedite.top} title="Top Expedite" color="blue" /></div>
-                      </div>
-                      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
-                          <h4 className="text-xs font-bold text-gray-700 flex items-center gap-2"><AlertTriangle className="w-4 h-4 text-orange-500" /> Excess PO</h4>
-                          <div className="flex flex-col items-center">
-                              <span className="text-2xl font-extrabold text-orange-600">{formatCurrency(poStats.excess.val)}</span>
-                              <span className="text-xs text-gray-400">{poStats.excess.count} items exceeding max norm</span>
-                          </div>
-                          <div className="h-40 overflow-hidden"><HorizontalBarChart data={poStats.excess.top} title="Top Excess" color="orange" /></div>
-                      </div>
-                 </div>
-             </div>
+            <div className="flex flex-col gap-4">
+                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80 flex flex-col"><h4 className="text-sm font-bold text-gray-800 mb-4">Pending PO Overview</h4><div className="flex items-center justify-center gap-8 h-full">
+                    <div className="text-center">
+                        <p className="text-xs text-gray-500 uppercase font-bold">Overdue</p>
+                        <p className="text-3xl font-extrabold text-red-600">{formatLargeValue(poStats.dueVal)}</p>
+                    </div>
+                    <div className="text-center">
+                        <p className="text-xs text-gray-500 uppercase font-bold">Scheduled</p>
+                        <p className="text-3xl font-extrabold text-blue-600">{formatLargeValue(poStats.scheduledVal)}</p>
+                    </div>
+                </div></div>
+            </div>
         )}
       </div>
     </div>

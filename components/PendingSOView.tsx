@@ -1,4 +1,3 @@
-
 import React, { useRef, useMemo, useState } from 'react';
 import { PendingSOItem, Material, ClosingStockItem, CustomerMasterItem } from '../types';
 import { Trash2, Download, Upload, ClipboardList, Search, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, Package, Clock, AlertCircle, CheckCircle2, TrendingUp, AlertOctagon, Layers, FileDown, Pencil, Save, X, UserCheck } from 'lucide-react';
@@ -150,23 +149,8 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
   }, [filteredItems]);
 
   const handleDownloadTemplate = () => {
-    // Exact headers from user image
     const headers = [
-      {
-        "Date": "2024-03-20",
-        "Order": "SO/101",
-        "Party's Name": "Acme Corp",
-        "Name of Item": "Cable 1.5mm Black",
-        "Material Code": "CBL-1.5-BK",
-        "Part No": "P-123",
-        "Ordered": 100,
-        "Balance": 100,
-        "Rate": 45.50,
-        "Discount": 0,
-        "Value": 4550.00,
-        "Due on": "2024-04-15",
-        "OverDue": 0
-      }
+      { "Date": "2024-03-20", "Order": "SO/101", "Party's Name": "Acme Corp", "Name of Item": "Cable 1.5mm Black", "Material Code": "CBL-1.5-BK", "Part No": "P-123", "Ordered": 100, "Balance": 100, "Rate": 45.50, "Discount": 0, "Value": 4550.00, "Due on": "2024-04-15", "OverDue": 0 }
     ];
     const ws = utils.json_to_sheet(headers);
     const wb = utils.book_new();
@@ -177,41 +161,19 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     try {
       const arrayBuffer = await file.arrayBuffer();
       const wb = read(arrayBuffer, { type: 'array', cellDates: true });
       const ws = wb.Sheets[wb.SheetNames[0]];
       const data = utils.sheet_to_json<any>(ws);
-
       const newItems: Omit<PendingSOItem, 'id' | 'createdAt'>[] = data.map(row => {
-          const getVal = (keys: string[]) => {
-              for (const k of keys) {
-                  const foundKey = Object.keys(row).find(rk => rk.trim().toLowerCase() === k.toLowerCase());
-                  if (foundKey) return row[foundKey];
-              }
-              return undefined;
-          };
-
-          const parseNum = (val: any) => {
-              if (val === undefined || val === null) return 0;
-              const cleaned = String(val).replace(/[^0-9.-]/g, '');
-              return parseFloat(cleaned) || 0;
-          };
-
-          const parseDateString = (val: any) => {
-              if (val instanceof Date) return val.toISOString().split('T')[0];
-              if (typeof val === 'number') return new Date((val - (25567 + 2)) * 86400 * 1000).toISOString().split('T')[0];
-              if (!val) return "";
-              const d = new Date(val);
-              return !isNaN(d.getTime()) ? d.toISOString().split('T')[0] : "";
-          };
-          
+          const getVal = (keys: string[]) => { for (const k of keys) { const foundKey = Object.keys(row).find(rk => rk.trim().toLowerCase() === k.toLowerCase()); if (foundKey) return row[foundKey]; } return undefined; };
+          const parseNum = (val: any) => { if (val === undefined || val === null) return 0; const cleaned = String(val).replace(/[^0-9.-]/g, ''); return parseFloat(cleaned) || 0; };
+          const parseDateString = (val: any) => { if (val instanceof Date) return val.toISOString().split('T')[0]; if (typeof val === 'number') return new Date((val - (25567 + 2)) * 86400 * 1000).toISOString().split('T')[0]; if (!val) return ""; const d = new Date(val); return !isNaN(d.getTime()) ? d.toISOString().split('T')[0] : ""; };
           const orderedQty = parseNum(getVal(['ordered', 'ordered qty', 'qty']));
           const balanceQty = parseNum(getVal(['balance', 'balance qty', 'pending qty']));
           const rate = parseNum(getVal(['rate', 'price', 'unit rate']));
           const excelValue = parseNum(getVal(['value', 'amount']));
-          
           return {
               date: parseDateString(getVal(['date', 'so_date', 'so date', 'vch date'])),
               orderNo: String(getVal(['order', 'order no', 'vch no', 'so no']) || ''),
@@ -219,50 +181,22 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
               itemName: String(getVal(['name of item', 'item name', 'item', 'description']) || ''),
               materialCode: String(getVal(['material code', 'code', 'material_code']) || ''),
               partNo: String(getVal(['part no', 'partno', 'part_no']) || ''),
-              orderedQty,
-              balanceQty,
-              rate,
-              discount: parseNum(getVal(['discount', 'disc'])),
-              value: excelValue || (balanceQty * rate),
-              dueDate: parseDateString(getVal(['due on', 'due date', 'delivery date'])),
-              overDueDays: parseNum(getVal(['overdue', 'overdue days', 'days']))
+              orderedQty, balanceQty, rate, discount: parseNum(getVal(['discount', 'disc'])), value: excelValue || (balanceQty * rate), dueDate: parseDateString(getVal(['due on', 'due date', 'delivery date'])), overDueDays: parseNum(getVal(['overdue', 'overdue days', 'days']))
           };
       }).filter(i => i.partyName && i.itemName);
-
-      if (newItems.length > 0) {
-        onBulkAdd(newItems);
-        alert(`Imported ${newItems.length} Sales Orders.`);
-      } else {
-        alert("No valid records found. Please check header names.");
-      }
-    } catch (err) {
-      console.error("Excel Import Error:", err);
-      alert("Error parsing Excel file.");
-    }
+      if (newItems.length > 0) { onBulkAdd(newItems); alert(`Imported ${newItems.length} Sales Orders.`); } else { alert("No valid records found."); }
+    } catch (err) { alert("Error parsing Excel file."); }
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   return (
     <div className="flex flex-col h-full gap-4">
-      {/* Quality Header */}
       <div className="flex items-center justify-between bg-white p-3 rounded-xl shadow-sm border border-gray-200 flex-shrink-0">
           <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-lg bg-green-50 text-green-600`}>
-                <UserCheck className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-gray-800">SO Data Integrity Report</h3>
-                <p className={`text-[10px] text-gray-500`}>
-                  Verify customer names and items against master data for reporting.
-                </p>
-              </div>
+              <div className={`p-2 rounded-lg bg-green-50 text-green-600`}><UserCheck className="w-5 h-5" /></div>
+              <div><h3 className="text-sm font-bold text-gray-800">SO Data Integrity Report</h3><p className={`text-[10px] text-gray-500`}>Verify customer names and items against master data.</p></div>
           </div>
-          <button 
-            onClick={() => setShowErrorsOnly(!showErrorsOnly)} 
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${showErrorsOnly ? 'bg-orange-100 text-orange-700 border-orange-200 shadow-sm' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}
-          >
-            {showErrorsOnly ? "Show All Data" : "Filter Errors Only"}
-          </button>
+          <button onClick={() => setShowErrorsOnly(!showErrorsOnly)} className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${showErrorsOnly ? 'bg-orange-100 text-orange-700 border-orange-200 shadow-sm' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}>{showErrorsOnly ? "Show All Data" : "Filter Errors Only"}</button>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 flex-shrink-0">
@@ -331,7 +265,9 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
                                         <td className="py-2 px-3 text-gray-600 whitespace-nowrap">{formatDateDisplay(item.date)}</td>
                                         <td className="py-2 px-3 font-medium text-gray-800">{item.orderNo}</td>
                                         <td className="py-2 px-3 truncate max-w-[150px]" title={item.partyName}>{item.partyName}</td>
-                                        <td className="py-2 px-3 font-medium line-clamp-1" title={item.itemName}>{item.itemName}</td>
+                                        <td className="py-2 px-3 font-medium line-clamp-1" title={item.itemName}>
+                                            {item.isMatUnknown ? <span className="text-red-600 bg-red-50 px-1 py-px rounded font-mono" title="Item not in Master. Showing Part No.">{item.partNo || item.itemName}</span> : item.itemName}
+                                        </td>
                                         <td className="py-2 px-3 text-right text-gray-600">{item.orderedQty}</td>
                                         <td className="py-2 px-3 text-right font-medium text-orange-600">{item.balanceQty}</td>
                                         <td className="py-2 px-3 whitespace-nowrap text-gray-600">{formatDateDisplay(item.dueDate)}</td>
