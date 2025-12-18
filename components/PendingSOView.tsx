@@ -1,3 +1,4 @@
+
 import React, { useRef, useMemo, useState } from 'react';
 import { PendingSOItem, Material, ClosingStockItem, CustomerMasterItem } from '../types';
 import { Trash2, Download, Upload, ClipboardList, Search, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, Package, Clock, AlertCircle, CheckCircle2, TrendingUp, AlertOctagon, Layers, FileDown, Pencil, Save, X, UserCheck } from 'lucide-react';
@@ -31,7 +32,6 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' } | null>(null);
   const [showErrorsOnly, setShowErrorsOnly] = useState(false);
 
-  // Edit State
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<PendingSOItem | null>(null);
 
@@ -50,7 +50,7 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
 
   const handleSaveEdit = () => {
     if (editForm) {
-      const val = (editForm.balanceQty || 0) * (editForm.rate || 0);
+      const val = (Number(editForm.balanceQty) || 0) * (Number(editForm.rate) || 0);
       onUpdate({ ...editForm, value: val });
       setEditingId(null);
       setEditForm(null);
@@ -69,7 +69,8 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
     if (dateVal instanceof Date) date = dateVal;
     else if (typeof dateVal === 'string') {
         const parts = dateVal.split('-');
-        if (parts.length === 3) date = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+        if (parts.length === 3 && parts[0].length === 4) date = new Date(dateVal);
+        else if (parts.length === 3) date = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
         else date = new Date(dateVal);
     } else if (typeof dateVal === 'number') date = new Date((dateVal - (25567 + 2)) * 86400 * 1000);
     if (date && !isNaN(date.getTime())) return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
@@ -81,6 +82,7 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
       let date: Date | null = null;
       if (dateVal instanceof Date) date = dateVal;
       else if (typeof dateVal === 'string') date = new Date(dateVal);
+      else if (typeof dateVal === 'number') date = new Date((dateVal - (25567 + 2)) * 86400 * 1000);
       if (date && !isNaN(date.getTime())) return date.toISOString().split('T')[0];
       return '';
   };
@@ -122,19 +124,6 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
     });
   }, [items, closingStockItems, customerLookup, materialLookup]);
 
-  const mismatchStats = useMemo(() => {
-    let recordsWithError = 0;
-    const uniqueCustErrors = new Set<string>();
-    const uniqueMatErrors = new Set<string>();
-    processedDataWithValidation.forEach(i => {
-      let hasError = false;
-      if (i.isCustUnknown) { uniqueCustErrors.add(i.partyName); hasError = true; }
-      if (i.isMatUnknown) { uniqueMatErrors.add(i.itemName); hasError = true; }
-      if (hasError) recordsWithError++;
-    });
-    return { total: recordsWithError, uniqueCust: uniqueCustErrors.size, uniqueMat: uniqueMatErrors.size };
-  }, [processedDataWithValidation]);
-
   const filteredItems = useMemo(() => {
     let data = [...processedDataWithValidation];
     if (showErrorsOnly) data = data.filter(i => i.isCustUnknown || i.isMatUnknown);
@@ -156,44 +145,107 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
 
   const totals = useMemo(() => {
       const t = { ordered: 0, orderedValue: 0, balance: 0, value: 0, allocated: 0, toArrange: 0, uniqueInventory: 0, uniqueOrderCount: 0 };
-      const uniqueItemsSet = new Set<string>(); const uniqueOrders = new Set<string>();
-      filteredItems.forEach(item => { t.ordered += item.orderedQty || 0; t.orderedValue += (item.orderedQty || 0) * (item.rate || 0); t.balance += item.balanceQty || 0; const itemVal = (item.balanceQty || 0) * (item.rate || 0); t.value += itemVal; t.allocated += item.allocated || 0; t.toArrange += item.shortage || 0; if (item.orderNo) uniqueOrders.add(item.orderNo); const normName = (item.itemName || '').toLowerCase().trim(); if (!uniqueItemsSet.has(normName)) { uniqueItemsSet.add(normName); const stock = closingStockItems.find(s => (s.description || '').toLowerCase().trim() === normName); t.uniqueInventory += stock ? stock.quantity : 0; } });
-      t.uniqueOrderCount = uniqueOrders.size; return t;
-  }, [filteredItems, closingStockItems]);
+      filteredItems.forEach(item => { t.ordered += Number(item.orderedQty) || 0; t.orderedValue += (Number(item.orderedQty) || 0) * (Number(item.rate) || 0); t.balance += Number(item.balanceQty) || 0; const itemVal = (Number(item.balanceQty) || 0) * (Number(item.rate) || 0); t.value += itemVal; t.allocated += item.allocated || 0; t.toArrange += item.shortage || 0; if (item.orderNo) t.uniqueOrderCount++; });
+      return t;
+  }, [filteredItems]);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const wb = read(arrayBuffer, { type: 'array', cellDates: true });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const data = utils.sheet_to_json<any>(ws);
+
+      const newItems: Omit<PendingSOItem, 'id' | 'createdAt'>[] = data.map(row => {
+          const getVal = (keys: string[]) => {
+              for (const k of keys) {
+                  const foundKey = Object.keys(row).find(rk => rk.trim().toLowerCase() === k.toLowerCase());
+                  if (foundKey) return row[foundKey];
+              }
+              return undefined;
+          };
+
+          const parseNum = (val: any) => {
+              if (val === undefined || val === null) return 0;
+              const cleaned = String(val).replace(/[^0-9.-]/g, '');
+              return parseFloat(cleaned) || 0;
+          };
+
+          const parseDateString = (val: any) => {
+              if (val instanceof Date) return val.toISOString().split('T')[0];
+              if (typeof val === 'number') return new Date((val - (25567 + 2)) * 86400 * 1000).toISOString().split('T')[0];
+              if (!val) return new Date().toISOString().split('T')[0];
+              const d = new Date(val);
+              return !isNaN(d.getTime()) ? d.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+          };
+          
+          const orderedQty = parseNum(getVal(['ordered qty', 'ordered', 'qty', 'ordered quantity', 'quantity']));
+          const balanceQty = parseNum(getVal(['balance qty', 'balance', 'bal', 'pending qty', 'pending quantity']));
+          const rate = parseNum(getVal(['rate', 'price', 'unit rate', 'eff. rate']));
+          const value = parseNum(getVal(['value', 'amount', 'total value', 'total amount']));
+          
+          return {
+              date: parseDateString(getVal(['so_date', 'so date', 'date', 'vch date', 'vch_date', 'order date'])),
+              orderNo: String(getVal(['order no', 'order', 'vch no', 'so no', 'voucher no', 'vch no.']) || ''),
+              partyName: String(getVal(['party name', 'customer', 'name', 'buyer', 'party_name', 'customer name']) || ''),
+              itemName: String(getVal(['item name', 'item', 'description', 'particulars', 'item_name']) || ''),
+              materialCode: String(getVal(['material code', 'code', 'material_code']) || ''),
+              partNo: String(getVal(['part no', 'partno', 'part_no']) || ''),
+              orderedQty,
+              balanceQty,
+              rate,
+              discount: parseNum(getVal(['discount', 'disc'])),
+              value: value || (balanceQty * rate),
+              dueDate: getVal(['due on', 'due date', 'delivery date', 'due_on']) ? parseDateString(getVal(['due on', 'due date', 'delivery date', 'due_on'])) : '',
+              overDueDays: 0
+          };
+      }).filter(i => i.partyName && i.itemName && (i.orderedQty > 0 || i.balanceQty > 0));
+
+      if (newItems.length > 0) {
+        onBulkAdd(newItems);
+        alert(`Successfully imported ${newItems.length} Sales Orders.`);
+      } else {
+        alert("No valid records found. Please check if your Excel has headers like 'SO Date', 'Party Name', and 'Item Name'.");
+      }
+    } catch (err) {
+      console.error("Excel Import Error:", err);
+      alert("Error parsing Excel file. Please ensure it is a valid .xlsx or .xls file.");
+    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
 
   return (
     <div className="flex flex-col h-full gap-4">
       {/* Quality Header */}
       <div className="flex items-center justify-between bg-white p-3 rounded-xl shadow-sm border border-gray-200 flex-shrink-0">
           <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-lg ${mismatchStats.total > 0 ? 'bg-orange-50 text-orange-600' : 'bg-green-50 text-green-600'}`}>
-                {mismatchStats.total > 0 ? <AlertTriangle className="w-5 h-5" /> : <UserCheck className="w-5 h-5" />}
+              <div className={`p-2 rounded-lg bg-green-50 text-green-600`}>
+                <UserCheck className="w-5 h-5" />
               </div>
               <div>
                 <h3 className="text-sm font-bold text-gray-800">SO Data Integrity Report</h3>
-                <p className={`text-[10px] ${mismatchStats.total > 0 ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
-                  {mismatchStats.total > 0 
-                    ? `${mismatchStats.total} orders reference missing Master Data (${mismatchStats.uniqueCust} unknown Customers, ${mismatchStats.uniqueMat} unknown Items)` 
-                    : "All SO records match Customer and Material masters perfectly."}
+                <p className={`text-[10px] text-gray-500`}>
+                  Verify customer names and items against master data for reporting.
                 </p>
               </div>
           </div>
-          {mismatchStats.total > 0 && (
-              <button 
-                onClick={() => setShowErrorsOnly(!showErrorsOnly)} 
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${showErrorsOnly ? 'bg-orange-100 text-orange-700 border-orange-200 shadow-sm' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}
-              >
-                {showErrorsOnly ? "Show All Data" : "Filter Errors Only"}
-              </button>
-          )}
+          <button 
+            onClick={() => setShowErrorsOnly(!showErrorsOnly)} 
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${showErrorsOnly ? 'bg-orange-100 text-orange-700 border-orange-200 shadow-sm' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}
+          >
+            {showErrorsOnly ? "Show All Data" : "Filter Errors Only"}
+          </button>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 flex-shrink-0">
-          <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200"><p className="text-[10px] text-gray-500 font-medium uppercase mb-0.5">Total Ordered ({totals.uniqueOrderCount} Orders)</p><div className="flex flex-col"><span className="text-sm font-bold text-blue-600">Qty: {totals.ordered.toLocaleString()}</span><span className="text-xs font-bold text-gray-800">{formatCurrency(totals.orderedValue)}</span></div></div>
+          <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200"><p className="text-[10px] text-gray-500 font-medium uppercase mb-0.5">Total Ordered</p><div className="flex flex-col"><span className="text-sm font-bold text-blue-600">Qty: {totals.ordered.toLocaleString()}</span><span className="text-xs font-bold text-gray-800">{formatCurrency(totals.orderedValue)}</span></div></div>
           <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200"><p className="text-[10px] text-gray-500 font-medium uppercase mb-0.5">Total Balance</p><div className="flex flex-col"><span className="text-sm font-bold text-orange-600">Qty: {totals.balance.toLocaleString()}</span><span className="text-xs font-bold text-gray-800">{formatCurrency(totals.value)}</span></div></div>
-          <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200"><p className="text-[10px] text-gray-500 font-medium uppercase mb-0.5">Inventory (Ref)</p><p className="text-base font-bold text-gray-600">{totals.uniqueInventory.toLocaleString()}</p></div>
+          <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200"><p className="text-[10px] text-gray-500 font-medium uppercase mb-0.5">Orders Count</p><p className="text-base font-bold text-gray-600">{totals.uniqueOrderCount.toLocaleString()}</p></div>
           <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200"><p className="text-[10px] text-gray-500 font-medium uppercase mb-0.5">Allocated (FIFO)</p><p className="text-base font-bold text-emerald-600">{totals.allocated.toLocaleString()}</p></div>
-          {totals.toArrange > 0 ? (<div className="bg-red-50 p-3 rounded-xl shadow-sm border border-red-200"><p className="text-[10px] text-red-700 font-medium uppercase mb-0.5">Need To Arrange</p><p className="text-base font-bold text-red-700">{totals.toArrange.toLocaleString()}</p></div>) : (<div className="bg-green-50 p-3 rounded-xl shadow-sm border border-green-200 opacity-50"><p className="text-[10px] text-green-700 font-medium uppercase mb-0.5">Stock Status</p><p className="text-xs font-bold text-green-700 flex items-center gap-1 mt-1"><CheckCircle2 className="w-3.5 h-3.5" /> Sufficient</p></div>)}
+          <div className="bg-red-50 p-3 rounded-xl shadow-sm border border-red-200"><p className="text-[10px] text-red-700 font-medium uppercase mb-0.5">Need To Arrange</p><p className="text-base font-bold text-red-700">{totals.toArrange.toLocaleString()}</p></div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 flex flex-col gap-3 flex-shrink-0">
@@ -201,31 +253,31 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
             <h2 className="text-sm font-semibold text-gray-800 flex items-center gap-2"><ClipboardList className="w-4 h-4 text-purple-600" /> Pending Sales Orders</h2>
             <div className="flex flex-wrap gap-2">
                 <button onClick={() => {}} className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-50 border border-gray-200 shadow-sm"><FileDown className="w-3.5 h-3.5" /> Export All</button>
-                <input type="file" ref={fileInputRef} className="hidden" accept=".xlsx, .xls" />
-                <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-xs border border-emerald-100 hover:bg-emerald-100 transition-colors"><Upload className="w-3.5 h-3.5" /> Import Excel</button>
+                <input type="file" ref={fileInputRef} className="hidden" accept=".xlsx, .xls" onChange={handleFileUpload} />
+                <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-xs border border-emerald-100 hover:bg-emerald-100 transition-colors font-bold"><Upload className="w-3.5 h-3.5" /> Import Excel</button>
                 <button onClick={onClear} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs border border-red-100 hover:bg-red-100 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
             </div>
          </div>
-         <div className="relative"><div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Search className="h-3.5 w-3.5 text-gray-400" /></div><input type="text" placeholder="Search orders by No, Party, Item or Part No..." className="pl-9 pr-3 py-1.5 w-full border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div>
+         <div className="relative"><div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Search className="h-3.5 w-3.5 text-gray-400" /></div><input type="text" placeholder="Search orders..." className="pl-9 pr-3 py-1.5 w-full border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col flex-1 min-h-0">
-         <div className="overflow-x-auto overflow-y-auto flex-1 custom-scrollbar">
-            <table className="w-full text-left border-collapse min-w-[1500px]">
+         <div className="overflow-auto flex-1 custom-scrollbar">
+            <table className="w-full text-left border-collapse">
                 <thead className="sticky top-0 z-10 bg-gray-50 shadow-sm text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
                     <tr className="border-b border-gray-200">
                         <th className="py-2 px-3 whitespace-nowrap">Date</th>
                         <th className="py-2 px-3 whitespace-nowrap">Order No</th>
                         <th className="py-2 px-3 whitespace-nowrap">Party Name</th>
                         <th className="py-2 px-3 w-64 whitespace-nowrap">Item Name</th>
-                        <th className="py-2 px-3 text-right whitespace-nowrap">Ordered</th>
-                        <th className="py-2 px-3 text-right whitespace-nowrap">Balance</th>
-                        <th className="py-2 px-3 text-right whitespace-nowrap">Due On</th>
-                        <th className="py-2 px-3 text-center whitespace-nowrap">OD</th>
-                        <th className="py-2 px-3 text-center bg-gray-50 border-l border-gray-100 whitespace-nowrap">Stock</th>
-                        <th className="py-2 px-3 text-center bg-gray-50 whitespace-nowrap">Alloc</th>
-                        <th className="py-2 px-3 text-center bg-gray-50 border-r border-gray-100 text-red-600 whitespace-nowrap">Arrange</th>
-                        <th className="py-2 px-3 text-right whitespace-nowrap">Act</th>
+                        <th className="py-2 px-3 text-right">Ordered</th>
+                        <th className="py-2 px-3 text-right">Balance</th>
+                        <th className="py-2 px-3 text-right">Due On</th>
+                        <th className="py-2 px-3 text-center">OD</th>
+                        <th className="py-2 px-3 text-center bg-gray-50 border-l border-gray-100">Stock</th>
+                        <th className="py-2 px-3 text-center bg-gray-50">Alloc</th>
+                        <th className="py-2 px-3 text-center bg-gray-50 border-r border-gray-100 text-red-600">Arrange</th>
+                        <th className="py-2 px-3 text-right">Act</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 text-xs">
@@ -251,19 +303,9 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
                                 ) : (
                                     <>
                                         <td className="py-2 px-3 text-gray-600 whitespace-nowrap">{formatDateDisplay(item.date)}</td>
-                                        <td className="py-2 px-3 font-medium text-gray-800 whitespace-nowrap">{item.orderNo}</td>
-                                        <td className="py-2 px-3 max-w-[150px]">
-                                          <div className="flex flex-col">
-                                            <span className="truncate" title={item.partyName}>{item.partyName}</span>
-                                            {item.isCustUnknown && <span className="text-[9px] text-red-600 bg-red-50 px-1 py-px rounded border border-red-100 w-fit font-bold mt-0.5 uppercase tracking-tighter">Unknown Cust</span>}
-                                          </div>
-                                        </td>
-                                        <td className="py-2 px-3">
-                                          <div className="flex flex-col">
-                                            <span className="font-medium line-clamp-1" title={item.itemName}>{item.itemName}</span>
-                                            {item.isMatUnknown && <span className="text-[9px] text-red-600 bg-red-50 px-1 py-px rounded border border-red-100 w-fit font-bold mt-0.5 uppercase tracking-tighter">Not in Master</span>}
-                                          </div>
-                                        </td>
+                                        <td className="py-2 px-3 font-medium text-gray-800">{item.orderNo}</td>
+                                        <td className="py-2 px-3 truncate max-w-[150px]" title={item.partyName}>{item.partyName}</td>
+                                        <td className="py-2 px-3 font-medium line-clamp-1" title={item.itemName}>{item.itemName}</td>
                                         <td className="py-2 px-3 text-right text-gray-600">{item.orderedQty}</td>
                                         <td className="py-2 px-3 text-right font-medium text-orange-600">{item.balanceQty}</td>
                                         <td className="py-2 px-3 whitespace-nowrap text-gray-600">{formatDateDisplay(item.dueDate)}</td>

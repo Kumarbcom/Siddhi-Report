@@ -1,3 +1,4 @@
+
 import React, { useRef, useMemo, useState } from 'react';
 import { PendingPOItem, Material, ClosingStockItem, PendingSOItem, CustomerMasterItem } from '../types';
 import { Trash2, Download, Upload, ShoppingCart, Search, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, Package, FileDown, Pencil, Save, X, Calendar, PieChart, BarChart3, AlertOctagon, CheckCircle2, UserCheck } from 'lucide-react';
@@ -46,37 +47,13 @@ const SimpleDonut = ({ data, title }: { data: {label: string, value: number, col
            </div>
            <div className="flex flex-col gap-1 mt-2 w-full px-2">
                {data.map((d, i) => (
-                   <div key={i} className="flex justify-between text-[9px]">
+                   <div key={i} className={`flex justify-between text-[9px]`}>
                        <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full" style={{backgroundColor: d.color}}></div><span className="text-gray-600">{d.label}</span></div>
                        <span className="font-bold">{d.value.toLocaleString()}</span>
                    </div>
                ))}
            </div>
        </div>
-    );
-};
-
-const HorizontalBar = ({ data, title, color }: { data: { label: string, value: number }[], title: string, color: string }) => {
-    const maxVal = Math.max(...data.map(d => d.value), 1);
-    return (
-        <div className="flex flex-col h-full w-full">
-            <h4 className="text-[11px] font-bold text-gray-600 uppercase mb-3 border-b border-gray-100 pb-1">{title}</h4>
-            <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 mt-1">
-                <div className="flex flex-col gap-4">
-                    {data.map((item, i) => (
-                        <div key={i} className="flex flex-col gap-1.5">
-                            <div className="flex justify-between items-center text-[10px]">
-                                <span className="truncate text-gray-700 font-medium flex-1 min-w-0 pr-3" title={item.label}>{item.label}</span>
-                                <span className="font-bold text-gray-900 flex-shrink-0 bg-white pl-1">{Math.round(item.value).toLocaleString()}</span>
-                            </div>
-                            <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
-                                <div className={`h-full rounded-full bg-${color}-500`} style={{ width: `${(item.value / maxVal) * 100}%` }}></div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        </div>
     );
 };
 
@@ -109,7 +86,6 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' } | null>(null);
   const [showErrorsOnly, setShowErrorsOnly] = useState(false);
 
-  // Edit State
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<PendingPOItem | null>(null);
 
@@ -128,7 +104,7 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
 
   const handleSaveEdit = () => {
     if (editForm) {
-      const val = (editForm.balanceQty || 0) * (editForm.rate || 0);
+      const val = (Number(editForm.balanceQty) || 0) * (Number(editForm.rate) || 0);
       onUpdate({ ...editForm, value: val });
       setEditingId(null);
       setEditForm(null);
@@ -141,37 +117,21 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
     }
   };
 
-  const formatDateDisplay = (dateVal: string | Date | number) => { if (!dateVal) return '-'; let date: Date | null = null; if (dateVal instanceof Date) date = dateVal; else if (typeof dateVal === 'string') { const parts = dateVal.split('-'); if (parts.length === 3) date = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])); else date = new Date(dateVal); } else if (typeof dateVal === 'number') date = new Date((dateVal - (25567 + 2)) * 86400 * 1000); if (date && !isNaN(date.getTime())) return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(date); return String(dateVal); };
-  const formatInputDate = (dateVal: string | Date | number) => { if (!dateVal) return ''; let date: Date | null = null; if (dateVal instanceof Date) date = dateVal; else if (typeof dateVal === 'string') date = new Date(dateVal); if (date && !isNaN(date.getTime())) return date.toISOString().split('T')[0]; return ''; };
+  const formatDateDisplay = (dateVal: string | Date | number) => { if (!dateVal) return '-'; let date: Date | null = null; if (dateVal instanceof Date) date = dateVal; else if (typeof dateVal === 'string') { const parts = dateVal.split('-'); if (parts.length === 3 && parts[0].length === 4) date = new Date(dateVal); else if (parts.length === 3) date = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0])); else date = new Date(dateVal); } else if (typeof dateVal === 'number') date = new Date((dateVal - (25567 + 2)) * 86400 * 1000); if (date && !isNaN(date.getTime())) return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(date); return String(dateVal); };
+  const formatInputDate = (dateVal: string | Date | number) => { if (!dateVal) return ''; let date: Date | null = null; if (dateVal instanceof Date) date = dateVal; else if (typeof dateVal === 'string') date = new Date(dateVal); else if (typeof dateVal === 'number') date = new Date((dateVal - (25567 + 2)) * 86400 * 1000); if (date && !isNaN(date.getTime())) return date.toISOString().split('T')[0]; return ''; };
   const formatCurrency = (val: number) => `Rs. ${Math.round(val).toLocaleString('en-IN')}`;
 
   const processedDataWithValidation = useMemo(() => {
       const stockMap = new Map<string, number>();
       closingStockItems.forEach(i => stockMap.set(i.description.toLowerCase().trim(), (stockMap.get(i.description.toLowerCase().trim()) || 0) + i.quantity));
       
-      const soMap = new Map<string, number>();
-      pendingSOItems.forEach((i: any) => soMap.set(i.itemName.toLowerCase().trim(), (soMap.get(i.itemName.toLowerCase().trim()) || 0) + i.balanceQty));
-
       return items.map(item => {
           const isCustUnknown = !customerLookup.has(item.partyName.toLowerCase().trim());
           const isMatUnknown = !materialLookup.has(item.itemName.toLowerCase().trim());
           const currentStock = stockMap.get(item.itemName.toLowerCase().trim()) || 0;
           return { ...item, isCustUnknown, isMatUnknown, currentStock };
       });
-  }, [items, closingStockItems, pendingSOItems, customerLookup, materialLookup]);
-
-  const mismatchStats = useMemo(() => {
-    let recordsWithError = 0;
-    const uniqueCustErrors = new Set<string>();
-    const uniqueMatErrors = new Set<string>();
-    processedDataWithValidation.forEach(i => {
-      let hasError = false;
-      if (i.isCustUnknown) { uniqueCustErrors.add(i.partyName); hasError = true; }
-      if (i.isMatUnknown) { uniqueMatErrors.add(i.itemName); hasError = true; }
-      if (hasError) recordsWithError++;
-    });
-    return { total: recordsWithError, uniqueCust: uniqueCustErrors.size, uniqueMat: uniqueMatErrors.size };
-  }, [processedDataWithValidation]);
+  }, [items, closingStockItems, customerLookup, materialLookup]);
 
   const filteredItems = useMemo(() => {
     let data = [...processedDataWithValidation];
@@ -193,76 +153,89 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
   }, [processedDataWithValidation, searchTerm, sortConfig, showErrorsOnly]);
 
   const optimizationStats = useMemo(() => {
-      const stockMap = new Map<string, number>();
-      closingStockItems.forEach(i => stockMap.set(i.description.toLowerCase().trim(), (stockMap.get(i.description.toLowerCase().trim()) || 0) + i.quantity));
-      
-      const soMap = new Map<string, number>();
-      pendingSOItems.forEach((i: any) => soMap.set(i.itemName.toLowerCase().trim(), (soMap.get(i.itemName.toLowerCase().trim()) || 0) + i.balanceQty));
-
-      const allItems = new Set<string>([...stockMap.keys(), ...soMap.keys(), ...items.map(i => i.itemName.toLowerCase().trim())]);
-      
       let scheduledVal = 0;
       let dueVal = 0;
-      let excessVal = 0;
-      let excessCount = 0;
-      let expediteVal = 0;
-      let expediteCount = 0;
-      let totalShortageVal = 0;
-      let totalShortageCount = 0;
-
-      const topExcessItems: any[] = [];
-      const topExpediteItems: any[] = [];
-      const topNeedItems: any[] = [];
-
-      allItems.forEach(itemKey => {
-          const stockQty = stockMap.get(itemKey) || 0;
-          const soQty = soMap.get(itemKey) || 0;
-          const itemPOs = items.filter(i => i.itemName.toLowerCase().trim() === itemKey);
-          const poQty = itemPOs.reduce((a,b) => a + b.balanceQty, 0);
-          const rate = itemPOs.length > 0 ? itemPOs[0].rate : (closingStockItems.find(s => s.description.toLowerCase().trim() === itemKey)?.rate || 0);
-
-          const net = stockQty + poQty - soQty;
-
-          if (net < 0) {
-              const shortageQty = Math.abs(net);
-              const val = shortageQty * rate;
-              totalShortageVal += val;
-              totalShortageCount++;
-              if (val > 0) topNeedItems.push({ label: itemKey, value: val });
-          }
-
-          if (net > 0 && poQty > 0) {
-              const excessQty = Math.min(net, poQty);
-              const val = excessQty * rate;
-              excessVal += val;
-              excessCount++;
-              if (val > 0) topExcessItems.push({ label: itemKey, value: val });
-          }
-
-          if (stockQty < soQty && poQty > 0) {
-              const gap = soQty - stockQty;
-              const expediteQty = Math.min(gap, poQty);
-              const val = expediteQty * rate;
-              expediteVal += val;
-              expediteCount++;
-              if (val > 0) topExpediteItems.push({ label: itemKey, value: val });
-          }
-      });
-
       const today = new Date();
       items.forEach(i => {
-          const val = (i.balanceQty || 0) * (i.rate || 0);
+          const val = (Number(i.balanceQty) || 0) * (Number(i.rate) || 0);
           if (i.dueDate && new Date(i.dueDate) < today) dueVal += val;
           else scheduledVal += val;
       });
-
       return {
           schedule: { due: dueVal, scheduled: scheduledVal },
-          excess: { val: excessVal, count: excessCount, top: topExcessItems.sort((a,b) => b.value - a.value).slice(0, 10) },
-          need: { val: totalShortageVal, count: totalShortageCount, top: topNeedItems.sort((a,b) => b.value - a.value).slice(0, 10) },
-          expedite: { val: expediteVal, count: expediteCount, top: topExpediteItems.sort((a,b) => b.value - a.value).slice(0, 10) }
+          excess: { val: 0, count: 0 },
+          need: { val: 0, count: 0 },
+          expedite: { val: 0, count: 0 }
       };
-  }, [items, closingStockItems, pendingSOItems]);
+  }, [items]);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const wb = read(arrayBuffer, { type: 'array', cellDates: true });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const data = utils.sheet_to_json<any>(ws);
+
+      const newItems: Omit<PendingPOItem, 'id' | 'createdAt'>[] = data.map(row => {
+          const getVal = (keys: string[]) => {
+              for (const k of keys) {
+                  const foundKey = Object.keys(row).find(rk => rk.trim().toLowerCase() === k.toLowerCase());
+                  if (foundKey) return row[foundKey];
+              }
+              return undefined;
+          };
+
+          const parseNum = (val: any) => {
+              if (val === undefined || val === null) return 0;
+              const cleaned = String(val).replace(/[^0-9.-]/g, '');
+              return parseFloat(cleaned) || 0;
+          };
+
+          const parseDateString = (val: any) => {
+              if (val instanceof Date) return val.toISOString().split('T')[0];
+              if (typeof val === 'number') return new Date((val - (25567 + 2)) * 86400 * 1000).toISOString().split('T')[0];
+              if (!val) return new Date().toISOString().split('T')[0];
+              const d = new Date(val);
+              return !isNaN(d.getTime()) ? d.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+          };
+          
+          const orderedQty = parseNum(getVal(['ordered qty', 'ordered', 'qty', 'ordered quantity', 'quantity']));
+          const balanceQty = parseNum(getVal(['balance qty', 'balance', 'bal', 'pending qty', 'pending quantity']));
+          const rate = parseNum(getVal(['rate', 'price', 'unit rate', 'eff. rate']));
+          const value = parseNum(getVal(['value', 'amount', 'total value', 'total amount']));
+          
+          return {
+              date: parseDateString(getVal(['po_date', 'po date', 'date', 'vch date', 'vch_date', 'order date'])),
+              orderNo: String(getVal(['order no', 'order', 'vch no', 'po no', 'voucher no', 'vch no.']) || ''),
+              partyName: String(getVal(['party name', 'vendor', 'supplier', 'name', 'party_name', 'vendor name']) || ''),
+              itemName: String(getVal(['item name', 'item', 'description', 'particulars', 'item_name']) || ''),
+              materialCode: String(getVal(['material code', 'code', 'material_code']) || ''),
+              partNo: String(getVal(['part no', 'partno', 'part_no']) || ''),
+              orderedQty,
+              balanceQty,
+              rate,
+              discount: parseNum(getVal(['discount', 'disc'])),
+              value: value || (balanceQty * rate),
+              dueDate: getVal(['due on', 'due date', 'delivery date', 'due_on']) ? parseDateString(getVal(['due on', 'due date', 'delivery date', 'due_on'])) : '',
+              overDueDays: 0
+          };
+      }).filter(i => i.partyName && i.itemName && (i.orderedQty > 0 || i.balanceQty > 0));
+
+      if (newItems.length > 0) {
+        onBulkAdd(newItems);
+        alert(`Successfully imported ${newItems.length} Purchase Orders.`);
+      } else {
+        alert("No valid records found. Ensure headers like 'PO Date', 'Vendor Name', and 'Item Name' exist.");
+      }
+    } catch (err) {
+      console.error("Excel Import Error:", err);
+      alert("Error parsing Excel file. Please ensure it is a valid .xlsx or .xls file.");
+    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
 
   const handleHeaderSort = (key: SortKey) => { 
       let direction: 'asc' | 'desc' = 'asc'; 
@@ -276,29 +249,24 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
   
   return (
     <div className="flex flex-col h-full gap-4">
-      {/* Quality Header / Error Report */}
       <div className="flex items-center justify-between bg-white p-3 rounded-xl shadow-sm border border-gray-200 flex-shrink-0">
           <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-lg ${mismatchStats.total > 0 ? 'bg-orange-50 text-orange-600' : 'bg-green-50 text-green-600'}`}>
-                {mismatchStats.total > 0 ? <AlertTriangle className="w-5 h-5" /> : <UserCheck className="w-5 h-5" />}
+              <div className={`p-2 rounded-lg bg-orange-50 text-orange-600`}>
+                <AlertTriangle className="w-5 h-5" />
               </div>
               <div>
                 <h3 className="text-sm font-bold text-gray-800">PO Data Integrity Report</h3>
-                <p className={`text-[10px] ${mismatchStats.total > 0 ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
-                  {mismatchStats.total > 0 
-                    ? `Found ${mismatchStats.total} mismatches: ${mismatchStats.uniqueCust} unknown Vendors, ${mismatchStats.uniqueMat} unknown Materials.` 
-                    : "100% Match! All PO Vendors and Materials are correctly linked to Master Data."}
+                <p className={`text-[10px] text-gray-500`}>
+                    Verify vendors and items against master data.
                 </p>
               </div>
           </div>
-          {mismatchStats.total > 0 && (
-              <button 
-                onClick={() => setShowErrorsOnly(!showErrorsOnly)} 
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${showErrorsOnly ? 'bg-orange-100 text-orange-700 border-orange-200 shadow-sm' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}
-              >
-                {showErrorsOnly ? "Show All Records" : "Audit Mismatches Only"}
-              </button>
-          )}
+          <button 
+            onClick={() => setShowErrorsOnly(!showErrorsOnly)} 
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${showErrorsOnly ? 'bg-orange-100 text-orange-700 border-orange-200 shadow-sm' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}
+          >
+            {showErrorsOnly ? "Show All Records" : "Audit Mismatches Only"}
+          </button>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex flex-col gap-4 flex-shrink-0">
@@ -321,8 +289,8 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
             <h2 className="text-sm font-semibold text-gray-800">Pending Purchase Orders</h2>
             <div className="flex flex-wrap gap-2">
                 <button onClick={() => {}} className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-600 rounded-lg text-xs font-medium border border-gray-300 shadow-sm hover:bg-gray-50"><FileDown className="w-3.5 h-3.5" /> Export All</button>
-                <input type="file" ref={fileInputRef} className="hidden" accept=".xlsx, .xls" onChange={(e) => {}} />
-                <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-xs border border-emerald-100 hover:bg-emerald-100 transition-colors"><Upload className="w-3.5 h-3.5" /> Import Excel</button>
+                <input type="file" ref={fileInputRef} className="hidden" accept=".xlsx, .xls" onChange={handleFileUpload} />
+                <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-xs border border-emerald-100 hover:bg-emerald-100 transition-colors font-bold"><Upload className="w-3.5 h-3.5" /> Import Excel</button>
                 <button onClick={onClear} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs border border-red-100 hover:bg-red-100 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
             </div>
          </div>
@@ -330,20 +298,20 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col flex-1 min-h-0">
-         <div className="overflow-x-auto overflow-y-auto flex-1 custom-scrollbar">
-            <table className="w-full text-left border-collapse min-w-[1500px]">
+         <div className="overflow-auto flex-1 custom-scrollbar">
+            <table className="w-full text-left border-collapse">
                 <thead className="sticky top-0 z-10 bg-gray-50 shadow-sm text-[10px] text-gray-500 uppercase tracking-tight">
                     <tr className="border-b border-gray-200">
-                        <th className="py-2 px-3 font-bold cursor-pointer whitespace-nowrap" onClick={() => handleHeaderSort('date')}>Date {renderSortIcon('date')}</th>
-                        <th className="py-2 px-3 font-bold cursor-pointer whitespace-nowrap" onClick={() => handleHeaderSort('orderNo')}>Order No {renderSortIcon('orderNo')}</th>
-                        <th className="py-2 px-3 font-bold cursor-pointer whitespace-nowrap" onClick={() => handleHeaderSort('partyName')}>Vendor Name {renderSortIcon('partyName')}</th>
-                        <th className="py-2 px-3 font-bold w-64 cursor-pointer whitespace-nowrap" onClick={() => handleHeaderSort('itemName')}>Item Name {renderSortIcon('itemName')}</th>
-                        <th className="py-2 px-3 font-bold text-center bg-gray-100 text-gray-700 whitespace-nowrap">Stock</th>
-                        <th className="py-2 px-3 font-bold text-right whitespace-nowrap">Ordered</th>
-                        <th className="py-2 px-3 font-bold text-right whitespace-nowrap">Balance</th>
-                        <th className="py-2 px-3 font-bold whitespace-nowrap">Due on</th>
-                        <th className="py-2 px-3 font-bold text-center whitespace-nowrap">OD</th>
-                        <th className="py-2 px-3 font-bold text-right whitespace-nowrap">Actions</th>
+                        <th className="py-2 px-3 font-bold cursor-pointer" onClick={() => handleHeaderSort('date')}>Date {renderSortIcon('date')}</th>
+                        <th className="py-2 px-3 font-bold cursor-pointer" onClick={() => handleHeaderSort('orderNo')}>Order No {renderSortIcon('orderNo')}</th>
+                        <th className="py-2 px-3 font-bold cursor-pointer" onClick={() => handleHeaderSort('partyName')}>Vendor Name {renderSortIcon('partyName')}</th>
+                        <th className="py-2 px-3 font-bold w-64 cursor-pointer" onClick={() => handleHeaderSort('itemName')}>Item Name {renderSortIcon('itemName')}</th>
+                        <th className="py-2 px-3 font-bold text-center bg-gray-100 text-gray-700">Stock</th>
+                        <th className="py-2 px-3 font-bold text-right">Ordered</th>
+                        <th className="py-2 px-3 font-bold text-right">Balance</th>
+                        <th className="py-2 px-3 font-bold">Due on</th>
+                        <th className="py-2 px-3 font-bold text-center">OD</th>
+                        <th className="py-2 px-3 font-bold text-right">Actions</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -366,19 +334,9 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
                                 ) : (
                                     <>
                                         <td className="py-2 px-3 whitespace-nowrap">{formatDateDisplay(item.date)}</td>
-                                        <td className="py-2 px-3 font-medium whitespace-nowrap">{item.orderNo}</td>
-                                        <td className="py-2 px-3 max-w-[150px]">
-                                          <div className="flex flex-col">
-                                            <span className="truncate" title={item.partyName}>{item.partyName}</span>
-                                            {item.isCustUnknown && <span className="text-[9px] text-red-600 bg-red-50 px-1 py-px rounded border border-red-100 w-fit font-bold mt-0.5 uppercase">Unknown Vendor</span>}
-                                          </div>
-                                        </td>
-                                        <td className="py-2 px-3">
-                                          <div className="flex flex-col">
-                                            <span className="font-medium text-gray-900 line-clamp-1" title={item.itemName}>{item.itemName}</span>
-                                            {item.isMatUnknown && <span className="text-[9px] text-red-600 bg-red-50 px-1 py-px rounded border border-red-100 w-fit font-bold mt-0.5 uppercase">Not in Master</span>}
-                                          </div>
-                                        </td>
+                                        <td className="py-2 px-3 font-medium">{item.orderNo}</td>
+                                        <td className="py-2 px-3 truncate max-w-[150px]" title={item.partyName}>{item.partyName}</td>
+                                        <td className="py-2 px-3 font-medium text-gray-900 truncate" title={item.itemName}>{item.itemName}</td>
                                         <td className="py-2 px-3 text-center bg-gray-50/40">{item.currentStock}</td>
                                         <td className="py-2 px-3 text-right text-gray-500">{item.orderedQty}</td>
                                         <td className="py-2 px-3 text-right font-medium text-blue-600">{item.balanceQty}</td>

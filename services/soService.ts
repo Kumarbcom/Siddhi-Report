@@ -19,19 +19,19 @@ export const soService = {
         if (data && data.length > 0) {
           const mapped = data.map((row: any) => ({
             id: row.id,
-            date: row.date,
+            date: row.so_date || row.date,
             orderNo: row.order_no,
             partyName: row.party_name,
             itemName: row.item_name,
             materialCode: row.material_code,
             partNo: row.part_no,
-            orderedQty: Number(row.ordered_qty),
-            balanceQty: Number(row.balance_qty),
-            rate: Number(row.rate),
-            discount: Number(row.discount),
-            value: Number(row.value),
+            orderedQty: Number(row.ordered_qty || 0),
+            balanceQty: Number(row.balance_qty || 0),
+            rate: Number(row.rate || 0),
+            discount: Number(row.discount || 0),
+            value: Number(row.value || 0),
             dueDate: row.due_on,
-            overDueDays: Number(row.overdue_days),
+            overDueDays: Number(row.overdue_days || 0),
             createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now()
           }));
           mapped.forEach((item: PendingSOItem) => allData.push(item));
@@ -43,7 +43,7 @@ export const soService = {
       await dbService.putBatch(STORES.SO, allData);
       return allData;
     } catch (e) {
-      console.warn('Supabase fetch failed (SO), using IndexedDB.');
+      console.warn('Supabase fetch failed (SO), using IndexedDB.', e);
       return await dbService.getAll<PendingSOItem>(STORES.SO);
     }
   },
@@ -53,30 +53,27 @@ export const soService = {
     const newItems = items.map(i => ({ ...i, id: crypto.randomUUID(), createdAt: timestamp }));
     const rows = newItems.map(i => ({
       id: i.id,
-      date: i.date,
+      so_date: i.date,
       order_no: i.orderNo,
       party_name: i.partyName,
       item_name: i.itemName,
       material_code: i.materialCode,
       part_no: i.partNo,
-      ordered_qty: i.orderedQty,
-      balance_qty: i.balanceQty,
-      rate: i.rate,
-      discount: i.discount,
-      value: i.value,
+      ordered_qty: Number(i.orderedQty || 0),
+      balance_qty: Number(i.balanceQty || 0),
+      rate: Number(i.rate || 0),
+      discount: Number(i.discount || 0),
+      value: Number(i.value || 0),
       due_on: i.dueDate,
-      overdue_days: i.overDueDays,
+      overdue_days: Number(i.overDueDays || 0),
       created_at: new Date(i.createdAt).toISOString()
     }));
     try {
-      const chunks = [];
-      for (let i = 0; i < rows.length; i += BATCH_SIZE) chunks.push(rows.slice(i, i + BATCH_SIZE));
-      const CONCURRENCY = 5;
-      for (let i = 0; i < chunks.length; i += CONCURRENCY) {
-        const batch = chunks.slice(i, i + CONCURRENCY);
-        await Promise.all(batch.map(chunk => supabase.from('pending_sales_orders').insert(chunk)));
-      }
-    } catch (e) { console.warn('Supabase bulk insert failed (SO), synced locally.'); }
+      const { error } = await supabase.from('pending_sales_orders').insert(rows);
+      if (error) throw error;
+    } catch (e) { 
+      console.error('Supabase bulk insert failed (SO):', e);
+    }
     await dbService.putBatch(STORES.SO, newItems);
     return newItems;
   },
@@ -84,15 +81,15 @@ export const soService = {
   async update(item: PendingSOItem): Promise<void> {
     try {
       await supabase.from('pending_sales_orders').update({
-        date: item.date,
+        so_date: item.date,
         order_no: item.orderNo,
         party_name: item.partyName,
         item_name: item.itemName,
         part_no: item.partNo,
-        ordered_qty: item.orderedQty,
-        balance_qty: item.balanceQty,
-        rate: item.rate,
-        value: item.value,
+        ordered_qty: Number(item.orderedQty),
+        balance_qty: Number(item.balanceQty),
+        rate: Number(item.rate),
+        value: Number(item.value),
         due_on: item.dueDate
       }).eq('id', item.id);
     } catch (e) { console.warn('Supabase update failed.'); }
