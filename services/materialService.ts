@@ -154,13 +154,11 @@ export const materialService = {
   // Clear all materials
   async clearAll(): Promise<void> {
     try {
-        // Delete all rows in Supabase (using a condition that is always true for UUIDs)
         const { error } = await supabase.from('material_master').delete().neq('id', '00000000-0000-0000-0000-000000000000');
         if (error) throw error;
     } catch (e) {
         console.warn('Supabase clear failed (Materials), clearing local only.', e);
     }
-    // Always clear local storage
     localStorage.removeItem(LOCAL_STORAGE_KEY);
   }
 };

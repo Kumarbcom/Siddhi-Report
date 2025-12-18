@@ -817,7 +817,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
           const rate = Number(i.rate) || 0;
           const val = bal * rate;
           totalPOValue += val;
-          if (i.dueDate && new Date(i.dueDate) < today) dueVal += val;
+          if (i.dueDate && new Date(i.dueDate).getTime() < today.getTime()) dueVal += val;
           else scheduledVal += val;
       });
 
@@ -885,9 +885,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         groupOrders.sort((a, b) => { const dateA = new Date(a.dueDate || '9999-12-31').getTime(); const dateB = new Date(b.dueDate || '9999-12-31').getTime(); return dateA - dateB; });
         groupOrders.forEach(order => {
             const dueDate = order.dueDate ? new Date(order.dueDate) : new Date('9999-12-31');
-            const isFuture = dueDate > endOfCurrentMonth;
-            // Explicit type casting for arithmetic
-            const diffTime = Number(today.getTime()) - Number(dueDate.getTime()); 
+            const isFuture = dueDate.getTime() > endOfCurrentMonth.getTime();
+            const diffTime = today.getTime() - dueDate.getTime();
             const isOverdue = diffTime > 0; 
             const overdueDays = isOverdue ? Math.floor(diffTime / (1000 * 60 * 60 * 24)) : 0;
             let allocated = 0; let shortage = order.balanceQty;
@@ -917,35 +916,43 @@ const DashboardView: React.FC<DashboardViewProps> = ({
           futureSchedule: new Map<string, { val: number, sortKey: string }>()
       };
       const uniqueOrders = new Set<string>();
+      
+      const aggregate = (map: any, key: string, item: any, isDue: boolean) => {
+          const entry = map.get(key) || { due: 0, scheduled: 0, total: 0, items: [] };
+          if (isDue) entry.due += item.val; else entry.scheduled += item.val;
+          entry.total += item.val;
+          if(map === stats.byCustomer) entry.items.push(item);
+          map.set(key, entry);
+      };
+
       filteredSOData.forEach(item => {
           if (item.orderNo) uniqueOrders.add(item.orderNo);
-          stats.totalOrdered.qty += item.orderedQty; stats.totalOrdered.val += (item.orderedQty * (item.rate || 0));
-          stats.totalBalance.qty += item.balanceQty; stats.totalBalance.val += item.val;
+          // Fix here: explicit Number casting
+          stats.totalOrdered.qty += Number(item.orderedQty || 0); stats.totalOrdered.val += (Number(item.orderedQty || 0) * Number(item.rate || 0));
+          stats.totalBalance.qty += Number(item.balanceQty || 0); stats.totalBalance.val += Number(item.val || 0);
           const isDue = !item.isFuture;
           if (isDue) {
-              stats.due.total.val += item.val; stats.due.total.qty += item.balanceQty;
-              if (item.overdueDays <= 30) stats.aging['0-30'] += item.val; else if (item.overdueDays <= 60) stats.aging['30-60'] += item.val; else if (item.overdueDays <= 90) stats.aging['60-90'] += item.val; else stats.aging['90+'] += item.val;
+              stats.due.total.val += Number(item.val || 0); stats.due.total.qty += Number(item.balanceQty || 0);
+              if (item.overdueDays <= 30) stats.aging['0-30'] += Number(item.val || 0); 
+              else if (item.overdueDays <= 60) stats.aging['30-60'] += Number(item.val || 0); 
+              else if (item.overdueDays <= 90) stats.aging['60-90'] += Number(item.val || 0); 
+              else stats.aging['90+'] += Number(item.val || 0);
           } else {
-              stats.scheduled.total.val += item.val; stats.scheduled.total.qty += item.balanceQty;
-              stats.aging['Future'] += item.val;
+              stats.scheduled.total.val += Number(item.val || 0); stats.scheduled.total.qty += Number(item.balanceQty || 0);
+              stats.aging['Future'] += Number(item.val || 0);
               if (item.dueDate) {
                   const d = new Date(item.dueDate);
                   const label = d.toLocaleString('default', { month: 'short', year: '2-digit' });
                   const sortKey = d.toISOString().slice(0, 7);
                   const existing = stats.futureSchedule.get(label) || { val: 0, sortKey };
-                  existing.val += item.val;
+                  existing.val += Number(item.val || 0);
                   stats.futureSchedule.set(label, existing);
               }
           }
-          const aggregate = (map: Map<string, any>, key: string) => {
-              const entry = map.get(key) || { due: 0, scheduled: 0, total: 0, items: [] };
-              if (isDue) entry.due += item.val; else entry.scheduled += item.val;
-              entry.total += item.val;
-              if(map === stats.byCustomer) entry.items.push(item);
-              map.set(key, entry);
-          };
-          aggregate(stats.byGroup, item.customerGroup); aggregate(stats.byMake, item.make); aggregate(stats.byCustomer, item.partyName);
-          stats.topItems.set(item.itemName, (stats.topItems.get(item.itemName) || 0) + item.val);
+          aggregate(stats.byGroup, item.customerGroup, item, isDue);
+          aggregate(stats.byMake, item.make, item, isDue);
+          aggregate(stats.byCustomer, item.partyName, item, isDue);
+          stats.topItems.set(item.itemName, (stats.topItems.get(item.itemName) || 0) + Number(item.val || 0));
       });
       stats.totalOrdered.count = uniqueOrders.size;
       return stats;

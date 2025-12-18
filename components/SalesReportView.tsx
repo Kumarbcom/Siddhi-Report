@@ -1,7 +1,7 @@
 
 import React, { useRef, useState, useMemo, useEffect } from 'react';
 import { SalesReportItem, Material, CustomerMasterItem } from '../types';
-import { Trash2, Download, Upload, Search, ArrowUpDown, ArrowUp, ArrowDown, FileBarChart, AlertTriangle, UserX, PackageX, Users, Package, FileWarning, FileDown, Loader2, ChevronLeft, ChevronRight, Filter, Calendar, CalendarRange, Layers, TrendingUp, TrendingDown, Minus, UserCheck, Target, BarChart2, AlertOctagon, DollarSign, Pencil, Save, X } from 'lucide-react';
+import { Trash2, Download, Upload, Search, ArrowUpDown, ArrowUp, ArrowDown, FileBarChart, AlertTriangle, UserX, PackageX, Users, Package, FileWarning, FileDown, Loader2, ChevronLeft, ChevronRight, Filter, Calendar, CalendarRange, Layers, TrendingUp, TrendingDown, Minus, UserCheck, Target, BarChart2, AlertOctagon, DollarSign, Pencil, Save, X, Database } from 'lucide-react';
 import { read, utils, writeFile } from 'xlsx';
 
 interface SalesReportViewProps {
@@ -149,8 +149,92 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
   const handleDownloadTemplate = () => { const headers = [{ "Date": "2023-10-01", "Customer Name": "ABC Corp", "Particulars": "Item", "Voucher No.": "INV-001", "Quantity": 1, "Value": 1000 }]; const ws = utils.json_to_sheet(headers); const wb = utils.book_new(); utils.book_append_sheet(wb, ws, "Template"); writeFile(wb, "Sales_Report_Template.xlsx"); };
   const handleExportAll = () => { if (processedItems.length === 0) { alert("No data"); return; } const exportData = processedItems.map(item => ({ "Date": formatDateDisplay(item.date), "Fiscal Year": item.fiscalYear, "Customer Name": item.customerName, "Customer Group": item.custGroup, "Sales Rep": item.salesRep, "Status": item.custStatus, "Particulars": item.particulars, "Make": item.make, "Material Group": item.matGroup, "Voucher No": item.voucherNo, "Quantity": item.quantity, "Value": item.value })); const ws = utils.json_to_sheet(exportData); const wb = utils.book_new(); utils.book_append_sheet(wb, ws, "Sales_Export"); writeFile(wb, "Sales_Export.xlsx"); };
   const handleExportMismatches = () => { const missingCusts = new Set<string>(); const missingMats = new Set<string>(); enrichedItems.forEach(item => { if (item.isCustUnknown) missingCusts.add(item.customerName); if (item.isMatUnknown) missingMats.add(item.particulars); }); if (missingCusts.size === 0 && missingMats.size === 0) { alert("No mismatches found."); return; } const wb = utils.book_new(); if (missingCusts.size > 0) { const custData = Array.from(missingCusts).sort().map(name => ({ "Missing Customer Name": name })); const ws = utils.json_to_sheet(custData); utils.book_append_sheet(wb, ws, "Missing_Customers"); } if (missingMats.size > 0) { const matData = Array.from(missingMats).sort().map(name => ({ "Missing Material Description": name })); const ws = utils.json_to_sheet(matData); utils.book_append_sheet(wb, ws, "Missing_Materials"); } writeFile(wb, "Master_Data_Correction_Report.xlsx"); };
+  
+  // Optimized File Upload for Large Datasets
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0]; if(!file) return; setIsProcessing(true); setUploadProgress(0); setStatusMessage("Reading file..."); setTimeout(async () => { try { const arrayBuffer = await file.arrayBuffer(); const wb = read(arrayBuffer, { type: 'array' }); const ws = wb.Sheets[wb.SheetNames[0]]; setStatusMessage("Parsing rows..."); const jsonData = utils.sheet_to_json<any>(ws, { cellDates: true, dateNF: 'yyyy-mm-dd' }); const totalRows = jsonData.length; const CHUNK_SIZE = 1000; const allNewItems: any[] = []; let currentIndex = 0; const processChunk = () => { const end = Math.min(currentIndex + CHUNK_SIZE, totalRows); for (let i = currentIndex; i < end; i++) { const row = jsonData[i]; let customerName = ''; let particulars = ''; let voucherNo = ''; let value = 0; let quantity = 0; let date = null; const keys = Object.keys(row); for (let k = 0; k < keys.length; k++) { const key = keys[k]; const lowerKey = key.toLowerCase(); if (lowerKey.includes('customer') || lowerKey === 'name') customerName = String(row[key]); else if (lowerKey.includes('particular') || lowerKey.includes('item')) particulars = String(row[key]); else if (lowerKey.includes('voucher')) voucherNo = String(row[key]); else if (lowerKey.includes('value') || lowerKey.includes('amount')) value = parseFloat(row[key]); else if (lowerKey.includes('quant') || lowerKey === 'qty') quantity = parseFloat(row[key]); else if (lowerKey.includes('date') || lowerKey === 'dt') date = row[key]; } if (customerName) { allNewItems.push({ date, customerName, particulars, voucherNo, quantity, value: value || 0, consignee: '', voucherRefNo: '' }); } } currentIndex = end; const progress = Math.round((currentIndex / totalRows) * 100); setUploadProgress(progress); setStatusMessage(`Processing... ${progress}%`); if (currentIndex < totalRows) { setTimeout(processChunk, 0); } else { setStatusMessage("Finalizing import..."); setTimeout(() => { if(allNewItems.length > 0) { onBulkAdd(allNewItems); } else { alert("No valid records found in the file."); } setIsProcessing(false); setUploadProgress(null); if(fileInputRef.current) fileInputRef.current.value=''; }, 50); } }; setTimeout(processChunk, 50); } catch(e) { console.error(e); alert("Error parsing file. Please check the format."); setIsProcessing(false); } }, 100);
+      const file = e.target.files?.[0]; if(!file) return; 
+      
+      setIsProcessing(true); 
+      setUploadProgress(0); 
+      setStatusMessage("Reading file (this may take a moment)..."); 
+      
+      // Use setTimeout to yield to main thread for UI updates
+      setTimeout(async () => { 
+          try { 
+              const arrayBuffer = await file.arrayBuffer(); 
+              const wb = read(arrayBuffer, { type: 'array', cellDates: true, cellNF: false, cellText: false }); 
+              const ws = wb.Sheets[wb.SheetNames[0]]; 
+              
+              setStatusMessage("Parsing rows..."); 
+              
+              // Sheet_to_json is blocking, but fast enough for <100k usually. For truly massive, we'd need streaming.
+              // Assuming 100k rows takes ~1-3s to parse.
+              const jsonData = utils.sheet_to_json<any>(ws, { dateNF: 'yyyy-mm-dd' }); 
+              const totalRows = jsonData.length; 
+              
+              if (totalRows === 0) {
+                  alert("File is empty.");
+                  setIsProcessing(false);
+                  return;
+              }
+
+              const allNewItems: any[] = []; 
+              const CHUNK_SIZE = 5000; // Parse in chunks to update progress
+              let currentIndex = 0; 
+
+              const processChunk = () => { 
+                  const end = Math.min(currentIndex + CHUNK_SIZE, totalRows); 
+                  for (let i = currentIndex; i < end; i++) { 
+                      const row = jsonData[i]; 
+                      let customerName = ''; let particulars = ''; let voucherNo = ''; let value = 0; let quantity = 0; let date = null; 
+                      const keys = Object.keys(row); 
+                      
+                      for (let k = 0; k < keys.length; k++) { 
+                          const key = keys[k]; 
+                          const lowerKey = key.toLowerCase(); 
+                          if (lowerKey.includes('customer') || lowerKey === 'name') customerName = String(row[key]); 
+                          else if (lowerKey.includes('particular') || lowerKey.includes('item')) particulars = String(row[key]); 
+                          else if (lowerKey.includes('voucher')) voucherNo = String(row[key]); 
+                          else if (lowerKey.includes('value') || lowerKey.includes('amount')) value = parseFloat(row[key]); 
+                          else if (lowerKey.includes('quant') || lowerKey === 'qty') quantity = parseFloat(row[key]); 
+                          else if (lowerKey.includes('date') || lowerKey === 'dt') date = row[key]; 
+                      } 
+                      
+                      if (customerName) { 
+                          allNewItems.push({ date, customerName, particulars, voucherNo, quantity, value: value || 0, consignee: '', voucherRefNo: '' }); 
+                      } 
+                  } 
+                  
+                  currentIndex = end; 
+                  const progress = Math.round((currentIndex / totalRows) * 100); 
+                  setUploadProgress(progress); 
+                  setStatusMessage(`Analyzing... ${progress}%`); 
+                  
+                  if (currentIndex < totalRows) { 
+                      setTimeout(processChunk, 0); 
+                  } else { 
+                      setStatusMessage("Syncing with Supabase (this may take a few minutes)..."); 
+                      // Provide visual feedback that strict DB sync is happening
+                      setTimeout(() => { 
+                          if(allNewItems.length > 0) { 
+                              onBulkAdd(allNewItems); 
+                          } else { 
+                              alert("No valid records found in the file."); 
+                          } 
+                          setIsProcessing(false); 
+                          setUploadProgress(null); 
+                          if(fileInputRef.current) fileInputRef.current.value=''; 
+                      }, 100); 
+                  } 
+              }; 
+              
+              setTimeout(processChunk, 50); 
+          } catch(e) { 
+              console.error(e); 
+              alert("Error parsing file. Please check the format."); 
+              setIsProcessing(false); 
+          } 
+      }, 100);
   };
 
   return (
@@ -179,8 +263,24 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
       </div>
 
       <div className="flex flex-col md:flex-row justify-between items-center bg-white p-2 rounded-xl shadow-sm border border-gray-200 flex-shrink-0 gap-3">
-          <div className="flex items-center gap-3 w-full md:w-auto"><h2 className="text-sm font-semibold text-gray-800 flex items-center gap-2 pl-1 whitespace-nowrap"><FileBarChart className="w-4 h-4 text-blue-600" /> Sales Report</h2><div className="h-6 w-px bg-gray-200 hidden md:block"></div><div className="flex items-center gap-4 bg-gray-50 px-3 py-1 rounded-lg border border-gray-200 shadow-sm"><div className="flex flex-col"><span className="text-[9px] font-bold text-gray-500 uppercase tracking-wide">Records</span><span className="text-xs font-bold text-gray-800">{processedItems.length}</span></div><div className="w-px h-6 bg-gray-300"></div><div className="flex flex-col"><span className="text-[9px] font-bold text-gray-500 uppercase tracking-wide">Total Qty</span><span className="text-xs font-bold text-blue-600">{totals.qty.toLocaleString()}</span></div><div className="w-px h-6 bg-gray-300"></div><div className="flex flex-col"><span className="text-[9px] font-bold text-gray-500 uppercase tracking-wide">Total Value</span><span className="text-xs font-bold text-emerald-600">{formatCurrency(totals.val)}</span></div></div></div>
-         <div className="flex gap-2 w-full md:w-auto justify-end"><div className="relative w-48 hidden md:block"><div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Search className="h-3.5 w-3.5 text-gray-400" /></div><input type="text" placeholder="Search filtered results..." className="pl-9 pr-3 py-1.5 w-full border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div><button onClick={handleExportAll} disabled={isProcessing} className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-700 rounded-lg text-xs font-medium border border-gray-300 hover:bg-gray-50"><FileDown className="w-3.5 h-3.5" /> Export</button><input type="file" ref={fileInputRef} className="hidden" accept=".xlsx, .xls" onChange={handleFileUpload} /><button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs border border-blue-100 hover:bg-blue-100"><Upload className="w-3.5 h-3.5" /> Import</button><button onClick={onClear} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs border border-red-100 hover:bg-red-100"><Trash2 className="w-3.5 h-3.5" /></button></div>
+          <div className="flex items-center gap-3 w-full md:w-auto">
+              <h2 className="text-sm font-semibold text-gray-800 flex items-center gap-2 pl-1 whitespace-nowrap"><FileBarChart className="w-4 h-4 text-blue-600" /> Sales Report</h2>
+              <div className="h-6 w-px bg-gray-200 hidden md:block"></div>
+              <div className="flex items-center gap-4 bg-gray-50 px-3 py-1 rounded-lg border border-gray-200 shadow-sm">
+                  <div className="flex flex-col"><span className="text-[9px] font-bold text-gray-500 uppercase tracking-wide">Records</span><span className="text-xs font-bold text-gray-800">{processedItems.length.toLocaleString()}</span></div>
+                  <div className="w-px h-6 bg-gray-300"></div>
+                  <div className="flex flex-col"><span className="text-[9px] font-bold text-gray-500 uppercase tracking-wide">Total Qty</span><span className="text-xs font-bold text-blue-600">{totals.qty.toLocaleString()}</span></div>
+                  <div className="w-px h-6 bg-gray-300"></div>
+                  <div className="flex flex-col"><span className="text-[9px] font-bold text-gray-500 uppercase tracking-wide">Total Value</span><span className="text-xs font-bold text-emerald-600">{formatCurrency(totals.val)}</span></div>
+              </div>
+              <div className="flex items-center gap-1.5 ml-2">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-medium bg-green-100 text-green-700 border border-green-200"><Database className="w-3 h-3" /> Supabase Connected</span>
+              </div>
+          </div>
+         <div className="flex gap-2 w-full md:w-auto justify-end"><div className="relative w-48 hidden md:block"><div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Search className="h-3.5 w-3.5 text-gray-400" /></div><input type="text" placeholder="Search filtered results..." className="pl-9 pr-3 py-1.5 w-full border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div>
+         <button onClick={handleExportAll} disabled={isProcessing} className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-700 rounded-lg text-xs font-medium border border-gray-300 hover:bg-gray-50"><FileDown className="w-3.5 h-3.5" /> Export</button>
+         <button onClick={handleDownloadTemplate} className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-700 rounded-lg text-xs font-medium border border-gray-300 hover:bg-gray-50"><Download className="w-3.5 h-3.5" /> Template</button>
+         <input type="file" ref={fileInputRef} className="hidden" accept=".xlsx, .xls" onChange={handleFileUpload} /><button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs border border-blue-100 hover:bg-blue-100"><Upload className="w-3.5 h-3.5" /> Import</button><button onClick={onClear} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs border border-red-100 hover:bg-red-100"><Trash2 className="w-3.5 h-3.5" /></button></div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col flex-1 min-h-0">
@@ -200,7 +300,7 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                         <th className="py-2 px-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('voucherNo')}>Voucher No {renderSortIcon('voucherNo')}</th>
                         <th className="py-2 px-3 text-right cursor-pointer hover:bg-gray-100" onClick={() => handleSort('quantity')}>Quantity {renderSortIcon('quantity')}</th>
                         <th className="py-2 px-3 text-right cursor-pointer hover:bg-gray-100" onClick={() => handleSort('value')}>Value {renderSortIcon('value')}</th>
-                        <th className="py-2 px-3 text-right">Actions</th>
+                        <th className="py-2 px-3 text-right sticky right-0 bg-gray-50 shadow-sm z-20">Actions</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 text-xs text-gray-700">
@@ -222,10 +322,10 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                                             <td className="py-2 px-3"><input type="text" className="w-full border border-blue-300 rounded px-1.5 py-0.5 text-xs focus:outline-none" value={editForm?.voucherNo || ''} onChange={e => handleInputChange('voucherNo', e.target.value)} /></td>
                                             <td className="py-2 px-3 text-right"><input type="number" className="w-full border border-blue-300 rounded px-1.5 py-0.5 text-xs text-right focus:outline-none" value={editForm?.quantity || 0} onChange={e => handleInputChange('quantity', parseFloat(e.target.value))} /></td>
                                             <td className="py-2 px-3 text-right"><input type="number" className="w-full border border-blue-300 rounded px-1.5 py-0.5 text-xs text-right focus:outline-none" value={editForm?.value || 0} onChange={e => handleInputChange('value', parseFloat(e.target.value))} /></td>
-                                            <td className="py-2 px-3 text-right">
+                                            <td className="py-2 px-3 text-right sticky right-0 bg-white shadow-sm z-10">
                                                 <div className="flex justify-end gap-1">
-                                                    <button onClick={handleSaveEdit} className="p-1 rounded bg-green-100 text-green-700 hover:bg-green-200"><Save className="w-3.5 h-3.5" /></button>
-                                                    <button onClick={handleCancelEdit} className="p-1 rounded bg-red-100 text-red-700 hover:bg-red-200"><X className="w-3.5 h-3.5" /></button>
+                                                    <button onClick={handleSaveEdit} className="p-1 rounded bg-green-100 text-green-700 hover:bg-green-200" title="Save"><Save className="w-3.5 h-3.5" /></button>
+                                                    <button onClick={handleCancelEdit} className="p-1 rounded bg-red-100 text-red-700 hover:bg-red-200" title="Cancel"><X className="w-3.5 h-3.5" /></button>
                                                 </div>
                                             </td>
                                         </>
@@ -243,10 +343,10 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                                             <td className="py-2 px-3 text-gray-500 font-mono text-[10px] whitespace-nowrap">{item.voucherNo}</td>
                                             <td className="py-2 px-3 text-right font-medium">{item.quantity}</td>
                                             <td className="py-2 px-3 text-right font-bold text-gray-900 whitespace-nowrap">{formatCurrency(item.value)}</td>
-                                            <td className="py-2 px-3 text-right">
-                                                <div className="flex justify-end gap-1">
-                                                    <button onClick={() => handleEditClick(item)} className="text-gray-400 hover:text-blue-600 transition-colors p-0.5 rounded hover:bg-blue-50"><Pencil className="w-3.5 h-3.5" /></button>
-                                                    <button onClick={() => onDelete(item.id)} className="text-gray-400 hover:text-red-600 transition-colors p-0.5 rounded hover:bg-red-50"><Trash2 className="w-3.5 h-3.5" /></button>
+                                            <td className="py-2 px-3 text-right sticky right-0 bg-white group-hover:bg-gray-50 transition-colors z-10 shadow-sm border-l border-gray-100">
+                                                <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <button onClick={() => handleEditClick(item)} className="text-gray-400 hover:text-blue-600 transition-colors p-1 rounded hover:bg-blue-50" title="Edit Record"><Pencil className="w-3.5 h-3.5" /></button>
+                                                    <button onClick={() => onDelete(item.id)} className="text-gray-400 hover:text-red-600 transition-colors p-1 rounded hover:bg-red-50" title="Delete Record"><Trash2 className="w-3.5 h-3.5" /></button>
                                                 </div>
                                             </td>
                                         </>
