@@ -1,27 +1,17 @@
 
 import React, { useRef } from 'react';
 import { Material, MaterialFormData } from '../types';
-import { Upload, Download, Trash2, FileDown, Layers } from 'lucide-react';
+import { Upload, Download, Trash2, FileDown } from 'lucide-react';
 import { read, utils, writeFile } from 'xlsx';
-import { materialService } from '../services/materialService';
 
 interface AddMaterialFormProps {
   materials: Material[];
   onBulkAdd: (data: MaterialFormData[]) => void;
   onClear: () => void;
-  setMaterials: React.Dispatch<React.SetStateAction<Material[]>>;
 }
 
-const AddMaterialForm: React.FC<AddMaterialFormProps> = ({ materials, onBulkAdd, onClear, setMaterials }) => {
+const AddMaterialForm: React.FC<AddMaterialFormProps> = ({ materials, onBulkAdd, onClear }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleDeduplicate = async () => {
-    if (confirm("This will merge items with identical Description, Part No and Make in your local cache. Continue?")) {
-        const unique = await materialService.deduplicate();
-        setMaterials(unique);
-        alert("Duplicates removed from local view.");
-    }
-  };
 
   const handleDownloadTemplate = () => {
     const headers = [
@@ -30,6 +20,12 @@ const AddMaterialForm: React.FC<AddMaterialFormProps> = ({ materials, onBulkAdd,
         "Part No": "6205-2RS", 
         "Make": "SKF", 
         "Material Group": "MECH-BRG" 
+      },
+      { 
+        "Description": "Inductive Proximity Sensor", 
+        "Part No": "IME12-04NNSZC0S", 
+        "Make": "SICK", 
+        "Material Group": "ELEC-SENS" 
       }
     ];
     const ws = utils.json_to_sheet(headers);
@@ -66,6 +62,7 @@ const AddMaterialForm: React.FC<AddMaterialFormProps> = ({ materials, onBulkAdd,
       const data = utils.sheet_to_json<any>(ws);
       
       const validItems: MaterialFormData[] = data.map((row) => {
+         // Try to match common header variations case-insensitively
          const getVal = (key: string) => {
              const foundKey = Object.keys(row).find(k => k.toLowerCase() === key.toLowerCase());
              return foundKey ? String(row[foundKey]) : '';
@@ -82,12 +79,17 @@ const AddMaterialForm: React.FC<AddMaterialFormProps> = ({ materials, onBulkAdd,
       if (validItems.length > 0) {
         onBulkAdd(validItems);
       } else {
-        alert("No valid material records found.");
+        alert("No valid material records found in the Excel file. Please ensure columns named 'Description' and 'Part No' exist.");
       }
     } catch (err) {
       console.error("Error parsing Excel:", err);
+      alert("Failed to parse the Excel file. Please ensure it is a valid .xlsx or .xls file.");
     }
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    
+    // Reset the input so the same file can be selected again if needed
+    if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+    }
   };
 
   return (
@@ -97,20 +99,21 @@ const AddMaterialForm: React.FC<AddMaterialFormProps> = ({ materials, onBulkAdd,
         <div className="flex flex-wrap gap-3">
             <button
                 type="button"
-                onClick={handleDeduplicate}
-                className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 rounded-lg text-sm font-medium hover:bg-indigo-100 transition-colors border border-indigo-100 shadow-sm"
-                title="Remove Duplicate Items"
-            >
-                <Layers className="w-4 h-4" />
-                Cleanup
-            </button>
-            <button
-                type="button"
                 onClick={handleExport}
                 className="flex items-center gap-2 px-4 py-2 bg-white text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors border border-gray-200 shadow-sm"
+                title="Export All Materials"
             >
                 <FileDown className="w-4 h-4" />
                 Export All
+            </button>
+            <button
+                type="button"
+                onClick={handleDownloadTemplate}
+                className="flex items-center gap-2 px-4 py-2 bg-white text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors border border-gray-200 shadow-sm"
+                title="Download Excel Template"
+            >
+                <Download className="w-4 h-4" />
+                Template
             </button>
             <input 
                 type="file" 
@@ -132,6 +135,7 @@ const AddMaterialForm: React.FC<AddMaterialFormProps> = ({ materials, onBulkAdd,
                 type="button"
                 onClick={onClear}
                 className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-medium hover:bg-red-100 transition-colors border border-red-100"
+                title="Clear All Material Data"
             >
                 <Trash2 className="w-4 h-4" />
                 Clear Data
