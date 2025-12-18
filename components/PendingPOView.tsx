@@ -1,3 +1,4 @@
+
 import React, { useRef, useMemo, useState } from 'react';
 import { PendingPOItem, Material, ClosingStockItem, PendingSOItem, CustomerMasterItem, SalesReportItem } from '../types';
 import { Trash2, Download, Upload, ShoppingCart, Search, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, Package, FileDown, Pencil, Save, X, Calendar, PieChart, BarChart3, AlertOctagon, CheckCircle2, UserCheck } from 'lucide-react';
@@ -125,19 +126,48 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
   };
 
   const handleInputChange = (field: keyof PendingPOItem, value: any) => {
-    if (editForm) {
-      setEditForm({ ...editForm, [field]: value });
-    }
+    if (editForm) setEditForm({ ...editForm, [field]: value });
   };
 
-  const formatDateDisplay = (dateVal: string | Date | number) => { if (!dateVal) return '-'; let date: Date | null = null; if (dateVal instanceof Date) date = dateVal; else if (typeof dateVal === 'string') { const parts = dateVal.split('-'); if (parts.length === 3 && parts[0].length === 4) date = new Date(dateVal); else if (parts.length === 3) date = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0])); else date = new Date(dateVal); } else if (typeof dateVal === 'number') date = new Date((dateVal - (25567 + 2)) * 86400 * 1000); if (date && !isNaN(date.getTime())) return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(date); return String(dateVal); };
-  const formatInputDate = (dateVal: string | Date | number) => { if (!dateVal) return ''; let date: Date | null = null; if (dateVal instanceof Date) date = dateVal; else if (typeof dateVal === 'string') date = new Date(dateVal); else if (typeof dateVal === 'number') date = new Date((dateVal - (25567 + 2)) * 86400 * 1000); if (date && !isNaN(date.getTime())) return date.toISOString().split('T')[0]; return ''; };
+  const stabilizeDateToString = (dateVal: any): string => {
+    if (!dateVal) return "";
+    let date: Date | null = null;
+    if (dateVal instanceof Date) date = dateVal;
+    else if (typeof dateVal === 'number') date = new Date(Math.round((dateVal - 25569) * 86400 * 1000));
+    else {
+        const d = new Date(dateVal);
+        if (!isNaN(d.getTime())) date = d;
+    }
+    
+    if (date && !isNaN(date.getTime())) {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+    return String(dateVal);
+  };
+
+  const formatDateDisplay = (dateVal: string | Date | number) => { 
+    if (!dateVal) return '-'; 
+    let date: Date | null = null; 
+    if (dateVal instanceof Date) date = dateVal; 
+    else if (typeof dateVal === 'string') { 
+        const parts = dateVal.split('-'); 
+        if (parts.length === 3 && parts[0].length === 4) date = new Date(dateVal); 
+        else if (parts.length === 3) date = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0])); 
+        else date = new Date(dateVal); 
+    } else if (typeof dateVal === 'number') date = new Date((dateVal - 25567) * 86400 * 1000); 
+    if (date && !isNaN(date.getTime())) return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(date); 
+    return String(dateVal); 
+  };
+  
+  const formatInputDate = (dateVal: string | Date | number) => stabilizeDateToString(dateVal);
   const formatCurrency = (val: number) => `Rs. ${Math.round(val).toLocaleString('en-IN')}`;
 
   const processedDataWithValidation = useMemo(() => {
       const stockMap = new Map<string, number>();
       closingStockItems.forEach(i => stockMap.set(i.description.toLowerCase().trim(), (stockMap.get(i.description.toLowerCase().trim()) || 0) + i.quantity));
-      
       return items.map(item => {
           const itemDesc = item.itemName.toLowerCase().trim();
           const isCustUnknown = !customerLookup.has(item.partyName.toLowerCase().trim());
@@ -172,97 +202,48 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
       closingStockItems.forEach(s => allItemKeys.add(s.description.toLowerCase().trim()));
       pendingSOItems.forEach(so => allItemKeys.add(so.itemName.toLowerCase().trim()));
       items.forEach(po => allItemKeys.add(po.itemName.toLowerCase().trim()));
-
       const stockMap = new Map<string, number>();
       closingStockItems.forEach(i => { const key = i.description.toLowerCase().trim(); stockMap.set(key, (stockMap.get(key) || 0) + i.quantity); });
       const soMap = new Map<string, number>();
       pendingSOItems.forEach(i => { const key = i.itemName.toLowerCase().trim(); soMap.set(key, (soMap.get(key) || 0) + i.balanceQty); });
       const poMap = new Map<string, number>();
       items.forEach(i => { const key = i.itemName.toLowerCase().trim(); poMap.set(key, (poMap.get(key) || 0) + i.balanceQty); });
-
       const oneYearAgo = new Date(); oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
       const sales1yMap = new Map<string, number>();
       salesReportItems.forEach(s => {
           const d = new Date(s.date);
-          if (d >= oneYearAgo) {
-            const key = s.particulars.toLowerCase().trim();
-            sales1yMap.set(key, (sales1yMap.get(key) || 0) + s.quantity);
-          }
+          if (d >= oneYearAgo) { const key = s.particulars.toLowerCase().trim(); sales1yMap.set(key, (sales1yMap.get(key) || 0) + s.quantity); }
       });
-
       let excessVal = 0, excessCount = 0, needVal = 0, needCount = 0, expediteVal = 0, expediteCount = 0, scheduledVal = 0, dueVal = 0;
       const today = new Date();
-
       allItemKeys.forEach(key => {
           const mat = materials.find(m => m.description.toLowerCase().trim() === key);
           const group = (mat?.materialGroup || '').toLowerCase().trim();
           const stockQty = stockMap.get(key) || 0;
           const soQty = soMap.get(key) || 0;
           const poQty = poMap.get(key) || 0;
-          const salesQty = sales1yMap.get(key) || 0;
-          const avg1yQty = salesQty / 12;
-          const rate = mat ? 
-                 (closingStockItems.find(s => s.description.toLowerCase().trim() === key)?.rate || 
-                  items.find(p => p.itemName.toLowerCase().trim() === key)?.rate || 0) : 0;
-
+          const avg1yQty = (sales1yMap.get(key) || 0) / 12;
+          const rate = mat ? (closingStockItems.find(s => s.description.toLowerCase().trim() === key)?.rate || items.find(p => p.itemName.toLowerCase().trim() === key)?.rate || 0) : 0;
           let maxStock = 0;
-          if (PLANNED_STOCK_GROUPS.has(group)) {
-              maxStock = roundToTen(avg1yQty * 3);
-          }
-
+          if (PLANNED_STOCK_GROUPS.has(group)) maxStock = roundToTen(avg1yQty * 3);
           const netQty = stockQty + poQty - soQty;
           const totalExcess = Math.max(0, netQty - maxStock);
-          if (totalExcess > 0 && poQty > 0) {
-              excessVal += Math.min(totalExcess, poQty) * rate;
-              excessCount++;
-          }
-
+          if (totalExcess > 0 && poQty > 0) { excessVal += Math.min(totalExcess, poQty) * rate; excessCount++; }
           const deficit = maxStock - netQty;
-          if (deficit > 0) {
-              needVal += deficit * rate;
-              needCount++;
-          }
-
+          if (deficit > 0) { needVal += deficit * rate; needCount++; }
           const immediateGap = (soQty + Math.min(maxStock, roundToTen(avg1yQty))) - stockQty;
-          if (immediateGap > 0 && poQty > 0) {
-              expediteVal += Math.min(poQty, immediateGap) * rate;
-              expediteCount++;
-          }
+          if (immediateGap > 0 && poQty > 0) { expediteVal += Math.min(poQty, immediateGap) * rate; expediteCount++; }
       });
-
       items.forEach(i => {
           const val = (Number(i.balanceQty) || 0) * (Number(i.rate) || 0);
           if (i.dueDate && new Date(i.dueDate).getTime() < today.getTime()) dueVal += val;
           else scheduledVal += val;
       });
-
-      return {
-          schedule: { due: dueVal, scheduled: scheduledVal },
-          excess: { val: excessVal, count: excessCount },
-          need: { val: needVal, count: needCount },
-          expedite: { val: expediteVal, count: expediteCount }
-      };
+      return { schedule: { due: dueVal, scheduled: scheduledVal }, excess: { val: excessVal, count: excessCount }, need: { val: needVal, count: needCount }, expedite: { val: expediteVal, count: expediteCount } };
   }, [items, materials, closingStockItems, pendingSOItems, salesReportItems]);
 
   const handleDownloadTemplate = () => {
-    // Exact headers from user image
-    const headers = [
-      {
-        "Date": "2024-03-20",
-        "Order": "PO/201",
-        "Party's Name": "Supplier Co",
-        "Name of Item": "Power Cable 4C",
-        "Material Code": "PWR-4C",
-        "Part No": "PN-789",
-        "Ordered": 500,
-        "Balance": 500,
-        "Rate": 120.00,
-        "Discount": 0,
-        "Value": 60000.00,
-        "Due on": "2024-05-10",
-        "OverDue": 0
-      }
-    ];
+    const headers = [ { "Date": "2024-03-20", "Order": "PO/201", "Party's Name": "Supplier Co", "Name of Item": "Power Cable 4C", "Material Code": "PWR-4C", "Part No": "PN-789", "Ordered": 500, "Balance": 500, "Rate": 120.00, "Discount": 0, "Value": 60000.00, "Due on": "2024-05-10", "OverDue": 0 } ];
     const ws = utils.json_to_sheet(headers);
     const wb = utils.book_new();
     utils.book_append_sheet(wb, ws, "Pending_PO_Template");
@@ -272,68 +253,30 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     try {
       const arrayBuffer = await file.arrayBuffer();
       const wb = read(arrayBuffer, { type: 'array', cellDates: true });
       const ws = wb.Sheets[wb.SheetNames[0]];
       const data = utils.sheet_to_json<any>(ws);
-
       const newItems: Omit<PendingPOItem, 'id' | 'createdAt'>[] = data.map(row => {
-          const getVal = (keys: string[]) => {
-              for (const k of keys) {
-                  const foundKey = Object.keys(row).find(rk => rk.trim().toLowerCase() === k.toLowerCase());
-                  if (foundKey) return row[foundKey];
-              }
-              return undefined;
-          };
-
-          const parseNum = (val: any) => {
-              if (val === undefined || val === null) return 0;
-              const cleaned = String(val).replace(/[^0-9.-]/g, '');
-              return parseFloat(cleaned) || 0;
-          };
-
-          const parseDateString = (val: any) => {
-              if (val instanceof Date) return val.toISOString().split('T')[0];
-              if (typeof val === 'number') return new Date((val - (25567 + 2)) * 86400 * 1000).toISOString().split('T')[0];
-              if (!val) return "";
-              const d = new Date(val);
-              return !isNaN(d.getTime()) ? d.toISOString().split('T')[0] : "";
-          };
-          
+          const getVal = (keys: string[]) => { for (const k of keys) { const foundKey = Object.keys(row).find(rk => rk.trim().toLowerCase() === k.toLowerCase()); if (foundKey) return row[foundKey]; } return undefined; };
+          const parseNum = (val: any) => { if (val === undefined || val === null) return 0; const cleaned = String(val).replace(/[^0-9.-]/g, ''); return parseFloat(cleaned) || 0; };
           const orderedQty = parseNum(getVal(['ordered', 'ordered qty', 'qty']));
           const balanceQty = parseNum(getVal(['balance', 'balance qty', 'pending qty']));
           const rate = parseNum(getVal(['rate', 'price', 'unit rate']));
           const excelValue = parseNum(getVal(['value', 'amount']));
-          
           return {
-              date: parseDateString(getVal(['date', 'po_date', 'po date', 'vch date'])),
+              date: stabilizeDateToString(getVal(['date', 'po_date', 'po date', 'vch date'])),
               orderNo: String(getVal(['order', 'order no', 'vch no', 'po no']) || ''),
               partyName: String(getVal(['party\'s name', 'party name', 'vendor', 'supplier']) || ''),
               itemName: String(getVal(['name of item', 'item name', 'item', 'description']) || ''),
               materialCode: String(getVal(['material code', 'code', 'material_code']) || ''),
               partNo: String(getVal(['part no', 'partno', 'part_no']) || ''),
-              orderedQty,
-              balanceQty,
-              rate,
-              discount: parseNum(getVal(['discount', 'disc'])),
-              value: excelValue || (balanceQty * rate),
-              dueDate: parseDateString(getVal(['due on', 'due date', 'delivery date'])),
-              overDueDays: parseNum(getVal(['overdue', 'overdue days', 'days']))
+              orderedQty, balanceQty, rate, discount: parseNum(getVal(['discount', 'disc'])), value: excelValue || (balanceQty * rate), dueDate: stabilizeDateToString(getVal(['due on', 'due date', 'delivery date'])), overDueDays: parseNum(getVal(['overdue', 'overdue days', 'days']))
           };
       }).filter(i => i.partyName && i.itemName);
-
-      if (newItems.length > 0) {
-        onBulkAdd(newItems);
-        alert(`Imported ${newItems.length} Purchase Orders.`);
-      } else {
-        alert("No valid records found. Please check header names.");
-      }
-    } catch (err) {
-      console.error("Excel Import Error:", err);
-      alert("Error parsing Excel file.");
-    }
+      if (newItems.length > 0) { onBulkAdd(newItems); alert(`Imported ${newItems.length} Purchase Orders.`); } else alert("No valid records found.");
+    } catch (err) { alert("Error parsing Excel file."); }
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -351,36 +294,19 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
     <div className="flex flex-col h-full gap-4">
       <div className="flex items-center justify-between bg-white p-3 rounded-xl shadow-sm border border-gray-200 flex-shrink-0">
           <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-lg bg-orange-50 text-orange-600`}>
-                <AlertTriangle className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-gray-800">PO Data Integrity Report</h3>
-                <p className={`text-[10px] text-gray-500`}>
-                    Verify vendors and items against master data.
-                </p>
-              </div>
+              <div className={`p-2 rounded-lg bg-orange-50 text-orange-600`}><AlertTriangle className="w-5 h-5" /></div>
+              <div><h3 className="text-sm font-bold text-gray-800">PO Data Integrity Report</h3><p className={`text-[10px] text-gray-500`}>Verify vendors and items against master data.</p></div>
           </div>
-          <button 
-            onClick={() => setShowErrorsOnly(!showErrorsOnly)} 
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${showErrorsOnly ? 'bg-orange-100 text-orange-700 border-orange-200 shadow-sm' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}
-          >
-            {showErrorsOnly ? "Show All Records" : "Audit Mismatches Only"}
-          </button>
+          <button onClick={() => setShowErrorsOnly(!showErrorsOnly)} className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${showErrorsOnly ? 'bg-orange-100 text-orange-700 border-orange-200 shadow-sm' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}>{showErrorsOnly ? "Show All Records" : "Audit Mismatches Only"}</button>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex flex-col gap-4 flex-shrink-0">
-          <div className="flex items-center gap-2 mb-2">
-              <div className="bg-orange-100 p-1.5 rounded text-orange-700"><ShoppingCart className="w-4 h-4"/></div>
-              <h2 className="text-sm font-bold text-gray-800">PO Dashboard & Optimization</h2>
-          </div>
+          <div className="flex items-center gap-2 mb-2"><div className="bg-orange-100 p-1.5 rounded text-orange-700"><ShoppingCart className="w-4 h-4"/></div><h2 className="text-sm font-bold text-gray-800">PO Dashboard & Optimization</h2></div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 h-32">
               <ActionCard title="Need to Place PO" value={formatCurrency(optimizationStats.need.val)} count={optimizationStats.need.count} color="red" icon={AlertOctagon} />
               <ActionCard title="Expedite PO" value={formatCurrency(optimizationStats.expedite.val)} count={optimizationStats.expedite.count} color="blue" icon={CheckCircle2} />
               <ActionCard title="Excess PO" value={formatCurrency(optimizationStats.excess.val)} count={optimizationStats.excess.count} color="orange" icon={AlertTriangle} />
-              <div className="bg-white p-2 rounded-xl border border-gray-200 flex flex-col items-center">
-                  <SimpleDonut title="PO Schedule" data={[{label: 'Scheduled', value: optimizationStats.schedule.scheduled, color: '#3B82F6'}, {label: 'Overdue', value: optimizationStats.schedule.due, color: '#EF4444'}]} />
-              </div>
+              <div className="bg-white p-2 rounded-xl border border-gray-200 flex flex-col items-center"><SimpleDonut title="PO Schedule" data={[{label: 'Scheduled', value: optimizationStats.schedule.scheduled, color: '#3B82F6'}, {label: 'Overdue', value: optimizationStats.schedule.due, color: '#EF4444'}]} /></div>
           </div>
       </div>
 

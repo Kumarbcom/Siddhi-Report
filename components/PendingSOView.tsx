@@ -1,3 +1,4 @@
+
 import React, { useRef, useMemo, useState } from 'react';
 import { PendingSOItem, Material, ClosingStockItem, CustomerMasterItem } from '../types';
 import { Trash2, Download, Upload, ClipboardList, Search, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, Package, Clock, AlertCircle, CheckCircle2, TrendingUp, AlertOctagon, Layers, FileDown, Pencil, Save, X, UserCheck } from 'lucide-react';
@@ -57,9 +58,26 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
   };
 
   const handleInputChange = (field: keyof PendingSOItem, value: any) => {
-    if (editForm) {
-      setEditForm({ ...editForm, [field]: value });
+    if (editForm) setEditForm({ ...editForm, [field]: value });
+  };
+
+  const stabilizeDateToString = (dateVal: any): string => {
+    if (!dateVal) return "";
+    let date: Date | null = null;
+    if (dateVal instanceof Date) date = dateVal;
+    else if (typeof dateVal === 'number') date = new Date(Math.round((dateVal - 25569) * 86400 * 1000));
+    else {
+        const d = new Date(dateVal);
+        if (!isNaN(d.getTime())) date = d;
     }
+    
+    if (date && !isNaN(date.getTime())) {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+    return String(dateVal);
   };
 
   const formatDateDisplay = (dateVal: string | Date | number) => {
@@ -71,21 +89,12 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
         if (parts.length === 3 && parts[0].length === 4) date = new Date(dateVal);
         else if (parts.length === 3) date = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
         else date = new Date(dateVal);
-    } else if (typeof dateVal === 'number') date = new Date((dateVal - (25567 + 2)) * 86400 * 1000);
+    } else if (typeof dateVal === 'number') date = new Date((dateVal - 25567) * 86400 * 1000);
     if (date && !isNaN(date.getTime())) return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
     return String(dateVal);
   };
 
-  const formatInputDate = (dateVal: string | Date | number) => {
-      if (!dateVal) return '';
-      let date: Date | null = null;
-      if (dateVal instanceof Date) date = dateVal;
-      else if (typeof dateVal === 'string') date = new Date(dateVal);
-      else if (typeof dateVal === 'number') date = new Date((dateVal - (25567 + 2)) * 86400 * 1000);
-      if (date && !isNaN(date.getTime())) return date.toISOString().split('T')[0];
-      return '';
-  };
-
+  const formatInputDate = (dateVal: string | Date | number) => stabilizeDateToString(dateVal);
   const formatCurrency = (val: number) => `Rs. ${Math.round(val).toLocaleString('en-IN')}`;
 
   const processedDataWithValidation = useMemo(() => {
@@ -106,7 +115,7 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
         groupOrders.forEach(order => {
             const dueDate = order.dueDate ? new Date(order.dueDate) : new Date('9999-12-31');
             const isFuture = dueDate > endOfCurrentMonth;
-            if (isFuture) { stockResults.set(order.id, { totalStock, allocated: 0, shortage: order.balanceQty, status: 'future' }); } 
+            if (isFuture) stockResults.set(order.id, { totalStock, allocated: 0, shortage: order.balanceQty, status: 'future' });
             else {
                 const needed = order.balanceQty; const canAllocate = Math.min(runningStock, needed); const shortage = needed - canAllocate; runningStock = Math.max(0, runningStock - canAllocate);
                 let status: 'full' | 'partial' | 'none' = 'none'; if (canAllocate === needed) status = 'full'; else if (canAllocate > 0) status = 'partial';
@@ -149,9 +158,7 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
   }, [filteredItems]);
 
   const handleDownloadTemplate = () => {
-    const headers = [
-      { "Date": "2024-03-20", "Order": "SO/101", "Party's Name": "Acme Corp", "Name of Item": "Cable 1.5mm Black", "Material Code": "CBL-1.5-BK", "Part No": "P-123", "Ordered": 100, "Balance": 100, "Rate": 45.50, "Discount": 0, "Value": 4550.00, "Due on": "2024-04-15", "OverDue": 0 }
-    ];
+    const headers = [ { "Date": "2024-03-20", "Order": "SO/101", "Party's Name": "Acme Corp", "Name of Item": "Cable 1.5mm Black", "Material Code": "CBL-1.5-BK", "Part No": "P-123", "Ordered": 100, "Balance": 100, "Rate": 45.50, "Discount": 0, "Value": 4550.00, "Due on": "2024-04-15", "OverDue": 0 } ];
     const ws = utils.json_to_sheet(headers);
     const wb = utils.book_new();
     utils.book_append_sheet(wb, ws, "Pending_SO_Template");
@@ -169,22 +176,21 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
       const newItems: Omit<PendingSOItem, 'id' | 'createdAt'>[] = data.map(row => {
           const getVal = (keys: string[]) => { for (const k of keys) { const foundKey = Object.keys(row).find(rk => rk.trim().toLowerCase() === k.toLowerCase()); if (foundKey) return row[foundKey]; } return undefined; };
           const parseNum = (val: any) => { if (val === undefined || val === null) return 0; const cleaned = String(val).replace(/[^0-9.-]/g, ''); return parseFloat(cleaned) || 0; };
-          const parseDateString = (val: any) => { if (val instanceof Date) return val.toISOString().split('T')[0]; if (typeof val === 'number') return new Date((val - (25567 + 2)) * 86400 * 1000).toISOString().split('T')[0]; if (!val) return ""; const d = new Date(val); return !isNaN(d.getTime()) ? d.toISOString().split('T')[0] : ""; };
           const orderedQty = parseNum(getVal(['ordered', 'ordered qty', 'qty']));
           const balanceQty = parseNum(getVal(['balance', 'balance qty', 'pending qty']));
           const rate = parseNum(getVal(['rate', 'price', 'unit rate']));
           const excelValue = parseNum(getVal(['value', 'amount']));
           return {
-              date: parseDateString(getVal(['date', 'so_date', 'so date', 'vch date'])),
+              date: stabilizeDateToString(getVal(['date', 'so_date', 'so date', 'vch date'])),
               orderNo: String(getVal(['order', 'order no', 'vch no', 'so no']) || ''),
               partyName: String(getVal(['party\'s name', 'party name', 'customer', 'name']) || ''),
               itemName: String(getVal(['name of item', 'item name', 'item', 'description']) || ''),
               materialCode: String(getVal(['material code', 'code', 'material_code']) || ''),
               partNo: String(getVal(['part no', 'partno', 'part_no']) || ''),
-              orderedQty, balanceQty, rate, discount: parseNum(getVal(['discount', 'disc'])), value: excelValue || (balanceQty * rate), dueDate: parseDateString(getVal(['due on', 'due date', 'delivery date'])), overDueDays: parseNum(getVal(['overdue', 'overdue days', 'days']))
+              orderedQty, balanceQty, rate, discount: parseNum(getVal(['discount', 'disc'])), value: excelValue || (balanceQty * rate), dueDate: stabilizeDateToString(getVal(['due on', 'due date', 'delivery date'])), overDueDays: parseNum(getVal(['overdue', 'overdue days', 'days']))
           };
       }).filter(i => i.partyName && i.itemName);
-      if (newItems.length > 0) { onBulkAdd(newItems); alert(`Imported ${newItems.length} Sales Orders.`); } else { alert("No valid records found."); }
+      if (newItems.length > 0) { onBulkAdd(newItems); alert(`Imported ${newItems.length} Sales Orders.`); } else alert("No valid records found.");
     } catch (err) { alert("Error parsing Excel file."); }
     if (fileInputRef.current) fileInputRef.current.value = '';
   };

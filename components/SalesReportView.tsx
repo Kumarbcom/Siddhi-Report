@@ -1,3 +1,4 @@
+
 import React, { useRef, useState, useMemo, useEffect } from 'react';
 import { SalesReportItem, Material, CustomerMasterItem } from '../types';
 import { Trash2, Download, Upload, Search, ArrowUpDown, ArrowUp, ArrowDown, FileBarChart, AlertTriangle, UserX, PackageX, Users, Package, FileWarning, FileDown, Loader2, ChevronLeft, ChevronRight, Filter, Calendar, CalendarRange, Layers, TrendingUp, TrendingDown, Minus, UserCheck, Target, BarChart2, AlertOctagon, DollarSign, Pencil, Save, X, Database, Hash, FileText } from 'lucide-react';
@@ -92,37 +93,35 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
 
   /**
    * ROBUST DATE PARSER
-   * Ensures dates from Excel (serial or Date object) are correctly translated 
-   * to a local Date object at 12:00:00 PM to avoid +/- 1 day shift.
+   * Fixed: Always extract components (Year, Month, Day) from Date objects
+   * to avoid timezone shifts when using toISOString().
    */
+  const stabilizeDateToString = (d: Date): string => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const parseGenericDate = (val: any): Date => {
     if (!val) return new Date();
-    
-    // JS Date from xlsx cellDates:true
     if (val instanceof Date) {
       const d = new Date(val.getTime());
-      // Force to 12 PM local time to stabilize day transitions
       d.setHours(12, 0, 0, 0);
       return d;
     }
-    
-    // Excel Serial Number
     if (typeof val === 'number') {
-      // 25569 is offset for 1970-01-01
       const d = new Date(Math.round((val - 25569) * 86400 * 1000));
       d.setHours(12, 0, 0, 0);
       return d;
     }
-
     if (typeof val === 'string') {
       const parts = val.split(/[./-]/);
       if (parts.length === 3) {
         let d, m, y;
         if (parts[2].length === 4) { [d, m, y] = parts.map(Number); } 
         else if (parts[0].length === 4) { [y, m, d] = parts.map(Number); }
-        if (y && m && d) {
-            return new Date(y, m - 1, d, 12, 0, 0);
-        }
+        if (y && m && d) return new Date(y, m - 1, d, 12, 0, 0);
       }
       const parsed = new Date(val);
       if (!isNaN(parsed.getTime())) {
@@ -130,7 +129,6 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
           return parsed;
       }
     }
-    
     return new Date();
   };
 
@@ -140,7 +138,6 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
     const startYear = month >= 3 ? year : year - 1; 
     const fiscalYear = `${startYear}-${startYear + 1}`; 
     const fiscalMonthIndex = month >= 3 ? month - 3 : month + 9; 
-    
     const fyStart = new Date(startYear, 3, 1); 
     const fyFirstThu = new Date(fyStart); 
     if (fyFirstThu.getDay() <= 4) { 
@@ -189,7 +186,6 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
         const cleanPart = (item.particulars || '').toLowerCase().trim();
         const customer = customerLookup.get(cleanCust);
         const material = materialLookup.get(cleanPart);
-        
         const dateObj = parseGenericDate(item.date);
         const { fiscalYear, fiscalMonthIndex, weekNumber } = getFiscalInfo(dateObj);
         return { ...item, custGroup: customer?.group || 'Unassigned', salesRep: customer?.salesRep || 'Unassigned', custStatus: customer?.status || 'Unknown', custType: customer?.customerGroup || '', make: material?.make || 'Unspecified', matGroup: material?.materialGroup || 'Unspecified', isCustUnknown: !customer && !!item.customerName, isMatUnknown: !material && !!item.particulars, fiscalYear, fiscalMonthIndex, weekNumber };
@@ -219,7 +215,7 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
     return { fys, groups, reps, statuses, makes, matGroups }; 
   }, [enrichedItems]);
 
-  useEffect(() => { if (!selectedFY && options.fys.length > 0) { setSelectedFY(options.fys[0]); } }, [options.fys, selectedFY]);
+  useEffect(() => { if (!selectedFY && options.fys.length > 0) setSelectedFY(options.fys[0]); }, [options.fys, selectedFY]);
 
   const processedItems = useMemo(() => {
     let data = [...enrichedItems];
@@ -237,31 +233,20 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
   const formatDateDisplay = (dateVal: string | Date | number) => { 
     if (!dateVal) return '-'; 
     const date = parseGenericDate(dateVal); 
-    if (date && !isNaN(date.getTime())) { 
-      return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(date); 
-    } 
+    if (date && !isNaN(date.getTime())) return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(date); 
     return String(dateVal); 
   };
   
   const formatInputDate = (dateVal: string | Date | number) => { 
     if (!dateVal) return ''; 
     const date = parseGenericDate(dateVal); 
-    if (date && !isNaN(date.getTime())) return date.toISOString().split('T')[0]; 
+    if (date && !isNaN(date.getTime())) return stabilizeDateToString(date); 
     return ''; 
   };
 
   const formatCurrency = (val: number) => `Rs. ${Math.round(val).toLocaleString('en-IN')}`;
-  
-  const handleSort = (key: SortKey) => { 
-    let direction: 'asc' | 'desc' = 'asc'; 
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc'; 
-    setSortConfig({ key, direction }); 
-  };
-  
-  const renderSortIcon = (key: SortKey) => { 
-    if (!sortConfig || sortConfig.key !== key) return <ArrowUpDown className="w-3 h-3 text-gray-400" />; 
-    return sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 text-blue-500" /> : <ArrowDown className="w-3 h-3 text-blue-500" />; 
-  };
+  const handleSort = (key: SortKey) => { let direction: 'asc' | 'desc' = 'asc'; if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc'; setSortConfig({ key, direction }); };
+  const renderSortIcon = (key: SortKey) => { if (!sortConfig || sortConfig.key !== key) return <ArrowUpDown className="w-3 h-3 text-gray-400" />; return sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 text-blue-500" /> : <ArrowDown className="w-3 h-3 text-blue-500" />; };
 
   const handleDownloadTemplate = () => { 
     const headers = [{ "Date": "2023-10-01", "Customer Name": "ABC Corp", "Particulars": "Item", "Voucher No.": "INV-001", "Voucher Ref No.": "REF-123", "Quantity": 1, "Value": 1000 }]; 
@@ -300,7 +285,6 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
       setTimeout(async () => { 
           try { 
               const arrayBuffer = await file.arrayBuffer(); 
-              // IMPORTANT: cellDates true helps with Excel serial dates
               const wb = read(arrayBuffer, { type: 'array', cellDates: true, cellNF: false, cellText: false }); 
               const ws = wb.Sheets[wb.SheetNames[0]]; 
               setStatusMessage("Parsing rows..."); 
@@ -313,7 +297,7 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                   const end = Math.min(currentIndex + CHUNK_SIZE, totalRows); 
                   for (let i = currentIndex; i < end; i++) { 
                       const row = jsonData[i]; 
-                      let customerName = ''; let particulars = ''; let voucherNo = ''; let voucherRefNo = ''; let value = 0; let quantity = 0; let date = null; 
+                      let customerName = ''; let particulars = ''; let voucherNo = ''; let voucherRefNo = ''; let value = 0; let quantity = 0; let dateVal = null; 
                       const keys = Object.keys(row); 
                       for (let k = 0; k < keys.length; k++) { 
                           const key = keys[k]; const lowerKey = key.toLowerCase(); 
@@ -323,9 +307,15 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                           else if (lowerKey.includes('voucher') || lowerKey.includes('vch no')) voucherNo = String(row[key]); 
                           else if (lowerKey.includes('value') || lowerKey.includes('amount')) value = parseFloat(row[key]); 
                           else if (lowerKey.includes('quant') || lowerKey === 'qty') quantity = parseFloat(row[key]); 
-                          else if (lowerKey.includes('date') || lowerKey === 'dt') date = row[key]; 
+                          else if (lowerKey.includes('date') || lowerKey === 'dt') dateVal = row[key]; 
                       } 
-                      if (customerName) allNewItems.push({ date, customerName, particulars, voucherNo, voucherRefNo, quantity, value: value || 0, consignee: '' }); 
+                      // STABILIZE DATE: If it's a Date object, extract local Y-M-D to prevent offset
+                      let dateStr = '';
+                      if (dateVal instanceof Date) dateStr = stabilizeDateToString(dateVal);
+                      else if (typeof dateVal === 'number') dateStr = stabilizeDateToString(new Date((dateVal - 25569) * 86400 * 1000));
+                      else dateStr = dateVal ? String(dateVal) : '';
+
+                      if (customerName) allNewItems.push({ date: dateStr, customerName, particulars, voucherNo, voucherRefNo, quantity, value: value || 0, consignee: '' }); 
                   } 
                   currentIndex = end; 
                   const progress = Math.round((currentIndex / totalRows) * 100); 
@@ -347,7 +337,7 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
 
   return (
     <div className="flex flex-col h-full gap-4 relative">
-      {isProcessing && (<div className="absolute inset-0 z-50 bg-white/90 flex flex-col items-center justify-center backdrop-blur-sm rounded-xl"><Loader2 className="w-12 h-12 text-blue-600 animate-spin mb-4" /><h3 className="text-xl font-bold text-gray-800">{statusMessage}</h3><p className="text-sm text-gray-500 mb-4">Please wait while we process {uploadProgress !== null ? 'your data' : 'the file'}...</p>{uploadProgress !== null && (<div className="w-64 bg-gray-200 rounded-full h-3"><div className="bg-blue-600 h-3 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div></div>)}</div>)}
+      {isProcessing && (<div className="absolute inset-0 z-50 bg-white/90 flex flex-col items-center justify-center backdrop-blur-sm rounded-xl"><Loader2 className="w-12 h-12 text-blue-600 animate-spin mb-4" /><h3 className="text-xl font-bold text-gray-800">{statusMessage}</h3><p className="text-sm text-gray-500 mb-4">Please wait while we process your data...</p>{uploadProgress !== null && (<div className="w-64 bg-gray-200 rounded-full h-3"><div className="bg-blue-600 h-3 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div></div>)}</div>)}
       <div className="flex items-center justify-between bg-white p-3 rounded-xl shadow-sm border border-gray-200 flex-shrink-0">
           <div className="flex items-center gap-3"><div className={`p-2 rounded-lg ${mismatchStats.total > 0 ? 'bg-orange-50 text-orange-600' : 'bg-green-50 text-green-600'}`}>{mismatchStats.total > 0 ? <AlertTriangle className="w-5 h-5" /> : <UserCheck className="w-5 h-5" />}</div><div><h3 className="text-sm font-bold text-gray-800">Voucher Data Quality</h3><p className={`text-xs ${mismatchStats.total > 0 ? 'text-red-600 font-medium' : 'text-gray-500'}`}>{mismatchStats.total > 0 ? `${mismatchStats.total} Voucher lines need attention (${mismatchStats.uniqueCust} Unique Customers, ${mismatchStats.uniqueMat} Unique Items)` : "All voucher records match Master Data perfectly."}</p></div></div>
           {mismatchStats.total > 0 ? (<div className="flex gap-2"><button onClick={() => setShowMismatchesOnly(!showMismatchesOnly)} className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${showMismatchesOnly ? 'bg-orange-100 text-orange-700 border-orange-200' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}>{showMismatchesOnly ? "Show All Data" : "Show Errors Only"}</button></div>) : (<span className="text-xs font-bold text-green-600 bg-green-50 px-3 py-1 rounded-full border border-green-100">100% Quality</span>)}
