@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Material, ClosingStockItem, PendingSOItem, PendingPOItem, SalesReportItem, CustomerMasterItem, SalesRecord } from '../types';
 import { TrendingUp, TrendingDown, Package, ClipboardList, ShoppingCart, Calendar, Filter, PieChart as PieIcon, BarChart3, Users, ArrowRight, Activity, DollarSign, ArrowUpRight, ArrowDownRight, RefreshCw, UserCircle, Minus, Plus, ChevronDown, ChevronUp, Link2Off, AlertTriangle, Layers, Clock, CheckCircle2, AlertCircle, User, Factory, Tag, ArrowLeft, BarChart4, Hourglass, History, AlertOctagon, Hash, ExternalLink } from 'lucide-react';
@@ -87,86 +86,6 @@ const SalesTrendChart = ({ data, maxVal }: { data: { labels: string[], series: a
   );
 };
 
-const InventoryToggle: React.FC<{ value: Metric; onChange: (m: Metric) => void; colorClass: string }> = ({ value, onChange, colorClass }) => (
-  <div className="flex bg-gray-100 p-0.5 rounded-md border border-gray-200">
-    <button onClick={() => onChange('quantity')} className={`px-2 py-0.5 text-[9px] font-semibold rounded transition-all ${value === 'quantity' ? `bg-white shadow-sm ${colorClass}` : 'text-gray-500 hover:text-gray-700'}`}>Qty</button>
-    <button onClick={() => onChange('value')} className={`px-2 py-0.5 text-[9px] font-semibold rounded transition-all ${value === 'value' ? `bg-white shadow-sm ${colorClass}` : 'text-gray-500 hover:text-gray-700'}`}>Value</button>
-  </div>
-);
-
-const InteractiveDrillDownChart = ({ hierarchyData, metric, totalValue }: { hierarchyData: any[], metric: Metric, totalValue: number }) => {
-    const [view, setView] = useState<'MAKE' | 'GROUP'>('MAKE');
-    const [selectedMake, setSelectedMake] = useState<string | null>(null);
-    const [animationKey, setAnimationKey] = useState(0);
-    const activeData = useMemo(() => {
-        if (view === 'MAKE') return hierarchyData.map(d => ({ label: d.label, value: d.value, color: '#3B82F6', id: d.label }));
-        if (selectedMake) { const makeData = hierarchyData.find(d => d.label === selectedMake); return makeData ? makeData.groups.map((g: any, i: number) => ({ label: g.label, value: g.value, color: COLORS[i % COLORS.length], id: g.label })) : []; }
-        return [];
-    }, [view, selectedMake, hierarchyData]);
-    const handleBarClick = (id: string) => { if (view === 'MAKE') { setSelectedMake(id); setView('GROUP'); setAnimationKey(k => k + 1); } };
-    const handleBack = () => { setView('MAKE'); setSelectedMake(null); setAnimationKey(k => k + 1); };
-    if (activeData.length === 0) return <div className="flex items-center justify-center h-full text-gray-400 text-xs">No Data</div>;
-    const maxVal = Math.max(...activeData.map((d: any) => d.value), 1);
-    return (
-        <div className="flex flex-col h-full overflow-hidden">
-            {view === 'GROUP' && (<div className="flex items-center gap-2 mb-2 pb-2 border-b border-gray-100 animate-in slide-in-from-left-2"><button onClick={handleBack} className="p-1 hover:bg-gray-100 rounded-full text-gray-500"><ArrowLeft className="w-3.5 h-3.5" /></button><span className="text-xs font-bold text-gray-700">{selectedMake} <span className="font-normal text-gray-400">/ Breakdown</span></span></div>)}
-            <div key={animationKey} className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-2 animate-in fade-in duration-300">{activeData.map((item: any, i: number) => (
-                <div key={i} className={`group flex flex-col gap-1 ${view === 'MAKE' ? 'cursor-pointer' : ''}`} onClick={() => handleBarClick(item.id)}>
-                    <div className="flex justify-between items-end text-[10px]"><span className={`font-medium truncate w-3/4 transition-colors ${view === 'MAKE' ? 'text-gray-700 group-hover:text-blue-600' : 'text-gray-600'}`}>{item.label}</span><div className="flex gap-2"><span className="text-gray-500 font-medium">{totalValue > 0 ? ((item.value / totalValue) * 100).toFixed(1) + '%' : '0%'}</span><span className="font-bold text-gray-900">{metric === 'value' ? formatLargeValue(item.value, true) : item.value.toLocaleString()}</span></div></div>
-                    <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden relative"><div className="h-full rounded-full transition-all duration-700 ease-out" style={{ width: `${(item.value / maxVal) * 100}%`, backgroundColor: item.color }}></div></div>
-                </div>
-            ))}</div>
-        </div>
-    );
-};
-
-const HorizontalBarChart = ({ data, title, color }: { data: { label: string; value: number }[], title: string, color: string }) => {
-    const sorted = [...data].sort((a,b) => b.value - a.value).slice(0, 10);
-    const maxVal = sorted[0]?.value || 1;
-    const barColorClass = color === 'blue' ? 'bg-blue-500' : color === 'red' ? 'bg-red-500' : 'bg-orange-500';
-    return (
-        <div className="flex flex-col h-full w-full">
-            <h4 className="text-[11px] font-bold text-gray-600 uppercase mb-3 border-b border-gray-100 pb-1">{title}</h4>
-            <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 mt-1"><div className="flex flex-col gap-4">{sorted.map((item, i) => (
-                <div key={i} className="flex flex-col gap-1.5"><div className="flex justify-between items-center text-[10px]"><span className="truncate text-gray-700 font-medium flex-1 min-w-0 pr-3" title={item.label}>{item.label}</span><span className="font-bold text-gray-900 flex-shrink-0 bg-white pl-1">{formatLargeValue(item.value, true)}</span></div><div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden"><div className={`h-full rounded-full ${barColorClass}`} style={{ width: `${(item.value / maxVal) * 100}%` }}></div></div></div>
-            ))}</div></div>
-        </div>
-    );
-};
-
-const ABCAnalysisChart = ({ data }: { data: { label: string, value: number, count: number, color: string }[] }) => {
-    const totalVal = data.reduce((a, b) => a + b.value, 0);
-    let startAngle = 0;
-    return (
-        <div className="flex flex-col h-full">
-            <div className="flex items-center justify-center py-2 flex-1"><div className="relative w-32 h-32"><svg viewBox="-1 -1 2 2" style={{ transform: 'rotate(-90deg)' }} className="w-full h-full">
-                {data.map((slice, i) => {
-                    const pct = slice.value / (totalVal || 1);
-                    const endAngle = startAngle + pct * 2 * Math.PI;
-                    const x1 = Math.cos(startAngle); const y1 = Math.sin(startAngle);
-                    const x2 = Math.cos(endAngle); const y2 = Math.sin(endAngle);
-                    const largeArc = pct > 0.5 ? 1 : 0;
-                    const pathData = [`M ${x1} ${y1}`, `A 1 1 0 ${largeArc} 1 ${x2} ${y2}`, `L ${x2 * 0.65} ${y2 * 0.65}`, `A 0.65 0.65 0 ${largeArc} 0 ${x1 * 0.65} ${y1 * 0.65}`, 'Z'].join(' ');
-                    startAngle = endAngle;
-                    return ( <path key={i} d={pathData} fill={slice.color} stroke="white" strokeWidth="0.02" className="hover:opacity-80 transition-opacity cursor-pointer"><title>{slice.label}: {Math.round(pct * 100)}%</title></path> );
-                })}
-            </svg><div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"><span className="text-[10px] text-gray-400 font-bold">Total Val</span><span className="text-xs font-extrabold text-gray-800">{formatLargeValue(totalVal, true)}</span></div></div></div>
-            <div className="grid grid-cols-3 gap-1 border-t border-gray-100 pt-2">{data.map((item, i) => (
-                <div key={i} className="flex flex-col items-center text-center"><span className="text-[9px] font-bold" style={{color: item.color}}>Class {item.label}</span><span className="text-[9px] font-medium text-gray-600">{item.count} items</span><span className="text-[9px] font-bold text-gray-800">{formatLargeValue(totalVal, true)}</span></div>
-            ))}</div>
-        </div>
-    );
-};
-
-const AgingBarChart = ({ data }: { data: { label: string; value: number }[] }) => {
-    const maxVal = Math.max(...data.map(d => d.value), 1);
-    return (
-        <div className="flex flex-col h-full"><h4 className="text-[10px] font-bold text-gray-500 uppercase mb-2 flex items-center gap-1"><Hourglass className="w-3 h-3 text-red-500"/> Overdue Aging (Value)</h4><div className="flex items-end justify-between gap-3 h-full pb-1">{data.map((bar, i) => (
-            <div key={i} className="flex-1 flex flex-col items-center gap-1 h-full justify-end group"><span className="text-[9px] font-bold text-gray-600 mb-1">{formatLargeValue(bar.value, true)}</span><div className={`w-full rounded-t-sm hover:opacity-80 transition-all ${i === 0 ? 'bg-blue-300' : i === 1 ? 'bg-orange-300' : 'bg-red-400'}`} style={{ height: `${(bar.value / maxVal) * 100}%` }}></div><span className="text-[9px] text-gray-500 font-medium text-center leading-tight whitespace-nowrap">{bar.label}</span></div>
-        ))}</div></div>
-    );
-};
-
 const SimpleDonut = ({ data, title, color }: { data: {label: string, value: number, color?: string}[], title: string, color: string }) => {
      if(data.length === 0) return <div className="h-32 flex items-center justify-center text-gray-400 text-xs">No Data</div>;
      const total = data.reduce((a,b) => a+b.value, 0);
@@ -189,6 +108,55 @@ const SimpleDonut = ({ data, title, color }: { data: {label: string, value: numb
      );
 };
 
+const InteractiveDrillDownChart = ({ hierarchyData, metric, totalValue }: { hierarchyData: any[], metric: Metric, totalValue: number }) => {
+    const [view, setView] = useState<'MAKE' | 'GROUP'>('MAKE');
+    const [selectedMake, setSelectedMake] = useState<string | null>(null);
+    const activeData = useMemo(() => {
+        if (view === 'MAKE') return hierarchyData.map(d => ({ label: d.label, value: d.value, color: '#3B82F6', id: d.label }));
+        if (selectedMake) { const makeData = hierarchyData.find(d => d.label === selectedMake); return makeData ? makeData.groups.map((g: any, i: number) => ({ label: g.label, value: g.value, color: COLORS[i % COLORS.length], id: g.label })) : []; }
+        return [];
+    }, [view, selectedMake, hierarchyData]);
+    const handleBarClick = (id: string) => { if (view === 'MAKE') { setSelectedMake(id); setView('GROUP'); } };
+    const handleBack = () => { setView('MAKE'); setSelectedMake(null); };
+    if (activeData.length === 0) return <div className="flex items-center justify-center h-full text-gray-400 text-xs">No Data</div>;
+    const maxVal = Math.max(...activeData.map((d: any) => d.value), 1);
+    return (
+        <div className="flex flex-col h-full overflow-hidden">
+            {view === 'GROUP' && (<div className="flex items-center gap-2 mb-2 pb-2 border-b border-gray-100"><button onClick={handleBack} className="p-1 hover:bg-gray-100 rounded-full text-gray-500"><ArrowLeft className="w-3.5 h-3.5" /></button><span className="text-xs font-bold text-gray-700">{selectedMake} breakdown</span></div>)}
+            <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-2">{activeData.map((item: any, i: number) => (
+                <div key={i} className={`group flex flex-col gap-1 ${view === 'MAKE' ? 'cursor-pointer' : ''}`} onClick={() => handleBarClick(item.id)}>
+                    <div className="flex justify-between items-end text-[10px]"><span className={`font-medium truncate w-3/4 ${view === 'MAKE' ? 'text-gray-700 group-hover:text-blue-600' : 'text-gray-600'}`}>{item.label}</span><div className="flex gap-2"><span className="text-gray-500 font-medium">{totalValue > 0 ? ((item.value / totalValue) * 100).toFixed(1) + '%' : '0%'}</span><span className="font-bold text-gray-900">{metric === 'value' ? formatLargeValue(item.value, true) : item.value.toLocaleString()}</span></div></div>
+                    <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden"><div className="h-full rounded-full transition-all duration-700" style={{ width: `${(item.value / maxVal) * 100}%`, backgroundColor: item.color }}></div></div>
+                </div>
+            ))}</div>
+        </div>
+    );
+};
+
+const ABCAnalysisChart = ({ data }: { data: { label: string, value: number, count: number, color: string }[] }) => {
+    const totalVal = data.reduce((a, b) => a + b.value, 0);
+    let startAngle = 0;
+    return (
+        <div className="flex flex-col h-full">
+            <div className="flex items-center justify-center py-2 flex-1"><div className="relative w-32 h-32"><svg viewBox="-1 -1 2 2" style={{ transform: 'rotate(-90deg)' }} className="w-full h-full">
+                {data.map((slice, i) => {
+                    const pct = slice.value / (totalVal || 1);
+                    const endAngle = startAngle + pct * 2 * Math.PI;
+                    const x1 = Math.cos(startAngle); const y1 = Math.sin(startAngle);
+                    const x2 = Math.cos(endAngle); const y2 = Math.sin(endAngle);
+                    const largeArc = pct > 0.5 ? 1 : 0;
+                    const pathData = [`M ${x1} ${y1}`, `A 1 1 0 ${largeArc} 1 ${x2} ${y2}`, `L ${x2 * 0.65} ${y2 * 0.65}`, `A 0.65 0.65 0 ${largeArc} 0 ${x1 * 0.65} ${y1 * 0.65}`, 'Z'].join(' ');
+                    startAngle = endAngle;
+                    return ( <path key={i} d={pathData} fill={slice.color} stroke="white" strokeWidth="0.02" className="hover:opacity-80 transition-opacity cursor-pointer"><title>{slice.label}: {Math.round(pct * 100)}%</title></path> );
+                })}
+            </svg><div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"><span className="text-[10px] text-gray-400 font-bold">Stock Val</span><span className="text-xs font-extrabold text-gray-800">{formatLargeValue(totalVal, true)}</span></div></div></div>
+            <div className="grid grid-cols-3 gap-1 border-t border-gray-100 pt-2">{data.map((item, i) => (
+                <div key={i} className="flex flex-col items-center text-center"><span className="text-[9px] font-bold" style={{color: item.color}}>Class {item.label}</span><span className="text-[9px] font-medium text-gray-600">{item.count} items</span></div>
+            ))}</div>
+        </div>
+    );
+};
+
 type TimeView = 'FY' | 'MONTH' | 'WEEK';
 type ComparisonMode = 'PREV_PERIOD' | 'PREV_YEAR';
 type Metric = 'quantity' | 'value';
@@ -198,7 +166,6 @@ interface DashboardViewProps {
   closingStock: ClosingStockItem[];
   pendingSO: PendingSOItem[];
   pendingPO: PendingPOItem[];
-  // FIX: Corrected type name from SalesReportItems to SalesReportItem
   salesReportItems: SalesReportItem[];
   customers: CustomerMasterItem[];
   sales1Year: SalesRecord[];
@@ -230,8 +197,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   const parseDate = (val: any): Date => {
     if (!val) return new Date();
     if (val instanceof Date) {
-        const d = new Date(val.getFullYear(), val.getMonth(), val.getDate(), 12, 0, 0);
-        return d;
+        return new Date(val.getFullYear(), val.getMonth(), val.getDate(), 12, 0, 0);
     }
     if (typeof val === 'number') {
         const d = new Date(Math.round((val - 25569) * 86400 * 1000));
@@ -273,7 +239,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
           const dateObj = parseDate(item.date);
           const fi = getFiscalInfo(dateObj);
           const cust = custMap.get(item.customerName.toLowerCase().trim());
-          return { ...item, ...fi, rawDate: dateObj, custGroup: cust?.group || 'Unassigned', custStatus: cust?.status || 'Unknown', derivedGroup: cust?.customerGroup || item.customerName, isGrouped: !!cust?.customerGroup };
+          return { ...item, ...fi, rawDate: dateObj, custGroup: cust?.group || 'Unassigned', custStatus: cust?.status || 'Unknown' };
       });
   }, [salesReportItems, customers]);
 
@@ -299,25 +265,21 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       return getDataForPeriod(selectedFY, selectedMonth, selectedWeek - 1);
   }, [selectedFY, selectedMonth, selectedWeek, timeView, comparisonMode, enrichedSales]);
 
-  const recentVouchers = useMemo(() => {
-      const seen = new Set<string>(); const result: any[] = [];
-      const sorted = [...currentData].sort((a,b) => b.rawDate.getTime() - a.rawDate.getTime());
-      for (const s of sorted) {
-          if (!seen.has(s.voucherNo || '')) { seen.add(s.voucherNo || ''); result.push({ voucherNo: s.voucherNo, customerName: s.customerName, value: s.value, date: s.date }); }
-          if (result.length >= 10) break;
-      }
-      return result;
-  }, [currentData]);
-
   const kpis = useMemo(() => {
       const currVal = currentData.reduce((acc, i) => acc + i.value, 0);
       const prevVal = previousData.reduce((acc, i) => acc + i.value, 0);
-      const statusBreakdown: Record<string, number> = {};
-      const uniqueCusts = new Set(currentData.map(i => { statusBreakdown[i.custStatus] = (statusBreakdown[i.custStatus] || 0) + 1; return i.customerName; })).size;
-      return { currVal, prevVal, diff: currVal - prevVal, pct: prevVal ? ((currVal - prevVal) / prevVal) * 100 : 0, currQty: currentData.reduce((acc, i) => acc + i.quantity, 0), uniqueCusts, avgOrder: currentData.length ? currVal / currentData.length : 0, statusBreakdown };
+      const uniqueCusts = new Set(currentData.map(i => i.customerName)).size;
+      return { 
+          currVal, 
+          prevVal, 
+          diff: currVal - prevVal, 
+          pct: prevVal ? ((currVal - prevVal) / prevVal) * 100 : 0, 
+          currQty: currentData.reduce((acc, i) => acc + i.quantity, 0), 
+          uniqueCusts, 
+          avgOrder: currentData.length ? currVal / currentData.length : 0 
+      };
   }, [currentData, previousData]);
 
-  // FIX: Added pieDataGroup to resolve "Cannot find name 'pieDataGroup'" error
   const pieDataGroup = useMemo(() => {
       const map = new Map<string, number>();
       currentData.forEach(i => {
@@ -329,7 +291,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
           .sort((a, b) => b.value - a.value);
   }, [currentData]);
 
-  // FIX: Added pieDataStatus to resolve "Cannot find name 'pieDataStatus'" error
   const pieDataStatus = useMemo(() => {
       const map = new Map<string, number>();
       currentData.forEach(i => {
@@ -373,7 +334,24 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     <div className="h-full w-full flex flex-col bg-gray-50/50 overflow-hidden">
       <div className="bg-white border-b border-gray-200 px-4 py-3 flex flex-col xl:flex-row gap-4 items-start xl:items-center justify-between flex-shrink-0 shadow-sm z-10">
           <div className="flex bg-gray-100 p-1 rounded-lg">{(['sales', 'inventory', 'so', 'po'] as const).map(tab => (<button key={tab} onClick={() => setActiveSubTab(tab)} className={`px-3 py-1.5 rounded-md text-xs font-bold uppercase ${activeSubTab === tab ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500'}`}>{tab === 'so' ? 'Pending SO' : tab === 'po' ? 'Pending PO' : tab}</button>))}</div>
-          {activeSubTab === 'sales' && (<div className="flex flex-wrap items-center gap-3"><div className="flex bg-gray-100 p-1 rounded-lg">{(['FY', 'MONTH', 'WEEK'] as const).map(v => (<button key={v} onClick={() => setTimeView(v)} className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${timeView === v ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>FY</button><button onClick={() => setTimeView('MONTH')} className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${timeView === 'MONTH' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>MONTH</button><button onClick={() => setTimeView('WEEK')} className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${timeView === 'WEEK' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>WEEK</button></div><select value={selectedFY} onChange={e => setSelectedFY(e.target.value)} className="bg-white border border-gray-300 text-xs rounded-md px-2 py-1.5 font-medium">{uniqueFYs.map(fy => <option key={fy} value={fy}>{fy}</option>)}</select></div>)}
+          {activeSubTab === 'sales' && (
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex bg-gray-100 p-1 rounded-lg">
+                {(['FY', 'MONTH', 'WEEK'] as const).map(v => (
+                  <button 
+                    key={v} 
+                    onClick={() => setTimeView(v)} 
+                    className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${timeView === v ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                  >
+                    {v}
+                  </button>
+                ))}
+              </div>
+              <select value={selectedFY} onChange={e => setSelectedFY(e.target.value)} className="bg-white border border-gray-300 text-xs rounded-md px-2 py-1.5 font-medium">
+                {uniqueFYs.map(fy => <option key={fy} value={fy}>{fy}</option>)}
+              </select>
+            </div>
+          )}
       </div>
       <div className="flex-1 p-4 overflow-y-auto custom-scrollbar">
         {activeSubTab === 'sales' ? (
