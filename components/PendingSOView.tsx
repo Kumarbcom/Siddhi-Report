@@ -149,6 +149,31 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
       return t;
   }, [filteredItems]);
 
+  const handleDownloadTemplate = () => {
+    // Exact headers from user image
+    const headers = [
+      {
+        "Date": "2024-03-20",
+        "Order": "SO/101",
+        "Party's Name": "Acme Corp",
+        "Name of Item": "Cable 1.5mm Black",
+        "Material Code": "CBL-1.5-BK",
+        "Part No": "P-123",
+        "Ordered": 100,
+        "Balance": 100,
+        "Rate": 45.50,
+        "Discount": 0,
+        "Value": 4550.00,
+        "Due on": "2024-04-15",
+        "OverDue": 0
+      }
+    ];
+    const ws = utils.json_to_sheet(headers);
+    const wb = utils.book_new();
+    utils.book_append_sheet(wb, ws, "Pending_SO_Template");
+    writeFile(wb, "Pending_SO_Template.xlsx");
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -177,42 +202,42 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
           const parseDateString = (val: any) => {
               if (val instanceof Date) return val.toISOString().split('T')[0];
               if (typeof val === 'number') return new Date((val - (25567 + 2)) * 86400 * 1000).toISOString().split('T')[0];
-              if (!val) return new Date().toISOString().split('T')[0];
+              if (!val) return "";
               const d = new Date(val);
-              return !isNaN(d.getTime()) ? d.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+              return !isNaN(d.getTime()) ? d.toISOString().split('T')[0] : "";
           };
           
-          const orderedQty = parseNum(getVal(['ordered qty', 'ordered', 'qty', 'ordered quantity', 'quantity']));
-          const balanceQty = parseNum(getVal(['balance qty', 'balance', 'bal', 'pending qty', 'pending quantity']));
-          const rate = parseNum(getVal(['rate', 'price', 'unit rate', 'eff. rate']));
-          const value = parseNum(getVal(['value', 'amount', 'total value', 'total amount']));
+          const orderedQty = parseNum(getVal(['ordered', 'ordered qty', 'qty']));
+          const balanceQty = parseNum(getVal(['balance', 'balance qty', 'pending qty']));
+          const rate = parseNum(getVal(['rate', 'price', 'unit rate']));
+          const excelValue = parseNum(getVal(['value', 'amount']));
           
           return {
-              date: parseDateString(getVal(['so_date', 'so date', 'date', 'vch date', 'vch_date', 'order date'])),
-              orderNo: String(getVal(['order no', 'order', 'vch no', 'so no', 'voucher no', 'vch no.']) || ''),
-              partyName: String(getVal(['party name', 'customer', 'name', 'buyer', 'party_name', 'customer name']) || ''),
-              itemName: String(getVal(['item name', 'item', 'description', 'particulars', 'item_name']) || ''),
+              date: parseDateString(getVal(['date', 'so_date', 'so date', 'vch date'])),
+              orderNo: String(getVal(['order', 'order no', 'vch no', 'so no']) || ''),
+              partyName: String(getVal(['party\'s name', 'party name', 'customer', 'name']) || ''),
+              itemName: String(getVal(['name of item', 'item name', 'item', 'description']) || ''),
               materialCode: String(getVal(['material code', 'code', 'material_code']) || ''),
               partNo: String(getVal(['part no', 'partno', 'part_no']) || ''),
               orderedQty,
               balanceQty,
               rate,
               discount: parseNum(getVal(['discount', 'disc'])),
-              value: value || (balanceQty * rate),
-              dueDate: getVal(['due on', 'due date', 'delivery date', 'due_on']) ? parseDateString(getVal(['due on', 'due date', 'delivery date', 'due_on'])) : '',
-              overDueDays: 0
+              value: excelValue || (balanceQty * rate),
+              dueDate: parseDateString(getVal(['due on', 'due date', 'delivery date'])),
+              overDueDays: parseNum(getVal(['overdue', 'overdue days', 'days']))
           };
-      }).filter(i => i.partyName && i.itemName && (i.orderedQty > 0 || i.balanceQty > 0));
+      }).filter(i => i.partyName && i.itemName);
 
       if (newItems.length > 0) {
         onBulkAdd(newItems);
-        alert(`Successfully imported ${newItems.length} Sales Orders.`);
+        alert(`Imported ${newItems.length} Sales Orders.`);
       } else {
-        alert("No valid records found. Please check if your Excel has headers like 'SO Date', 'Party Name', and 'Item Name'.");
+        alert("No valid records found. Please check header names.");
       }
     } catch (err) {
       console.error("Excel Import Error:", err);
-      alert("Error parsing Excel file. Please ensure it is a valid .xlsx or .xls file.");
+      alert("Error parsing Excel file.");
     }
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -253,6 +278,7 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
             <h2 className="text-sm font-semibold text-gray-800 flex items-center gap-2"><ClipboardList className="w-4 h-4 text-purple-600" /> Pending Sales Orders</h2>
             <div className="flex flex-wrap gap-2">
                 <button onClick={() => {}} className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-50 border border-gray-200 shadow-sm"><FileDown className="w-3.5 h-3.5" /> Export All</button>
+                <button onClick={handleDownloadTemplate} className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold border border-indigo-100 hover:bg-indigo-100 transition-colors shadow-sm"><Download className="w-3.5 h-3.5" /> Template</button>
                 <input type="file" ref={fileInputRef} className="hidden" accept=".xlsx, .xls" onChange={handleFileUpload} />
                 <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-xs border border-emerald-100 hover:bg-emerald-100 transition-colors font-bold"><Upload className="w-3.5 h-3.5" /> Import Excel</button>
                 <button onClick={onClear} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs border border-red-100 hover:bg-red-100 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>

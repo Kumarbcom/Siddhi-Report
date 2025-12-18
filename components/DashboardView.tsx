@@ -1051,10 +1051,77 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col"><div className="flex justify-between items-center mb-4"><h3 className="text-sm font-bold text-gray-800 flex items-center gap-2"><Layers className="w-4 h-4 text-gray-600" /> Top Customers / Groups</h3></div><div className="overflow-x-auto"><table className="w-full text-left border-collapse"><thead><tr className="text-[10px] text-gray-500 uppercase border-b border-gray-100"><th className="py-2 pl-2 w-8">#</th><th className="py-2">Name</th><th className="py-2 text-right">Sales</th><th className="py-2 text-right hidden sm:table-cell">Prev</th><th className="py-2 text-right">Growth</th></tr></thead><tbody className="text-xs">{topCustomers.map((item, idx) => (<React.Fragment key={idx}><tr className={`border-b border-gray-50 hover:bg-gray-50 ${expandedGroups.has(item.label) ? 'bg-gray-50' : ''}`}><td className="py-3 pl-2 text-gray-400 font-mono text-[10px]">{idx + 1}</td><td className="py-3"><div className="flex flex-col"><div className="flex items-center gap-2">{item.isGroup && (<button onClick={() => toggleGroup(item.label)} className="p-0.5 hover:bg-gray-200 rounded">{expandedGroups.has(item.label) ? <ChevronUp className="w-3 h-3 text-gray-500" /> : <ChevronDown className="w-3 h-3 text-gray-500" />}</button>)}<span className="font-bold text-gray-800">{item.label}</span>{item.isGroup && <span className="text-[9px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded border border-blue-100 uppercase tracking-wide">Group</span>}</div><div className="w-full max-w-md h-1.5 bg-gray-100 rounded-full mt-1.5 overflow-hidden">
-                                        {/* Fix: Explicitly cast arithmetic operands to number to resolve TypeScript errors on line 1044 */}
-                                        <div className="h-full bg-blue-500 rounded-full" style={{ width: `${(Number(item.value) / (Number(topCustomers[0]?.value) || 1)) * 100}%` }}></div>
-                                    </div></div></td><td className="py-3 text-right font-bold text-gray-900">{formatLargeValue(item.value)}</td><td className="py-3 text-right text-gray-500 hidden sm:table-cell">{formatLargeValue(item.prevValue)}</td><td className="py-3 text-right"><span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${item.pct >= 0 ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>{item.pct >= 0 ? <Plus className="w-2 h-2 mr-0.5" /> : <Minus className="w-2 h-2 mr-0.5" />}{Math.abs(item.pct).toFixed(1)}%</span></td></tr>{item.isGroup && expandedGroups.has(item.label) && (<tr><td colSpan={5} className="p-0"><div className="bg-gray-50/50 p-3 border-b border-gray-100 animate-in slide-in-from-top-1"><table className="w-full text-xs"><thead><tr className="text-[9px] text-gray-400 uppercase border-b border-gray-100 text-right"><th className="py-1 text-left pl-8">Customer Name</th><th className="py-1">Prev</th><th className="py-1">Current</th><th className="py-1">Growth</th></tr></thead><tbody>{getGroupBreakdown(item.label).map((sub, sIdx) => (<tr key={sIdx} className="border-b border-gray-100 last:border-0 hover:bg-gray-100/50"><td className="py-2 pl-8 text-gray-600 w-1/2 font-medium">{sub.name}</td><td className="py-2 text-right text-gray-400">{formatLargeValue(sub.prevValue)}</td><td className="py-2 text-right font-bold text-gray-800">{formatLargeValue(sub.value)}</td><td className="py-2 text-right"><span className={`text-[10px] font-bold ${sub.pct >= 0 ? 'text-green-600' : 'text-red-600'}`}>{sub.pct > 0 ? '+' : ''}{Math.round(sub.pct)}%</span></td></tr>))}</tbody></table></div></td></tr>)}</React.Fragment>))}</tbody></table></div></div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col"><div className="flex justify-between items-center mb-4"><h3 className="text-sm font-bold text-gray-800 flex items-center gap-2"><Layers className="w-4 h-4 text-gray-600" /> Top Customers / Groups</h3></div><div className="overflow-x-auto"><table className="w-full text-left border-collapse"><thead><tr className="text-[10px] text-gray-500 uppercase border-b border-gray-100"><th className="py-2 pl-2 w-8">#</th><th className="py-2">Name</th><th className="py-2 text-right">Sales</th><th className="py-2 text-right hidden sm:table-cell">Prev</th><th className="py-2 text-right">Growth</th></tr></thead><tbody className="text-xs">
+                        {topCustomers.map((item, idx) => {
+                            // Fix: Use Number() to ensure type safety for arithmetic operations on line 1044
+                            const topValue = Number(topCustomers[0]?.value || 1);
+                            const itemValue = Number(item.value);
+                            const progressWidth = (itemValue / topValue) * 100;
+                            return (
+                                <React.Fragment key={idx}>
+                                    <tr className={`border-b border-gray-50 hover:bg-gray-50 ${expandedGroups.has(item.label) ? 'bg-gray-50' : ''}`}>
+                                        <td className="py-3 pl-2 text-gray-400 font-mono text-[10px]">{idx + 1}</td>
+                                        <td className="py-3">
+                                            <div className="flex flex-col">
+                                                <div className="flex items-center gap-2">
+                                                    {item.isGroup && (
+                                                        <button onClick={() => toggleGroup(item.label)} className="p-0.5 hover:bg-gray-200 rounded">
+                                                            {expandedGroups.has(item.label) ? <ChevronUp className="w-3 h-3 text-gray-500" /> : <ChevronDown className="w-3 h-3 text-gray-500" />}
+                                                        </button>
+                                                    )}
+                                                    <span className="font-bold text-gray-800">{item.label}</span>
+                                                    {item.isGroup && <span className="text-[9px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded border border-blue-100 uppercase tracking-wide">Group</span>}
+                                                </div>
+                                                <div className="w-full max-w-md h-1.5 bg-gray-100 rounded-full mt-1.5 overflow-hidden">
+                                                    <div className="h-full bg-blue-500 rounded-full" style={{ width: `${progressWidth}%` }}></div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="py-3 text-right font-bold text-gray-900">{formatLargeValue(item.value)}</td>
+                                        <td className="py-3 text-right text-gray-500 hidden sm:table-cell">{formatLargeValue(item.prevValue)}</td>
+                                        <td className="py-3 text-right">
+                                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${item.pct >= 0 ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                                                {item.pct >= 0 ? <Plus className="w-2 h-2 mr-0.5" /> : <Minus className="w-2 h-2 mr-0.5" />}
+                                                {Math.abs(item.pct).toFixed(1)}%
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    {item.isGroup && expandedGroups.has(item.label) && (
+                                        <tr>
+                                            <td colSpan={5} className="p-0">
+                                                <div className="bg-gray-50/50 p-3 border-b border-gray-100 animate-in slide-in-from-top-1">
+                                                    <table className="w-full text-xs">
+                                                        <thead>
+                                                            <tr className="text-[9px] text-gray-400 uppercase border-b border-gray-100 text-right">
+                                                                <th className="py-1 text-left pl-8">Customer Name</th>
+                                                                <th className="py-1">Prev</th>
+                                                                <th className="py-1">Current</th>
+                                                                <th className="py-1">Growth</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {getGroupBreakdown(item.label).map((sub, sIdx) => (
+                                                                <tr key={sIdx} className="border-b border-gray-100 last:border-0 hover:bg-gray-100/50">
+                                                                    <td className="py-2 pl-8 text-gray-600 w-1/2 font-medium">{sub.name}</td>
+                                                                    <td className="py-2 text-right text-gray-400">{formatLargeValue(sub.prevValue)}</td>
+                                                                    <td className="py-2 text-right font-bold text-gray-800">{formatLargeValue(sub.value)}</td>
+                                                                    <td className="py-2 text-right">
+                                                                        <span className={`text-[10px] font-bold ${sub.pct >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                                            {sub.pct > 0 ? '+' : ''}{Math.round(sub.pct)}%
+                                                                        </span>
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )}
+                                </React.Fragment>
+                            );
+                        })}
+                    </tbody></table></div></div>
                     
                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col">
                         <div className="flex justify-between items-center mb-4">
