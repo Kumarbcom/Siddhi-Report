@@ -86,10 +86,8 @@ const ChatView: React.FC<ChatViewProps> = ({
     setIsLoading(true);
 
     try {
-      const apiKey = process.env.API_KEY;
-      if (!apiKey) throw new Error("API Key missing");
-
-      const ai = new GoogleGenAI({ apiKey });
+      // Guidelines: Always initialize GoogleGenAI inside the event handler with named parameters
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       
       const chat = ai.chats.create({
         model: 'gemini-3-flash-preview',
@@ -99,6 +97,7 @@ const ChatView: React.FC<ChatViewProps> = ({
       });
 
       const result = await chat.sendMessage({ message: text });
+      // Guidelines: Access .text property directly
       const responseText = result.text || "No response received.";
 
       const aiMsg: Message = { id: crypto.randomUUID(), role: 'model', content: responseText, timestamp: Date.now() };

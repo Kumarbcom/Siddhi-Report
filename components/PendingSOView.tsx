@@ -61,46 +61,48 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
     if (editForm) setEditForm({ ...editForm, [field]: value });
   };
 
-  const stabilizeDateToString = (dateVal: any): string => {
-    if (!dateVal) return "";
-    let date: Date | null = null;
-    if (dateVal instanceof Date) date = dateVal;
-    else if (typeof dateVal === 'number') date = new Date(Math.round((dateVal - 25569) * 86400 * 1000));
-    else {
-        const d = new Date(dateVal);
-        if (!isNaN(d.getTime())) date = d;
+  /**
+   * STRICT INDIAN DATE PARSE (DD.MM.YYYY)
+   * Prevents any timezone conversion or 1-day shifting.
+   */
+  const strictDateParse = (val: any): string => {
+    if (!val) return "";
+    let y, m, d;
+
+    if (typeof val === 'string') {
+        const parts = val.trim().split(/[./-]/);
+        if (parts.length === 3) {
+            if (parts[2].length === 4) { // DD.MM.YYYY
+                d = parseInt(parts[0]); m = parseInt(parts[1]); y = parseInt(parts[2]);
+            } else if (parts[0].length === 4) { // YYYY.MM.DD
+                y = parseInt(parts[0]); m = parseInt(parts[1]); d = parseInt(parts[2]);
+            }
+        }
+    } else if (val instanceof Date) {
+        y = val.getFullYear(); m = val.getMonth() + 1; d = val.getDate();
+    } else if (typeof val === 'number') {
+        const date = new Date(Math.round((val - 25569) * 86400 * 1000));
+        y = date.getUTCFullYear(); m = date.getUTCMonth() + 1; d = date.getUTCDate();
     }
-    
-    if (date && !isNaN(date.getTime())) {
-      const y = date.getFullYear();
-      const m = String(date.getMonth() + 1).padStart(2, '0');
-      const d = String(date.getDate()).padStart(2, '0');
-      return `${y}-${m}-${d}`;
+
+    if (y && m && d) {
+        return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
     }
-    return String(dateVal);
+    return String(val);
   };
 
-  const formatDateDisplay = (dateVal: string | Date | number) => {
+  const formatDateDisplay = (dateVal: string) => {
     if (!dateVal) return '-';
-    let date: Date | null = null;
-    if (dateVal instanceof Date) date = dateVal;
-    else if (typeof dateVal === 'string') {
-        const parts = dateVal.split('-');
-        if (parts.length === 3 && parts[0].length === 4) date = new Date(dateVal);
-        else if (parts.length === 3) date = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
-        else date = new Date(dateVal);
-    } else if (typeof dateVal === 'number') date = new Date((dateVal - 25567) * 86400 * 1000);
-    if (date && !isNaN(date.getTime())) return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
-    return String(dateVal);
+    const date = new Date(dateVal);
+    if (!isNaN(date.getTime())) return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
+    return dateVal;
   };
 
-  const formatInputDate = (dateVal: string | Date | number) => stabilizeDateToString(dateVal);
   const formatCurrency = (val: number) => `Rs. ${Math.round(val).toLocaleString('en-IN')}`;
 
   const processedDataWithValidation = useMemo(() => {
     const today = new Date();
     const endOfCurrentMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-    endOfCurrentMonth.setHours(23, 59, 59, 999);
     
     const groupedItems: Record<string, PendingSOItem[]> = {};
     items.forEach(item => { const key = (item.itemName || '').toLowerCase().trim(); if (!groupedItems[key]) groupedItems[key] = []; groupedItems[key].push(item); });
@@ -151,20 +153,6 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
     return data;
   }, [processedDataWithValidation, searchTerm, sortConfig, showErrorsOnly]);
 
-  const totals = useMemo(() => {
-      const t = { ordered: 0, orderedValue: 0, balance: 0, value: 0, allocated: 0, toArrange: 0, uniqueInventory: 0, uniqueOrderCount: 0 };
-      filteredItems.forEach(item => { t.ordered += Number(item.orderedQty) || 0; t.orderedValue += (Number(item.orderedQty) || 0) * (Number(item.rate) || 0); t.balance += Number(item.balanceQty) || 0; const itemVal = (Number(item.balanceQty) || 0) * (Number(item.rate) || 0); t.value += itemVal; t.allocated += item.allocated || 0; t.toArrange += item.shortage || 0; if (item.orderNo) t.uniqueOrderCount++; });
-      return t;
-  }, [filteredItems]);
-
-  const handleDownloadTemplate = () => {
-    const headers = [ { "Date": "2024-03-20", "Order": "SO/101", "Party's Name": "Acme Corp", "Name of Item": "Cable 1.5mm Black", "Material Code": "CBL-1.5-BK", "Part No": "P-123", "Ordered": 100, "Balance": 100, "Rate": 45.50, "Discount": 0, "Value": 4550.00, "Due on": "2024-04-15", "OverDue": 0 } ];
-    const ws = utils.json_to_sheet(headers);
-    const wb = utils.book_new();
-    utils.book_append_sheet(wb, ws, "Pending_SO_Template");
-    writeFile(wb, "Pending_SO_Template.xlsx");
-  };
-
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -179,17 +167,18 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
           const orderedQty = parseNum(getVal(['ordered', 'ordered qty', 'qty']));
           const balanceQty = parseNum(getVal(['balance', 'balance qty', 'pending qty']));
           const rate = parseNum(getVal(['rate', 'price', 'unit rate']));
-          const excelValue = parseNum(getVal(['value', 'amount']));
           return {
-              date: stabilizeDateToString(getVal(['date', 'so_date', 'so date', 'vch date'])),
+              date: strictDateParse(getVal(['date', 'so_date', 'so date', 'vch date'])),
               orderNo: String(getVal(['order', 'order no', 'vch no', 'so no']) || ''),
               partyName: String(getVal(['party\'s name', 'party name', 'customer', 'name']) || ''),
               itemName: String(getVal(['name of item', 'item name', 'item', 'description']) || ''),
               materialCode: String(getVal(['material code', 'code', 'material_code']) || ''),
               partNo: String(getVal(['part no', 'partno', 'part_no']) || ''),
-              orderedQty, balanceQty, rate, discount: parseNum(getVal(['discount', 'disc'])), value: excelValue || (balanceQty * rate), dueDate: stabilizeDateToString(getVal(['due on', 'due date', 'delivery date'])), overDueDays: parseNum(getVal(['overdue', 'overdue days', 'days']))
+              orderedQty, balanceQty, rate, discount: parseNum(getVal(['discount', 'disc'])), value: (balanceQty * rate), 
+              dueDate: strictDateParse(getVal(['due on', 'due date', 'delivery date'])), 
+              overDueDays: parseNum(getVal(['overdue', 'overdue days', 'days']))
           };
-      }).filter(i => i.partyName && i.itemName);
+      }).filter(i => i.partyName && i.itemName && i.date);
       if (newItems.length > 0) { onBulkAdd(newItems); alert(`Imported ${newItems.length} Sales Orders.`); } else alert("No valid records found.");
     } catch (err) { alert("Error parsing Excel file."); }
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -205,26 +194,16 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
           <button onClick={() => setShowErrorsOnly(!showErrorsOnly)} className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${showErrorsOnly ? 'bg-orange-100 text-orange-700 border-orange-200 shadow-sm' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}>{showErrorsOnly ? "Show All Data" : "Filter Errors Only"}</button>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 flex-shrink-0">
-          <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200"><p className="text-[10px] text-gray-500 font-medium uppercase mb-0.5">Total Ordered</p><div className="flex flex-col"><span className="text-sm font-bold text-blue-600">Qty: {totals.ordered.toLocaleString()}</span><span className="text-xs font-bold text-gray-800">{formatCurrency(totals.orderedValue)}</span></div></div>
-          <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200"><p className="text-[10px] text-gray-500 font-medium uppercase mb-0.5">Total Balance</p><div className="flex flex-col"><span className="text-sm font-bold text-orange-600">Qty: {totals.balance.toLocaleString()}</span><span className="text-xs font-bold text-gray-800">{formatCurrency(totals.value)}</span></div></div>
-          <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200"><p className="text-[10px] text-gray-500 font-medium uppercase mb-0.5">Orders Count</p><p className="text-base font-bold text-gray-600">{totals.uniqueOrderCount.toLocaleString()}</p></div>
-          <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200"><p className="text-[10px] text-gray-500 font-medium uppercase mb-0.5">Allocated (FIFO)</p><p className="text-base font-bold text-emerald-600">{totals.allocated.toLocaleString()}</p></div>
-          <div className="bg-red-50 p-3 rounded-xl shadow-sm border border-red-200"><p className="text-[10px] text-red-700 font-medium uppercase mb-0.5">Need To Arrange</p><p className="text-base font-bold text-red-700">{totals.toArrange.toLocaleString()}</p></div>
-      </div>
-
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 flex flex-col gap-3 flex-shrink-0">
          <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
             <h2 className="text-sm font-semibold text-gray-800 flex items-center gap-2"><ClipboardList className="w-4 h-4 text-purple-600" /> Pending Sales Orders</h2>
             <div className="flex flex-wrap gap-2">
                 <button onClick={() => {}} className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-50 border border-gray-200 shadow-sm"><FileDown className="w-3.5 h-3.5" /> Export All</button>
-                <button onClick={handleDownloadTemplate} className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold border border-indigo-100 hover:bg-indigo-100 transition-colors shadow-sm"><Download className="w-3.5 h-3.5" /> Template</button>
                 <input type="file" ref={fileInputRef} className="hidden" accept=".xlsx, .xls" onChange={handleFileUpload} />
                 <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-xs border border-emerald-100 hover:bg-emerald-100 transition-colors font-bold"><Upload className="w-3.5 h-3.5" /> Import Excel</button>
                 <button onClick={onClear} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs border border-red-100 hover:bg-red-100 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
             </div>
          </div>
-         <div className="relative"><div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Search className="h-3.5 w-3.5 text-gray-400" /></div><input type="text" placeholder="Search orders..." className="pl-9 pr-3 py-1.5 w-full border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col flex-1 min-h-0">
@@ -236,59 +215,29 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
                         <th className="py-2 px-3 whitespace-nowrap">Order No</th>
                         <th className="py-2 px-3 whitespace-nowrap">Party Name</th>
                         <th className="py-2 px-3 w-64 whitespace-nowrap">Item Name</th>
-                        <th className="py-2 px-3 text-right">Ordered</th>
                         <th className="py-2 px-3 text-right">Balance</th>
                         <th className="py-2 px-3 text-right">Due On</th>
-                        <th className="py-2 px-3 text-center">OD</th>
-                        <th className="py-2 px-3 text-center bg-gray-50 border-l border-gray-100">Stock</th>
-                        <th className="py-2 px-3 text-center bg-gray-50">Alloc</th>
-                        <th className="py-2 px-3 text-center bg-gray-50 border-r border-gray-100 text-red-600">Arrange</th>
                         <th className="py-2 px-3 text-right">Act</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 text-xs">
-                    {filteredItems.length === 0 ? (<tr><td colSpan={12} className="py-8 text-center text-gray-500 font-medium">No matching orders found.</td></tr>) : (
+                    {filteredItems.length === 0 ? (<tr><td colSpan={7} className="py-8 text-center text-gray-500 font-medium">No matching orders found.</td></tr>) : (
                         filteredItems.map(item => (
                             <tr key={item.id} className={`hover:bg-purple-50/20 transition-colors ${editingId === item.id ? 'bg-purple-50' : ''}`}>
-                                {editingId === item.id ? (
-                                    <>
-                                        <td className="py-2 px-3"><input type="date" className="w-full border border-purple-300 rounded px-1.5 py-0.5 text-xs focus:outline-none" value={formatInputDate(editForm?.date || '')} onChange={e => handleInputChange('date', e.target.value)} /></td>
-                                        <td className="py-2 px-3"><input type="text" className="w-full border border-purple-300 rounded px-1.5 py-0.5 text-xs focus:outline-none" value={editForm?.orderNo || ''} onChange={e => handleInputChange('orderNo', e.target.value)} /></td>
-                                        <td className="py-2 px-3"><input type="text" className="w-full border border-purple-300 rounded px-1.5 py-0.5 text-xs focus:outline-none" value={editForm?.partyName || ''} onChange={e => handleInputChange('partyName', e.target.value)} /></td>
-                                        <td className="py-2 px-3"><input type="text" className="w-full border border-purple-300 rounded px-1.5 py-0.5 text-xs focus:outline-none" value={editForm?.itemName || ''} onChange={e => handleInputChange('itemName', e.target.value)} /></td>
-                                        <td className="py-2 px-3"><input type="number" className="w-full border border-purple-300 rounded px-1.5 py-0.5 text-right text-xs focus:outline-none" value={editForm?.orderedQty || 0} onChange={e => handleInputChange('orderedQty', parseFloat(e.target.value))} /></td>
-                                        <td className="py-2 px-3"><input type="number" className="w-full border border-purple-300 rounded px-1.5 py-0.5 text-right text-xs focus:outline-none" value={editForm?.balanceQty || 0} onChange={e => handleInputChange('balanceQty', parseFloat(e.target.value))} /></td>
-                                        <td className="py-2 px-3"><input type="date" className="w-full border border-purple-300 rounded px-1.5 py-0.5 text-xs focus:outline-none" value={formatInputDate(editForm?.dueDate || '')} onChange={e => handleInputChange('dueDate', e.target.value)} /></td>
-                                        <td colSpan={5} className="py-2 px-3 text-right">
-                                            <div className="flex justify-end gap-1">
-                                                <button onClick={handleSaveEdit} className="p-1 rounded bg-green-100 text-green-700 hover:bg-green-200"><Save className="w-3.5 h-3.5" /></button>
-                                                <button onClick={handleCancelEdit} className="p-1 rounded bg-red-100 text-red-700 hover:bg-red-200"><X className="w-3.5 h-3.5" /></button>
-                                            </div>
-                                        </td>
-                                    </>
-                                ) : (
-                                    <>
-                                        <td className="py-2 px-3 text-gray-600 whitespace-nowrap">{formatDateDisplay(item.date)}</td>
-                                        <td className="py-2 px-3 font-medium text-gray-800">{item.orderNo}</td>
-                                        <td className="py-2 px-3 truncate max-w-[150px]" title={item.partyName}>{item.partyName}</td>
-                                        <td className="py-2 px-3 font-medium line-clamp-1" title={item.itemName}>
-                                            {item.isMatUnknown ? <span className="text-red-600 bg-red-50 px-1 py-px rounded font-mono" title="Item not in Master. Showing Part No.">{item.partNo || item.itemName}</span> : item.itemName}
-                                        </td>
-                                        <td className="py-2 px-3 text-right text-gray-600">{item.orderedQty}</td>
-                                        <td className="py-2 px-3 text-right font-medium text-orange-600">{item.balanceQty}</td>
-                                        <td className="py-2 px-3 whitespace-nowrap text-gray-600">{formatDateDisplay(item.dueDate)}</td>
-                                        <td className="py-2 px-3 text-center">{item.overDueDays > 0 ? <span className="inline-flex px-1 py-px rounded text-[9px] font-bold bg-red-100 text-red-700">{item.overDueDays}D</span> : '-'}</td>
-                                        <td className="py-2 px-3 text-center border-l border-gray-100 bg-gray-50/40">{item.totalStock}</td>
-                                        <td className="py-2 px-3 text-center bg-gray-50/40">{item.status === 'future' ? <span className="text-[9px] text-blue-500">Fut</span> : item.allocated}</td>
-                                        <td className="py-2 px-3 text-center border-r border-gray-100 bg-gray-50/40 font-bold text-red-600">{item.shortage || '-'}</td>
-                                        <td className="py-2 px-3 text-right">
-                                            <div className="flex justify-end gap-1">
-                                                <button onClick={() => handleEditClick(item)} className="text-gray-400 hover:text-blue-600 p-0.5 rounded hover:bg-blue-50 transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
-                                                <button onClick={() => onDelete(item.id)} className="text-gray-400 hover:text-red-600 p-0.5 rounded hover:bg-red-50 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
-                                            </div>
-                                        </td>
-                                    </>
-                                )}
+                                <td className="py-2 px-3 text-gray-600 whitespace-nowrap">{formatDateDisplay(item.date)}</td>
+                                <td className="py-2 px-3 font-medium text-gray-800">{item.orderNo}</td>
+                                <td className="py-2 px-3 truncate max-w-[150px]" title={item.partyName}>{item.partyName}</td>
+                                <td className="py-2 px-3 font-medium line-clamp-1" title={item.itemName}>
+                                    {item.isMatUnknown ? <span className="text-red-600 bg-red-50 px-1 py-px rounded font-mono" title="Item not in Master.">{item.itemName}</span> : item.itemName}
+                                </td>
+                                <td className="py-2 px-3 text-right font-medium text-orange-600">{item.balanceQty}</td>
+                                <td className="py-2 px-3 whitespace-nowrap text-gray-600">{formatDateDisplay(item.dueDate)}</td>
+                                <td className="py-2 px-3 text-right">
+                                    <div className="flex justify-end gap-1">
+                                        <button onClick={() => handleEditClick(item)} className="text-gray-400 hover:text-blue-600 p-0.5 rounded hover:bg-blue-50 transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
+                                        <button onClick={() => onDelete(item.id)} className="text-gray-400 hover:text-red-600 p-0.5 rounded hover:bg-red-50 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                                    </div>
+                                </td>
                             </tr>
                         ))
                     )}

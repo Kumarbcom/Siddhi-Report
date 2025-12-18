@@ -4,9 +4,9 @@ import { Material } from "../types";
 
 export const generateMockMaterials = async (count: number = 5): Promise<Omit<Material, 'id' | 'createdAt'>[]> => {
   try {
-    // Guidelines: Always obtain API Key exclusively from process.env.API_KEY
-    // Guidelines: Create instance right before use to ensure latest key from environment
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+    // Guidelines: Always use new GoogleGenAI({apiKey: process.env.API_KEY});
+    // Guidelines: Use this process.env.API_KEY string directly when initializing the @google/genai client instance.
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
@@ -33,9 +33,9 @@ export const generateMockMaterials = async (count: number = 5): Promise<Omit<Mat
       }
     });
 
-    // Guidelines: Directly access .text property
+    // Guidelines: Directly access .text property (not a method)
     if (response.text) {
-      return JSON.parse(response.text);
+      return JSON.parse(response.text.trim());
     }
     return [];
   } catch (error) {

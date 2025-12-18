@@ -44,13 +44,12 @@ export const materialService = {
     }
   },
 
-  // Added deduplicate method to merge items with identical technical keys and resolve TypeScript error.
   async deduplicate(): Promise<Material[]> {
     const materials = await this.getAll();
     const seen = new Set<string>();
     const unique: Material[] = [];
     for (const m of materials) {
-      const key = `${m.description.toLowerCase().trim()}|${m.partNo.toLowerCase().trim()}|${m.make.toLowerCase().trim()}`;
+      const key = `${(m.description || '').toLowerCase().trim()}|${(m.partNo || '').toLowerCase().trim()}|${(m.make || '').toLowerCase().trim()}`;
       if (!seen.has(key)) {
         seen.add(key);
         unique.push(m);
@@ -74,10 +73,9 @@ export const materialService = {
     try {
       const chunks = [];
       for (let i = 0; i < rows.length; i += BATCH_SIZE) chunks.push(rows.slice(i, i + BATCH_SIZE));
-      const CONCURRENCY = 5;
-      for (let i = 0; i < chunks.length; i += CONCURRENCY) {
-        const batch = chunks.slice(i, i + CONCURRENCY);
-        await Promise.all(batch.map(chunk => supabase.from('material_master').insert(chunk)));
+      for (const chunk of chunks) {
+        const { error } = await supabase.from('material_master').insert(chunk);
+        if (error) throw error;
       }
     } catch (e) {
       console.warn('Supabase bulk insert failed (Materials), synced locally.');

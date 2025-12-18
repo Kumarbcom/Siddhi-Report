@@ -198,7 +198,8 @@ interface DashboardViewProps {
   closingStock: ClosingStockItem[];
   pendingSO: PendingSOItem[];
   pendingPO: PendingPOItem[];
-  salesReportItems: SalesReportItems[];
+  // FIX: Corrected type name from SalesReportItems to SalesReportItem
+  salesReportItems: SalesReportItem[];
   customers: CustomerMasterItem[];
   sales1Year: SalesRecord[];
   sales3Months: SalesRecord[];
@@ -372,7 +373,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     <div className="h-full w-full flex flex-col bg-gray-50/50 overflow-hidden">
       <div className="bg-white border-b border-gray-200 px-4 py-3 flex flex-col xl:flex-row gap-4 items-start xl:items-center justify-between flex-shrink-0 shadow-sm z-10">
           <div className="flex bg-gray-100 p-1 rounded-lg">{(['sales', 'inventory', 'so', 'po'] as const).map(tab => (<button key={tab} onClick={() => setActiveSubTab(tab)} className={`px-3 py-1.5 rounded-md text-xs font-bold uppercase ${activeSubTab === tab ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500'}`}>{tab === 'so' ? 'Pending SO' : tab === 'po' ? 'Pending PO' : tab}</button>))}</div>
-          {activeSubTab === 'sales' && (<div className="flex flex-wrap items-center gap-3"><div className="flex bg-gray-100 p-1 rounded-lg">{(['FY', 'MONTH', 'WEEK'] as const).map(v => (<button key={v} onClick={() => setTimeView(v)} className={`px-3 py-1 rounded-md text-xs font-bold ${timeView === v ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500'}`}>{v}</button>))}</div><select value={selectedFY} onChange={e => setSelectedFY(e.target.value)} className="bg-white border border-gray-300 text-xs rounded-md px-2 py-1.5 font-medium">{uniqueFYs.map(fy => <option key={fy} value={fy}>{fy}</option>)}</select></div>)}
+          {activeSubTab === 'sales' && (<div className="flex flex-wrap items-center gap-3"><div className="flex bg-gray-100 p-1 rounded-lg">{(['FY', 'MONTH', 'WEEK'] as const).map(v => (<button key={v} onClick={() => setTimeView(v)} className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${timeView === v ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>FY</button><button onClick={() => setTimeView('MONTH')} className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${timeView === 'MONTH' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>MONTH</button><button onClick={() => setTimeView('WEEK')} className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${timeView === 'WEEK' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>WEEK</button></div><select value={selectedFY} onChange={e => setSelectedFY(e.target.value)} className="bg-white border border-gray-300 text-xs rounded-md px-2 py-1.5 font-medium">{uniqueFYs.map(fy => <option key={fy} value={fy}>{fy}</option>)}</select></div>)}
       </div>
       <div className="flex-1 p-4 overflow-y-auto custom-scrollbar">
         {activeSubTab === 'sales' ? (

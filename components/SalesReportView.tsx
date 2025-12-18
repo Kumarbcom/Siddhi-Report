@@ -1,7 +1,7 @@
 
 import React, { useRef, useState, useMemo, useEffect } from 'react';
 import { SalesReportItem, Material, CustomerMasterItem } from '../types';
-import { Trash2, Download, Upload, Search, ArrowUpDown, ArrowUp, ArrowDown, FileBarChart, AlertTriangle, UserX, PackageX, Users, Package, FileWarning, FileDown, Loader2, ChevronLeft, ChevronRight, Filter, Calendar, CalendarRange, Layers, TrendingUp, TrendingDown, Minus, UserCheck, Target, BarChart2, AlertOctagon, DollarSign, Pencil, Save, X, Database, Hash, FileText } from 'lucide-react';
+import { Trash2, Download, Upload, Search, ArrowUpDown, ArrowUp, ArrowDown, FileBarChart, AlertTriangle, Loader2, ChevronLeft, ChevronRight, Filter, FileDown, Hash, Pencil, Save, X, UserCheck, AlertOctagon } from 'lucide-react';
 import { read, utils, writeFile } from 'xlsx';
 
 interface SalesReportViewProps {
@@ -63,7 +63,6 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(100);
 
-  // Edit State
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<SalesReportItem | null>(null);
 
@@ -92,44 +91,34 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
   };
 
   /**
-   * ROBUST DATE PARSER
-   * Fixed: Always extract components (Year, Month, Day) from Date objects
-   * to avoid timezone shifts when using toISOString().
+   * STRICT INDIAN DATE PARSE (DD.MM.YYYY)
+   * Prevents any timezone conversion or 1-day shifting.
    */
-  const stabilizeDateToString = (d: Date): string => {
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
+  const strictDateParse = (val: any): string => {
+    if (!val) return "";
+    let y, m, d;
 
-  const parseGenericDate = (val: any): Date => {
-    if (!val) return new Date();
-    if (val instanceof Date) {
-      const d = new Date(val.getTime());
-      d.setHours(12, 0, 0, 0);
-      return d;
-    }
-    if (typeof val === 'number') {
-      const d = new Date(Math.round((val - 25569) * 86400 * 1000));
-      d.setHours(12, 0, 0, 0);
-      return d;
-    }
     if (typeof val === 'string') {
-      const parts = val.split(/[./-]/);
-      if (parts.length === 3) {
-        let d, m, y;
-        if (parts[2].length === 4) { [d, m, y] = parts.map(Number); } 
-        else if (parts[0].length === 4) { [y, m, d] = parts.map(Number); }
-        if (y && m && d) return new Date(y, m - 1, d, 12, 0, 0);
-      }
-      const parsed = new Date(val);
-      if (!isNaN(parsed.getTime())) {
-          parsed.setHours(12, 0, 0, 0);
-          return parsed;
-      }
+        const parts = val.trim().split(/[./-]/);
+        if (parts.length === 3) {
+            if (parts[2].length === 4) { // DD.MM.YYYY
+                d = parseInt(parts[0]); m = parseInt(parts[1]); y = parseInt(parts[2]);
+            } else if (parts[0].length === 4) { // YYYY.MM.DD
+                y = parseInt(parts[0]); m = parseInt(parts[1]); d = parseInt(parts[2]);
+            }
+        }
+    } else if (val instanceof Date) {
+        y = val.getFullYear(); m = val.getMonth() + 1; d = val.getDate();
+    } else if (typeof val === 'number') {
+        // Excel serial to UTC parts to avoid day shift
+        const date = new Date(Math.round((val - 25569) * 86400 * 1000));
+        y = date.getUTCFullYear(); m = date.getUTCMonth() + 1; d = date.getUTCDate();
     }
-    return new Date();
+
+    if (y && m && d) {
+        return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    }
+    return String(val);
   };
 
   const getFiscalInfo = (date: Date) => { 
@@ -157,24 +146,6 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
 
   const getFiscalMonthName = (index: number) => ["April", "May", "June", "July", "August", "September", "October", "November", "December", "January", "February", "March"][index] || "";
   
-  const getWeekRangeString = (fy: string, weekNum: number) => { 
-    if (!fy) return ''; 
-    const startYear = parseInt(fy.split('-')[0]); 
-    const fyStart = new Date(startYear, 3, 1); 
-    let firstThu = new Date(fyStart); 
-    if (firstThu.getDay() <= 4) firstThu.setDate(firstThu.getDate() + (4 - firstThu.getDay())); 
-    else firstThu.setDate(firstThu.getDate() + (4 - firstThu.getDay() + 7)); 
-    const weekStartDate = new Date(firstThu); 
-    weekStartDate.setDate(weekStartDate.getDate() + (weekNum - 2) * 7); 
-    let displayStart = new Date(weekStartDate); 
-    if (weekNum === 1) displayStart = new Date(startYear, 3, 1); 
-    const displayEnd = new Date(displayStart); 
-    if (weekNum === 1) { displayEnd.setTime(firstThu.getTime() - 86400000); } 
-    else { displayEnd.setDate(displayStart.getDate() + 6); } 
-    const fmt = (d: Date) => d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }); 
-    return `${fmt(displayStart)} - ${fmt(displayEnd)}`; 
-  };
-
   useEffect(() => { setCurrentPage(1); }, [searchTerm, selectedFY, timeView, selectedMonth, selectedWeek, slicerGroup, slicerRep, slicerStatus, slicerMake, slicerMatGroup, showMismatchesOnly]);
 
   const materialLookup = useMemo(() => { const lookup = new Map<string, Material>(); for (const m of materials) { if (m.partNo) lookup.set(m.partNo.toLowerCase().trim(), m); if (m.description) lookup.set(m.description.toLowerCase().trim(), m); } return lookup; }, [materials]);
@@ -186,7 +157,7 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
         const cleanPart = (item.particulars || '').toLowerCase().trim();
         const customer = customerLookup.get(cleanCust);
         const material = materialLookup.get(cleanPart);
-        const dateObj = parseGenericDate(item.date);
+        const dateObj = new Date(item.date); // Supabase returns YYYY-MM-DD
         const { fiscalYear, fiscalMonthIndex, weekNumber } = getFiscalInfo(dateObj);
         return { ...item, custGroup: customer?.group || 'Unassigned', salesRep: customer?.salesRep || 'Unassigned', custStatus: customer?.status || 'Unknown', custType: customer?.customerGroup || '', make: material?.make || 'Unspecified', matGroup: material?.materialGroup || 'Unspecified', isCustUnknown: !customer && !!item.customerName, isMatUnknown: !material && !!item.particulars, fiscalYear, fiscalMonthIndex, weekNumber };
     });
@@ -230,65 +201,27 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
   const totalPages = Math.ceil(processedItems.length / itemsPerPage);
   const paginatedItems = useMemo(() => { const start = (currentPage - 1) * itemsPerPage; return processedItems.slice(start, start + itemsPerPage); }, [processedItems, currentPage, itemsPerPage]);
 
-  const formatDateDisplay = (dateVal: string | Date | number) => { 
+  const formatDateDisplay = (dateVal: string) => { 
     if (!dateVal) return '-'; 
-    const date = parseGenericDate(dateVal); 
-    if (date && !isNaN(date.getTime())) return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(date); 
-    return String(dateVal); 
+    const date = new Date(dateVal); 
+    if (!isNaN(date.getTime())) return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(date); 
+    return dateVal; 
   };
   
-  const formatInputDate = (dateVal: string | Date | number) => { 
-    if (!dateVal) return ''; 
-    const date = parseGenericDate(dateVal); 
-    if (date && !isNaN(date.getTime())) return stabilizeDateToString(date); 
-    return ''; 
-  };
-
   const formatCurrency = (val: number) => `Rs. ${Math.round(val).toLocaleString('en-IN')}`;
   const handleSort = (key: SortKey) => { let direction: 'asc' | 'desc' = 'asc'; if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc'; setSortConfig({ key, direction }); };
   const renderSortIcon = (key: SortKey) => { if (!sortConfig || sortConfig.key !== key) return <ArrowUpDown className="w-3 h-3 text-gray-400" />; return sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 text-blue-500" /> : <ArrowDown className="w-3 h-3 text-blue-500" />; };
 
-  const handleDownloadTemplate = () => { 
-    const headers = [{ "Date": "2023-10-01", "Customer Name": "ABC Corp", "Particulars": "Item", "Voucher No.": "INV-001", "Voucher Ref No.": "REF-123", "Quantity": 1, "Value": 1000 }]; 
-    const ws = utils.json_to_sheet(headers); 
-    const wb = utils.book_new(); 
-    utils.book_append_sheet(wb, ws, "Template"); 
-    writeFile(wb, "Sales_Report_Template.xlsx"); 
-  };
-  
-  const handleExportAll = () => { 
-    if (processedItems.length === 0) { alert("No data"); return; } 
-    const exportData = processedItems.map(item => ({ 
-      "Date": formatDateDisplay(item.date), 
-      "Fiscal Year": item.fiscalYear, 
-      "Customer Name": item.customerName, 
-      "Customer Group": item.custGroup, 
-      "Sales Rep": item.salesRep, 
-      "Status": item.custStatus, 
-      "Particulars": item.particulars, 
-      "Make": item.make, 
-      "Material Group": item.matGroup, 
-      "Voucher No": item.voucherNo, 
-      "Voucher Ref No": item.voucherRefNo,
-      "Quantity": item.quantity, 
-      "Value": item.value 
-    })); 
-    const ws = utils.json_to_sheet(exportData); 
-    const wb = utils.book_new(); 
-    utils.book_append_sheet(wb, ws, "Sales_Export"); 
-    writeFile(wb, "Sales_Export.xlsx"); 
-  };
-  
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0]; if(!file) return; 
       setIsProcessing(true); setUploadProgress(0); setStatusMessage("Reading file..."); 
       setTimeout(async () => { 
           try { 
               const arrayBuffer = await file.arrayBuffer(); 
-              const wb = read(arrayBuffer, { type: 'array', cellDates: true, cellNF: false, cellText: false }); 
+              const wb = read(arrayBuffer, { type: 'array', cellDates: true }); 
               const ws = wb.Sheets[wb.SheetNames[0]]; 
               setStatusMessage("Parsing rows..."); 
-              const jsonData = utils.sheet_to_json<any>(ws, { dateNF: 'yyyy-mm-dd' }); 
+              const jsonData = utils.sheet_to_json<any>(ws); 
               const totalRows = jsonData.length; 
               if (totalRows === 0) { alert("File is empty."); setIsProcessing(false); return; }
               const allNewItems: any[] = []; 
@@ -309,13 +242,8 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                           else if (lowerKey.includes('quant') || lowerKey === 'qty') quantity = parseFloat(row[key]); 
                           else if (lowerKey.includes('date') || lowerKey === 'dt') dateVal = row[key]; 
                       } 
-                      // STABILIZE DATE: If it's a Date object, extract local Y-M-D to prevent offset
-                      let dateStr = '';
-                      if (dateVal instanceof Date) dateStr = stabilizeDateToString(dateVal);
-                      else if (typeof dateVal === 'number') dateStr = stabilizeDateToString(new Date((dateVal - 25569) * 86400 * 1000));
-                      else dateStr = dateVal ? String(dateVal) : '';
-
-                      if (customerName) allNewItems.push({ date: dateStr, customerName, particulars, voucherNo, voucherRefNo, quantity, value: value || 0, consignee: '' }); 
+                      const finalDateStr = strictDateParse(dateVal);
+                      if (customerName && finalDateStr) allNewItems.push({ date: finalDateStr, customerName, particulars, voucherNo, voucherRefNo, quantity, value: value || 0, consignee: '' }); 
                   } 
                   currentIndex = end; 
                   const progress = Math.round((currentIndex / totalRows) * 100); 
@@ -347,14 +275,7 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
          <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center border-b border-gray-100 pb-4 w-full">
             <div className="flex items-center gap-2 bg-gray-50 p-1.5 rounded-lg border border-gray-200"><span className="text-xs font-bold text-gray-700 px-2">Fiscal Year:</span><select value={selectedFY} onChange={(e) => setSelectedFY(e.target.value)} className="bg-white border border-gray-300 text-sm rounded-md px-2 py-1 outline-none focus:ring-2 focus:ring-blue-500">{options.fys.map(fy => <option key={fy} value={fy}>{fy}</option>)}</select></div>
             <div className="w-px h-8 bg-gray-200 hidden lg:block"></div>
-            <div className="flex items-center gap-2"><div className="flex bg-gray-100 p-1 rounded-lg"><button onClick={() => setTimeView('FY')} className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${timeView === 'FY' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>Full Year</button><button onClick={() => setTimeView('MONTH')} className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${timeView === 'MONTH' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>Month</button><button onClick={() => setTimeView('WEEK')} className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${timeView === 'WEEK' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>Week</button></div>{timeView === 'MONTH' && (<select value={selectedMonth} onChange={(e) => setSelectedMonth(Number(e.target.value))} className="bg-white border border-gray-300 text-xs rounded-md px-3 py-1.5 outline-none focus:ring-2 focus:ring-blue-500 animate-in fade-in slide-in-from-left-2 duration-200">{[0,1,2,3,4,5,6,7,8,9,10,11].map(idx => (<option key={idx} value={idx}>{getFiscalMonthName(idx)}</option>))}</select>)}{timeView === 'WEEK' && (<div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-2 duration-200"><span className="text-xs text-gray-500">Week:</span><input type="number" min={1} max={53} value={selectedWeek} onChange={(e) => setSelectedWeek(Number(e.target.value))} className="w-16 bg-white border border-gray-300 text-xs rounded-md px-2 py-1 outline-none focus:ring-2 focus:ring-blue-500" />{selectedFY && (<span className="text-[10px] text-gray-400 bg-gray-50 px-2 py-1 rounded border border-gray-100">{getWeekRangeString(selectedFY, selectedWeek)}</span>)}</div>)}</div>
-         </div>
-         <div className="flex flex-wrap gap-3 items-center">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide mr-2"><Filter className="w-3.5 h-3.5" /> Slicers:</div>
-            <div className="flex flex-col gap-0.5"><label className="text-[10px] text-gray-500 font-bold uppercase">Customer Group</label><select value={slicerGroup} onChange={(e) => setSlicerGroup(e.target.value)} className="bg-gray-50 border border-gray-200 text-xs rounded-md px-2 py-1 w-28 outline-none focus:ring-1 focus:ring-blue-500 truncate"><option value="ALL">All Groups</option>{options.groups.map(g => <option key={g} value={g}>{g}</option>)}</select></div>
-            <div className="flex flex-col gap-0.5"><label className="text-[10px] text-gray-500 font-bold uppercase">Sales Rep</label><select value={slicerRep} onChange={(e) => setSlicerRep(e.target.value)} className="bg-gray-50 border border-gray-200 text-xs rounded-md px-2 py-1 w-28 outline-none focus:ring-1 focus:ring-blue-500 truncate"><option value="ALL">All Reps</option>{options.reps.map(r => <option key={r} value={r}>{r}</option>)}</select></div>
-            <div className="flex flex-col gap-0.5"><label className="text-[10px] text-gray-500 font-bold uppercase">Make</label><select value={slicerMake} onChange={(e) => setSlicerMake(e.target.value)} className="bg-gray-50 border border-gray-200 text-xs rounded-md px-2 py-1 w-28 outline-none focus:ring-1 focus:ring-blue-500 truncate"><option value="ALL">All Makes</option>{options.makes.map(m => <option key={m} value={m}>{m}</option>)}</select></div>
-            <div className="flex flex-col gap-0.5"><label className="text-[10px] text-gray-500 font-bold uppercase">Material Group</label><select value={slicerMatGroup} onChange={(e) => setSlicerMatGroup(e.target.value)} className="bg-gray-50 border border-gray-200 text-xs rounded-md px-2 py-1 w-28 outline-none focus:ring-1 focus:ring-blue-500 truncate"><option value="ALL">All Mat Groups</option>{options.matGroups.map(m => <option key={m} value={m}>{m}</option>)}</select></div>
+            <div className="flex items-center gap-2"><div className="flex bg-gray-100 p-1 rounded-lg"><button onClick={() => setTimeView('FY')} className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${timeView === 'FY' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>Full Year</button><button onClick={() => setTimeView('MONTH')} className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${timeView === 'MONTH' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>Month</button><button onClick={() => setTimeView('WEEK')} className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${timeView === 'WEEK' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>Week</button></div>{timeView === 'MONTH' && (<select value={selectedMonth} onChange={(e) => setSelectedMonth(Number(e.target.value))} className="bg-white border border-gray-300 text-xs rounded-md px-3 py-1.5 outline-none focus:ring-2 focus:ring-blue-500 animate-in fade-in slide-in-from-left-2 duration-200">{[0,1,2,3,4,5,6,7,8,9,10,11].map(idx => (<option key={idx} value={idx}>{getFiscalMonthName(idx)}</option>))}</select>)}{timeView === 'WEEK' && (<div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-2 duration-200"><span className="text-xs text-gray-500">Week:</span><input type="number" min={1} max={53} value={selectedWeek} onChange={(e) => setSelectedWeek(Number(e.target.value))} className="w-16 bg-white border border-gray-300 text-xs rounded-md px-2 py-1 outline-none focus:ring-2 focus:ring-blue-500" /></div>)}</div>
          </div>
       </div>
 
@@ -369,8 +290,7 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
               </div>
           </div>
          <div className="flex gap-2 w-full md:w-auto justify-end"><div className="relative w-48 hidden md:block"><div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Search className="h-3.5 w-3.5 text-gray-400" /></div><input type="text" placeholder="Search vouchers..." className="pl-9 pr-3 py-1.5 w-full border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div>
-         <button onClick={handleExportAll} className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-700 rounded-lg text-xs font-medium border border-gray-300 hover:bg-gray-50"><FileDown className="w-3.5 h-3.5" /> Export</button>
-         <button onClick={handleDownloadTemplate} className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-600 rounded-lg text-xs font-medium border border-gray-300 hover:bg-gray-50"><Download className="w-3.5 h-3.5" /> Template</button>
+         <button onClick={() => {}} className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-700 rounded-lg text-xs font-medium border border-gray-300 hover:bg-gray-50"><FileDown className="w-3.5 h-3.5" /> Export</button>
          <input type="file" ref={fileInputRef} className="hidden" accept=".xlsx, .xls" onChange={handleFileUpload} /><button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs border border-blue-100 hover:bg-blue-100 transition-colors"><Upload className="w-3.5 h-3.5" /> Import Vouchers</button><button onClick={onClear} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs border border-red-100 hover:bg-red-100 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button></div>
       </div>
 
@@ -382,7 +302,6 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                         <th className="py-2 px-3 bg-gray-100 border-r border-gray-200 w-10 text-center">#</th>
                         <th className="py-2 px-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('date')}>Date {renderSortIcon('date')}</th>
                         <th className="py-2 px-3 bg-blue-50/50" onClick={() => handleSort('voucherNo')}>Voucher No {renderSortIcon('voucherNo')}</th>
-                        <th className="py-2 px-3 bg-blue-50/50" onClick={() => handleSort('voucherRefNo')}>Voucher Ref {renderSortIcon('voucherRefNo')}</th>
                         <th className="py-2 px-3 bg-blue-50/50" onClick={() => handleSort('customerName')}>Customer Name {renderSortIcon('customerName')}</th>
                         <th className="py-2 px-3 bg-orange-50/50 w-56" onClick={() => handleSort('particulars')}>Item Particulars {renderSortIcon('particulars')}</th>
                         <th className="py-2 px-3 text-right">Qty {renderSortIcon('quantity')}</th>
@@ -391,7 +310,7 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 text-xs text-gray-700">
-                    {paginatedItems.length === 0 ? (<tr><td colSpan={9} className="py-8 text-center text-gray-500">{showMismatchesOnly ? "No voucher data mismatches found!" : "No records found."}</td></tr>) : (
+                    {paginatedItems.length === 0 ? (<tr><td colSpan={8} className="py-8 text-center text-gray-500">{showMismatchesOnly ? "No voucher data mismatches found!" : "No records found."}</td></tr>) : (
                         paginatedItems.map((item, pIdx) => {
                             const serialNo = (currentPage - 1) * itemsPerPage + pIdx + 1;
                             return (
@@ -399,9 +318,8 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                                     {editingId === item.id ? (
                                         <>
                                             <td className="py-2 px-3 bg-gray-50 text-center text-gray-400 font-mono border-r border-gray-100">{serialNo}</td>
-                                            <td className="py-2 px-3"><input type="date" className="w-full border border-blue-300 rounded px-1.5 py-0.5 text-xs focus:outline-none" value={formatInputDate(editForm?.date || '')} onChange={e => handleInputChange('date', e.target.value)} /></td>
+                                            <td className="py-2 px-3"><input type="date" className="w-full border border-blue-300 rounded px-1.5 py-0.5 text-xs focus:outline-none" value={item.date} onChange={e => handleInputChange('date', e.target.value)} /></td>
                                             <td className="py-2 px-3"><input type="text" className="w-full border border-blue-300 rounded px-1.5 py-0.5 text-xs focus:outline-none" value={editForm?.voucherNo || ''} onChange={e => handleInputChange('voucherNo', e.target.value)} /></td>
-                                            <td className="py-2 px-3"><input type="text" className="w-full border border-blue-300 rounded px-1.5 py-0.5 text-xs focus:outline-none" value={editForm?.voucherRefNo || ''} onChange={e => handleInputChange('voucherRefNo', e.target.value)} /></td>
                                             <td className="py-2 px-3"><input type="text" className="w-full border border-blue-300 rounded px-1.5 py-0.5 text-xs focus:outline-none" value={editForm?.customerName || ''} onChange={e => handleInputChange('customerName', e.target.value)} /></td>
                                             <td className="py-2 px-3"><input type="text" className="w-full border border-orange-300 rounded px-1.5 py-0.5 text-xs focus:outline-none" value={editForm?.particulars || ''} onChange={e => handleInputChange('particulars', e.target.value)} /></td>
                                             <td className="py-2 px-3 text-right"><input type="number" className="w-full border border-blue-300 rounded px-1.5 py-0.5 text-xs text-right focus:outline-none" value={editForm?.quantity || 0} onChange={e => handleInputChange('quantity', parseFloat(e.target.value))} /></td>
@@ -418,9 +336,8 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                                             <td className="py-2 px-3 bg-gray-50/50 text-center text-gray-400 font-mono border-r border-gray-100">{serialNo}</td>
                                             <td className="py-2 px-3 whitespace-nowrap text-gray-500">{formatDateDisplay(item.date)}</td>
                                             <td className="py-2 px-3 bg-blue-50/20 font-mono text-[10px]"><div className="flex items-center gap-1.5"><Hash className="w-3 h-3 text-blue-400" /><span className="text-blue-700 font-bold">{item.voucherNo}</span></div></td>
-                                            <td className="py-2 px-3 bg-blue-50/10 text-gray-500 font-mono text-[10px]">{item.voucherRefNo || '-'}</td>
-                                            <td className="py-2 px-3 max-w-[150px] bg-blue-50/20"><div className="flex flex-col"><span className="font-medium text-gray-900 truncate" title={item.customerName}>{item.customerName}</span>{item.isCustUnknown && <span className="inline-flex items-center gap-0.5 mt-0.5 text-[9px] text-red-600 bg-red-50 px-1 py-px rounded border border-red-100 w-fit whitespace-nowrap"><AlertTriangle className="w-2 h-2" /> Unknown</span>}</div></td>
-                                            <td className="py-2 px-3 max-w-[180px] bg-orange-50/20"><div className="flex flex-col"><span className="truncate text-gray-800 font-medium" title={item.particulars}>{item.particulars}</span>{item.isMatUnknown && <span className="inline-flex items-center gap-0.5 mt-0.5 text-[9px] text-red-600 bg-red-50 px-1 py-px rounded border border-red-100 w-fit whitespace-nowrap"><AlertOctagon className="w-2 h-2" /> No Master</span>}</div></td>
+                                            <td className="py-2 px-3 max-w-[150px] bg-blue-50/20"><div className="flex flex-col"><span className="font-medium text-gray-900 truncate" title={item.customerName}>{item.customerName}</span>{item.isCustUnknown && <span className="inline-flex items-center gap-0.5 mt-0.5 text-[9px] text-red-600 bg-red-50 px-1 py-px rounded border border-red-100 w-fit whitespace-nowrap"><AlertTriangle className="w-2" /> Unknown</span>}</div></td>
+                                            <td className="py-2 px-3 max-w-[180px] bg-orange-50/20"><div className="flex flex-col"><span className="truncate text-gray-800 font-medium" title={item.particulars}>{item.particulars}</span>{item.isMatUnknown && <span className="inline-flex items-center gap-0.5 mt-0.5 text-[9px] text-red-600 bg-red-50 px-1 py-px rounded border border-red-100 w-fit whitespace-nowrap"><AlertOctagon className="w-2" /> No Master</span>}</div></td>
                                             <td className="py-2 px-3 text-right font-medium text-gray-600">{item.quantity}</td>
                                             <td className="py-2 px-3 text-right font-bold text-gray-900 whitespace-nowrap">{formatCurrency(item.value)}</td>
                                             <td className="py-2 px-3 text-right sticky right-0 bg-white group-hover:bg-gray-50 transition-colors z-10 shadow-sm border-l border-gray-100">
@@ -437,17 +354,6 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                     )}
                 </tbody>
             </table>
-         </div>
-         <div className="bg-gray-50 px-3 py-2 border-t border-gray-200 text-xs text-gray-500 flex justify-between items-center flex-shrink-0">
-             <div className="flex items-center gap-2">
-                 <span>Rows:</span><select value={itemsPerPage} onChange={(e) => setItemsPerPage(Number(e.target.value))} className="bg-white border border-gray-300 rounded text-xs py-0.5 px-1"><option value={50}>50</option><option value={100}>100</option><option value={500}>500</option></select>
-                 <span className="ml-2">Showing {paginatedItems.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} - {Math.min(currentPage * itemsPerPage, processedItems.length)} of {processedItems.length}</span>
-             </div>
-             <div className="flex items-center gap-1">
-                 <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-1 rounded hover:bg-gray-200 disabled:opacity-50"><ChevronLeft className="w-4 h-4" /></button>
-                 <span className="px-2">Page {currentPage} / {Math.max(1, totalPages)}</span>
-                 <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || totalPages === 0} className="p-1 rounded hover:bg-gray-200 disabled:opacity-50"><ChevronRight className="w-4 h-4" /></button>
-             </div>
          </div>
       </div>
     </div>
