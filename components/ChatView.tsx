@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Chat, GenerateContentResponse } from "@google/genai";
 import { Material, ClosingStockItem, PendingSOItem, PendingPOItem, SalesReportItem, CustomerMasterItem } from '../types';
 import { Send, Bot, User, Trash2, Sparkles, Loader2, StopCircle } from 'lucide-react';
 
@@ -68,15 +68,15 @@ const ChatView: React.FC<ChatViewProps> = ({
 
     // For sales, we might have thousands of rows. Let's send the last 200 transactions.
     const recentSales = salesReportItems.slice(0, 200).map(s => 
-      `Date: ${s.date}, Cust: ${s.customerName}, Item: ${s.particulars}, Qty: ${s.quantity}, Val: ${s.value}`
+      `Date: ${s.salesDate}, Cust: ${s.customerName}, Item: ${s.materialCode}, Qty: ${s.quantity}, Val: ${s.value}`
     ).join('\n');
 
     return `
-      You are an intelligent SQL-capable assistant for a Sales & Inventory Management System.
+      You are an intelligent assistant for a Sales & Inventory Management System.
       You have access to the following REAL-TIME database snapshots:
 
       1. CLOSING STOCK (Inventory):
-      ${stockContext.substring(0, 20000)}... (truncated if too long)
+      ${stockContext.substring(0, 20000)}...
 
       2. PENDING SALES ORDERS (Customer Demand):
       ${soContext.substring(0, 20000)}...
@@ -112,27 +112,27 @@ const ChatView: React.FC<ChatViewProps> = ({
       const apiKey = process.env.API_KEY;
       if (!apiKey) throw new Error("API Key missing");
 
+      // Initialize AI instance right before the call to ensure latest API key
       const ai = new GoogleGenAI({ apiKey });
       
-      // We create a fresh model instance for the single turn or simple chat
-      // For complex multi-turn with heavy context, we pass the history manually or use sendMessage
-      // Here we inject the big data context freshly to ensure latest state is used.
-      const model = ai.models.getGenerativeModel({ 
-        model: "gemini-2.5-flash",
-        systemInstruction: prepareContext()
-      });
-
       const chatHistory = messages.map(m => ({
-        role: m.role,
+        role: m.role as 'user' | 'model',
         parts: [{ text: m.content }]
       }));
 
-      const chat = model.startChat({
+      // Using ai.chats.create for conversational interaction as per guidelines
+      const chat: Chat = ai.chats.create({ 
+        model: "gemini-3-pro-preview", // Upgraded to Pro for complex data reasoning
+        config: {
+          systemInstruction: prepareContext()
+        },
         history: chatHistory
       });
 
-      const result = await chat.sendMessage(text);
-      const responseText = result.response.text();
+      // chat.sendMessage accepts a message object
+      const response: GenerateContentResponse = await chat.sendMessage({ message: text });
+      // text is a property, not a method
+      const responseText = response.text || '';
 
       const aiMsg: Message = { id: crypto.randomUUID(), role: 'model', content: responseText, timestamp: Date.now() };
       setMessages(prev => [...prev, aiMsg]);

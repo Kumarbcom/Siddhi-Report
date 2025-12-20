@@ -1,7 +1,7 @@
 
-
 export interface Material {
   id: string;
+  materialCode: string;
   description: string;
   partNo: string;
   make: string;
@@ -67,13 +67,15 @@ export interface ClosingStockItem {
 
 export interface SalesReportItem {
   id: string;
-  date: string;
+  salesDate: string; // YYYY-MM-DD
   customerName: string;
-  particulars: string;
+  materialCode: string;
   consignee: string;
-  voucherNo: string;
+  invoiceNo: string; // formerly voucherNo
   voucherRefNo: string;
   quantity: number;
+  rate: number;
+  discount: number;
   value: number;
   createdAt: number;
 }

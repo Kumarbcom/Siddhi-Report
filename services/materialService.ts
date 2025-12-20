@@ -2,6 +2,23 @@
 import { supabase } from './supabase';
 import { Material, MaterialFormData } from '../types';
 
+/**
+ * SQL SCHEMA FOR material_master TABLE:
+ * 
+ * CREATE TABLE material_master (
+ *   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+ *   material_code TEXT,
+ *   description TEXT NOT NULL,
+ *   part_no TEXT,
+ *   make TEXT,
+ *   material_group TEXT,
+ *   created_at TIMESTAMPTZ DEFAULT NOW()
+ * );
+ * 
+ * UNIQUE CONSTRAINT (Optional but recommended):
+ * CREATE UNIQUE INDEX idx_material_code ON material_master(material_code);
+ */
+
 const LOCAL_STORAGE_KEY = 'material_master_db_v1';
 
 export const materialService = {
@@ -22,6 +39,7 @@ export const materialService = {
       } else {
         dbData = (data || []).map((row: any) => ({
           id: row.id,
+          materialCode: row.material_code || '',
           description: row.description,
           partNo: row.part_no,
           make: row.make,
@@ -51,11 +69,10 @@ export const materialService = {
       createdAt: timestamp
     }));
 
-    let success = false;
-
     try {
         const rows = newItems.map(m => ({
           id: m.id,
+          material_code: m.materialCode,
           description: m.description,
           part_no: m.partNo,
           make: m.make,
@@ -68,28 +85,25 @@ export const materialService = {
             console.error('Supabase insert error:', error.message);
             throw error;
         }
-        success = true;
     } catch (e) {
-        console.warn('Falling back to local storage for save.');
+        console.warn('Supabase save failed, backup handled in App state.');
     }
 
     // Always save to local storage as backup/fallback
-    if (!success) {
-        const current = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
-        const updated = [...newItems, ...current];
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
-    }
+    const current = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
+    const updated = [...newItems, ...current];
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
 
     return newItems;
   },
 
   // Update a material
   async update(material: Material): Promise<void> {
-    let success = false;
     try {
         const { error } = await supabase
         .from('material_master')
         .update({
+            material_code: material.materialCode,
             description: material.description,
             part_no: material.partNo,
             make: material.make,
@@ -98,33 +112,26 @@ export const materialService = {
         .eq('id', material.id);
         
         if (error) throw error;
-        success = true;
     } catch (e) {
-        console.warn('Falling back to local storage for update.');
+        console.warn('Supabase update failed.');
     }
 
-    if (!success) {
-        const current: Material[] = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
-        const updated = current.map(m => m.id === material.id ? material : m);
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
-    }
+    const current: Material[] = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
+    const updated = current.map(m => m.id === material.id ? material : m);
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
   },
 
   // Delete a material
   async delete(id: string): Promise<void> {
-    let success = false;
     try {
         const { error } = await supabase.from('material_master').delete().eq('id', id);
         if (error) throw error;
-        success = true;
     } catch (e) {
-        console.warn('Falling back to local storage for delete.');
+        console.warn('Supabase delete failed.');
     }
 
-    if (!success) {
-        const current: Material[] = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
-        const updated = current.filter(m => m.id !== id);
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
-    }
+    const current: Material[] = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
+    const updated = current.filter(m => m.id !== id);
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
   }
 };

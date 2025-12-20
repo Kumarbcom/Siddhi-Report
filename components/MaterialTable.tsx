@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Material } from '../types';
-import { Trash2, PackageOpen, Search, ArrowUpDown, ArrowUp, ArrowDown, Pencil, Save, X } from 'lucide-react';
+import { Trash2, PackageOpen, Search, ArrowUpDown, ArrowUp, ArrowDown, Pencil, Save, X, Hash } from 'lucide-react';
 
 interface MaterialTableProps {
   materials: Material[];
@@ -58,6 +58,7 @@ const MaterialTable: React.FC<MaterialTableProps> = ({ materials, onUpdate, onDe
     if (searchTerm) {
       const lowerSearch = searchTerm.toLowerCase();
       data = data.filter(item => 
+        (item.materialCode || '').toLowerCase().includes(lowerSearch) ||
         item.description.toLowerCase().includes(lowerSearch) ||
         item.partNo.toLowerCase().includes(lowerSearch) ||
         item.make.toLowerCase().includes(lowerSearch) ||
@@ -68,8 +69,10 @@ const MaterialTable: React.FC<MaterialTableProps> = ({ materials, onUpdate, onDe
     // Sort
     if (sortConfig) {
       data.sort((a, b) => {
-        if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === 'asc' ? -1 : 1;
-        if (a[sortConfig.key] > b[sortConfig.key]) return sortConfig.direction === 'asc' ? 1 : -1;
+        const valA = String(a[sortConfig.key] || '');
+        const valB = String(b[sortConfig.key] || '');
+        if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
         return 0;
       });
     }
@@ -93,7 +96,7 @@ const MaterialTable: React.FC<MaterialTableProps> = ({ materials, onUpdate, onDe
         </div>
         <input
           type="text"
-          placeholder="Search materials by Description, Part No, Make..."
+          placeholder="Search materials by Code, Description, Part No, Make..."
           className="pl-9 pr-3 py-1.5 w-full border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all shadow-sm"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
@@ -105,6 +108,12 @@ const MaterialTable: React.FC<MaterialTableProps> = ({ materials, onUpdate, onDe
           <table className="w-full text-left border-collapse">
             <thead className="sticky top-0 z-10 bg-gray-50 shadow-sm">
               <tr className="border-b border-gray-200">
+                <th 
+                  className="py-2 px-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                  onClick={() => handleSort('materialCode')}
+                >
+                  <div className="flex items-center gap-1">Material Code {renderSortIcon('materialCode')}</div>
+                </th>
                 <th 
                   className="py-2 px-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                   onClick={() => handleSort('description')}
@@ -135,7 +144,7 @@ const MaterialTable: React.FC<MaterialTableProps> = ({ materials, onUpdate, onDe
             <tbody className="divide-y divide-gray-200">
               {processedMaterials.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-gray-500">
+                  <td colSpan={6} className="py-8 text-center text-gray-500">
                     <div className="flex flex-col items-center justify-center">
                         <PackageOpen className="w-6 h-6 text-gray-300 mb-1" />
                         <p className="text-xs">No matching materials found.</p>
@@ -150,6 +159,7 @@ const MaterialTable: React.FC<MaterialTableProps> = ({ materials, onUpdate, onDe
                     >
                       {editingId === material.id ? (
                         <>
+                          <td className="py-2 px-3"><input type="text" className="w-full border border-blue-300 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:border-blue-500 font-mono" value={editForm?.materialCode || ''} onChange={e => handleInputChange('materialCode', e.target.value)} /></td>
                           <td className="py-2 px-3"><input type="text" className="w-full border border-blue-300 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:border-blue-500" value={editForm?.description || ''} onChange={e => handleInputChange('description', e.target.value)} /></td>
                           <td className="py-2 px-3"><input type="text" className="w-full border border-blue-300 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:border-blue-500 font-mono" value={editForm?.partNo || ''} onChange={e => handleInputChange('partNo', e.target.value)} /></td>
                           <td className="py-2 px-3"><input type="text" className="w-full border border-blue-300 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:border-blue-500" value={editForm?.make || ''} onChange={e => handleInputChange('make', e.target.value)} /></td>
@@ -163,6 +173,12 @@ const MaterialTable: React.FC<MaterialTableProps> = ({ materials, onUpdate, onDe
                         </>
                       ) : (
                         <>
+                          <td className="py-2 px-3 text-xs font-bold text-blue-700 font-mono whitespace-nowrap">
+                            <div className="flex items-center gap-1.5">
+                                <Hash className="w-3 h-3 text-blue-300" />
+                                {material.materialCode || '-'}
+                            </div>
+                          </td>
                           <td className="py-2 px-3 text-xs font-medium text-gray-900">{material.description}</td>
                           <td className="py-2 px-3 text-xs text-gray-600 font-mono">{material.partNo}</td>
                           <td className="py-2 px-3 text-xs text-gray-600">
@@ -187,7 +203,7 @@ const MaterialTable: React.FC<MaterialTableProps> = ({ materials, onUpdate, onDe
         </div>
         <div className="bg-gray-50 px-3 py-2 border-t border-gray-200 text-[10px] text-gray-500 flex justify-between items-center flex-shrink-0">
           <span>Showing {processedMaterials.length} of {materials.length} records</span>
-          <span>Local Database</span>
+          <span>Live Supabase Synchronized</span>
         </div>
       </div>
     </div>

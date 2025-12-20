@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { Material } from "../types";
 
@@ -22,7 +23,8 @@ export const generateMockMaterials = async (count: number = 5): Promise<Omit<Mat
   try {
     const ai = getAiClient();
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      // Using gemini-3-flash-preview for mock data generation as per guidelines
+      model: "gemini-3-flash-preview",
       contents: `Generate ${count} realistic industrial material master records. 
       Focus on items like bearings, motors, sensors, valves, or electronic components.
       The 'make' should be real industrial brands (e.g., Siemens, SKF, Festo).

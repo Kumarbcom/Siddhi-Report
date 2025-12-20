@@ -16,12 +16,14 @@ const AddMaterialForm: React.FC<AddMaterialFormProps> = ({ materials, onBulkAdd,
   const handleDownloadTemplate = () => {
     const headers = [
       { 
+        "Material Code": "MAT-001",
         "Description": "Deep Groove Ball Bearing 6205", 
         "Part No": "6205-2RS", 
         "Make": "SKF", 
         "Material Group": "MECH-BRG" 
       },
       { 
+        "Material Code": "MAT-002",
         "Description": "Inductive Proximity Sensor", 
         "Part No": "IME12-04NNSZC0S", 
         "Make": "SICK", 
@@ -40,6 +42,7 @@ const AddMaterialForm: React.FC<AddMaterialFormProps> = ({ materials, onBulkAdd,
       return;
     }
     const data = materials.map(m => ({
+      "Material Code": m.materialCode,
       "Description": m.description,
       "Part No": m.partNo,
       "Make": m.make,
@@ -64,11 +67,12 @@ const AddMaterialForm: React.FC<AddMaterialFormProps> = ({ materials, onBulkAdd,
       const validItems: MaterialFormData[] = data.map((row) => {
          // Try to match common header variations case-insensitively
          const getVal = (key: string) => {
-             const foundKey = Object.keys(row).find(k => k.toLowerCase() === key.toLowerCase());
+             const foundKey = Object.keys(row).find(k => k.toLowerCase().trim() === key.toLowerCase().trim());
              return foundKey ? String(row[foundKey]) : '';
          };
 
          return {
+             materialCode: getVal('material code') || getVal('code') || getVal('id'),
              description: getVal('description') || getVal('desc'),
              partNo: getVal('part no') || getVal('partno') || getVal('part number'),
              make: getVal('make') || getVal('brand') || getVal('manufacturer'),
