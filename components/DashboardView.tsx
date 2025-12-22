@@ -1,7 +1,6 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Material, ClosingStockItem, PendingSOItem, PendingPOItem, SalesReportItem, CustomerMasterItem, SalesRecord } from '../types';
-import { TrendingUp, TrendingDown, Package, ClipboardList, ShoppingCart, Calendar, Filter, PieChart as PieIcon, BarChart3, Users, ArrowRight, Activity, DollarSign, ArrowUpRight, ArrowDownRight, RefreshCw, UserCircle, Minus, Plus, ChevronDown, ChevronUp, Link2Off, AlertTriangle, Layers, Clock, CheckCircle2, AlertCircle, User, Factory, Tag, ArrowLeft, BarChart4, Hourglass, History, AlertOctagon, ChevronRight, ListOrdered } from 'lucide-react';
+import { TrendingUp, TrendingDown, Package, ClipboardList, ShoppingCart, Calendar, Filter, PieChart as PieIcon, BarChart3, Users, ArrowRight, Activity, DollarSign, ArrowUpRight, ArrowDownRight, RefreshCw, UserCircle, Minus, Plus, ChevronDown, ChevronUp, Link2Off, AlertTriangle, Layers, Clock, CheckCircle2, AlertCircle, User, Factory, Tag, ArrowLeft, BarChart4, Hourglass, History, AlertOctagon, ChevronRight, ListOrdered, Table, X } from 'lucide-react';
 
 const COLORS = ['#10B981', '#3B82F6', '#6366F1', '#8B5CF6', '#EC4899', '#F59E0B', '#EF4444', '#6B7280', '#059669', '#2563EB'];
 
@@ -141,7 +140,7 @@ const SalesTrendChart = ({ data, maxVal }: { data: { labels: string[], series: a
   );
 };
 
-const SimpleDonut = ({ data, title, color }: { data: {label: string, value: number, color?: string}[], title: string, color: string }) => {
+const SimpleDonut = ({ data, title, color, isCurrency = false }: { data: {label: string, value: number, color?: string}[], title: string, color: string, isCurrency?: boolean }) => {
      if(data.length === 0) return <div className="h-32 flex items-center justify-center text-gray-400 text-xs">No Data</div>;
      const total = data.reduce((a,b) => a+(b.value || 0), 0);
      let cumPercent = 0;
@@ -175,7 +174,10 @@ const SimpleDonut = ({ data, title, color }: { data: {label: string, value: numb
                                 <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{backgroundColor: d.color || colorPalette[i % colorPalette.length]}}></div>
                                 <span className="text-gray-600 truncate" title={String(d.label)}>{d.label}</span>
                              </div>
-                             <span className="font-bold text-gray-800 whitespace-nowrap ml-2">{total > 0 ? ((d.value / total) * 100).toFixed(0) : 0}%</span>
+                             <div className="flex items-center gap-2 ml-2">
+                                <span className="text-gray-400 font-medium">{isCurrency ? formatLargeValue(d.value, true) : Math.round(d.value).toLocaleString()}</span>
+                                <span className="font-bold text-gray-800 whitespace-nowrap">{total > 0 ? ((d.value / total) * 100).toFixed(0) : 0}%</span>
+                             </div>
                         </div>
                     ))}
                 </div>
@@ -184,7 +186,7 @@ const SimpleDonut = ({ data, title, color }: { data: {label: string, value: numb
      );
 };
 
-const HorizontalBarChart = ({ data, title, color }: { data: { label: string; value: number, previous?: number }[], title: string, color: string }) => {
+const HorizontalBarChart = ({ data, title, color, totalForPercentage }: { data: { label: string; value: number, previous?: number }[], title: string, color: string, totalForPercentage?: number }) => {
     const sorted = [...data].sort((a,b) => (b.value || 0) - (a.value || 0)).slice(0, 10);
     const maxVal = Math.max(sorted[0]?.value || 1, 1);
     const barColorClass = color === 'blue' ? 'bg-blue-500' : color === 'emerald' ? 'bg-emerald-500' : color === 'purple' ? 'bg-purple-500' : 'bg-orange-500';
@@ -197,7 +199,14 @@ const HorizontalBarChart = ({ data, title, color }: { data: { label: string; val
                         <div key={i} className="flex flex-col gap-1.5">
                             <div className="flex justify-between items-center text-[10px]">
                                 <div className="flex flex-col flex-1 min-w-0">
-                                    <span className="truncate text-gray-700 font-bold" title={String(item.label)}>{item.label}</span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="truncate text-gray-700 font-bold" title={String(item.label)}>{item.label}</span>
+                                        {totalForPercentage && (
+                                            <span className="text-[9px] bg-gray-100 px-1 rounded font-black text-gray-500">
+                                                {((item.value / totalForPercentage) * 100).toFixed(1)}%
+                                            </span>
+                                        )}
+                                    </div>
                                     {item.previous !== undefined && (
                                         <span className="text-[8px] text-gray-400 font-medium">PY: {formatLargeValue(item.previous, true)}</span>
                                     )}
@@ -300,6 +309,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   const [invGroupMetric, setInvGroupMetric] = useState<Metric>('value');
   const [selectedMonth, setSelectedMonth] = useState<number>(0);
   const [selectedWeek, setSelectedWeek] = useState<number>(1);
+  const [selectedSoItem, setSelectedSoItem] = useState<PendingSOItem | null>(null);
 
   const parseDate = (val: any): Date => {
     if (!val) return new Date();
@@ -433,6 +443,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         totalVal,
         totalQty,
         count: data.length,
+        items: data,
         makeMix: Array.from(makeMap.entries()).map(([label, value]) => ({ label, value })).sort((a,b) => b.value - a.value),
         groupMix: Array.from(groupMap.entries()).map(([label, value]) => ({ label, value })).sort((a,b) => b.value - a.value),
         topStock: [...data].sort((a,b) => b.value - a.value).slice(0, 10).map(i => ({ label: i.description, value: i.value }))
@@ -443,11 +454,20 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       const totalVal = pendingSO.reduce((a, b) => a + (b.value || 0), 0);
       const custMap = new Map<string, number>();
       const groupMap = new Map<string, number>();
+      const itemSet = new Set<string>();
       const ageingMap = { '0-30d': 0, '31-60d': 0, '61-90d': 0, '90d+': 0 };
       
+      let dueValue = 0;
+      let scheduledValue = 0;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
       pendingSO.forEach(i => {
           custMap.set(i.partyName, (custMap.get(i.partyName) || 0) + (i.value || 0));
-          const mat = materials.find(m => m.description.toLowerCase().trim() === i.itemName.toLowerCase().trim());
+          const itemName = i.itemName.trim();
+          itemSet.add(itemName.toLowerCase());
+          
+          const mat = materials.find(m => m.description.toLowerCase().trim() === itemName.toLowerCase());
           const group = mat ? mat.materialGroup : 'Unspecified';
           groupMap.set(group, (groupMap.get(group) || 0) + (i.value || 0));
           
@@ -456,11 +476,21 @@ const DashboardView: React.FC<DashboardViewProps> = ({
           else if (days <= 60) ageingMap['31-60d'] += (i.value || 0);
           else if (days <= 90) ageingMap['61-90d'] += (i.value || 0);
           else ageingMap['90d+'] += (i.value || 0);
+
+          const dueDate = parseDate(i.dueDate);
+          if (days > 0 || (dueDate.getTime() > 0 && dueDate <= today)) {
+              dueValue += (i.value || 0);
+          } else {
+              scheduledValue += (i.value || 0);
+          }
       });
 
       return {
           totalVal,
+          dueValue,
+          scheduledValue,
           count: pendingSO.length,
+          uniqueItemCount: itemSet.size,
           custMix: Array.from(custMap.entries()).map(([label, value]) => ({ label, value })).sort((a,b) => b.value - a.value),
           groupMix: Array.from(groupMap.entries()).map(([label, value]) => ({ label, value })).sort((a,b) => b.value - a.value),
           ageing: Object.entries(ageingMap).map(([label, value]) => ({ label, value })),
@@ -527,7 +557,53 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   const formatAxisValue = (val: number) => { if(isNaN(val)) return '0'; if (val >= 10000000) return (val/10000000).toFixed(1) + 'Cr'; if (val >= 100000) return (val/100000).toFixed(1) + 'L'; if (val >= 1000) return (val/1000).toFixed(0) + 'k'; return Math.round(val).toString(); };
 
   return (
-    <div className="h-full w-full flex flex-col bg-gray-50/50 overflow-hidden">
+    <div className="h-full w-full flex flex-col bg-gray-50/50 overflow-hidden relative">
+      {/* SO Detail Modal */}
+      {selectedSoItem && (
+          <div className="absolute inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-100">
+                  <div className="bg-purple-600 px-6 py-4 flex justify-between items-center text-white">
+                      <div className="flex items-center gap-2">
+                          <ClipboardList className="w-5 h-5" />
+                          <h3 className="font-bold text-lg uppercase tracking-tight">Sales Order Details</h3>
+                      </div>
+                      <button onClick={() => setSelectedSoItem(null)} className="p-1 hover:bg-white/20 rounded-full transition-colors"><X className="w-5 h-5" /></button>
+                  </div>
+                  <div className="p-6 space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                          <div><p className="text-[10px] font-bold text-gray-400 uppercase">Order Number</p><p className="text-sm font-black text-gray-900">{selectedSoItem.orderNo}</p></div>
+                          <div><p className="text-[10px] font-bold text-gray-400 uppercase">Order Date</p><p className="text-sm font-bold text-gray-700">{selectedSoItem.date}</p></div>
+                      </div>
+                      <div className="border-t border-gray-100 pt-4">
+                          <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Customer / Party</p>
+                          <p className="text-sm font-bold text-gray-900">{selectedSoItem.partyName}</p>
+                      </div>
+                      <div className="border-t border-gray-100 pt-4">
+                          <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Item Details</p>
+                          <p className="text-sm font-bold text-gray-800 leading-tight">{selectedSoItem.itemName}</p>
+                          <p className="text-[10px] text-gray-500 font-mono mt-1">Part No: {selectedSoItem.partNo || '-'}</p>
+                      </div>
+                      <div className="grid grid-cols-3 gap-4 border-t border-gray-100 pt-4">
+                          <div><p className="text-[10px] font-bold text-gray-400 uppercase">Pending Qty</p><p className="text-base font-black text-purple-700">{selectedSoItem.balanceQty}</p></div>
+                          <div><p className="text-[10px] font-bold text-gray-400 uppercase">Unit Rate</p><p className="text-sm font-bold text-gray-700">Rs. {selectedSoItem.rate.toLocaleString()}</p></div>
+                          <div><p className="text-[10px] font-bold text-gray-400 uppercase">Order Value</p><p className="text-base font-black text-emerald-600">{formatLargeValue(selectedSoItem.value)}</p></div>
+                      </div>
+                      <div className="bg-gray-50 rounded-xl p-4 flex justify-between items-center border border-gray-100">
+                          <div><p className="text-[10px] font-bold text-gray-400 uppercase">Due Date</p><p className="text-sm font-black text-gray-900">{selectedSoItem.dueDate}</p></div>
+                          {selectedSoItem.overDueDays > 0 && (
+                              <div className="text-right">
+                                  <span className="inline-block px-3 py-1 bg-red-100 text-red-700 rounded-full text-[10px] font-black uppercase ring-4 ring-red-50">{selectedSoItem.overDueDays} Days Overdue</span>
+                              </div>
+                          )}
+                      </div>
+                  </div>
+                  <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end">
+                      <button onClick={() => setSelectedSoItem(null)} className="px-5 py-2 bg-gray-900 text-white text-xs font-bold rounded-lg hover:bg-gray-800 transition-colors uppercase tracking-widest shadow-lg active:scale-95">Close Details</button>
+                  </div>
+              </div>
+          </div>
+      )}
+
       <div className="bg-white border-b border-gray-200 px-4 py-3 flex flex-col xl:flex-row gap-4 items-start xl:items-center justify-between flex-shrink-0 shadow-sm z-10">
           <div className="flex bg-gray-100 p-1 rounded-lg">{(['sales', 'inventory', 'so', 'po'] as const).map(tab => (<button key={tab} onClick={() => setActiveSubTab(tab)} className={`px-3 py-1.5 rounded-md text-xs font-bold uppercase transition-all ${activeSubTab === tab ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>{tab === 'so' ? 'Pending SO' : tab === 'po' ? 'Pending PO' : tab}</button>))}</div>
           {activeSubTab === 'sales' && (
@@ -557,7 +633,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                     <div className="lg:col-span-2 bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col h-80 overflow-hidden"><h3 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2"><TrendingUp className="w-4 h-4 text-blue-600" /> 3-Year Trend Analysis</h3><div className="flex flex-1 pt-2 overflow-hidden"><div className="flex flex-col justify-between text-[9px] text-gray-400 pr-3 pb-8 text-right w-12 border-r"><span>{formatAxisValue(chartMax)}</span><span>{formatAxisValue(chartMax*0.5)}</span><span>0</span></div><div className="flex-1 pl-4 pb-2 relative min-h-0"><SalesTrendChart data={lineChartData} maxVal={chartMax} /></div></div></div>
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col h-80 overflow-hidden"><SimpleDonut data={groupedCustomerData.map(g => ({ label: g.group, value: g.total }))} title="Sales Mix by Customer Group" color="blue" /></div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col h-80 overflow-hidden"><SimpleDonut data={groupedCustomerData.map(g => ({ label: g.group, value: g.total }))} title="Sales Mix by Customer Group" color="blue" isCurrency={true} /></div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-96 overflow-hidden">
@@ -586,40 +662,124 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80 flex flex-col">
-                        <SimpleDonut data={inventoryStats.makeMix} title={`Inventory by Make (${invGroupMetric === 'value' ? 'Val' : 'Qty'})`} color="green" />
+                        <SimpleDonut 
+                            data={inventoryStats.makeMix} 
+                            title={`Inventory by Make (${invGroupMetric === 'value' ? 'Val' : 'Qty'})`} 
+                            color="green" 
+                            isCurrency={invGroupMetric === 'value'}
+                        />
                     </div>
                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80 flex flex-col">
-                        <SimpleDonut data={inventoryStats.groupMix} title={`Inventory by Group (${invGroupMetric === 'value' ? 'Val' : 'Qty'})`} color="blue" />
+                        <SimpleDonut 
+                            data={inventoryStats.groupMix} 
+                            title={`Inventory by Group (${invGroupMetric === 'value' ? 'Val' : 'Qty'})`} 
+                            color="blue" 
+                            isCurrency={invGroupMetric === 'value'}
+                        />
                     </div>
                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80 flex flex-col">
-                        <HorizontalBarChart data={inventoryStats.topStock} title="Top 10 High Value Stock Items" color="emerald" />
+                        <HorizontalBarChart 
+                            data={inventoryStats.topStock} 
+                            title="Top 10 High Value Stock Items" 
+                            color="emerald" 
+                            totalForPercentage={inventoryStats.totalVal}
+                        />
+                    </div>
+                </div>
+
+                {/* Inventory Table Integration */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
+                    <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                        <h4 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                            <Table className="w-4 h-4 text-emerald-600" />
+                            Detailed Inventory Snapshot
+                        </h4>
+                        <span className="text-[10px] font-bold text-gray-500 uppercase">{inventoryStats.count} Total Records</span>
+                    </div>
+                    <div className="overflow-x-auto max-h-96 custom-scrollbar">
+                        <table className="w-full text-left border-collapse min-w-[800px]">
+                            <thead className="sticky top-0 z-10 bg-gray-100/90 backdrop-blur-md shadow-sm border-b border-gray-200">
+                                <tr className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
+                                    <th className="py-3 px-4">Description</th>
+                                    <th className="py-3 px-4">Make</th>
+                                    <th className="py-3 px-4">Group</th>
+                                    <th className="py-3 px-4 text-right">Quantity</th>
+                                    <th className="py-3 px-4 text-right">Rate</th>
+                                    <th className="py-3 px-4 text-right">Value</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100 text-xs text-gray-700">
+                                {inventoryStats.items.map((item, idx) => (
+                                    <tr key={idx} className="hover:bg-blue-50/20 transition-colors">
+                                        <td className="py-2.5 px-4 font-medium text-gray-900 max-w-xs truncate" title={item.description}>{item.description}</td>
+                                        <td className="py-2.5 px-4">
+                                            <span className="inline-block px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-gray-100 text-gray-700 border border-gray-200">{item.make}</span>
+                                        </td>
+                                        <td className="py-2.5 px-4 text-gray-500">{item.group}</td>
+                                        <td className="py-2.5 px-4 text-right font-mono">{item.quantity.toLocaleString()}</td>
+                                        <td className="py-2.5 px-4 text-right font-mono text-gray-400">{item.rate.toFixed(2)}</td>
+                                        <td className="py-2.5 px-4 text-right font-black text-emerald-700">{formatLargeValue(item.value, true)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
              </div>
         ) : activeSubTab === 'so' ? (
             <div className="flex flex-col gap-4">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-purple-600 font-bold uppercase">Total Pending SO</p><h3 className="text-xl font-extrabold text-gray-900 mt-1">{formatLargeValue(soStats.totalVal)}</h3></div>
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-blue-600 font-bold uppercase">Open Lines</p><h3 className="text-xl font-extrabold text-gray-900 mt-1">{soStats.count}</h3></div>
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-orange-600 font-bold uppercase">Overdue Orders</p><h3 className="text-xl font-extrabold text-gray-900 mt-1">{pendingSO.filter(i => i.overDueDays > 0).length}</h3></div>
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-teal-600 font-bold uppercase">Unique Customers</p><h3 className="text-xl font-extrabold text-gray-900 mt-1">{soStats.custMix.length}</h3></div>
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 p-2 opacity-5 group-hover:opacity-10 transition-opacity"><DollarSign className="w-12 h-12" /></div>
+                        <p className="text-[10px] text-purple-600 font-bold uppercase tracking-wider mb-1">Total Pending SO</p>
+                        <h3 className="text-xl font-black text-gray-900">{formatLargeValue(soStats.totalVal)}</h3>
+                        <div className="mt-2 pt-2 border-t border-gray-50 flex flex-col gap-1">
+                            <div className="flex justify-between items-center text-[9px]">
+                                <span className="text-red-500 font-bold uppercase">Due: {formatLargeValue(soStats.dueValue, true)}</span>
+                                <span className="text-blue-500 font-bold uppercase">Sch: {formatLargeValue(soStats.scheduledValue, true)}</span>
+                            </div>
+                            <div className="w-full bg-gray-100 h-1 rounded-full overflow-hidden flex">
+                                <div className="bg-red-500 h-full" style={{ width: `${(soStats.dueValue / (soStats.totalVal || 1)) * 100}%` }}></div>
+                                <div className="bg-blue-500 h-full" style={{ width: `${(soStats.scheduledValue / (soStats.totalVal || 1)) * 100}%` }}></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-blue-600 font-bold uppercase tracking-wider mb-1">Open Lines</p><h3 className="text-xl font-black text-gray-900">{soStats.count}</h3></div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-indigo-600 font-bold uppercase tracking-wider mb-1">Unique Items</p><h3 className="text-xl font-black text-gray-900">{soStats.uniqueItemCount}</h3></div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-orange-600 font-bold uppercase tracking-wider mb-1">Overdue Orders</p><h3 className="text-xl font-black text-red-600">{pendingSO.filter(i => i.overDueDays > 0).length}</h3></div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-teal-600 font-bold uppercase tracking-wider mb-1">Unique Customers</p><h3 className="text-xl font-black text-gray-900">{soStats.custMix.length}</h3></div>
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80"><SimpleDonut data={soStats.ageing} title="SO Ageing Analysis" color="blue" /></div>
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80"><SimpleDonut data={soStats.groupMix} title="SO by Material Group" color="green" /></div>
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80"><SimpleDonut data={soStats.custMix} title="Customer Concentration" color="blue" /></div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80"><SimpleDonut data={soStats.ageing} title="SO Ageing Analysis" color="blue" isCurrency={true} /></div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80"><SimpleDonut data={soStats.groupMix} title="SO by Material Group" color="green" isCurrency={true} /></div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80"><SimpleDonut data={soStats.custMix} title="Customer Concentration" color="blue" isCurrency={true} /></div>
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm min-h-96">
-                        <h4 className="text-[11px] font-bold text-gray-600 uppercase mb-4 flex items-center gap-2"><ListOrdered className="w-4 h-4 text-purple-600" /> Top 10 High Value SOs</h4>
-                        <div className="overflow-x-auto">
+                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm min-h-96 flex flex-col">
+                        <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                            <h4 className="text-[11px] font-black text-gray-600 uppercase flex items-center gap-2"><ListOrdered className="w-4 h-4 text-purple-600" /> Top 10 High Value SOs</h4>
+                            <span className="text-[9px] text-purple-600 font-bold bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100 animate-pulse">Click Value for Details</span>
+                        </div>
+                        <div className="flex-1 overflow-x-auto">
                             <table className="w-full text-[10px] text-left">
                                 <thead className="bg-gray-50 text-gray-500 uppercase font-bold border-b border-gray-100">
-                                    <tr><th className="py-2 px-2">Customer</th><th className="py-2 px-2">Item</th><th className="py-2 px-2 text-right">Qty</th><th className="py-2 px-2 text-right">Value</th></tr>
+                                    <tr><th className="py-3 px-4">Customer</th><th className="py-3 px-4">Item</th><th className="py-3 px-4 text-right">Qty</th><th className="py-3 px-4 text-right">Value</th></tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-50">
                                     {soStats.topItems.map(i => (
-                                        <tr key={i.id} className="hover:bg-gray-50"><td className="py-2 px-2 font-medium truncate max-w-[120px]">{i.partyName}</td><td className="py-2 px-2 truncate max-w-[150px]">{i.itemName}</td><td className="py-2 px-2 text-right">{i.balanceQty}</td><td className="py-2 px-2 text-right font-bold text-purple-700">{formatLargeValue(i.value, true)}</td></tr>
+                                        <tr key={i.id} className="hover:bg-purple-50 group cursor-default">
+                                            <td className="py-3 px-4 font-medium text-gray-800 truncate max-w-[120px]">{i.partyName}</td>
+                                            <td className="py-3 px-4 truncate max-w-[150px] text-gray-600">{i.itemName}</td>
+                                            <td className="py-3 px-4 text-right font-mono">{i.balanceQty}</td>
+                                            <td className="py-3 px-4 text-right">
+                                                <button 
+                                                    onClick={() => setSelectedSoItem(i)}
+                                                    className="font-black text-purple-700 bg-purple-50 px-2 py-1 rounded border border-transparent hover:border-purple-300 hover:bg-white transition-all shadow-sm"
+                                                >
+                                                    {formatLargeValue(i.value, true)}
+                                                </button>
+                                            </td>
+                                        </tr>
                                     ))}
                                 </tbody>
                             </table>
@@ -639,9 +799,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-emerald-600 font-bold uppercase">Active Vendors</p><h3 className="text-xl font-extrabold text-gray-900 mt-1">{poStats.vendorMix.length}</h3></div>
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80"><SimpleDonut data={poStats.dueMix} title="PO Delivery Schedule" color="green" /></div>
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80"><SimpleDonut data={poStats.groupMix} title="PO by Material Group" color="blue" /></div>
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80"><SimpleDonut data={poStats.vendorMix} title="Vendor Concentration" color="green" /></div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80"><SimpleDonut data={poStats.dueMix} title="PO Delivery Schedule" color="green" isCurrency={true} /></div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80"><SimpleDonut data={poStats.groupMix} title="PO by Material Group" color="blue" isCurrency={true} /></div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80"><SimpleDonut data={poStats.vendorMix} title="Vendor Concentration" color="green" isCurrency={true} /></div>
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm min-h-96">
