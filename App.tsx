@@ -12,7 +12,7 @@ import CustomerMasterView from './components/CustomerMasterView';
 import DashboardView from './components/DashboardView';
 import PivotReportView from './components/PivotReportView';
 import ChatView from './components/ChatView';
-import { Database, AlertCircle, ClipboardList, ShoppingCart, TrendingUp, Package, Layers, LayoutDashboard, FileBarChart, Users, ChevronRight, Menu, X, HardDrive, Table, MessageSquare, AlertTriangle } from 'lucide-react';
+import { Database, AlertCircle, ClipboardList, ShoppingCart, TrendingUp, Package, Layers, LayoutDashboard, FileBarChart, Users, ChevronRight, Menu, X, HardDrive, Table, MessageSquare, AlertTriangle, Factory } from 'lucide-react';
 import { materialService } from './services/materialService';
 import { customerService } from './services/customerService';
 import { stockService } from './services/stockService';
@@ -29,7 +29,6 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   
-  // Data State
   const [materials, setMaterials] = useState<Material[]>([]);
   const [closingStockItems, setClosingStockItems] = useState<ClosingStockItem[]>([]);
   const [pendingSOItems, setPendingSOItems] = useState<PendingSOItem[]>([]);
@@ -39,7 +38,6 @@ const App: React.FC = () => {
   const [salesReportItems, setSalesReportItems] = useState<SalesReportItem[]>([]);
   const [customerMasterItems, setCustomerMasterItems] = useState<CustomerMasterItem[]>([]);
   
-  // Loading & Error State
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [isDbLoading, setIsDbLoading] = useState(true);
   const [dbStatus, setDbStatus] = useState<'connected' | 'partial' | 'error'>('connected');
@@ -90,9 +88,6 @@ const App: React.FC = () => {
 
   useEffect(() => { loadAllData(); }, []);
 
-  // --- Handlers ---
-  
-  // Material Master
   const handleBulkAddMaterial = async (dataList: MaterialFormData[]) => {
     const newItems = await materialService.createBulk(dataList);
     setMaterials(prev => [...newItems, ...prev]);
@@ -114,14 +109,13 @@ const App: React.FC = () => {
       }
   };
 
-  // Sales Report
   const handleBulkAddSales = async (items: any) => {
       const newItems = await salesService.createBulk(items);
       setSalesReportItems(prev => [...newItems, ...prev]);
   };
   const handleUpdateSales = async (item: SalesReportItem) => {
       await salesService.update(item);
-      setSalesReportItems(prev => prev.map(i => i.id === item.id ? item : i));
+      setSalesReportItems(prev => prev.map(i => i.id === item.id ? i : i));
   };
   const handleDeleteSales = async (id: string) => {
       if(confirm("Delete this transaction?")) {
@@ -136,7 +130,6 @@ const App: React.FC = () => {
       }
   };
 
-  // Customer Master
   const handleBulkAddCustomer = async (items: any) => { 
     const newItems = await customerService.createBulk(items); 
     setCustomerMasterItems(prev => [...newItems, ...prev]); 
@@ -158,7 +151,6 @@ const App: React.FC = () => {
     } 
   };
   
-  // Closing Stock
   const handleBulkAddStock = async (items: any) => { 
     const newItems = await stockService.createBulk(items); 
     setClosingStockItems(prev => [...newItems, ...prev]); 
@@ -180,7 +172,6 @@ const App: React.FC = () => {
     } 
   };
   
-  // Pending SO
   const handleBulkAddSO = async (items: any) => { 
     const newItems = await soService.createBulk(items); 
     setPendingSOItems(prev => [...newItems, ...prev]); 
@@ -202,7 +193,6 @@ const App: React.FC = () => {
     } 
   };
   
-  // Pending PO
   const handleBulkAddPO = async (items: any) => { 
     const newItems = await poService.createBulk(items); 
     setPendingPOItems(prev => [...newItems, ...prev]); 
@@ -219,7 +209,7 @@ const App: React.FC = () => {
   };
   const handleClearPO = async () => { 
     if(confirm("DANGER: This will permanently delete ALL Pending PO records from Supabase and local storage. Continue?")) { 
-      await poService.clearAll(); 
+      await stockService.clearAll(); 
       setPendingPOItems([]); 
     } 
   };
@@ -306,7 +296,7 @@ const App: React.FC = () => {
       <div className="flex-1 flex flex-col min-w-0 h-full">
         {dbStatus === 'error' && (
             <div className="bg-orange-600 text-white px-4 py-2 flex items-center justify-between text-xs font-bold">
-                <div className="flex items-center gap-2"><AlertTriangle className="w-4 h-4" /> <span>Sync issue. Ensure table "material_master" exists in Supabase or use local cache.</span></div>
+                <div className="flex items-center gap-2"><AlertTriangle className="w-4 h-4" /> <span>Sync issue. Ensure table "material_master" exists in Supabase.</span></div>
                 <button onClick={loadAllData} className="bg-white text-orange-600 px-2 py-0.5 rounded shadow-sm hover:bg-gray-100">Retry Link</button>
             </div>
         )}
@@ -321,26 +311,50 @@ const App: React.FC = () => {
           {activeTab === 'pivotReport' && (<PivotReportView materials={materials} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} salesReportItems={salesReportItems} />)}
           {activeTab === 'chat' && (<div className="h-full w-full max-w-4xl mx-auto"><ChatView materials={materials} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} salesReportItems={salesReportItems} customers={customerMasterItems} /></div>)}
           {activeTab === 'master' && (
-            <div className="flex flex-col lg:flex-row gap-4 items-start h-full">
-              <div className="w-full lg:w-56 flex-shrink-0 flex flex-col gap-3 h-full">
-                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col items-center text-center flex-shrink-0">
-                  <div className="bg-blue-50 p-2.5 rounded-full mb-2"><Database className="w-5 h-5 text-blue-600" /></div>
-                  <p className="text-xs font-medium text-gray-500">Material Master</p>
-                  <p className="text-2xl font-black text-gray-900 mt-0.5">{materials.length}</p>
-                </div>
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col flex-1 overflow-hidden min-h-0">
-                  <div className="p-3 border-b border-gray-100 bg-gray-50 flex-shrink-0"><h3 className="text-[10px] font-black text-gray-500 uppercase">Manufacturers</h3></div>
-                  <div className="overflow-y-auto custom-scrollbar p-1 space-y-0.5 flex-1">
-                    <button onClick={() => setSelectedMake('ALL')} className={`w-full text-left px-3 py-1.5 rounded-md text-xs flex justify-between items-center transition-all ${selectedMake === 'ALL' ? 'bg-blue-600 text-white font-bold' : 'text-gray-700 hover:bg-gray-100'}`}>All Makes</button>
-                    {makeStats.map(([make, count]) => (
-                        <button key={make} onClick={() => setSelectedMake(make)} className={`w-full text-left px-3 py-1.5 rounded-md text-xs flex justify-between items-center transition-all ${selectedMake === make ? 'bg-blue-600 text-white font-bold' : 'text-gray-700 hover:bg-gray-100'}`}><span className="truncate w-3/4">{make}</span><span className={`text-[10px] px-1.5 py-0.5 rounded-full ${selectedMake === make ? 'bg-blue-500' : 'bg-gray-100'}`}>{count}</span></button>
-                    ))}
+            <div className="flex flex-col h-full gap-4">
+              <div className="bg-white border-b border-gray-200 p-4 rounded-xl shadow-sm flex flex-col md:flex-row justify-between items-center gap-4 flex-shrink-0">
+                  <div className="flex items-center gap-3">
+                      <div className="bg-blue-600 p-2 rounded-lg text-white"><Factory className="w-5 h-5" /></div>
+                      <div>
+                          <h2 className="text-sm font-black text-gray-800 uppercase tracking-tight">Material Master Repository</h2>
+                          <p className="text-[10px] text-gray-500 font-medium">Central database for parts, items and industrial codes</p>
+                      </div>
+                  </div>
+                  <div className="flex items-center gap-4 bg-gray-50 px-4 py-2 rounded-lg border border-gray-100">
+                      <div className="flex flex-col items-center">
+                          <span className="text-[9px] font-bold text-gray-400 uppercase">Total Items</span>
+                          <span className="text-sm font-black text-gray-900">{materials.length}</span>
+                      </div>
+                      <div className="w-px h-6 bg-gray-200"></div>
+                      <div className="flex flex-col items-center">
+                          <span className="text-[9px] font-bold text-gray-400 uppercase">Unique Makes</span>
+                          <span className="text-sm font-black text-blue-600">{makeStats.length}</span>
+                      </div>
+                  </div>
+              </div>
+              
+              <div className="flex flex-col lg:flex-row gap-4 items-start flex-1 min-h-0 overflow-hidden">
+                <div className="w-full lg:w-64 flex-shrink-0 flex flex-col gap-3 h-full overflow-hidden">
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col flex-1 overflow-hidden min-h-0">
+                    <div className="p-3 border-b border-gray-100 bg-gray-50 flex-shrink-0"><h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Filter by Manufacturer</h3></div>
+                    <div className="overflow-y-auto custom-scrollbar p-1.5 space-y-1 flex-1">
+                      <button onClick={() => setSelectedMake('ALL')} className={`w-full text-left px-3 py-2 rounded-lg text-[11px] font-bold flex justify-between items-center transition-all ${selectedMake === 'ALL' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-100'}`}>
+                          All Brands
+                          {selectedMake === 'ALL' && <ChevronRight className="w-3 h-3" />}
+                      </button>
+                      {makeStats.map(([make, count]) => (
+                          <button key={make} onClick={() => setSelectedMake(make)} className={`w-full text-left px-3 py-2 rounded-lg text-[11px] font-bold flex justify-between items-center transition-all ${selectedMake === make ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-100'}`}>
+                              <span className="truncate w-3/4">{make === 'UNSPECIFIED' ? 'Other Brands' : make}</span>
+                              <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-black ${selectedMake === make ? 'bg-blue-500' : 'bg-gray-100 text-gray-500'}`}>{count}</span>
+                          </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="flex-1 w-full min-w-0 flex flex-col gap-3 h-full overflow-hidden">
-                <AddMaterialForm materials={materials} onBulkAdd={handleBulkAddMaterial} onClear={handleClearMaterials} />
-                <div className="flex-1 min-h-0"><MaterialTable materials={filteredMaterials} onUpdate={handleUpdateMaterial} onDelete={handleDeleteMaterial} /></div>
+                <div className="flex-1 w-full min-w-0 flex flex-col gap-3 h-full overflow-hidden">
+                  <AddMaterialForm materials={materials} onBulkAdd={handleBulkAddMaterial} onClear={handleClearMaterials} />
+                  <div className="flex-1 min-h-0"><MaterialTable materials={filteredMaterials} onUpdate={handleUpdateMaterial} onDelete={handleDeleteMaterial} /></div>
+                </div>
               </div>
             </div>
           )}

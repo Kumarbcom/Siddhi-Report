@@ -1,7 +1,7 @@
 
 import React, { useRef, useMemo, useState } from 'react';
 import { PendingSOItem, Material, ClosingStockItem } from '../types';
-import { Trash2, Download, Upload, ClipboardList, Search, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, Package, Clock, AlertCircle, CheckCircle2, TrendingUp, AlertOctagon, Layers, FileDown, Pencil, Save, X } from 'lucide-react';
+import { Trash2, Download, Upload, ClipboardList, Search, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, Package, Clock, AlertCircle, CheckCircle2, TrendingUp, AlertOctagon, Layers, FileDown, Pencil, Save, X, Filter } from 'lucide-react';
 import { read, utils, writeFile } from 'xlsx';
 
 interface PendingSOViewProps {
@@ -15,6 +15,7 @@ interface PendingSOViewProps {
 }
 
 type SortKey = keyof PendingSOItem;
+type SupplyStatusFilter = 'ALL' | 'READY' | 'PARTIAL' | 'SHORTAGE' | 'FUTURE';
 
 const PendingSOView: React.FC<PendingSOViewProps> = ({ 
   items, 
@@ -28,6 +29,7 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' } | null>(null);
+  const [supplyFilter, setSupplyFilter] = useState<SupplyStatusFilter>('ALL');
 
   // Edit State
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -45,7 +47,6 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
 
   const handleSaveEdit = () => {
     if (editForm) {
-      // Recalculate Value if needed
       const val = (editForm.balanceQty || 0) * (editForm.rate || 0);
       onUpdate({ ...editForm, value: val });
       setEditingId(null);
@@ -120,7 +121,33 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
   }, [items, closingStockItems]);
 
   const handleSort = (key: SortKey) => { let direction: 'asc' | 'desc' = 'asc'; if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc'; setSortConfig({ key, direction }); };
-  const processedItems = useMemo(() => { let data = [...itemsWithStockLogic]; if (searchTerm) { const lower = searchTerm.toLowerCase(); data = data.filter(i => i.orderNo.toLowerCase().includes(lower) || i.partyName.toLowerCase().includes(lower) || i.itemName.toLowerCase().includes(lower) || i.partNo.toLowerCase().includes(lower)); } if (sortConfig) { data.sort((a, b) => { if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === 'asc' ? -1 : 1; if (a[sortConfig.key] > b[sortConfig.key]) return sortConfig.direction === 'asc' ? 1 : -1; return 0; }); } return data; }, [itemsWithStockLogic, searchTerm, sortConfig]);
+  
+  const processedItems = useMemo(() => { 
+    let data = [...itemsWithStockLogic]; 
+    
+    // Filter by Supply Status
+    if (supplyFilter !== 'ALL') {
+        if (supplyFilter === 'READY') data = data.filter(i => i.status === 'full');
+        else if (supplyFilter === 'PARTIAL') data = data.filter(i => i.status === 'partial');
+        else if (supplyFilter === 'SHORTAGE') data = data.filter(i => i.shortage > 0 && i.status !== 'future');
+        else if (supplyFilter === 'FUTURE') data = data.filter(i => i.status === 'future');
+    }
+
+    if (searchTerm) { 
+        const lower = searchTerm.toLowerCase(); 
+        data = data.filter(i => i.orderNo.toLowerCase().includes(lower) || i.partyName.toLowerCase().includes(lower) || i.itemName.toLowerCase().includes(lower) || i.partNo.toLowerCase().includes(lower)); 
+    } 
+    if (sortConfig) { 
+        data.sort((a, b) => { 
+            const valA = a[sortConfig.key] as any;
+            const valB = b[sortConfig.key] as any;
+            if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1; 
+            if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1; 
+            return 0; 
+        }); 
+    } 
+    return data; 
+  }, [itemsWithStockLogic, searchTerm, sortConfig, supplyFilter]);
   
   const totals = useMemo(() => {
       const t = { ordered: 0, orderedValue: 0, balance: 0, value: 0, allocated: 0, toArrange: 0, uniqueInventory: 0, uniqueOrderCount: 0 };
@@ -130,7 +157,30 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
   }, [processedItems, closingStockItems]);
 
   const handleDownloadTemplate = () => { const headers = [{ "Date": "2023-10-01", "Order": "SO-2023-001", "Party's Name": "Acme Corp", "Name of Item": "Ball Bearing 6205", "Material Code": "MECH-001", "Part No": "6205-2RS", "Ordered": 100, "Balance": 50, "Rate": 55.00, "Discount": 0, "Value": 2750.00, "Due on": "2023-10-15", "OverDue": 5 }]; const ws = utils.json_to_sheet(headers); const wb = utils.book_new(); utils.book_append_sheet(wb, ws, "Pending_SO_Template"); writeFile(wb, "Pending_SO_Template.xlsx"); };
-  const handleExport = () => { if (items.length === 0) { alert("No data to export."); return; } const data = items.map(i => ({ "Date": formatDateDisplay(i.date), "Order": i.orderNo, "Party's Name": i.partyName, "Name of Item": i.itemName, "Material Code": i.materialCode, "Part No": i.partNo, "Ordered": i.orderedQty, "Balance": i.balanceQty, "Rate": i.rate, "Discount": i.discount, "Value": i.value, "Due on": formatDateDisplay(i.dueDate), "OverDue": i.overDueDays })); const ws = utils.json_to_sheet(data); const wb = utils.book_new(); utils.book_append_sheet(wb, ws, "Pending_SO"); writeFile(wb, "Pending_SO_Export.xlsx"); };
+  
+  const handleExport = () => { 
+    if (processedItems.length === 0) { alert("No data to export."); return; } 
+    const data = processedItems.map(i => ({ 
+        "Date": formatDateDisplay(i.date), 
+        "Order": i.orderNo, 
+        "Party's Name": i.partyName, 
+        "Name of Item": i.itemName, 
+        "Ordered": i.orderedQty, 
+        "Balance": i.balanceQty, 
+        "Allocated": i.allocated,
+        "Shortage": i.shortage,
+        "Status": i.status.toUpperCase(),
+        "Rate": i.rate, 
+        "Value": i.value, 
+        "Due on": formatDateDisplay(i.dueDate), 
+        "OverDue": i.overDueDays 
+    })); 
+    const ws = utils.json_to_sheet(data); 
+    const wb = utils.book_new(); 
+    utils.book_append_sheet(wb, ws, "Pending_SO_Filtered"); 
+    writeFile(wb, "Pending_SO_Report.xlsx"); 
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
     try {
@@ -161,7 +211,7 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
          <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
             <h2 className="text-sm font-semibold text-gray-800 flex items-center gap-2"><ClipboardList className="w-4 h-4 text-purple-600" /> Pending Orders</h2>
             <div className="flex flex-wrap gap-2">
-                <button onClick={handleExport} className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-50 border border-gray-200 shadow-sm"><FileDown className="w-3.5 h-3.5" /> Export All</button>
+                <button onClick={handleExport} className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 transition-colors shadow-sm"><FileDown className="w-3.5 h-3.5" /> Export Filtered</button>
                 <button onClick={handleDownloadTemplate} className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-600 rounded-lg text-xs border hover:bg-gray-50 transition-colors"><Download className="w-3.5 h-3.5" /> Template</button>
                 <input type="file" ref={fileInputRef} className="hidden" accept=".xlsx, .xls" onChange={handleFileUpload} />
                 <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-xs border border-emerald-100 hover:bg-emerald-100 transition-colors"><Upload className="w-3.5 h-3.5" /> Import Excel</button>
@@ -169,7 +219,24 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
                 <button onClick={onClear} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs border border-red-100 hover:bg-red-100 transition-colors"><Trash2 className="w-3.5 h-3.5" /> Clear Data</button>
             </div>
          </div>
-         <div className="relative"><div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Search className="h-3.5 w-3.5 text-gray-400" /></div><input type="text" placeholder="Search orders by No, Party, Item or Part No..." className="pl-9 pr-3 py-1.5 w-full border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div>
+         
+         <div className="flex flex-col lg:flex-row gap-3">
+            <div className="relative flex-1">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Search className="h-3.5 w-3.5 text-gray-400" /></div>
+                <input type="text" placeholder="Search orders..." className="pl-9 pr-3 py-1.5 w-full border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+            </div>
+            <div className="flex bg-gray-100 p-1 rounded-lg border border-gray-200 overflow-x-auto">
+                {(['ALL', 'READY', 'PARTIAL', 'SHORTAGE', 'FUTURE'] as SupplyStatusFilter[]).map(f => (
+                    <button 
+                        key={f} 
+                        onClick={() => setSupplyFilter(f)} 
+                        className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase transition-all whitespace-nowrap ${supplyFilter === f ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                    >
+                        {f === 'SHORTAGE' ? 'Arrange Only' : f}
+                    </button>
+                ))}
+            </div>
+         </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col flex-1 min-h-0">

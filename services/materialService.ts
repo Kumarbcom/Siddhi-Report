@@ -2,6 +2,26 @@
 import { supabase } from './supabase';
 import { Material, MaterialFormData } from '../types';
 
+/**
+ * DATABASE SCHEMA (SQL) - Run this in Supabase SQL Editor:
+ * 
+ * CREATE TABLE material_master (
+ *   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+ *   material_code TEXT,
+ *   description TEXT NOT NULL,
+ *   part_no TEXT,
+ *   make TEXT,
+ *   material_group TEXT,
+ *   created_at TIMESTAMPTZ DEFAULT now()
+ * );
+ * 
+ * -- Enable Row Level Security (RLS)
+ * ALTER TABLE material_master ENABLE ROW LEVEL SECURITY;
+ * 
+ * -- Create a policy for public access (or update for authenticated users)
+ * CREATE POLICY "Allow public full access" ON material_master FOR ALL USING (true);
+ */
+
 const LOCAL_STORAGE_KEY = 'material_master_db_v1';
 
 export const materialService = {
@@ -13,7 +33,6 @@ export const materialService = {
         .order('created_at', { ascending: false });
 
       if (error) {
-          // If the table doesn't exist, Supabase returns error code 42P01 or PGRST116
           if (error.code === 'PGRST116' || error.message.includes('relation "material_master" does not exist')) {
               console.error('DATABASE LINK ERROR: The table "material_master" was not found in your Supabase database. Please run the SQL setup script.');
           }
@@ -65,7 +84,6 @@ export const materialService = {
         console.error('SUPABASE SYNC ERROR: Data was saved to Local Storage ONLY.', e.message || e);
     }
 
-    // Always update local cache for instant performance and offline support
     const current = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify([...newItems, ...current]));
     return newItems;
@@ -114,7 +132,6 @@ export const materialService = {
         .delete()
         .neq('id', '00000000-0000-0000-0000-000000000000');
       if (error) throw error;
-      console.log('Supabase: Material Master table cleared.');
     } catch (e: any) {
       console.error('Supabase clearAll failed:', e.message);
     }

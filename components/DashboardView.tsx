@@ -16,10 +16,21 @@ const formatLargeValue = (val: number, compact: boolean = false) => {
     return `${prefix}${Math.round(val).toLocaleString('en-IN')}`;
 };
 
+// Updated Merging Logic
 const getMergedGroupName = (groupName: string) => {
     const g = String(groupName || 'Unassigned').trim();
-    if (g === 'Group-1' || g === 'Group-3') return 'Group-1 & 3';
-    if (['Online Business', 'Online - Giridhar', 'Online - Veeresh'].includes(g)) return 'Online Business';
+    
+    // Merge Group-1 ( Peenya ) and Group-3 ( DCV )
+    if (g === 'Group-1' || g === 'Group-3' || g === 'Group-1 ( Peenya)' || g === 'Group-3 ( DCV )' || g === 'Group-1 (Peenya)' || g === 'Group-3 (DCV)') {
+        return 'Group 1-Giridhar-Peenya';
+    }
+    
+    // Merge Online Business variations
+    const onlineVars = ['Online Business', 'Online Business-Giridhar', 'Online Business-Veeresh', 'Online - Giridhar', 'Online - Veeresh'];
+    if (onlineVars.includes(g)) {
+        return 'Online Business';
+    }
+    
     return g;
 };
 
@@ -194,8 +205,6 @@ const HorizontalBarChart = ({ data, title, color }: { data: { label: string; val
     );
 };
 
-// --- Added missing components to fix errors ---
-
 const ABCAnalysisChart = ({ data }: { data: { label: string, value: number, count: number, color: string }[] }) => {
   const totalVal = data.reduce((a, b) => a + (b.value || 0), 0);
   return (
@@ -281,14 +290,12 @@ const InteractiveDrillDownChart = ({ hierarchyData, metric, totalValue }: { hier
     );
 };
 
-// --- Dashboard View Component continues ---
-
 const GroupedCustomerAnalysis = ({ data }: { data: { group: string, total: number, customers: { name: string, current: number, previous: number, diff: number }[] }[] }) => {
     const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
     const toggleGroup = (group: string) => setExpandedGroups(prev => ({ ...prev, [group]: !prev[group] }));
     return (
         <div className="flex flex-col h-full w-full overflow-hidden">
-            <h4 className="text-[11px] font-bold text-gray-600 uppercase mb-3 border-b border-gray-100 pb-1">Customer Group</h4>
+            <h4 className="text-[11px] font-bold text-gray-600 uppercase mb-3 border-b border-gray-100 pb-1">Customer Group Analysis</h4>
             <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-2">
                 {data.map((groupData) => (
                     <div key={groupData.group} className="border border-gray-100 rounded-lg overflow-hidden bg-white shadow-sm">
@@ -387,7 +394,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
           const dateObj = parseDate(item.date);
           const fi = getFiscalInfo(dateObj);
           const cust = custMap.get(String(item.customerName || '').toLowerCase().trim());
-          const mergedGroup = getMergedGroupName(cust?.group || 'Unassigned');
+          // Switch grouping source field from 'group' to 'customerGroup'
+          const mergedGroup = getMergedGroupName(cust?.customerGroup || 'Unassigned');
           return { ...item, ...fi, rawDate: dateObj, custGroup: mergedGroup, custStatus: cust?.status || 'Unknown' };
       });
   }, [salesReportItems, customers]);
@@ -445,8 +453,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({
           const name = String(i.customerName || 'Unknown');
           if (groupMap.has(group)) {
               const groupObj = groupMap.get(group)!;
-              if (groupObj.customers.has(name)) groupObj.customers.set(name, { current: 0, previous: (i.value || 0) });
-              else groupObj.customers.set(name, { current: 0, previous: (i.value || 0) });
+              if (groupObj.customers.has(name)) {
+                  groupObj.customers.get(name)!.previous += (i.value || 0);
+              } else {
+                  groupObj.customers.set(name, { current: 0, previous: (i.value || 0) });
+              }
           }
       });
       return Array.from(groupMap.entries()).map(([group, data]) => ({
@@ -576,7 +587,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                     <div className="lg:col-span-2 bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col h-80 overflow-hidden"><h3 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2"><TrendingUp className="w-4 h-4 text-blue-600" /> 3-Year Trend Analysis</h3><div className="flex flex-1 pt-2 overflow-hidden"><div className="flex flex-col justify-between text-[9px] text-gray-400 pr-3 pb-8 text-right w-12 border-r"><span>{formatAxisValue(chartMax)}</span><span>{formatAxisValue(chartMax*0.5)}</span><span>0</span></div><div className="flex-1 pl-4 pb-2 relative min-h-0"><SalesTrendChart data={lineChartData} maxVal={chartMax} /></div></div></div>
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col h-80 overflow-hidden"><SimpleDonut data={groupedCustomerData.map(g => ({ label: g.group, value: g.total }))} title="Sales Mix by Group" color="blue" /></div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col h-80 overflow-hidden"><SimpleDonut data={groupedCustomerData.map(g => ({ label: g.group, value: g.total }))} title="Sales Mix by Customer Group" color="blue" /></div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-96 overflow-hidden">
