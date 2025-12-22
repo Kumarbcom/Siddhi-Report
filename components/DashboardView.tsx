@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Material, ClosingStockItem, PendingSOItem, PendingPOItem, SalesReportItem, CustomerMasterItem, SalesRecord } from '../types';
 import { TrendingUp, TrendingDown, Package, ClipboardList, ShoppingCart, Calendar, Filter, PieChart as PieIcon, BarChart3, Users, ArrowRight, Activity, DollarSign, ArrowUpRight, ArrowDownRight, RefreshCw, UserCircle, Minus, Plus, ChevronDown, ChevronUp, Link2Off, AlertTriangle, Layers, Clock, CheckCircle2, AlertCircle, User, Factory, Tag, ArrowLeft, BarChart4, Hourglass, History, AlertOctagon, ChevronRight, ListOrdered } from 'lucide-react';
@@ -179,7 +178,7 @@ const SimpleDonut = ({ data, title, color }: { data: {label: string, value: numb
      );
 };
 
-const HorizontalBarChart = ({ data, title, color }: { data: { label: string; value: number }[], title: string, color: string }) => {
+const HorizontalBarChart = ({ data, title, color }: { data: { label: string; value: number, previous?: number }[], title: string, color: string }) => {
     const sorted = [...data].sort((a,b) => (b.value || 0) - (a.value || 0)).slice(0, 10);
     const maxVal = Math.max(sorted[0]?.value || 1, 1);
     const barColorClass = color === 'blue' ? 'bg-blue-500' : color === 'emerald' ? 'bg-emerald-500' : color === 'purple' ? 'bg-purple-500' : 'bg-orange-500';
@@ -191,11 +190,19 @@ const HorizontalBarChart = ({ data, title, color }: { data: { label: string; val
                     {sorted.map((item, i) => (
                         <div key={i} className="flex flex-col gap-1.5">
                             <div className="flex justify-between items-center text-[10px]">
-                                <span className="truncate text-gray-700 font-medium flex-1 min-w-0 pr-3" title={String(item.label)}>{item.label}</span>
+                                <div className="flex flex-col flex-1 min-w-0">
+                                    <span className="truncate text-gray-700 font-bold" title={String(item.label)}>{item.label}</span>
+                                    {item.previous !== undefined && (
+                                        <span className="text-[8px] text-gray-400 font-medium">PY: {formatLargeValue(item.previous, true)}</span>
+                                    )}
+                                </div>
                                 <span className="font-bold text-gray-900 flex-shrink-0 bg-white pl-1">{formatLargeValue(item.value, true)}</span>
                             </div>
-                            <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
-                                <div className={`h-full rounded-full ${barColorClass} transition-all duration-700`} style={{ width: `${(item.value / maxVal) * 100}%` }}></div>
+                            <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden relative">
+                                {item.previous !== undefined && (
+                                    <div className="absolute inset-0 bg-gray-200/50" style={{ width: `${(item.previous / maxVal) * 100}%` }}></div>
+                                )}
+                                <div className={`h-full rounded-full ${barColorClass} transition-all duration-700 relative z-10`} style={{ width: `${(item.value / maxVal) * 100}%` }}></div>
                             </div>
                         </div>
                     ))}
@@ -205,97 +212,12 @@ const HorizontalBarChart = ({ data, title, color }: { data: { label: string; val
     );
 };
 
-const ABCAnalysisChart = ({ data }: { data: { label: string, value: number, count: number, color: string }[] }) => {
-  const totalVal = data.reduce((a, b) => a + (b.value || 0), 0);
-  return (
-    <div className="flex flex-col h-full w-full">
-      <h4 className="text-[11px] font-bold text-gray-600 uppercase mb-3 border-b border-gray-100 pb-1">ABC Inventory Analysis</h4>
-      <div className="flex-1 space-y-4 overflow-y-auto custom-scrollbar pr-2 mt-2">
-        {data.map((item) => (
-          <div key={item.label} className="bg-gray-50 rounded-lg p-3 border border-gray-100">
-            <div className="flex justify-between items-center mb-2">
-              <div className="flex items-center gap-2">
-                <span className="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-black text-white" style={{ backgroundColor: item.color }}>{item.label}</span>
-                <span className="text-xs font-bold text-gray-700">Category {item.label}</span>
-              </div>
-              <span className="text-xs font-black text-gray-900">{formatLargeValue(item.value, true)}</span>
-            </div>
-            <div className="w-full bg-gray-200 h-1.5 rounded-full overflow-hidden mb-2">
-              <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${(item.value / (totalVal || 1)) * 100}%`, backgroundColor: item.color }}></div>
-            </div>
-            <div className="flex justify-between text-[10px] text-gray-500">
-              <span>{item.count} Items</span>
-              <span>{((item.value / (totalVal || 1)) * 100).toFixed(1)}% of Value</span>
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="mt-2 pt-2 border-t border-gray-100 text-[10px] text-gray-400 italic">
-        A: Top 70% | B: Next 20% | C: Bottom 10%
-      </div>
-    </div>
-  );
-};
-
-const InteractiveDrillDownChart = ({ hierarchyData, metric, totalValue }: { hierarchyData: any[], metric: Metric, totalValue: number }) => {
-    const [selectedMake, setSelectedMake] = useState<string | null>(null);
-    const displayData = selectedMake 
-        ? hierarchyData.find(h => h.label === selectedMake)?.groups || []
-        : hierarchyData;
-    
-    const maxVal = Math.max(...displayData.map((d: any) => d.value), 1);
-
-    return (
-        <div className="flex flex-col h-full w-full">
-            <div className="flex justify-between items-center mb-3 border-b border-gray-100 pb-1">
-                <h4 className="text-[11px] font-bold text-gray-600 uppercase">
-                    {selectedMake ? `Groups: ${selectedMake}` : 'Stock by Make'}
-                </h4>
-                {selectedMake && (
-                    <button 
-                        onClick={() => setSelectedMake(null)}
-                        className="text-[10px] font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1"
-                    >
-                        <ArrowLeft className="w-3 h-3" /> Back
-                    </button>
-                )}
-            </div>
-            <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 mt-1">
-                <div className="flex flex-col gap-4">
-                    {displayData.map((item: any, i: number) => (
-                        <div 
-                            key={i} 
-                            className={`flex flex-col gap-1.5 ${!selectedMake ? 'cursor-pointer hover:bg-gray-50 p-1 rounded-md transition-colors' : ''}`}
-                            onClick={() => !selectedMake && setSelectedMake(item.label)}
-                        >
-                            <div className="flex justify-between items-center text-[10px]">
-                                <span className="truncate text-gray-700 font-bold flex-1 min-w-0 pr-3" title={item.label}>{item.label}</span>
-                                <div className="flex items-center gap-2">
-                                    <span className="text-[9px] text-gray-400 font-medium">({((item.value / (totalValue || 1)) * 100).toFixed(1)}%)</span>
-                                    <span className="font-bold text-gray-900">{metric === 'value' ? formatLargeValue(item.value, true) : item.value.toLocaleString()}</span>
-                                    {!selectedMake && <ChevronRight className="w-3 h-3 text-gray-300" />}
-                                </div>
-                            </div>
-                            <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
-                                <div 
-                                    className={`h-full rounded-full ${selectedMake ? 'bg-indigo-500' : 'bg-blue-600'} transition-all duration-500`} 
-                                    style={{ width: `${(item.value / maxVal) * 100}%` }}
-                                ></div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const GroupedCustomerAnalysis = ({ data }: { data: { group: string, total: number, customers: { name: string, current: number, previous: number, diff: number }[] }[] }) => {
+const GroupedCustomerAnalysis = ({ data }: { data: { group: string, total: number, totalPrevious: number, customers: { name: string, current: number, previous: number, diff: number }[] }[] }) => {
     const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
     const toggleGroup = (group: string) => setExpandedGroups(prev => ({ ...prev, [group]: !prev[group] }));
     return (
         <div className="flex flex-col h-full w-full overflow-hidden">
-            <h4 className="text-[11px] font-bold text-gray-600 uppercase mb-3 border-b border-gray-100 pb-1">Customer Group Analysis</h4>
+            <h4 className="text-[11px] font-bold text-gray-600 uppercase mb-3 border-b border-gray-100 pb-1">Customer Group (vs PY)</h4>
             <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-2">
                 {data.map((groupData) => (
                     <div key={groupData.group} className="border border-gray-100 rounded-lg overflow-hidden bg-white shadow-sm">
@@ -304,7 +226,15 @@ const GroupedCustomerAnalysis = ({ data }: { data: { group: string, total: numbe
                                 {expandedGroups[groupData.group] ? <ChevronDown className="w-4 h-4 text-blue-600" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
                                 <span className="text-xs font-bold text-gray-800 uppercase tracking-tight">{groupData.group}</span>
                             </div>
-                            <span className="text-xs font-black text-blue-700">{formatLargeValue(groupData.total, true)}</span>
+                            <div className="flex flex-col items-end">
+                                <span className="text-xs font-black text-blue-700">{formatLargeValue(groupData.total, true)}</span>
+                                <div className="flex items-center gap-1.5 leading-none">
+                                    <span className="text-[8px] text-gray-400 uppercase font-medium">PY: {formatLargeValue(groupData.totalPrevious, true)}</span>
+                                    <span className={`text-[8px] font-bold px-1 rounded-sm ${groupData.total >= groupData.totalPrevious ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
+                                        {groupData.totalPrevious > 0 ? (((groupData.total - groupData.totalPrevious) / groupData.totalPrevious) * 100).toFixed(0) : '100'}%
+                                    </span>
+                                </div>
+                            </div>
                         </button>
                         {expandedGroups[groupData.group] && (
                             <div className="divide-y divide-gray-50 bg-white">
@@ -336,6 +266,106 @@ const GroupedCustomerAnalysis = ({ data }: { data: { group: string, total: numbe
 };
 
 type Metric = 'quantity' | 'value';
+
+/* Fix for: Cannot find name 'ABCAnalysisChart' */
+const ABCAnalysisChart = ({ data }: { data: { label: string, value: number, count: number, color: string }[] }) => {
+    const totalValue = data.reduce((a, b) => a + (b.value || 0), 0);
+    const totalCount = data.reduce((a, b) => a + (b.count || 0), 0);
+
+    return (
+        <div className="flex flex-col h-full">
+            <h4 className="text-[11px] font-bold text-gray-600 uppercase mb-4 flex items-center gap-2">
+                <Tag className="w-4 h-4 text-emerald-600" /> ABC Analysis (Value)
+            </h4>
+            <div className="flex-1 flex flex-col gap-4">
+                <div className="flex h-8 w-full rounded-lg overflow-hidden border border-gray-100 shadow-sm">
+                    {data.map((item, i) => {
+                        const pct = totalValue > 0 ? (item.value / totalValue) * 100 : 0;
+                        if (pct === 0) return null;
+                        return (
+                            <div 
+                                key={i} 
+                                style={{ width: `${pct}%`, backgroundColor: item.color }} 
+                                className="h-full flex items-center justify-center text-[10px] font-bold text-white shadow-inner"
+                                title={`${item.label}: ${pct.toFixed(1)}%`}
+                            >
+                                {pct > 15 ? item.label : ''}
+                            </div>
+                        );
+                    })}
+                </div>
+                <div className="space-y-3 flex-1 overflow-y-auto custom-scrollbar">
+                    {data.map((item, i) => {
+                        const valPct = totalValue > 0 ? (item.value / totalValue) * 100 : 0;
+                        const countPct = totalCount > 0 ? (item.count / totalCount) * 100 : 0;
+                        return (
+                            <div key={i} className="bg-gray-50 p-2.5 rounded-lg border border-gray-100">
+                                <div className="flex justify-between items-center mb-1">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }}></div>
+                                        <span className="text-[11px] font-bold text-gray-700">Category {item.label}</span>
+                                    </div>
+                                    <span className="text-[11px] font-black text-gray-900">{formatLargeValue(item.value)}</span>
+                                </div>
+                                <div className="flex justify-between text-[9px] text-gray-500 font-medium">
+                                    <span>{item.count} Items ({countPct.toFixed(1)}%)</span>
+                                    <span>{valPct.toFixed(1)}% of Total Value</span>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+/* Fix for: Cannot find name 'InteractiveDrillDownChart' */
+const InteractiveDrillDownChart = ({ hierarchyData, metric, totalValue }: { hierarchyData: any[], metric: Metric, totalValue: number }) => {
+    const [expandedMake, setExpandedMake] = useState<string | null>(null);
+    const sorted = [...hierarchyData].sort((a, b) => b.value - a.value);
+    const maxVal = Math.max(sorted[0]?.value || 1, 1);
+
+    return (
+        <div className="flex flex-col h-full w-full overflow-hidden">
+            <h4 className="text-[11px] font-bold text-gray-600 uppercase mb-3 border-b border-gray-100 pb-1 flex justify-between items-center">
+                <span>Inventory Drill-down</span>
+                <span className="text-[9px] text-gray-400 font-medium uppercase tracking-tighter">By {metric}</span>
+            </h4>
+            <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-2">
+                {sorted.map((item, i) => (
+                    <div key={i} className="flex flex-col gap-1">
+                        <button 
+                            onClick={() => setExpandedMake(expandedMake === item.label ? null : item.label)}
+                            className={`w-full text-left p-2.5 rounded-lg border transition-all flex items-center justify-between ${expandedMake === item.label ? 'bg-blue-50 border-blue-200 shadow-sm' : 'bg-white border-gray-100 hover:bg-gray-50'}`}
+                        >
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                                {expandedMake === item.label ? <ChevronDown className="w-4 h-4 text-blue-600" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
+                                <span className="text-[10px] font-bold text-gray-700 truncate">{item.label}</span>
+                            </div>
+                            <div className="flex flex-col items-end">
+                                <span className="text-[10px] font-black text-gray-900">{metric === 'value' ? formatLargeValue(item.value) : item.value.toLocaleString()}</span>
+                                <div className="w-16 h-1 bg-gray-100 rounded-full overflow-hidden mt-1">
+                                    <div className="h-full bg-blue-500 rounded-full transition-all duration-500" style={{ width: `${(item.value / maxVal) * 100}%` }}></div>
+                                </div>
+                            </div>
+                        </button>
+                        {expandedMake === item.label && (
+                            <div className="ml-5 pl-3 border-l-2 border-blue-100 space-y-1 py-1">
+                                {item.groups.map((group: any, gi: number) => (
+                                    <div key={gi} className="flex justify-between items-center py-1.5 px-2 hover:bg-gray-50 rounded group">
+                                        <span className="text-[9px] font-medium text-gray-600 truncate flex-1 pr-2 group-hover:text-gray-900">{group.label}</span>
+                                        <span className="text-[9px] font-bold text-gray-800">{metric === 'value' ? formatLargeValue(group.value) : group.value.toLocaleString()}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
 
 interface DashboardViewProps {
   materials: Material[];
@@ -438,32 +468,38 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   }, [currentData]);
 
   const groupedCustomerData = useMemo(() => {
-      const groupMap = new Map<string, { total: number, customers: Map<string, { current: number, previous: number }> }>();
+      const groupMap = new Map<string, { total: number, totalPrevious: number, customers: Map<string, { current: number, previous: number }> }>();
+      
       currentData.forEach(i => {
           const group = i.custGroup;
           const name = String(i.customerName || 'Unknown');
-          if (!groupMap.has(group)) groupMap.set(group, { total: 0, customers: new Map() });
+          if (!groupMap.has(group)) groupMap.set(group, { total: 0, totalPrevious: 0, customers: new Map() });
           const groupObj = groupMap.get(group)!;
           groupObj.total += (i.value || 0);
           if (!groupObj.customers.has(name)) groupObj.customers.set(name, { current: 0, previous: 0 });
           groupObj.customers.get(name)!.current += (i.value || 0);
       });
+
       previousDataForComparison.forEach(i => {
           const group = i.custGroup;
           const name = String(i.customerName || 'Unknown');
-          if (groupMap.has(group)) {
-              const groupObj = groupMap.get(group)!;
-              if (groupObj.customers.has(name)) {
-                  groupObj.customers.get(name)!.previous += (i.value || 0);
-              } else {
-                  groupObj.customers.set(name, { current: 0, previous: (i.value || 0) });
-              }
-          }
+          if (!groupMap.has(group)) groupMap.set(group, { total: 0, totalPrevious: 0, customers: new Map() });
+          const groupObj = groupMap.get(group)!;
+          groupObj.totalPrevious += (i.value || 0);
+          if (!groupObj.customers.has(name)) groupObj.customers.set(name, { current: 0, previous: 0 });
+          groupObj.customers.get(name)!.previous += (i.value || 0);
       });
+
       return Array.from(groupMap.entries()).map(([group, data]) => ({
           group,
           total: data.total,
-          customers: Array.from(data.customers.entries()).map(([name, vals]) => ({ name, current: vals.current, previous: vals.previous, diff: vals.current - vals.previous })).sort((a, b) => b.current - a.current).slice(0, 10)
+          totalPrevious: data.totalPrevious,
+          customers: Array.from(data.customers.entries()).map(([name, vals]) => ({ 
+              name, 
+              current: vals.current, 
+              previous: vals.previous, 
+              diff: vals.current - vals.previous 
+          })).sort((a, b) => b.current - a.current).slice(0, 10)
       })).sort((a, b) => b.total - a.total);
   }, [currentData, previousDataForComparison]);
 
@@ -591,7 +627,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-96 overflow-hidden">
-                        <HorizontalBarChart data={groupedCustomerData.map(g => ({ label: g.group, value: g.total }))} title="Top Customer Groups (by Value)" color="blue" />
+                        <HorizontalBarChart data={groupedCustomerData.map(g => ({ label: g.group, value: g.total, previous: g.totalPrevious }))} title="Top Customer Groups (Current vs PY)" color="blue" />
                     </div>
                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-96 overflow-hidden">
                         <GroupedCustomerAnalysis data={groupedCustomerData} />
