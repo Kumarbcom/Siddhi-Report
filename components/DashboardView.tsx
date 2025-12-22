@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Material, ClosingStockItem, PendingSOItem, PendingPOItem, SalesReportItem, CustomerMasterItem, SalesRecord } from '../types';
-import { TrendingUp, TrendingDown, Package, ClipboardList, ShoppingCart, Calendar, Filter, PieChart as PieIcon, BarChart3, Users, ArrowRight, Activity, DollarSign, ArrowUpRight, ArrowDownRight, RefreshCw, UserCircle, Minus, Plus, ChevronDown, ChevronUp, Link2Off, AlertTriangle, Layers, Clock, CheckCircle2, AlertCircle, User, Factory, Tag, ArrowLeft, BarChart4, Hourglass, History, AlertOctagon, ChevronRight } from 'lucide-react';
+import { TrendingUp, TrendingDown, Package, ClipboardList, ShoppingCart, Calendar, Filter, PieChart as PieIcon, BarChart3, Users, ArrowRight, Activity, DollarSign, ArrowUpRight, ArrowDownRight, RefreshCw, UserCircle, Minus, Plus, ChevronDown, ChevronUp, Link2Off, AlertTriangle, Layers, Clock, CheckCircle2, AlertCircle, User, Factory, Tag, ArrowLeft, BarChart4, Hourglass, History, AlertOctagon, ChevronRight, ListOrdered } from 'lucide-react';
 
 const COLORS = ['#10B981', '#3B82F6', '#6366F1', '#8B5CF6', '#EC4899', '#F59E0B', '#EF4444', '#6B7280', '#059669', '#2563EB'];
 
@@ -16,7 +16,6 @@ const formatLargeValue = (val: number, compact: boolean = false) => {
     return `${prefix}${Math.round(val).toLocaleString('en-IN')}`;
 };
 
-// Helper to merge groups based on specific rules
 const getMergedGroupName = (groupName: string) => {
     const g = String(groupName || 'Unassigned').trim();
     if (g === 'Group-1' || g === 'Group-3') return 'Group-1 & 3';
@@ -65,7 +64,6 @@ const SalesTrendChart = ({ data, maxVal }: { data: { labels: string[], series: a
       onMouseLeave={() => setHoverIndex(null)}
     >
       <div className="flex-1 relative min-h-0">
-         {/* Data Labels - All Series with stagger */}
          {data.series.map((s: any, sIdx: number) => 
              s.active && s.data.map((val: number, i: number) => {
                  if (val === 0 || isNaN(val)) return null;
@@ -77,34 +75,21 @@ const SalesTrendChart = ({ data, maxVal }: { data: { labels: string[], series: a
                      <div 
                         key={`${sIdx}-${i}`} 
                         className={`absolute text-[8px] font-bold bg-white/80 backdrop-blur-[1px] px-1 rounded shadow-sm border border-gray-100 z-10 pointer-events-none transform -translate-x-1/2 transition-all duration-200 ${isHovered ? 'scale-125 z-20 border-blue-200' : 'opacity-80'}`}
-                        style={{ 
-                            left: `${x}%`, 
-                            top: `calc(${y}% - ${15 + yOffset}px)`, 
-                            color: s.color,
-                            opacity: hoverIndex !== null && hoverIndex !== i ? 0.2 : 1
-                        }}
+                        style={{ left: `${x}%`, top: `calc(${y}% - ${15 + yOffset}px)`, color: s.color, opacity: hoverIndex !== null && hoverIndex !== i ? 0.2 : 1 }}
                      >
                          {formatLargeValue(val, true)}
                      </div>
                  );
              })
          )}
-
          {hoverIndex !== null && (
-            <div 
-              className="absolute z-20 bg-gray-900/95 backdrop-blur-md text-white text-[10px] p-3 rounded-xl shadow-2xl border border-gray-700 pointer-events-none transition-all duration-100 ease-out min-w-[140px]"
-              style={{ 
-                left: `${(hoverIndex / (data.labels.length - 1)) * 100}%`, 
-                top: '0',
-                transform: `translateX(${hoverIndex > data.labels.length / 2 ? '-110%' : '10%'})`,
-              }}
-            >
+            <div className="absolute z-20 bg-gray-900/95 backdrop-blur-md text-white text-[10px] p-3 rounded-xl shadow-2xl border border-gray-700 pointer-events-none transition-all duration-100 ease-out min-w-[140px]" style={{ left: `${(hoverIndex / (data.labels.length - 1)) * 100}%`, top: '0', transform: `translateX(${hoverIndex > data.labels.length / 2 ? '-110%' : '10%'})` }}>
                 <div className="font-bold border-b border-gray-600 pb-2 mb-2 text-gray-100 text-center uppercase tracking-wider text-[11px]">{data.labels[hoverIndex]}</div>
                 <div className="flex flex-col gap-2">
                     {data.series.map((s: any, i: number) => (
                         <div key={i} className={`flex items-center justify-between gap-4 ${!s.active ? 'opacity-50' : ''}`}>
                             <div className="flex items-center gap-2">
-                                <div className="w-2.5 h-2.5 rounded-full shadow-[0_0_8px_rgba(255,255,255,0.5)]" style={{backgroundColor: s.color}}></div>
+                                <div className="w-2.5 h-2.5 rounded-full" style={{backgroundColor: s.color}}></div>
                                 <span className="text-gray-300 font-medium whitespace-nowrap">{s.name}</span>
                             </div>
                             <span className="font-mono font-bold text-white text-xs">{formatLargeValue(s.data[hoverIndex], true)}</span>
@@ -118,144 +103,26 @@ const SalesTrendChart = ({ data, maxVal }: { data: { labels: string[], series: a
               {data.series.map((s: any, i: number) => (
                 <linearGradient key={i} id={`grad-${i}`} x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor={s.color} stopOpacity="0.4" />
-                  <stop offset="70%" stopColor={s.color} stopOpacity="0.05" />
                   <stop offset="100%" stopColor={s.color} stopOpacity="0" />
                 </linearGradient>
               ))}
-              <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-                <feGaussianBlur stdDeviation="1.5" result="coloredBlur"/>
-                <feMerge>
-                    <feMergeNode in="coloredBlur"/>
-                    <feMergeNode in="SourceGraphic"/>
-                </feMerge>
-              </filter>
             </defs>
-            {data.labels.map((_, i) => (
-                <line key={i} x1={(i / (data.labels.length - 1)) * 100} y1="0" x2={(i / (data.labels.length - 1)) * 100} y2="100" stroke="#f3f4f6" strokeWidth="0.5" vectorEffect="non-scaling-stroke"/>
-            ))}
             {data.series.map((s: any, i: number) => {
                if (!s.active) return null;
-               const points: [number, number][] = s.data.map((val: number, idx: number) => [
-                   (idx / (data.labels.length - 1)) * 100,
-                   100 - ((val / maxVal) * 100)
-               ]).filter((p: any) => !isNaN(p[1]));
+               const points: [number, number][] = s.data.map((val: number, idx: number) => [(idx / (data.labels.length - 1)) * 100, 100 - ((val / maxVal) * 100)]).filter((p: any) => !isNaN(p[1]));
                if (points.length < 2) return null;
                const pathD = getSmoothPath(points);
-               const areaD = `${pathD} L 100 100 L 0 100 Z`;
                return (
                    <g key={i}>
-                       <path d={areaD} fill={`url(#grad-${i})`} className="transition-opacity duration-300" style={{opacity: hoverIndex !== null ? 0.8 : 0.6}} />
-                       <path d={pathD} fill="none" stroke={s.color} strokeWidth="3" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" filter="url(#glow)" className="drop-shadow-sm transition-all duration-300" style={{ strokeWidth: hoverIndex !== null ? 3.5 : 2.5 }} />
+                       <path d={`${pathD} L 100 100 L 0 100 Z`} fill={`url(#grad-${i})`} style={{opacity: hoverIndex !== null ? 0.8 : 0.6}} />
+                       <path d={pathD} fill="none" stroke={s.color} strokeWidth="2.5" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" />
                    </g>
                )
             })}
          </svg>
       </div>
-      <div className="flex justify-between mt-3 text-[9px] text-gray-400 font-medium border-t border-gray-100 pt-2">
-          {data.labels.map((l: string, i: number) => (
-              <span key={i} className={`flex-1 text-center transition-colors duration-200 ${hoverIndex === i ? 'text-blue-600 font-bold scale-110' : ''}`}>{l}</span>
-          ))}
-      </div>
     </div>
   );
-};
-
-const InteractiveDrillDownChart = ({ hierarchyData, metric, totalValue }: { hierarchyData: any[], metric: Metric, totalValue: number }) => {
-    const [view, setView] = useState<'MAKE' | 'GROUP'>('MAKE');
-    const [selectedMake, setSelectedMake] = useState<string | null>(null);
-
-    const activeData = useMemo(() => {
-        if (view === 'MAKE') {
-            return hierarchyData.map(d => ({ label: d.label, value: d.value, color: '#3B82F6', id: d.label }));
-        } else if (selectedMake) {
-            const makeData = hierarchyData.find(d => d.label === selectedMake);
-            return makeData ? makeData.groups.map((g: any, i: number) => ({ label: g.label, value: g.value, color: COLORS[i % COLORS.length], id: g.label })) : [];
-        }
-        return [];
-    }, [view, selectedMake, hierarchyData]);
-
-    const handleBarClick = (id: string) => {
-        if (view === 'MAKE') {
-            setSelectedMake(id);
-            setView('GROUP');
-        }
-    };
-
-    const handleBack = () => {
-        setView('MAKE');
-        setSelectedMake(null);
-    };
-
-    if (activeData.length === 0) return <div className="flex items-center justify-center h-full text-gray-400 text-xs">No Data</div>;
-    const maxVal = Math.max(...activeData.map((d: any) => d.value), 1);
-
-    return (
-        <div className="flex flex-col h-full overflow-hidden">
-            {view === 'GROUP' && (
-                <div className="flex items-center gap-2 mb-2 pb-2 border-b border-gray-100">
-                    <button onClick={handleBack} className="p-1 hover:bg-gray-100 rounded-full text-gray-500"><ArrowLeft className="w-3.5 h-3.5" /></button>
-                    <span className="text-xs font-bold text-gray-700">{selectedMake} breakdown</span>
-                </div>
-            )}
-            <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-2">
-                {activeData.map((item: any, i: number) => (
-                    <div key={i} className={`group flex flex-col gap-1 ${view === 'MAKE' ? 'cursor-pointer' : ''}`} onClick={() => handleBarClick(item.id)}>
-                        <div className="flex justify-between items-end text-[10px]">
-                            <span className={`font-medium truncate w-3/4 ${view === 'MAKE' ? 'text-gray-700 group-hover:text-blue-600' : 'text-gray-600'}`}>{item.label}</span>
-                            <div className="flex gap-2">
-                                <span className="text-gray-500 font-medium">
-                                    {totalValue > 0 ? ((item.value / totalValue) * 100).toFixed(1) + '%' : '0%'}
-                                </span>
-                                <span className="font-bold text-gray-900">{metric === 'value' ? formatLargeValue(item.value, true) : item.value.toLocaleString()}</span>
-                            </div>
-                        </div>
-                        <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
-                            <div className="h-full rounded-full transition-all duration-700" style={{ width: `${(item.value / maxVal) * 100}%`, backgroundColor: item.color }}></div>
-                        </div>
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-};
-
-const ABCAnalysisChart = ({ data }: { data: { label: string, value: number, count: number, color: string }[] }) => {
-    const totalVal = data.reduce((a, b) => a + (b.value || 0), 0);
-    let startAngle = 0;
-    return (
-        <div className="flex flex-col h-full">
-            <div className="flex items-center justify-center py-2 flex-1">
-                <div className="relative w-32 h-32">
-                    <svg viewBox="-1 -1 2 2" style={{ transform: 'rotate(-90deg)' }} className="w-full h-full">
-                        {data.map((slice, i) => {
-                            const pct = slice.value / (totalVal || 1);
-                            const endAngle = startAngle + pct * 2 * Math.PI;
-                            const x1 = Math.cos(startAngle);
-                            const y1 = Math.sin(startAngle);
-                            const x2 = Math.cos(endAngle);
-                            const y2 = Math.sin(endAngle);
-                            const largeArc = pct > 0.5 ? 1 : 0;
-                            const pathData = [`M ${x1} ${y1}`, `A 1 1 0 ${largeArc} 1 ${x2} ${y2}`, `L ${x2 * 0.65} ${y2 * 0.65}`, `A 0.65 0.65 0 ${largeArc} 0 ${x1 * 0.65} ${y1 * 0.65}`, 'Z'].join(' ');
-                            startAngle = endAngle;
-                            return ( <path key={i} d={pathData} fill={slice.color} stroke="white" strokeWidth="0.02" className="hover:opacity-80 transition-opacity cursor-pointer"><title>{slice.label}: {Math.round(pct * 100)}%</title></path> );
-                        })}
-                    </svg>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none px-1 text-center">
-                        <span className="text-[10px] text-gray-400 font-bold uppercase leading-none">Stock</span>
-                        <span className="text-xs font-extrabold text-gray-800">{formatLargeValue(totalVal, true)}</span>
-                    </div>
-                </div>
-            </div>
-            <div className="grid grid-cols-3 gap-1 border-t border-gray-100 pt-2">
-                {data.map((item, i) => (
-                    <div key={i} className="flex flex-col items-center text-center">
-                        <span className="text-[9px] font-bold" style={{color: item.color}}>Class {item.label}</span>
-                        <span className="text-[9px] font-medium text-gray-600">{item.count} items</span>
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
 };
 
 const SimpleDonut = ({ data, title, color }: { data: {label: string, value: number, color?: string}[], title: string, color: string }) => {
@@ -285,7 +152,7 @@ const SimpleDonut = ({ data, title, color }: { data: {label: string, value: numb
                        <span className={`text-[7px] font-bold ${color === 'blue' ? 'text-blue-600' : 'text-green-600'}`}>{formatLargeValue(total, true)}</span>
                    </div>
                 </div>
-                <div className="flex-1 overflow-y-auto custom-scrollbar h-20 text-[9px]">
+                <div className="flex-1 overflow-y-auto custom-scrollbar h-24 text-[9px]">
                     {displayData.map((d, i) => (
                         <div key={i} className="flex justify-between items-center mb-1">
                              <div className="flex items-center gap-1.5 truncate flex-1 min-w-0">
@@ -327,34 +194,111 @@ const HorizontalBarChart = ({ data, title, color }: { data: { label: string; val
     );
 };
 
-/**
- * NEW COMPONENT: Interactive Grouped Customer List
- * Shows customers grouped by their (merged) category with expand/collapse and PY comparison.
- */
-const GroupedCustomerAnalysis = ({ data }: { data: { group: string, total: number, customers: { name: string, current: number, previous: number, diff: number }[] }[] }) => {
-    const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+// --- Added missing components to fix errors ---
 
-    const toggleGroup = (group: string) => {
-        setExpandedGroups(prev => ({ ...prev, [group]: !prev[group] }));
-    };
+const ABCAnalysisChart = ({ data }: { data: { label: string, value: number, count: number, color: string }[] }) => {
+  const totalVal = data.reduce((a, b) => a + (b.value || 0), 0);
+  return (
+    <div className="flex flex-col h-full w-full">
+      <h4 className="text-[11px] font-bold text-gray-600 uppercase mb-3 border-b border-gray-100 pb-1">ABC Inventory Analysis</h4>
+      <div className="flex-1 space-y-4 overflow-y-auto custom-scrollbar pr-2 mt-2">
+        {data.map((item) => (
+          <div key={item.label} className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+            <div className="flex justify-between items-center mb-2">
+              <div className="flex items-center gap-2">
+                <span className="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-black text-white" style={{ backgroundColor: item.color }}>{item.label}</span>
+                <span className="text-xs font-bold text-gray-700">Category {item.label}</span>
+              </div>
+              <span className="text-xs font-black text-gray-900">{formatLargeValue(item.value, true)}</span>
+            </div>
+            <div className="w-full bg-gray-200 h-1.5 rounded-full overflow-hidden mb-2">
+              <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${(item.value / (totalVal || 1)) * 100}%`, backgroundColor: item.color }}></div>
+            </div>
+            <div className="flex justify-between text-[10px] text-gray-500">
+              <span>{item.count} Items</span>
+              <span>{((item.value / (totalVal || 1)) * 100).toFixed(1)}% of Value</span>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="mt-2 pt-2 border-t border-gray-100 text-[10px] text-gray-400 italic">
+        A: Top 70% | B: Next 20% | C: Bottom 10%
+      </div>
+    </div>
+  );
+};
+
+const InteractiveDrillDownChart = ({ hierarchyData, metric, totalValue }: { hierarchyData: any[], metric: Metric, totalValue: number }) => {
+    const [selectedMake, setSelectedMake] = useState<string | null>(null);
+    const displayData = selectedMake 
+        ? hierarchyData.find(h => h.label === selectedMake)?.groups || []
+        : hierarchyData;
+    
+    const maxVal = Math.max(...displayData.map((d: any) => d.value), 1);
 
     return (
+        <div className="flex flex-col h-full w-full">
+            <div className="flex justify-between items-center mb-3 border-b border-gray-100 pb-1">
+                <h4 className="text-[11px] font-bold text-gray-600 uppercase">
+                    {selectedMake ? `Groups: ${selectedMake}` : 'Stock by Make'}
+                </h4>
+                {selectedMake && (
+                    <button 
+                        onClick={() => setSelectedMake(null)}
+                        className="text-[10px] font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                    >
+                        <ArrowLeft className="w-3 h-3" /> Back
+                    </button>
+                )}
+            </div>
+            <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 mt-1">
+                <div className="flex flex-col gap-4">
+                    {displayData.map((item: any, i: number) => (
+                        <div 
+                            key={i} 
+                            className={`flex flex-col gap-1.5 ${!selectedMake ? 'cursor-pointer hover:bg-gray-50 p-1 rounded-md transition-colors' : ''}`}
+                            onClick={() => !selectedMake && setSelectedMake(item.label)}
+                        >
+                            <div className="flex justify-between items-center text-[10px]">
+                                <span className="truncate text-gray-700 font-bold flex-1 min-w-0 pr-3" title={item.label}>{item.label}</span>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[9px] text-gray-400 font-medium">({((item.value / (totalValue || 1)) * 100).toFixed(1)}%)</span>
+                                    <span className="font-bold text-gray-900">{metric === 'value' ? formatLargeValue(item.value, true) : item.value.toLocaleString()}</span>
+                                    {!selectedMake && <ChevronRight className="w-3 h-3 text-gray-300" />}
+                                </div>
+                            </div>
+                            <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
+                                <div 
+                                    className={`h-full rounded-full ${selectedMake ? 'bg-indigo-500' : 'bg-blue-600'} transition-all duration-500`} 
+                                    style={{ width: `${(item.value / maxVal) * 100}%` }}
+                                ></div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// --- Dashboard View Component continues ---
+
+const GroupedCustomerAnalysis = ({ data }: { data: { group: string, total: number, customers: { name: string, current: number, previous: number, diff: number }[] }[] }) => {
+    const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+    const toggleGroup = (group: string) => setExpandedGroups(prev => ({ ...prev, [group]: !prev[group] }));
+    return (
         <div className="flex flex-col h-full w-full overflow-hidden">
-            <h4 className="text-[11px] font-bold text-gray-600 uppercase mb-3 border-b border-gray-100 pb-1">Top Customers by Group (Current vs PY)</h4>
+            <h4 className="text-[11px] font-bold text-gray-600 uppercase mb-3 border-b border-gray-100 pb-1">Customer Group</h4>
             <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-2">
                 {data.map((groupData) => (
                     <div key={groupData.group} className="border border-gray-100 rounded-lg overflow-hidden bg-white shadow-sm">
-                        <button 
-                            onClick={() => toggleGroup(groupData.group)}
-                            className="w-full flex items-center justify-between p-2.5 bg-gray-50 hover:bg-blue-50 transition-colors"
-                        >
+                        <button onClick={() => toggleGroup(groupData.group)} className="w-full flex items-center justify-between p-2.5 bg-gray-50 hover:bg-blue-50 transition-colors">
                             <div className="flex items-center gap-2">
                                 {expandedGroups[groupData.group] ? <ChevronDown className="w-4 h-4 text-blue-600" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
                                 <span className="text-xs font-bold text-gray-800 uppercase tracking-tight">{groupData.group}</span>
                             </div>
                             <span className="text-xs font-black text-blue-700">{formatLargeValue(groupData.total, true)}</span>
                         </button>
-                        
                         {expandedGroups[groupData.group] && (
                             <div className="divide-y divide-gray-50 bg-white">
                                 {groupData.customers.map((cust, idx) => (
@@ -375,9 +319,6 @@ const GroupedCustomerAnalysis = ({ data }: { data: { group: string, total: numbe
                                         </div>
                                     </div>
                                 ))}
-                                {groupData.customers.length === 0 && (
-                                    <div className="p-4 text-center text-gray-400 text-[10px]">No sales data found in this group.</div>
-                                )}
                             </div>
                         )}
                     </div>
@@ -439,9 +380,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     return { fiscalYear, fiscalMonthIndex, weekNumber: diffDays >= 0 ? Math.floor(diffDays / 7) + 2 : 1 };
   };
 
-  /**
-   * ENRICHED SALES with Merged Group Logic
-   */
   const enrichedSales = useMemo(() => {
       const custMap = new Map<string, CustomerMasterItem>();
       customers.forEach(c => { if(c.customerName) custMap.set(String(c.customerName).toLowerCase().trim(), c); });
@@ -449,18 +387,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
           const dateObj = parseDate(item.date);
           const fi = getFiscalInfo(dateObj);
           const cust = custMap.get(String(item.customerName || '').toLowerCase().trim());
-          
-          // Apply Merged Group Logic
-          const rawGroup = cust?.group || 'Unassigned';
-          const mergedGroup = getMergedGroupName(rawGroup);
-
-          return { 
-              ...item, 
-              ...fi, 
-              rawDate: dateObj, 
-              custGroup: mergedGroup, 
-              custStatus: cust?.status || 'Unknown' 
-          };
+          const mergedGroup = getMergedGroupName(cust?.group || 'Unassigned');
+          return { ...item, ...fi, rawDate: dateObj, custGroup: mergedGroup, custStatus: cust?.status || 'Unknown' };
       });
   }, [salesReportItems, customers]);
 
@@ -481,16 +409,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       });
   }, [selectedFY, selectedMonth, selectedWeek, timeView, enrichedSales]);
 
-  // Previous year data for comparison in customer list
   const previousDataForComparison = useMemo(() => {
       if (!selectedFY) return [];
       const parts = selectedFY.split('-');
       const pyStart = parseInt(parts[0]) - 1;
       const pyString = `${pyStart}-${pyStart + 1}`;
-      
       return enrichedSales.filter(i => {
           if (i.fiscalYear !== pyString) return false;
-          // Compare same relative month/week if filtered
           if (timeView === 'MONTH' && i.fiscalMonthIndex !== selectedMonth) return false;
           if (timeView === 'WEEK' && i.weekNumber !== selectedWeek) return false;
           return true;
@@ -504,65 +429,95 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       return { currVal, currQty: currentData.reduce((acc, i) => acc + (i.quantity || 0), 0), uniqueCusts, avgOrder: uniqueVouchers ? currVal / uniqueVouchers : 0 };
   }, [currentData]);
 
-  const pieDataGroup = useMemo(() => {
-      const map = new Map<string, number>();
-      currentData.forEach(i => { const label = String(i.custGroup || 'Unassigned'); map.set(label, (map.get(label) || 0) + (i.value || 0)); });
-      return Array.from(map.entries()).map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value);
-  }, [currentData]);
-
-  /**
-   * DATA FOR GroupedCustomerAnalysis component
-   * Groups customers by category, sorts groups by value, and ranks top 10 customers within each group.
-   */
   const groupedCustomerData = useMemo(() => {
       const groupMap = new Map<string, { total: number, customers: Map<string, { current: number, previous: number }> }>();
-      
-      // 1. Process Current Sales
       currentData.forEach(i => {
           const group = i.custGroup;
           const name = String(i.customerName || 'Unknown');
-          
           if (!groupMap.has(group)) groupMap.set(group, { total: 0, customers: new Map() });
           const groupObj = groupMap.get(group)!;
           groupObj.total += (i.value || 0);
-          
           if (!groupObj.customers.has(name)) groupObj.customers.set(name, { current: 0, previous: 0 });
           groupObj.customers.get(name)!.current += (i.value || 0);
       });
-
-      // 2. Process Previous Sales
       previousDataForComparison.forEach(i => {
           const group = i.custGroup;
           const name = String(i.customerName || 'Unknown');
-          
           if (groupMap.has(group)) {
               const groupObj = groupMap.get(group)!;
-              if (groupObj.customers.has(name)) {
-                  groupObj.customers.get(name)!.previous += (i.value || 0);
-              } else {
-                  // Track previous sales even if they don't exist in current period (potential churn view)
-                  groupObj.customers.set(name, { current: 0, previous: (i.value || 0) });
-              }
+              if (groupObj.customers.has(name)) groupObj.customers.set(name, { current: 0, previous: (i.value || 0) });
+              else groupObj.customers.set(name, { current: 0, previous: (i.value || 0) });
           }
       });
-
-      // 3. Transform to array and sort
-      return Array.from(groupMap.entries())
-          .map(([group, data]) => ({
-              group,
-              total: data.total,
-              customers: Array.from(data.customers.entries())
-                  .map(([name, vals]) => ({
-                      name,
-                      current: vals.current,
-                      previous: vals.previous,
-                      diff: vals.current - vals.previous
-                  }))
-                  .sort((a, b) => b.current - a.current)
-                  .slice(0, 10) // Only show top 10 in each group
-          }))
-          .sort((a, b) => b.total - a.total);
+      return Array.from(groupMap.entries()).map(([group, data]) => ({
+          group,
+          total: data.total,
+          customers: Array.from(data.customers.entries()).map(([name, vals]) => ({ name, current: vals.current, previous: vals.previous, diff: vals.current - vals.previous })).sort((a, b) => b.current - a.current).slice(0, 10)
+      })).sort((a, b) => b.total - a.total);
   }, [currentData, previousDataForComparison]);
+
+  const soStats = useMemo(() => {
+      const totalVal = pendingSO.reduce((a, b) => a + (b.value || 0), 0);
+      const custMap = new Map<string, number>();
+      const groupMap = new Map<string, number>();
+      const ageingMap = { '0-30d': 0, '31-60d': 0, '61-90d': 0, '90d+': 0 };
+      
+      pendingSO.forEach(i => {
+          custMap.set(i.partyName, (custMap.get(i.partyName) || 0) + (i.value || 0));
+          const mat = materials.find(m => m.description.toLowerCase().trim() === i.itemName.toLowerCase().trim());
+          const group = mat ? mat.materialGroup : 'Unspecified';
+          groupMap.set(group, (groupMap.get(group) || 0) + (i.value || 0));
+          
+          const days = i.overDueDays || 0;
+          if (days <= 30) ageingMap['0-30d'] += (i.value || 0);
+          else if (days <= 60) ageingMap['31-60d'] += (i.value || 0);
+          else if (days <= 90) ageingMap['61-90d'] += (i.value || 0);
+          else ageingMap['90d+'] += (i.value || 0);
+      });
+
+      return {
+          totalVal,
+          count: pendingSO.length,
+          custMix: Array.from(custMap.entries()).map(([label, value]) => ({ label, value })).sort((a,b) => b.value - a.value),
+          groupMix: Array.from(groupMap.entries()).map(([label, value]) => ({ label, value })).sort((a,b) => b.value - a.value),
+          ageing: Object.entries(ageingMap).map(([label, value]) => ({ label, value })),
+          topItems: [...pendingSO].sort((a,b) => b.value - a.value).slice(0, 10)
+      };
+  }, [pendingSO, materials]);
+
+  const poStats = useMemo(() => {
+      const totalVal = pendingPO.reduce((a, b) => a + (b.value || 0), 0);
+      const vendorMap = new Map<string, number>();
+      const statusMap = { 'Overdue': 0, 'Due Today': 0, 'Due This Week': 0, 'Future': 0 };
+      const groupMap = new Map<string, number>();
+
+      const today = new Date();
+      today.setHours(0,0,0,0);
+      const weekEnd = new Date(today);
+      weekEnd.setDate(today.getDate() + 7);
+
+      pendingPO.forEach(i => {
+          vendorMap.set(i.partyName, (vendorMap.get(i.partyName) || 0) + (i.value || 0));
+          const mat = materials.find(m => m.description.toLowerCase().trim() === i.itemName.toLowerCase().trim());
+          const group = mat ? mat.materialGroup : 'Unspecified';
+          groupMap.set(group, (groupMap.get(group) || 0) + (i.value || 0));
+
+          const dueDate = parseDate(i.dueDate);
+          if (dueDate < today) statusMap['Overdue'] += (i.value || 0);
+          else if (dueDate.getTime() === today.getTime()) statusMap['Due Today'] += (i.value || 0);
+          else if (dueDate <= weekEnd) statusMap['Due This Week'] += (i.value || 0);
+          else statusMap['Future'] += (i.value || 0);
+      });
+
+      return {
+          totalVal,
+          count: pendingPO.length,
+          vendorMix: Array.from(vendorMap.entries()).map(([label, value]) => ({ label, value })).sort((a,b) => b.value - a.value),
+          dueMix: Object.entries(statusMap).map(([label, value]) => ({ label, value })),
+          groupMix: Array.from(groupMap.entries()).map(([label, value]) => ({ label, value })).sort((a,b) => b.value - a.value),
+          topItems: [...pendingPO].sort((a,b) => b.value - a.value).slice(0, 10)
+      };
+  }, [pendingPO, materials]);
 
   const lineChartData = useMemo(() => {
       const labels = ["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"];
@@ -621,11 +576,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                     <div className="lg:col-span-2 bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col h-80 overflow-hidden"><h3 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2"><TrendingUp className="w-4 h-4 text-blue-600" /> 3-Year Trend Analysis</h3><div className="flex flex-1 pt-2 overflow-hidden"><div className="flex flex-col justify-between text-[9px] text-gray-400 pr-3 pb-8 text-right w-12 border-r"><span>{formatAxisValue(chartMax)}</span><span>{formatAxisValue(chartMax*0.5)}</span><span>0</span></div><div className="flex-1 pl-4 pb-2 relative min-h-0"><SalesTrendChart data={lineChartData} maxVal={chartMax} /></div></div></div>
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col h-80 overflow-hidden"><SimpleDonut data={pieDataGroup} title="Sales Mix by Group" color="blue" /></div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col h-80 overflow-hidden"><SimpleDonut data={groupedCustomerData.map(g => ({ label: g.group, value: g.total }))} title="Sales Mix by Group" color="blue" /></div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-96 overflow-hidden">
-                        <HorizontalBarChart data={pieDataGroup} title="Top Customer Groups (by Value)" color="blue" />
+                        <HorizontalBarChart data={groupedCustomerData.map(g => ({ label: g.group, value: g.total }))} title="Top Customer Groups (by Value)" color="blue" />
                     </div>
                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-96 overflow-hidden">
                         <GroupedCustomerAnalysis data={groupedCustomerData} />
@@ -637,6 +592,74 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4"><div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-emerald-600 font-bold uppercase">Stock Val</p><h3 className="text-xl font-extrabold text-gray-900 mt-0.5">{formatLargeValue(inventoryStats.totalVal)}</h3></div><div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-blue-600 font-bold uppercase">Items</p><h3 className="text-xl font-extrabold text-gray-900 mt-0.5">{inventoryStats.count}</h3></div></div>
                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-4"><div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80"><ABCAnalysisChart data={inventoryStats.abcData} /></div><div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80"><InteractiveDrillDownChart hierarchyData={inventoryStats.hierarchy} metric={invGroupMetric} totalValue={inventoryStats.totalVal} /></div></div>
              </div>
+        ) : activeSubTab === 'so' ? (
+            <div className="flex flex-col gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-purple-600 font-bold uppercase">Total Pending SO</p><h3 className="text-xl font-extrabold text-gray-900 mt-1">{formatLargeValue(soStats.totalVal)}</h3></div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-blue-600 font-bold uppercase">Open Lines</p><h3 className="text-xl font-extrabold text-gray-900 mt-1">{soStats.count}</h3></div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-orange-600 font-bold uppercase">Overdue Orders</p><h3 className="text-xl font-extrabold text-gray-900 mt-1">{pendingSO.filter(i => i.overDueDays > 0).length}</h3></div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-teal-600 font-bold uppercase">Unique Customers</p><h3 className="text-xl font-extrabold text-gray-900 mt-1">{soStats.custMix.length}</h3></div>
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80"><SimpleDonut data={soStats.ageing} title="SO Ageing Analysis" color="blue" /></div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80"><SimpleDonut data={soStats.groupMix} title="SO by Material Group" color="green" /></div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80"><SimpleDonut data={soStats.custMix} title="Customer Concentration" color="blue" /></div>
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm min-h-96">
+                        <h4 className="text-[11px] font-bold text-gray-600 uppercase mb-4 flex items-center gap-2"><ListOrdered className="w-4 h-4 text-purple-600" /> Top 10 High Value SOs</h4>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-[10px] text-left">
+                                <thead className="bg-gray-50 text-gray-500 uppercase font-bold border-b border-gray-100">
+                                    <tr><th className="py-2 px-2">Customer</th><th className="py-2 px-2">Item</th><th className="py-2 px-2 text-right">Qty</th><th className="py-2 px-2 text-right">Value</th></tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-50">
+                                    {soStats.topItems.map(i => (
+                                        <tr key={i.id} className="hover:bg-gray-50"><td className="py-2 px-2 font-medium truncate max-w-[120px]">{i.partyName}</td><td className="py-2 px-2 truncate max-w-[150px]">{i.itemName}</td><td className="py-2 px-2 text-right">{i.balanceQty}</td><td className="py-2 px-2 text-right font-bold text-purple-700">{formatLargeValue(i.value, true)}</td></tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm min-h-96">
+                        <HorizontalBarChart data={soStats.custMix} title="Pending SO by Customer" color="blue" />
+                    </div>
+                </div>
+            </div>
+        ) : activeSubTab === 'po' ? (
+            <div className="flex flex-col gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-orange-600 font-bold uppercase">Total Pending PO</p><h3 className="text-xl font-extrabold text-gray-900 mt-1">{formatLargeValue(poStats.totalVal)}</h3></div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-blue-600 font-bold uppercase">Open POs</p><h3 className="text-xl font-extrabold text-gray-900 mt-1">{poStats.count}</h3></div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-red-600 font-bold uppercase">Overdue Arrivals</p><h3 className="text-xl font-extrabold text-gray-900 mt-1">{pendingPO.filter(i => i.overDueDays > 0).length}</h3></div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-emerald-600 font-bold uppercase">Active Vendors</p><h3 className="text-xl font-extrabold text-gray-900 mt-1">{poStats.vendorMix.length}</h3></div>
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80"><SimpleDonut data={poStats.dueMix} title="PO Delivery Schedule" color="green" /></div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80"><SimpleDonut data={poStats.groupMix} title="PO by Material Group" color="blue" /></div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80"><SimpleDonut data={poStats.vendorMix} title="Vendor Concentration" color="green" /></div>
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm min-h-96">
+                        <h4 className="text-[11px] font-bold text-gray-600 uppercase mb-4 flex items-center gap-2"><ShoppingCart className="w-4 h-4 text-orange-600" /> Top 10 High Value Open POs</h4>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-[10px] text-left">
+                                <thead className="bg-gray-50 text-gray-500 uppercase font-bold border-b border-gray-100">
+                                    <tr><th className="py-2 px-2">Vendor</th><th className="py-2 px-2">Item</th><th className="py-2 px-2 text-right">Qty</th><th className="py-2 px-2 text-right">Value</th></tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-50">
+                                    {poStats.topItems.map(i => (
+                                        <tr key={i.id} className="hover:bg-gray-50"><td className="py-2 px-2 font-medium truncate max-w-[120px]">{i.partyName}</td><td className="py-2 px-2 truncate max-w-[150px]">{i.itemName}</td><td className="py-2 px-2 text-right">{i.balanceQty}</td><td className="py-2 px-2 text-right font-bold text-orange-700">{formatLargeValue(i.value, true)}</td></tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm min-h-96">
+                        <HorizontalBarChart data={poStats.vendorMix} title="Pending PO by Vendor" color="emerald" />
+                    </div>
+                </div>
+            </div>
         ) : null}
       </div>
     </div>
