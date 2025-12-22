@@ -341,6 +341,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   const [timeView, setTimeView] = useState<'FY' | 'MONTH' | 'WEEK'>('FY');
   const [selectedFY, setSelectedFY] = useState<string>('');
   const [invGroupMetric, setInvGroupMetric] = useState<Metric>('value');
+  const [invSlicerMake, setInvSlicerMake] = useState<string>('ALL');
 
   // Robust Date Parser for Dashboard
   const parseDate = (val: any): Date => {
@@ -493,11 +494,25 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       })).sort((a, b) => b.total - a.total);
   }, [currentData, previousDataForComparison]);
 
+  const allInventoryMakes = useMemo(() => {
+    const set = new Set<string>();
+    closingStock.forEach(i => {
+      const mat = materials.find(m => String(m.description || '').toLowerCase().trim() === String(i.description || '').toLowerCase().trim());
+      set.add(mat?.make || 'Unspecified');
+    });
+    return Array.from(set).sort();
+  }, [closingStock, materials]);
+
   const inventoryStats = useMemo(() => {
     let data = closingStock.map(i => { 
         const mat = materials.find(m => String(m.description || '').toLowerCase().trim() === String(i.description || '').toLowerCase().trim()); 
         return { ...i, make: mat ? mat.make : 'Unspecified', group: mat ? mat.materialGroup : 'Unspecified' }; 
     });
+
+    // Apply Make Slicer
+    if (invSlicerMake !== 'ALL') {
+        data = data.filter(i => i.make === invSlicerMake);
+    }
 
     const rawTotalVal = data.reduce((a, b) => a + (b.value || 0), 0);
     const rawTotalQty = data.reduce((a, b) => a + (b.quantity || 0), 0);
@@ -510,13 +525,14 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         const groupKey = i.group || 'Unspecified';
         const val = invGroupMetric === 'value' ? (i.value || 0) : (i.quantity || 0);
         makeMap.set(makeKey, (makeMap.get(makeKey) || 0) + val);
-        groupMap.set(groupKey, (groupMap.get(groupKey) || 0) + val);
+        groupMap.set(groupKey, (groupKey.get(groupKey) || 0) + val);
     });
 
     // Filtering for the detailed table
+    let tableItems = [...data];
     if (invTableSearch) {
         const lower = invTableSearch.toLowerCase();
-        data = data.filter(i => 
+        tableItems = tableItems.filter(i => 
             i.description.toLowerCase().includes(lower) || 
             i.make.toLowerCase().includes(lower) || 
             i.group.toLowerCase().includes(lower)
@@ -525,7 +541,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
     // Sorting for the detailed table
     if (invTableSort) {
-        data.sort((a, b) => {
+        tableItems.sort((a, b) => {
             const valA = (a as any)[invTableSort.key];
             const valB = (b as any)[invTableSort.key];
             if (valA < valB) return invTableSort.direction === 'asc' ? -1 : 1;
@@ -537,16 +553,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     return {
         totalVal: rawTotalVal,
         totalQty: rawTotalQty,
-        count: closingStock.length,
-        items: data,
+        count: data.length,
+        items: tableItems,
         makeMix: Array.from(makeMap.entries()).map(([label, value]) => ({ label, value })).sort((a,b) => b.value - a.value),
         groupMix: Array.from(groupMap.entries()).map(([label, value]) => ({ label, value })).sort((a,b) => b.value - a.value),
-        topStock: closingStock.map(i => {
-            const mat = materials.find(m => String(m.description || '').toLowerCase().trim() === String(i.description || '').toLowerCase().trim()); 
-            return { ...i, make: mat ? mat.make : 'Unspecified', group: mat ? mat.materialGroup : 'Unspecified' }; 
-        }).sort((a,b) => b.value - a.value).slice(0, 10).map(i => ({ label: i.description, value: i.value }))
+        topStock: data.sort((a,b) => b.value - a.value).slice(0, 10).map(i => ({ label: i.description, value: i.value }))
     };
-  }, [closingStock, materials, invGroupMetric, invTableSearch, invTableSort]);
+  }, [closingStock, materials, invGroupMetric, invTableSearch, invTableSort, invSlicerMake]);
 
   const soStats = useMemo(() => {
       const totalVal = pendingSO.reduce((a, b) => a + (b.value || 0), 0);
@@ -725,11 +738,24 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
           )}
           {activeSubTab === 'inventory' && (
-            <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold text-gray-500 uppercase">Metric:</span>
-                <div className="flex bg-gray-100 p-1 rounded-lg">
-                    <button onClick={() => setInvGroupMetric('value')} className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${invGroupMetric === 'value' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500'}`}>Value</button>
-                    <button onClick={() => setInvGroupMetric('quantity')} className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${invGroupMetric === 'quantity' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500'}`}>Qty</button>
+            <div className="flex flex-wrap items-center gap-4">
+                <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-gray-500 uppercase">Make:</span>
+                    <select 
+                      value={invSlicerMake} 
+                      onChange={(e) => setInvSlicerMake(e.target.value)}
+                      className="bg-white border border-gray-300 text-xs rounded-md px-2 py-1 outline-none font-bold text-gray-700 shadow-sm"
+                    >
+                        <option value="ALL">All Manufacturers</option>
+                        {allInventoryMakes.map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                </div>
+                <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-gray-500 uppercase">Metric:</span>
+                    <div className="flex bg-gray-100 p-1 rounded-lg">
+                        <button onClick={() => setInvGroupMetric('value')} className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${invGroupMetric === 'value' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500'}`}>Value</button>
+                        <button onClick={() => setInvGroupMetric('quantity')} className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${invGroupMetric === 'quantity' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500'}`}>Qty</button>
+                    </div>
                 </div>
             </div>
           )}
@@ -818,7 +844,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                     onChange={(e) => setInvTableSearch(e.target.value)} 
                                 />
                             </div>
-                            <span className="text-[9px] font-black text-gray-400 uppercase whitespace-nowrap">{inventoryStats.items.length} of {inventoryStats.count} Shown</span>
+                            <span className="text-[9px] font-black text-gray-400 uppercase whitespace-nowrap">{inventoryStats.items.length} of {closingStock.length} Shown</span>
                         </div>
                     </div>
                     <div className="overflow-x-auto max-h-96 custom-scrollbar">
