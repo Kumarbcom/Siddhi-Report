@@ -42,7 +42,7 @@ const getMergedGroupName = (groupName: string) => {
 
 const SalesTrendChart = ({ data, maxVal }: { data: { labels: string[], series: any[] }, maxVal: number }) => {
   if (!data || !data.series || data.series.length === 0 || isNaN(maxVal) || maxVal <= 0) {
-      return <div className="flex items-center justify-center h-full text-gray-300 text-xs italic">No comparative trend data available</div>;
+      return <div className="flex items-center justify-center h-full text-gray-300 text-xs italic">No comparative trend data available for selection</div>;
   }
   
   return (
@@ -50,10 +50,9 @@ const SalesTrendChart = ({ data, maxVal }: { data: { labels: string[], series: a
       <div className="flex-1 relative">
          <svg className="w-full h-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
             {data.series.map((s, i) => {
-               if (!s.data || s.data.length < 1) return null;
-               const step = data.labels.length > 1 ? (100 / (data.labels.length - 1)) : 100;
+               if (!s.data || s.data.length < 2) return null;
                const pts = s.data.map((v: number, idx: number) => {
-                   const x = idx * step;
+                   const x = (idx / (data.labels.length - 1)) * 100;
                    const y = 100 - ((v / maxVal) * 100);
                    return `${x},${y}`;
                }).join(' L ');
@@ -61,7 +60,7 @@ const SalesTrendChart = ({ data, maxVal }: { data: { labels: string[], series: a
                  <g key={i}>
                     <path d={`M ${pts}`} fill="none" stroke={s.color} strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" className="transition-all duration-1000" />
                     {s.data.map((v: number, idx: number) => {
-                        const x = idx * step;
+                        const x = (idx / (data.labels.length - 1)) * 100;
                         const y = 100 - ((v / maxVal) * 100);
                         return <circle key={idx} cx={x} cy={y} r="1.2" fill={s.color} className="cursor-pointer hover:r-2 transition-all" />;
                     })}
@@ -146,7 +145,7 @@ const GroupedCustomerAnalysis = ({ data }: { data: any[] }) => {
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div><p className="text-[8px] font-bold text-gray-400 uppercase">Current</p><p className="text-sm font-black text-gray-900">{formatLargeValue(g.current, true)}</p></div>
-                            <div className="text-right"><p className="text-[8px] font-bold text-gray-400 uppercase">Prev Period</p><p className="text-sm font-bold text-gray-400">{formatLargeValue(g.previous, true)}</p></div>
+                            <div className="text-right"><p className="text-[8px] font-bold text-gray-400 uppercase">Previous Year</p><p className="text-sm font-bold text-gray-400">{formatLargeValue(g.previous, true)}</p></div>
                         </div>
                     </div>
                 ))}
@@ -191,7 +190,7 @@ const KPICard = ({ label, value, growth, timeView }: { label: string, value: str
                 {growth >= 0 ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />}
                 <span>{Math.abs(growth).toFixed(1)}%</span>
             </div>
-            <span className="text-[9px] text-gray-400 font-bold italic">vs Prev Period ({timeView})</span>
+            <span className="text-[9px] text-gray-400 font-bold italic">vs Previous Year ({timeView})</span>
         </div>
     </div>
 );
@@ -203,7 +202,7 @@ const DashboardView: React.FC<any> = ({ materials = [], closingStock = [], pendi
   const parseDate = (val: any): Date => {
     if (!val) return new Date();
     if (val instanceof Date) return val;
-    if (typeof val === 'number') return new Date((val - (25567 + 2)) * 86400 * 1000);
+    if (typeof val === 'number') return new Date((val - 25569) * 86400 * 1000);
     const parsed = new Date(val);
     return isNaN(parsed.getTime()) ? new Date() : parsed;
   };
@@ -215,21 +214,14 @@ const DashboardView: React.FC<any> = ({ materials = [], closingStock = [], pendi
     const fiscalYear = `${startYear}-${String(startYear + 1).slice(-2)}`;
     const fiscalMonthIndex = month >= 3 ? month - 3 : month + 9;
     
-    // Thursday to Wednesday Week logic
-    // Week 1 starts on April 1st. First Thursday marks the start of Week 2.
+    // Thursday to Wednesday Week
+    // Strategy: find the first Thursday of the fiscal year as Week 1 start
     const fyStart = new Date(startYear, 3, 1);
     let firstThu = new Date(fyStart);
     while(firstThu.getDay() !== 4) { firstThu.setDate(firstThu.getDate() + 1); }
     
-    const diffTime = date.getTime() - firstThu.getTime();
-    const diffDays = Math.floor(diffTime / (1000 * 3600 * 24));
-    
-    let weekNumber: number;
-    if (date < firstThu) {
-        weekNumber = 1;
-    } else {
-        weekNumber = Math.floor(diffDays / 7) + 2;
-    }
+    const diffDays = Math.floor((date.getTime() - firstThu.getTime()) / (1000 * 3600 * 24));
+    const weekNumber = diffDays >= 0 ? Math.floor(diffDays / 7) + 2 : 1;
     
     return { fiscalYear, fiscalMonthIndex, weekNumber };
   };
@@ -253,11 +245,7 @@ const DashboardView: React.FC<any> = ({ materials = [], closingStock = [], pendi
       });
   }, [salesReportItems, customers]);
 
-  const uniqueFYs = useMemo(() => {
-    const fys = Array.from(new Set(enrichedSales.map(i => i.fiscalYear))).filter(f => f !== 'N/A').sort().reverse();
-    // Ensure we have at least these requested FY labels if data is present or by default
-    return fys.length > 0 ? fys : ['2023-24', '2024-25', '2025-26'];
-  }, [enrichedSales]);
+  const uniqueFYs = useMemo(() => Array.from(new Set(enrichedSales.map(i => i.fiscalYear))).filter(f => f !== 'N/A').sort().reverse(), [enrichedSales]);
   
   useEffect(() => { 
     if (uniqueFYs.length > 0 && !uniqueFYs.includes(selectedFY)) setSelectedFY(uniqueFYs[0]);
@@ -277,7 +265,6 @@ const DashboardView: React.FC<any> = ({ materials = [], closingStock = [], pendi
       const parts = selectedFY.split('-');
       const pyYear = parseInt(parts[0]) - 1;
       const pyString = `${pyYear}-${String(pyYear + 1).slice(-2)}`;
-      
       return enrichedSales.filter(i => {
           if (i.fiscalYear !== pyString) return false;
           if (timeView === 'MONTH' && i.fiscalMonthIndex !== selectedMonth) return false;
@@ -315,52 +302,19 @@ const DashboardView: React.FC<any> = ({ materials = [], closingStock = [], pendi
   }, [currentData, previousData]);
 
   const trendData = useMemo(() => {
-    if (timeView === 'FY') {
-        const getFYData = (fy: string) => {
-            const arr = new Array(12).fill(0);
-            enrichedSales.filter(i => i.fiscalYear === fy).forEach(i => {
-                if (i.fiscalMonthIndex >= 0 && i.fiscalMonthIndex < 12) arr[i.fiscalMonthIndex] += i.value;
-            });
-            return arr;
-        };
-        const series = [];
-        series.push({ name: selectedFY, color: '#3B82F6', data: getFYData(selectedFY) });
-        const parts = selectedFY.split('-');
-        const py = `${parseInt(parts[0]) - 1}-${parts[0].slice(-2)}`;
-        series.push({ name: 'Previous Year', color: '#CBD5E1', data: getFYData(py) });
-        return { labels: FISCAL_MONTHS.map(m => m.slice(0,3)), series };
-    } else if (timeView === 'MONTH') {
-        const startYear = parseInt(selectedFY.split('-')[0]);
-        const year = selectedMonth >= 9 ? startYear + 1 : startYear;
-        const actualMonth = (selectedMonth + 3) % 12;
-        const daysInMonth = new Date(year, actualMonth + 1, 0).getDate();
-        const labels = Array.from({ length: daysInMonth }, (_, i) => (i + 1).toString());
-        
-        const getMonthData = (fy: string, mIdx: number) => {
-            const arr = new Array(daysInMonth).fill(0);
-            enrichedSales.filter(i => i.fiscalYear === fy && i.fiscalMonthIndex === mIdx).forEach(i => {
-                const d = parseDate(i.date).getDate();
-                if (d >= 1 && d <= daysInMonth) arr[d - 1] += i.value;
-            });
-            return arr;
-        };
-        const series = [{ name: FISCAL_MONTHS[selectedMonth], color: '#3B82F6', data: getMonthData(selectedFY, selectedMonth) }];
-        return { labels, series };
-    } else {
-        const labels = ["Thu", "Fri", "Sat", "Sun", "Mon", "Tue", "Wed"];
-        const getWeekData = (fy: string, wNum: number) => {
-            const arr = new Array(7).fill(0);
-            enrichedSales.filter(i => i.fiscalYear === fy && i.weekNumber === wNum).forEach(i => {
-                const day = parseDate(i.date).getDay();
-                const map: Record<number, number> = { 4: 0, 5: 1, 6: 2, 0: 3, 1: 4, 2: 5, 3: 6 };
-                arr[map[day]] += (i.value || 0);
-            });
-            return arr;
-        };
-        const series = [{ name: `Week ${selectedWeek}`, color: '#3B82F6', data: getWeekData(selectedFY, selectedWeek) }];
-        return { labels, series };
-    }
-  }, [selectedFY, selectedMonth, selectedWeek, timeView, enrichedSales]);
+      const getFYData = (fy: string) => {
+          const arr = new Array(12).fill(0);
+          enrichedSales.filter(i => i.fiscalYear === fy).forEach(i => { if (i.fiscalMonthIndex >= 0 && i.fiscalMonthIndex < 12) arr[i.fiscalMonthIndex] += i.value; });
+          return arr;
+      };
+      const series = [];
+      if (selectedFY) series.push({ name: selectedFY, color: '#3B82F6', data: getFYData(selectedFY) });
+      const parts = selectedFY.split('-');
+      const prevYearStart = parseInt(parts[0]) - 1;
+      const py = `${prevYearStart}-${String(prevYearStart + 1).slice(-2)}`;
+      series.push({ name: 'Previous Year', color: '#CBD5E1', data: getFYData(py) });
+      return { labels: FISCAL_MONTHS.map(m => m.slice(0,3)), series };
+  }, [selectedFY, enrichedSales]);
 
   const trendMax = useMemo(() => Math.max(...trendData.series.flatMap(s => s.data), 1) * 1.15, [trendData]);
 
@@ -410,7 +364,7 @@ const DashboardView: React.FC<any> = ({ materials = [], closingStock = [], pendi
                 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     <div className="lg:col-span-2 bg-white p-8 rounded-3xl border border-gray-200 shadow-sm h-[480px] flex flex-col hover:border-blue-200 transition-colors">
-                        <h3 className="text-xs font-black text-gray-800 uppercase mb-8 flex items-center gap-3 tracking-widest"><TrendingUp className="w-5 h-5 text-blue-600"/> Comparative Period Performance</h3>
+                        <h3 className="text-xs font-black text-gray-800 uppercase mb-8 flex items-center gap-3 tracking-widest"><TrendingUp className="w-5 h-5 text-blue-600"/> Comparative Monthly Performance</h3>
                         <div className="flex-1 min-h-0"><SalesTrendChart data={trendData} maxVal={trendMax} /></div>
                     </div>
                     <div className="bg-white p-8 rounded-3xl border border-gray-200 shadow-sm h-[480px] hover:border-blue-200 transition-colors"><SimpleDonut data={salesGroupAnalysis.map(g => ({ label: g.group, value: g.current }))} title="Sales Mix by Account Group" color="blue" isCurrency={true} /></div>
