@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { GoogleGenAI, Chat, GenerateContentResponse } from "@google/genai";
 import { Material, ClosingStockItem, PendingSOItem, PendingPOItem, SalesReportItem, CustomerMasterItem } from '../types';
 import { Send, Bot, User, Trash2, Sparkles, Loader2, StopCircle } from 'lucide-react';
@@ -21,10 +21,10 @@ interface Message {
 }
 
 const SUGGESTED_QUERIES = [
+  "Summarize the sales trend for the last 3 fiscal years.",
   "What is the total value of closing stock?",
   "Which customers have the highest pending orders?",
   "List items with stock less than pending orders.",
-  "What is the sales trend for the last 3 months?",
   "Show me pending POs that are overdue.",
   "Who are my top 5 customers by sales value?"
 ];
@@ -50,15 +50,40 @@ const ChatView: React.FC<ChatViewProps> = ({
     scrollToBottom();
   }, [messages]);
 
+  const fiscalYearSummary = useMemo(() => {
+    const fyTotals: Record<string, number> = {};
+    salesReportItems.forEach(item => {
+        let dateObj: Date;
+        if (item.date instanceof Date) dateObj = item.date;
+        else if (typeof item.date === 'string') dateObj = new Date(item.date);
+        else dateObj = new Date((Number(item.date) - (25567 + 2)) * 86400 * 1000);
+        
+        if (!isNaN(dateObj.getTime())) {
+            const month = dateObj.getMonth();
+            const year = dateObj.getFullYear();
+            const startYear = month >= 3 ? year : year - 1;
+            const fy = `${startYear}-${startYear + 1}`;
+            fyTotals[fy] = (fyTotals[fy] || 0) + (item.value || 0);
+        }
+    });
+    return Object.entries(fyTotals)
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([fy, total]) => `${fy}: Rs. ${Math.round(total).toLocaleString('en-IN')}`)
+      .join('\n');
+  }, [salesReportItems]);
+
   const prepareContext = () => {
     const stockContext = closingStock.slice(0, 100).map(i => `${i.description} (Qty: ${i.quantity}, Val: ${i.value})`).join('\n');
     const soContext = pendingSO.slice(0, 100).map(i => `Order: ${i.orderNo}, Party: ${i.partyName}, Item: ${i.itemName}, Qty: ${i.balanceQty}, Val: ${i.value}`).join('\n');
     const poContext = pendingPO.slice(0, 100).map(i => `Order: ${i.orderNo}, Vendor: ${i.partyName}, Item: ${i.itemName}, Qty: ${i.balanceQty}, Val: ${i.value}`).join('\n');
     const custContext = customers.slice(0, 100).map(c => `${c.customerName} (Status: ${c.status})`).join('\n');
-    const recentSales = salesReportItems.slice(0, 100).map(s => `Date: ${s.date}, Cust: ${s.customerName}, Item: ${s.particulars}, Qty: ${s.quantity}, Val: ${s.value}`).join('\n');
+    const recentSales = salesReportItems.slice(0, 50).map(s => `Date: ${s.date}, Cust: ${s.customerName}, Item: ${s.particulars}, Qty: ${s.quantity}, Val: ${s.value}`).join('\n');
 
     return `You are an intelligent data analyst for Siddhi Kabel Corp. 
-    REAL-TIME SNAPSHOTS:
+    HISTORICAL SALES TREND (Last 3 FYs):
+    ${fiscalYearSummary || 'No aggregate data available'}
+
+    REAL-TIME SNAPSHOTS (Limited to top 100 records for brevity):
     --- STOCK ---
     ${stockContext}
     --- PENDING SALES ORDERS ---
@@ -67,13 +92,14 @@ const ChatView: React.FC<ChatViewProps> = ({
     ${poContext}
     --- CUSTOMERS ---
     ${custContext}
-    --- RECENT SALES ---
+    --- RECENT 50 SALES ---
     ${recentSales}
 
     RULES:
     - Format lists as Markdown tables.
     - Double check math for totals.
     - Net Stock = Closing Stock + Pending PO - Pending SO.
+    - When asked about trends, use the HISTORICAL SALES TREND totals provided above.
     - Be concise and professional.`;
   };
 

@@ -91,6 +91,8 @@ const App: React.FC = () => {
   useEffect(() => { loadAllData(); }, []);
 
   // --- Handlers ---
+  
+  // Material Master
   const handleBulkAddMaterial = async (dataList: MaterialFormData[]) => {
     const newItems = await materialService.createBulk(dataList);
     setMaterials(prev => [...newItems, ...prev]);
@@ -100,7 +102,10 @@ const App: React.FC = () => {
     setMaterials(prev => prev.map(m => m.id === item.id ? item : m));
   };
   const handleDeleteMaterial = async (id: string) => {
-    if (confirm("Delete material record?")) { await materialService.delete(id); setMaterials(prev => prev.filter(m => m.id !== id)); }
+    if (confirm("Delete material record?")) { 
+      await materialService.delete(id); 
+      setMaterials(prev => prev.filter(m => m.id !== id)); 
+    }
   };
   const handleClearMaterials = async () => {
       if(confirm("DANGER: This will permanently delete ALL Material Master records from Supabase and local storage. Continue?")) {
@@ -109,6 +114,7 @@ const App: React.FC = () => {
       }
   };
 
+  // Sales Report
   const handleBulkAddSales = async (items: any) => {
       const newItems = await salesService.createBulk(items);
       setSalesReportItems(prev => [...newItems, ...prev]);
@@ -130,17 +136,93 @@ const App: React.FC = () => {
       }
   };
 
-  const handleBulkAddCustomer = async (items: any) => { const newItems = await customerService.createBulk(items); setCustomerMasterItems(prev => [...newItems, ...prev]); };
-  const handleClearCustomers = async () => { if(confirm("DANGER: This will permanently delete ALL Customer Master records from Supabase and local storage. Continue?")) { await customerService.clearAll(); setCustomerMasterItems([]); } };
+  // Customer Master
+  const handleBulkAddCustomer = async (items: any) => { 
+    const newItems = await customerService.createBulk(items); 
+    setCustomerMasterItems(prev => [...newItems, ...prev]); 
+  };
+  const handleUpdateCustomer = async (item: CustomerMasterItem) => {
+    await customerService.update(item);
+    setCustomerMasterItems(prev => prev.map(i => i.id === item.id ? item : i));
+  };
+  const handleDeleteCustomer = async (id: string) => {
+    if (confirm("Delete customer record?")) {
+      await customerService.delete(id);
+      setCustomerMasterItems(prev => prev.filter(i => i.id !== id));
+    }
+  };
+  const handleClearCustomers = async () => { 
+    if(confirm("DANGER: This will permanently delete ALL Customer Master records from Supabase and local storage. Continue?")) { 
+      await customerService.clearAll(); 
+      setCustomerMasterItems([]); 
+    } 
+  };
   
-  const handleBulkAddStock = async (items: any) => { const newItems = await stockService.createBulk(items); setClosingStockItems(prev => [...newItems, ...prev]); };
-  const handleClearStock = async () => { if(confirm("DANGER: This will permanently delete ALL Closing Stock records from Supabase and local storage. Continue?")) { await stockService.clearAll(); setClosingStockItems([]); } };
+  // Closing Stock
+  const handleBulkAddStock = async (items: any) => { 
+    const newItems = await stockService.createBulk(items); 
+    setClosingStockItems(prev => [...newItems, ...prev]); 
+  };
+  const handleUpdateStock = async (item: ClosingStockItem) => {
+    await stockService.update(item);
+    setClosingStockItems(prev => prev.map(i => i.id === item.id ? item : i));
+  };
+  const handleDeleteStock = async (id: string) => {
+    if (confirm("Delete stock record?")) {
+      await stockService.delete(id);
+      setClosingStockItems(prev => prev.filter(i => i.id !== id));
+    }
+  };
+  const handleClearStock = async () => { 
+    if(confirm("DANGER: This will permanently delete ALL Closing Stock records from Supabase and local storage. Continue?")) { 
+      await stockService.clearAll(); 
+      setClosingStockItems([]); 
+    } 
+  };
   
-  const handleBulkAddSO = async (items: any) => { const newItems = await soService.createBulk(items); setPendingSOItems(prev => [...newItems, ...prev]); };
-  const handleClearSO = async () => { if(confirm("DANGER: This will permanently delete ALL Pending SO records from Supabase and local storage. Continue?")) { await soService.clearAll(); setPendingSOItems([]); } };
+  // Pending SO
+  const handleBulkAddSO = async (items: any) => { 
+    const newItems = await soService.createBulk(items); 
+    setPendingSOItems(prev => [...newItems, ...prev]); 
+  };
+  const handleUpdateSO = async (item: PendingSOItem) => {
+    await soService.update(item);
+    setPendingSOItems(prev => prev.map(i => i.id === item.id ? item : i));
+  };
+  const handleDeleteSO = async (id: string) => {
+    if (confirm("Delete pending sales order?")) {
+      await soService.delete(id);
+      setPendingSOItems(prev => prev.filter(i => i.id !== id));
+    }
+  };
+  const handleClearSO = async () => { 
+    if(confirm("DANGER: This will permanently delete ALL Pending SO records from Supabase and local storage. Continue?")) { 
+      await soService.clearAll(); 
+      setPendingSOItems([]); 
+    } 
+  };
   
-  const handleBulkAddPO = async (items: any) => { const newItems = await poService.createBulk(items); setPendingPOItems(prev => [...newItems, ...prev]); };
-  const handleClearPO = async () => { if(confirm("DANGER: This will permanently delete ALL Pending PO records from Supabase and local storage. Continue?")) { await poService.clearAll(); setPendingPOItems([]); } };
+  // Pending PO
+  const handleBulkAddPO = async (items: any) => { 
+    const newItems = await poService.createBulk(items); 
+    setPendingPOItems(prev => [...newItems, ...prev]); 
+  };
+  const handleUpdatePO = async (item: PendingPOItem) => {
+    await poService.update(item);
+    setPendingPOItems(prev => prev.map(i => i.id === item.id ? item : i));
+  };
+  const handleDeletePO = async (id: string) => {
+    if (confirm("Delete pending purchase order?")) {
+      await poService.delete(id);
+      setPendingPOItems(prev => prev.filter(i => i.id !== id));
+    }
+  };
+  const handleClearPO = async () => { 
+    if(confirm("DANGER: This will permanently delete ALL Pending PO records from Supabase and local storage. Continue?")) { 
+      await poService.clearAll(); 
+      setPendingPOItems([]); 
+    } 
+  };
 
   const makeStats = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -262,10 +344,10 @@ const App: React.FC = () => {
               </div>
             </div>
           )}
-          {activeTab === 'customerMaster' && <div className="h-full w-full"><CustomerMasterView items={customerMasterItems} onBulkAdd={handleBulkAddCustomer} onUpdate={handleUpdateSales} onDelete={handleDeleteSales} onClear={handleClearCustomers} /></div>}
-          {activeTab === 'closingStock' && <div className="h-full w-full"><ClosingStockView items={closingStockItems} materials={materials} onBulkAdd={handleBulkAddStock} onUpdate={() => {}} onDelete={() => {}} onClear={handleClearStock} /></div>}
-          {activeTab === 'pendingSO' && <div className="h-full w-full"><PendingSOView items={pendingSOItems} materials={materials} closingStockItems={closingStockItems} onBulkAdd={handleBulkAddSO} onUpdate={() => {}} onDelete={() => {}} onClear={handleClearSO} /></div>}
-          {activeTab === 'pendingPO' && <div className="h-full w-full"><PendingPOView items={pendingPOItems} materials={materials} closingStockItems={closingStockItems} onBulkAdd={handleBulkAddPO} onUpdate={() => {}} onDelete={() => {}} onClear={handleClearPO} /></div>}
+          {activeTab === 'customerMaster' && <div className="h-full w-full"><CustomerMasterView items={customerMasterItems} onBulkAdd={handleBulkAddCustomer} onUpdate={handleUpdateCustomer} onDelete={handleDeleteCustomer} onClear={handleClearCustomers} /></div>}
+          {activeTab === 'closingStock' && <div className="h-full w-full"><ClosingStockView items={closingStockItems} materials={materials} onBulkAdd={handleBulkAddStock} onUpdate={handleUpdateStock} onDelete={handleDeleteStock} onClear={handleClearStock} /></div>}
+          {activeTab === 'pendingSO' && <div className="h-full w-full"><PendingSOView items={pendingSOItems} materials={materials} closingStockItems={closingStockItems} onBulkAdd={handleBulkAddSO} onUpdate={handleUpdateSO} onDelete={handleDeleteSO} onClear={handleClearSO} /></div>}
+          {activeTab === 'pendingPO' && <div className="h-full w-full"><PendingPOView items={pendingPOItems} materials={materials} closingStockItems={closingStockItems} onBulkAdd={handleBulkAddPO} onUpdate={handleUpdatePO} onDelete={handleDeletePO} onClear={handleClearPO} /></div>}
           {activeTab === 'salesReport' && <div className="h-full w-full"><SalesReportView items={salesReportItems} materials={materials} customers={customerMasterItems} onBulkAdd={handleBulkAddSales} onUpdate={handleUpdateSales} onDelete={handleDeleteSales} onClear={handleClearSales} /></div>}
         </main>
       </div>

@@ -94,7 +94,7 @@ const SalesTrendChart = ({ data, maxVal }: { data: { labels: string[], series: a
                         <div key={i} className={`flex items-center justify-between gap-4 ${!s.active ? 'opacity-50' : ''}`}>
                             <div className="flex items-center gap-2">
                                 <div className="w-2.5 h-2.5 rounded-full shadow-[0_0_8px_rgba(255,255,255,0.5)]" style={{backgroundColor: s.color}}></div>
-                                <span className="text-gray-300 font-medium">{s.name}</span>
+                                <span className="text-gray-300 font-medium whitespace-nowrap">{s.name}</span>
                             </div>
                             <span className="font-mono font-bold text-white text-xs">{formatLargeValue(s.data[hoverIndex], true)}</span>
                         </div>
@@ -293,7 +293,7 @@ const SimpleDonut = ({ data, title, color }: { data: {label: string, value: numb
                                 <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{backgroundColor: d.color || colorPalette[i % colorPalette.length]}}></div>
                                 <span className="text-gray-600 truncate" title={d.label}>{d.label}</span>
                              </div>
-                             <span className="font-bold text-gray-800 whitespace-nowrap ml-2">{formatLargeValue(d.value, true)}</span>
+                             <span className="font-bold text-gray-800 whitespace-nowrap ml-2">{formatLargeValue(total > 0 ? (d.value / total * 100) : 0, true)}%</span>
                         </div>
                     ))}
                 </div>
@@ -495,7 +495,14 @@ const DashboardView: React.FC<DashboardViewProps> = ({
           const labels = ["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"];
           const startYear = parseInt(selectedFY.split('-')[0]);
           const getSeries = (fy: string) => { const arr = new Array(12).fill(0); enrichedSales.filter(i => i.fiscalYear === fy).forEach(i => arr[i.fiscalMonthIndex] += i.value); return arr; };
-          return { labels, series: [ { name: selectedFY, data: getSeries(selectedFY), color: '#3b82f6', active: true }, { name: `${startYear - 1}-${startYear}`, data: getSeries(`${startYear - 1}-${startYear}`), color: '#a855f7', active: true } ] };
+          return { 
+            labels, 
+            series: [ 
+                { name: selectedFY, data: getSeries(selectedFY), color: '#3b82f6', active: true }, 
+                { name: `${startYear - 1}-${startYear}`, data: getSeries(`${startYear - 1}-${startYear}`), color: '#a855f7', active: true },
+                { name: `${startYear - 2}-${startYear - 1}`, data: getSeries(`${startYear - 2}-${startYear - 1}`), color: '#f59e0b', active: true }
+            ] 
+          };
       }
       const days = timeView === 'MONTH' ? 31 : 7;
       const currArr = new Array(days).fill(0); const prevArr = new Array(days).fill(0);
@@ -578,7 +585,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
                 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                    <div className="lg:col-span-2 bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col h-80 overflow-hidden"><h3 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2"><TrendingUp className="w-4 h-4 text-blue-600" /> Sales Trend Analysis</h3><div className="flex flex-1 pt-2 overflow-hidden"><div className="flex flex-col justify-between text-[9px] text-gray-400 pr-3 pb-8 text-right w-12 border-r border-gray-50"><span>{formatAxisValue(chartMax)}</span><span>{formatAxisValue(chartMax*0.5)}</span><span>0</span></div><div className="flex-1 pl-4 pb-2 relative min-h-0"><SalesTrendChart data={lineChartData} maxVal={chartMax} /></div></div></div>
+                    <div className="lg:col-span-2 bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col h-80 overflow-hidden"><h3 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2"><TrendingUp className="w-4 h-4 text-blue-600" /> 3-Year Sales Trend Analysis</h3><div className="flex flex-1 pt-2 overflow-hidden"><div className="flex flex-col justify-between text-[9px] text-gray-400 pr-3 pb-8 text-right w-12 border-r border-gray-50"><span>{formatAxisValue(chartMax)}</span><span>{formatAxisValue(chartMax*0.5)}</span><span>0</span></div><div className="flex-1 pl-4 pb-2 relative min-h-0"><SalesTrendChart data={lineChartData} maxVal={chartMax} /></div></div></div>
                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col h-80 overflow-hidden"><h3 className="text-sm font-bold text-gray-800 mb-2 flex items-center gap-2"><PieIcon className="w-4 h-4 text-purple-600" /> Sales Mix</h3><div className="flex-1 flex flex-col gap-2 overflow-hidden"><div className="flex-1 pb-1 border-b border-dashed border-gray-200"><SimpleDonut data={pieDataGroup} title="Account Group" color="blue" /></div><div className="flex-1 pt-1"><SimpleDonut data={pieDataStatus} title="By Status" color="green" /></div></div></div>
                 </div>
 
