@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Material, ClosingStockItem, PendingSOItem, PendingPOItem, SalesReportItem, CustomerMasterItem, SalesRecord } from '../types';
 import { TrendingUp, TrendingDown, Package, ClipboardList, ShoppingCart, Calendar, Filter, PieChart as PieIcon, BarChart3, Users, ArrowRight, Activity, DollarSign, ArrowUpRight, ArrowDownRight, RefreshCw, UserCircle, Minus, Plus, ChevronDown, ChevronUp, Link2Off, AlertTriangle, Layers, Clock, CheckCircle2, AlertCircle, User, Factory, Tag, ArrowLeft, BarChart4, Hourglass, History, AlertOctagon, ChevronRight, ListOrdered } from 'lucide-react';
@@ -15,18 +16,23 @@ const formatLargeValue = (val: number, compact: boolean = false) => {
     return `${prefix}${Math.round(val).toLocaleString('en-IN')}`;
 };
 
-// Updated Merging Logic
+// Refined Group Merging Logic for Siddhi Kabel
 const getMergedGroupName = (groupName: string) => {
     const g = String(groupName || 'Unassigned').trim();
+    const lowerG = g.toLowerCase();
     
-    // Merge Group-1 ( Peenya ) and Group-3 ( DCV )
-    if (g === 'Group-1' || g === 'Group-3' || g === 'Group-1 ( Peenya)' || g === 'Group-3 ( DCV )' || g === 'Group-1 (Peenya)' || g === 'Group-3 (DCV)') {
-        return 'Group 1-Giridhar-Peenya';
+    // 1. Group-1 Giridhar: Merge Peenya and DCV
+    if (
+        lowerG.includes('group-1') || 
+        lowerG.includes('group-3') || 
+        lowerG.includes('peenya') || 
+        lowerG.includes('dcv')
+    ) {
+        return 'Group-1 Giridhar';
     }
     
-    // Merge Online Business variations
-    const onlineVars = ['Online Business', 'Online Business-Giridhar', 'Online Business-Veeresh', 'Online - Giridhar', 'Online - Veeresh'];
-    if (onlineVars.includes(g)) {
+    // 2. Online Business: Merge all online variations
+    if (lowerG.includes('online')) {
         return 'Online Business';
     }
     
@@ -267,106 +273,6 @@ const GroupedCustomerAnalysis = ({ data }: { data: { group: string, total: numbe
 
 type Metric = 'quantity' | 'value';
 
-/* Fix for: Cannot find name 'ABCAnalysisChart' */
-const ABCAnalysisChart = ({ data }: { data: { label: string, value: number, count: number, color: string }[] }) => {
-    const totalValue = data.reduce((a, b) => a + (b.value || 0), 0);
-    const totalCount = data.reduce((a, b) => a + (b.count || 0), 0);
-
-    return (
-        <div className="flex flex-col h-full">
-            <h4 className="text-[11px] font-bold text-gray-600 uppercase mb-4 flex items-center gap-2">
-                <Tag className="w-4 h-4 text-emerald-600" /> ABC Analysis (Value)
-            </h4>
-            <div className="flex-1 flex flex-col gap-4">
-                <div className="flex h-8 w-full rounded-lg overflow-hidden border border-gray-100 shadow-sm">
-                    {data.map((item, i) => {
-                        const pct = totalValue > 0 ? (item.value / totalValue) * 100 : 0;
-                        if (pct === 0) return null;
-                        return (
-                            <div 
-                                key={i} 
-                                style={{ width: `${pct}%`, backgroundColor: item.color }} 
-                                className="h-full flex items-center justify-center text-[10px] font-bold text-white shadow-inner"
-                                title={`${item.label}: ${pct.toFixed(1)}%`}
-                            >
-                                {pct > 15 ? item.label : ''}
-                            </div>
-                        );
-                    })}
-                </div>
-                <div className="space-y-3 flex-1 overflow-y-auto custom-scrollbar">
-                    {data.map((item, i) => {
-                        const valPct = totalValue > 0 ? (item.value / totalValue) * 100 : 0;
-                        const countPct = totalCount > 0 ? (item.count / totalCount) * 100 : 0;
-                        return (
-                            <div key={i} className="bg-gray-50 p-2.5 rounded-lg border border-gray-100">
-                                <div className="flex justify-between items-center mb-1">
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }}></div>
-                                        <span className="text-[11px] font-bold text-gray-700">Category {item.label}</span>
-                                    </div>
-                                    <span className="text-[11px] font-black text-gray-900">{formatLargeValue(item.value)}</span>
-                                </div>
-                                <div className="flex justify-between text-[9px] text-gray-500 font-medium">
-                                    <span>{item.count} Items ({countPct.toFixed(1)}%)</span>
-                                    <span>{valPct.toFixed(1)}% of Total Value</span>
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
-        </div>
-    );
-};
-
-/* Fix for: Cannot find name 'InteractiveDrillDownChart' */
-const InteractiveDrillDownChart = ({ hierarchyData, metric, totalValue }: { hierarchyData: any[], metric: Metric, totalValue: number }) => {
-    const [expandedMake, setExpandedMake] = useState<string | null>(null);
-    const sorted = [...hierarchyData].sort((a, b) => b.value - a.value);
-    const maxVal = Math.max(sorted[0]?.value || 1, 1);
-
-    return (
-        <div className="flex flex-col h-full w-full overflow-hidden">
-            <h4 className="text-[11px] font-bold text-gray-600 uppercase mb-3 border-b border-gray-100 pb-1 flex justify-between items-center">
-                <span>Inventory Drill-down</span>
-                <span className="text-[9px] text-gray-400 font-medium uppercase tracking-tighter">By {metric}</span>
-            </h4>
-            <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-2">
-                {sorted.map((item, i) => (
-                    <div key={i} className="flex flex-col gap-1">
-                        <button 
-                            onClick={() => setExpandedMake(expandedMake === item.label ? null : item.label)}
-                            className={`w-full text-left p-2.5 rounded-lg border transition-all flex items-center justify-between ${expandedMake === item.label ? 'bg-blue-50 border-blue-200 shadow-sm' : 'bg-white border-gray-100 hover:bg-gray-50'}`}
-                        >
-                            <div className="flex items-center gap-2 flex-1 min-w-0">
-                                {expandedMake === item.label ? <ChevronDown className="w-4 h-4 text-blue-600" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
-                                <span className="text-[10px] font-bold text-gray-700 truncate">{item.label}</span>
-                            </div>
-                            <div className="flex flex-col items-end">
-                                <span className="text-[10px] font-black text-gray-900">{metric === 'value' ? formatLargeValue(item.value) : item.value.toLocaleString()}</span>
-                                <div className="w-16 h-1 bg-gray-100 rounded-full overflow-hidden mt-1">
-                                    <div className="h-full bg-blue-500 rounded-full transition-all duration-500" style={{ width: `${(item.value / maxVal) * 100}%` }}></div>
-                                </div>
-                            </div>
-                        </button>
-                        {expandedMake === item.label && (
-                            <div className="ml-5 pl-3 border-l-2 border-blue-100 space-y-1 py-1">
-                                {item.groups.map((group: any, gi: number) => (
-                                    <div key={gi} className="flex justify-between items-center py-1.5 px-2 hover:bg-gray-50 rounded group">
-                                        <span className="text-[9px] font-medium text-gray-600 truncate flex-1 pr-2 group-hover:text-gray-900">{group.label}</span>
-                                        <span className="text-[9px] font-bold text-gray-800">{metric === 'value' ? formatLargeValue(group.value) : group.value.toLocaleString()}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-};
-
 interface DashboardViewProps {
   materials: Material[];
   closingStock: ClosingStockItem[];
@@ -424,7 +330,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
           const dateObj = parseDate(item.date);
           const fi = getFiscalInfo(dateObj);
           const cust = custMap.get(String(item.customerName || '').toLowerCase().trim());
-          // Switch grouping source field from 'group' to 'customerGroup'
           const mergedGroup = getMergedGroupName(cust?.customerGroup || 'Unassigned');
           return { ...item, ...fi, rawDate: dateObj, custGroup: mergedGroup, custStatus: cust?.status || 'Unknown' };
       });
@@ -453,10 +358,12 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       const pyStart = parseInt(parts[0]) - 1;
       const pyString = `${pyStart}-${pyStart + 1}`;
       return enrichedSales.filter(i => {
-          if (i.fiscalYear !== pyString) return false;
-          if (timeView === 'MONTH' && i.fiscalMonthIndex !== selectedMonth) return false;
-          if (timeView === 'WEEK' && i.weekNumber !== selectedWeek) return false;
-          return true;
+          if (i.fiscalYear === pyString) {
+              if (timeView === 'MONTH' && i.fiscalMonthIndex !== selectedMonth) return false;
+              if (timeView === 'WEEK' && i.weekNumber !== selectedWeek) return false;
+              return true;
+          }
+          return false;
       });
   }, [selectedFY, timeView, selectedMonth, selectedWeek, enrichedSales]);
 
@@ -502,6 +409,35 @@ const DashboardView: React.FC<DashboardViewProps> = ({
           })).sort((a, b) => b.current - a.current).slice(0, 10)
       })).sort((a, b) => b.total - a.total);
   }, [currentData, previousDataForComparison]);
+
+  const inventoryStats = useMemo(() => {
+    const data = closingStock.map(i => { 
+        const mat = materials.find(m => String(m.description || '').toLowerCase().trim() === String(i.description || '').toLowerCase().trim()); 
+        return { ...i, make: mat ? mat.make : 'Unspecified', group: mat ? mat.materialGroup : 'Unspecified' }; 
+    });
+    const totalVal = data.reduce((a, b) => a + (b.value || 0), 0);
+    const totalQty = data.reduce((a, b) => a + (b.quantity || 0), 0);
+
+    const makeMap = new Map<string, number>();
+    const groupMap = new Map<string, number>();
+    
+    data.forEach(i => {
+        const makeKey = i.make || 'Unspecified';
+        const groupKey = i.group || 'Unspecified';
+        const val = invGroupMetric === 'value' ? (i.value || 0) : (i.quantity || 0);
+        makeMap.set(makeKey, (makeMap.get(makeKey) || 0) + val);
+        groupMap.set(groupKey, (groupMap.get(groupKey) || 0) + val);
+    });
+
+    return {
+        totalVal,
+        totalQty,
+        count: data.length,
+        makeMix: Array.from(makeMap.entries()).map(([label, value]) => ({ label, value })).sort((a,b) => b.value - a.value),
+        groupMix: Array.from(groupMap.entries()).map(([label, value]) => ({ label, value })).sort((a,b) => b.value - a.value),
+        topStock: [...data].sort((a,b) => b.value - a.value).slice(0, 10).map(i => ({ label: i.description, value: i.value }))
+    };
+  }, [closingStock, materials, invGroupMetric]);
 
   const soStats = useMemo(() => {
       const totalVal = pendingSO.reduce((a, b) => a + (b.value || 0), 0);
@@ -587,17 +523,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       };
   }, [selectedFY, enrichedSales]);
 
-  const inventoryStats = useMemo(() => {
-    const data = closingStock.map(i => { const mat = materials.find(m => String(m.description || '').toLowerCase().trim() === String(i.description || '').toLowerCase().trim()); return { ...i, make: mat ? mat.make : 'Unspecified', group: mat ? mat.materialGroup : 'Unspecified' }; });
-    const totalVal = data.reduce((a, b) => a + (b.value || 0), 0);
-    const hMap = new Map<string, any>();
-    data.forEach(i => { const make = String(i.make || 'Unspecified'); if(!hMap.has(make)) hMap.set(make, { val: 0, qty: 0, groups: new Map() }); const m = hMap.get(make); m.val += (i.value || 0); m.qty += (i.quantity || 0); const group = String(i.group || 'Unspecified'); if(!m.groups.has(group)) m.groups.set(group, { val: 0, qty: 0 }); const g = m.groups.get(group); g.val += (i.value || 0); g.qty += (i.quantity || 0); });
-    const hierarchy = Array.from(hMap.entries()).map(([label, d]) => ({ label, value: invGroupMetric === 'value' ? d.val : d.qty, groups: Array.from(d.groups.entries()).map(([gl, gd]) => ({ label: gl, value: invGroupMetric === 'value' ? gd.val : gd.qty })).sort((a,b) => b.value - a.value) })).sort((a,b) => b.value - a.value);
-    let cVal = 0; const sorted = [...data].sort((a,b) => (b.value || 0) - (a.value || 0)); const abc = { A: { c: 0, v: 0 }, B: { c: 0, v: 0 }, C: { c: 0, v: 0 } };
-    sorted.forEach(i => { cVal += (i.value || 0); const p = cVal / (totalVal || 1); if (p <= 0.7) { abc.A.c++; abc.A.v += (i.value || 0); } else if (p <= 0.9) { abc.B.c++; abc.B.v += (i.value || 0); } else { abc.C.c++; abc.C.v += (i.value || 0); } });
-    return { totalVal, count: data.length, hierarchy, abcData: [ { label: 'A', value: abc.A.v, count: abc.A.c, color: '#10B981' }, { label: 'B', value: abc.B.v, count: abc.B.c, color: '#F59E0B' }, { label: 'C', value: abc.C.v, count: abc.C.c, color: '#EF4444' } ] };
-  }, [closingStock, materials, invGroupMetric]);
-
   const chartMax = useMemo(() => Math.max(...lineChartData.series.flatMap(s => s.data), 1000) * 1.1, [lineChartData]);
   const formatAxisValue = (val: number) => { if(isNaN(val)) return '0'; if (val >= 10000000) return (val/10000000).toFixed(1) + 'Cr'; if (val >= 100000) return (val/100000).toFixed(1) + 'L'; if (val >= 1000) return (val/1000).toFixed(0) + 'k'; return Math.round(val).toString(); };
 
@@ -609,6 +534,15 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex bg-gray-100 p-1 rounded-lg">{(['FY', 'MONTH', 'WEEK'] as const).map(v => (<button key={v} onClick={() => setTimeView(v)} className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${timeView === v ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}> {v} </button>))}</div>
               <select value={selectedFY} onChange={e => setSelectedFY(e.target.value)} className="bg-white border border-gray-300 text-xs rounded-md px-2 py-1.5 font-medium">{uniqueFYs.length > 0 ? uniqueFYs.map(fy => <option key={fy} value={fy}>{fy}</option>) : <option value="">No FY Data</option>}</select>
+            </div>
+          )}
+          {activeSubTab === 'inventory' && (
+            <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold text-gray-500 uppercase">View By:</span>
+                <div className="flex bg-gray-100 p-1 rounded-lg">
+                    <button onClick={() => setInvGroupMetric('value')} className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${invGroupMetric === 'value' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500'}`}>Value</button>
+                    <button onClick={() => setInvGroupMetric('quantity')} className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${invGroupMetric === 'quantity' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500'}`}>Qty</button>
+                </div>
             </div>
           )}
       </div>
@@ -636,8 +570,31 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
         ) : activeSubTab === 'inventory' ? (
              <div className="flex flex-col gap-4">
-                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4"><div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-emerald-600 font-bold uppercase">Stock Val</p><h3 className="text-xl font-extrabold text-gray-900 mt-0.5">{formatLargeValue(inventoryStats.totalVal)}</h3></div><div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-blue-600 font-bold uppercase">Items</p><h3 className="text-xl font-extrabold text-gray-900 mt-0.5">{inventoryStats.count}</h3></div></div>
-                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4"><div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80"><ABCAnalysisChart data={inventoryStats.abcData} /></div><div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80"><InteractiveDrillDownChart hierarchyData={inventoryStats.hierarchy} metric={invGroupMetric} totalValue={inventoryStats.totalVal} /></div></div>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                        <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider">Total Stock Value</p>
+                        <h3 className="text-xl font-extrabold text-gray-900 mt-1">{formatLargeValue(inventoryStats.totalVal)}</h3>
+                    </div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                        <p className="text-[10px] text-blue-600 font-bold uppercase tracking-wider">Total Qty</p>
+                        <h3 className="text-xl font-extrabold text-gray-900 mt-1">{inventoryStats.totalQty.toLocaleString()}</h3>
+                    </div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                        <p className="text-[10px] text-purple-600 font-bold uppercase tracking-wider">Total SKUs</p>
+                        <h3 className="text-xl font-extrabold text-gray-900 mt-1">{inventoryStats.count}</h3>
+                    </div>
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80 flex flex-col">
+                        <SimpleDonut data={inventoryStats.makeMix} title={`Inventory by Make (${invGroupMetric === 'value' ? 'Val' : 'Qty'})`} color="green" />
+                    </div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80 flex flex-col">
+                        <SimpleDonut data={inventoryStats.groupMix} title={`Inventory by Group (${invGroupMetric === 'value' ? 'Val' : 'Qty'})`} color="blue" />
+                    </div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80 flex flex-col">
+                        <HorizontalBarChart data={inventoryStats.topStock} title="Top 10 High Value Stock Items" color="emerald" />
+                    </div>
+                </div>
              </div>
         ) : activeSubTab === 'so' ? (
             <div className="flex flex-col gap-4">
