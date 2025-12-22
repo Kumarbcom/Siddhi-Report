@@ -2,9 +2,6 @@
 import { supabase, isConfigured } from './supabase';
 import { Material, MaterialFormData } from '../types';
 
-/**
- * Maps Supabase snake_case column names to App camelCase properties
- */
 const mapFromDb = (row: any): Material => ({
   id: row.id,
   materialCode: row.material_code || '',
@@ -15,9 +12,6 @@ const mapFromDb = (row: any): Material => ({
   createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now()
 });
 
-/**
- * Maps App camelCase properties to Supabase snake_case column names
- */
 const mapToDb = (data: MaterialFormData | Partial<Material>) => ({
   material_code: (data as any).materialCode,
   description: data.description,
@@ -29,63 +23,56 @@ const mapToDb = (data: MaterialFormData | Partial<Material>) => ({
 export const materialService = {
   async getAll(): Promise<Material[]> {
     if (!isConfigured) throw new Error("Supabase is not configured.");
+    
+    let allData: any[] = [];
+    let from = 0;
+    const step = 1000;
+    let hasMore = true;
 
-    const { data, error } = await supabase
-      .from('material_master')
-      .select('*')
-      .order('created_at', { ascending: false });
+    while (hasMore) {
+      const { data, error } = await supabase
+        .from('material_master')
+        .select('*')
+        .range(from, from + step - 1)
+        .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error('Supabase Sync Error:', error.message);
-      throw new Error(`Database error: ${error.message}`);
+      if (error) throw new Error(`Database error: ${error.message}`);
+      
+      if (data) {
+        allData = [...allData, ...data];
+        if (data.length < step) hasMore = false;
+      } else {
+        hasMore = false;
+      }
+      from += step;
+      // Safety break to prevent infinite loops if misconfigured
+      if (from > 200000) break;
     }
 
-    return (data || []).map(mapFromDb);
+    return allData.map(mapFromDb);
   },
 
   async createBulk(materials: MaterialFormData[]): Promise<Material[]> {
     if (!isConfigured) throw new Error("Supabase is not configured.");
-    
     const dbRows = materials.map(mapToDb);
-    const { data, error } = await supabase
-      .from('material_master')
-      .insert(dbRows)
-      .select();
-
+    const { data, error } = await supabase.from('material_master').insert(dbRows).select();
     if (error) throw new Error(`Sync Failed: ${error.message}`);
     return (data || []).map(mapFromDb);
   },
 
   async update(material: Material): Promise<void> {
     if (!isConfigured) throw new Error("Supabase is not configured.");
-
-    const { error } = await supabase
-      .from('material_master')
-      .update(mapToDb(material))
-      .eq('id', material.id);
-    
+    const { error } = await supabase.from('material_master').update(mapToDb(material)).eq('id', material.id);
     if (error) throw new Error(`Update Failed: ${error.message}`);
   },
 
   async delete(id: string): Promise<void> {
-    if (!isConfigured) throw new Error("Supabase is not configured.");
-
-    const { error } = await supabase
-      .from('material_master')
-      .delete()
-      .eq('id', id);
-    
+    const { error } = await supabase.from('material_master').delete().eq('id', id);
     if (error) throw new Error(`Delete Failed: ${error.message}`);
   },
 
   async clearAll(): Promise<void> {
-    if (!isConfigured) throw new Error("Supabase is not configured.");
-
-    const { error } = await supabase
-      .from('material_master')
-      .delete()
-      .neq('id', '00000000-0000-0000-0000-000000000000');
-    
+    const { error } = await supabase.from('material_master').delete().neq('id', '00000000-0000-0000-0000-000000000000');
     if (error) throw new Error(`Clear Failed: ${error.message}`);
   }
 };

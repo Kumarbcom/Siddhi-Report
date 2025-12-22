@@ -1,8 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Material } from '../types';
-import { isConfigured } from '../services/supabase';
-import { Trash2, PackageOpen, Search, ArrowUpDown, ArrowUp, ArrowDown, Pencil, Save, X, Hash, Globe, Database, Layers, CloudCheck } from 'lucide-react';
+import { Trash2, PackageOpen, Search, ArrowUpDown, ArrowUp, ArrowDown, Pencil, Save, X, Layers, CloudCheck, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface MaterialTableProps {
   materials: Material[];
@@ -17,6 +16,10 @@ const MaterialTable: React.FC<MaterialTableProps> = ({ materials, onUpdate, onDe
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' } | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Material | null>(null);
+  
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 100;
 
   const handleEditClick = (item: Material) => {
     setEditingId(item.id);
@@ -74,6 +77,12 @@ const MaterialTable: React.FC<MaterialTableProps> = ({ materials, onUpdate, onDe
     return data;
   }, [materials, searchTerm, sortConfig]);
 
+  const totalPages = Math.ceil(processedMaterials.length / itemsPerPage);
+  const paginatedMaterials = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return processedMaterials.slice(start, start + itemsPerPage);
+  }, [processedMaterials, currentPage]);
+
   const renderSortIcon = (key: SortKey) => {
     if (!sortConfig || sortConfig.key !== key) return <ArrowUpDown className="w-3 h-3 text-gray-400" />;
     return sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 text-blue-500" /> : <ArrowDown className="w-3 h-3 text-blue-500" />;
@@ -92,13 +101,16 @@ const MaterialTable: React.FC<MaterialTableProps> = ({ materials, onUpdate, onDe
               placeholder="Search Material Master..."
               className="pl-10 pr-3 py-2 w-full border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
             />
           </div>
         </div>
         <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-200">
            <Layers className="w-4 h-4 text-blue-500" />
-           <span className="text-xs font-bold text-gray-700 uppercase tracking-tight">{processedMaterials.length} Items</span>
+           <span className="text-xs font-bold text-gray-700 uppercase tracking-tight">{processedMaterials.length.toLocaleString()} Items</span>
         </div>
       </div>
 
@@ -126,17 +138,17 @@ const MaterialTable: React.FC<MaterialTableProps> = ({ materials, onUpdate, onDe
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 text-xs">
-              {processedMaterials.length === 0 ? (
+              {paginatedMaterials.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-20 text-center text-gray-400">
                     <div className="flex flex-col items-center justify-center gap-2">
                         <PackageOpen className="w-12 h-12 text-gray-200" />
-                        <p className="font-bold">No Database Records Found</p>
+                        <p className="font-bold">No Records Found</p>
                     </div>
                   </td>
                 </tr>
               ) : (
-                  processedMaterials.map((material) => (
+                paginatedMaterials.map((material) => (
                     <tr key={material.id} className={`hover:bg-blue-50/20 transition-colors group ${editingId === material.id ? 'bg-blue-50' : ''}`}>
                       {editingId === material.id ? (
                         <>
@@ -173,15 +185,51 @@ const MaterialTable: React.FC<MaterialTableProps> = ({ materials, onUpdate, onDe
             </tbody>
           </table>
         </div>
-        <div className="bg-gray-50 px-4 py-3 border-t border-gray-200 text-[10px] text-gray-500 flex justify-between items-center flex-shrink-0">
-          <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                  <Database className="w-3.5 h-3.5 text-gray-400" />
-                  <span className="font-bold uppercase tracking-wider">Cloud Engine:</span>
-                  <span className="text-green-600 font-black flex items-center gap-1"><CloudCheck className="w-3 h-3" /> lgxzqobcabiatqoklyuc</span>
+        
+        {/* Pagination Footer */}
+        <div className="bg-gray-50 px-4 py-3 border-t border-gray-200 flex flex-col sm:flex-row justify-between items-center gap-3 flex-shrink-0">
+          <div className="flex items-center gap-4 text-[10px] text-gray-500">
+              <div className="flex items-center gap-1.5">
+                  <span className="font-bold uppercase">Page {currentPage} of {totalPages || 1}</span>
+                  <span className="text-gray-300">|</span>
+                  <span>Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, processedMaterials.length)} of {processedMaterials.length.toLocaleString()}</span>
               </div>
           </div>
-          <span className="font-medium italic">Direct Supabase Integration Active</span>
+          <div className="flex items-center gap-1">
+            <button 
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                className="p-1.5 rounded border bg-white disabled:opacity-50 hover:bg-gray-100 text-gray-600 transition-colors"
+            >
+                <ChevronLeft className="w-4 h-4" />
+            </button>
+            <div className="flex gap-1 overflow-x-auto max-w-[150px] scrollbar-hide">
+                {[...Array(totalPages)].map((_, i) => {
+                    const page = i + 1;
+                    // Only show first 3, last 3, and current +-1
+                    if (totalPages > 10 && page > 3 && page < totalPages - 2 && Math.abs(page - currentPage) > 1) {
+                        if (page === currentPage - 2 || page === currentPage + 2) return <span key={page} className="text-gray-300">...</span>;
+                        return null;
+                    }
+                    return (
+                        <button 
+                            key={page}
+                            onClick={() => setCurrentPage(page)}
+                            className={`min-w-[28px] h-7 text-[10px] font-bold rounded border transition-colors ${currentPage === page ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 hover:bg-gray-100'}`}
+                        >
+                            {page}
+                        </button>
+                    );
+                })}
+            </div>
+            <button 
+                disabled={currentPage === totalPages || totalPages === 0}
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                className="p-1.5 rounded border bg-white disabled:opacity-50 hover:bg-gray-100 text-gray-600 transition-colors"
+            >
+                <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -6,21 +6,32 @@ export const salesService = {
   async getAll(): Promise<SalesReportItem[]> {
     if (!isConfigured) throw new Error("Supabase not configured.");
     
-    // Using created_at for ordering as it is a guaranteed Supabase system column
-    const { data, error } = await supabase
-      .from('sales_report_voucher')
-      .select('*')
-      .limit(20000)
-      .order('created_at', { ascending: false });
+    let allData: any[] = [];
+    let from = 0;
+    const step = 1000;
+    let hasMore = true;
 
-    if (error) {
-      throw new Error(`Sales Load Failed: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
+    while (hasMore) {
+      const { data, error } = await supabase
+        .from('sales_report_voucher')
+        .select('*')
+        .range(from, from + step - 1)
+        .order('created_at', { ascending: false });
+
+      if (error) throw new Error(`Sales Load Failed: ${error.message}`);
+      
+      if (data) {
+        allData = [...allData, ...data];
+        if (data.length < step) hasMore = false;
+      } else {
+        hasMore = false;
+      }
+      from += step;
+      if (from > 200000) break;
     }
 
-    return (data || []).map((row: any) => {
-      // Fallback: Use created_at if the specific 'date' column is missing or empty
+    return allData.map((row: any) => {
       const displayDate = row.date || (row.created_at ? new Date(row.created_at).toISOString().split('T')[0] : '');
-      
       return {
         id: row.id,
         date: displayDate,
@@ -52,14 +63,8 @@ export const salesService = {
             quantity: r.quantity,
             value: r.value
         }));
-        
         const { data, error } = await supabase.from('sales_report_voucher').insert(chunk).select();
-        
-        if (error) {
-            console.error("Insert error details:", error);
-            throw new Error(`Insert Failed at chunk ${i}: ${error.message}. Ensure the 'date' column exists in your database.`);
-        }
-        
+        if (error) throw new Error(`Insert Failed at chunk ${i}: ${error.message}`);
         if (data) {
           allInserted.push(...data.map(row => ({
             id: row.id,
