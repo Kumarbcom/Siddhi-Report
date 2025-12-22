@@ -1,7 +1,6 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Material, ClosingStockItem, PendingSOItem, PendingPOItem, SalesReportItem, CustomerMasterItem, SalesRecord } from '../types';
-import { TrendingUp, TrendingDown, Package, ClipboardList, ShoppingCart, Calendar, Filter, PieChart as PieIcon, BarChart3, Users, ArrowRight, Activity, DollarSign, ArrowUpRight, ArrowDownRight, RefreshCw, UserCircle, Minus, Plus, ChevronDown, ChevronUp, Link2Off, AlertTriangle, Layers, Clock, CheckCircle2, AlertCircle, User, Factory, Tag, ArrowLeft, BarChart4, Hourglass, History, AlertOctagon, ChevronRight, ListOrdered, Table, X } from 'lucide-react';
+import { TrendingUp, TrendingDown, Package, ClipboardList, ShoppingCart, Calendar, Filter, PieChart as PieIcon, BarChart3, Users, ArrowRight, Activity, DollarSign, ArrowUpRight, ArrowDownRight, RefreshCw, UserCircle, Minus, Plus, ChevronDown, ChevronUp, Link2Off, AlertTriangle, Layers, Clock, CheckCircle2, AlertCircle, User, Factory, Tag, ArrowLeft, BarChart4, Hourglass, History, AlertOctagon, ChevronRight, ListOrdered, Table, X, Search, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 
 const COLORS = ['#10B981', '#3B82F6', '#6366F1', '#8B5CF6', '#EC4899', '#F59E0B', '#EF4444', '#6B7280', '#059669', '#2563EB'];
 
@@ -21,7 +20,6 @@ const getMergedGroupName = (groupName: string) => {
     const g = String(groupName || 'Unassigned').trim();
     const lowerG = g.toLowerCase();
     
-    // 1. Group-1 Giridhar: Merge Peenya and DCV
     if (
         lowerG.includes('group-1') || 
         lowerG.includes('group-3') || 
@@ -31,7 +29,6 @@ const getMergedGroupName = (groupName: string) => {
         return 'Group-1 Giridhar';
     }
     
-    // 2. Online Business: Merge all online variations
     if (lowerG.includes('online')) {
         return 'Online Business';
     }
@@ -145,13 +142,14 @@ const SimpleDonut = ({ data, title, color, isCurrency = false }: { data: {label:
      if(data.length === 0) return <div className="h-32 flex items-center justify-center text-gray-400 text-xs">No Data</div>;
      const total = data.reduce((a,b) => a+(b.value || 0), 0);
      let cumPercent = 0;
-     let displayData = data.length > 5 ? [...data.slice(0, 5), { label: 'Others', value: data.slice(5).reduce((a,b) => a+(b.value || 0), 0) }] : data;
-     const colorPalette = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#9CA3AF'];
+     let displayData = data.length > 7 ? [...data.slice(0, 7), { label: 'Others', value: data.slice(7).reduce((a,b) => a+(b.value || 0), 0) }] : data;
+     const colorPalette = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#9CA3AF', '#6366F1', '#EC4899'];
+     
      return (
         <div className="flex flex-col h-full">
-            <h4 className="text-[10px] font-bold text-gray-500 uppercase mb-2">{title}</h4>
-            <div className="flex items-center gap-4 flex-1">
-                <div className="w-16 h-16 relative flex-shrink-0">
+            <h4 className="text-[11px] font-bold text-gray-600 uppercase mb-3 border-b border-gray-100 pb-1">{title}</h4>
+            <div className="flex flex-col lg:flex-row items-center gap-6 flex-1 min-h-0">
+                <div className="w-36 h-36 relative flex-shrink-0 mx-auto lg:mx-0">
                    <svg viewBox="-1 -1 2 2" className="transform -rotate-90 w-full h-full">
                       {displayData.map((slice, i) => {
                           const percent = slice.value / (total || 1);
@@ -160,24 +158,24 @@ const SimpleDonut = ({ data, title, color, isCurrency = false }: { data: {label:
                           cumPercent += percent;
                           const endX = Math.cos(2 * Math.PI * cumPercent);
                           const endY = Math.sin(2 * Math.PI * cumPercent);
-                          return ( <path key={i} d={`M ${startX} ${startY} A 1 1 0 ${percent > 0.5 ? 1 : 0} 1 ${endX} ${endY} L 0 0`} fill={slice.color || colorPalette[i % colorPalette.length]} stroke="white" strokeWidth="0.05" /> );
+                          return ( <path key={i} d={`M ${startX} ${startY} A 1 1 0 ${percent > 0.5 ? 1 : 0} 1 ${endX} ${endY} L 0 0`} fill={slice.color || colorPalette[i % colorPalette.length]} stroke="white" strokeWidth="0.04" className="hover:opacity-80 transition-opacity cursor-pointer" /> );
                       })}
-                      <circle cx="0" cy="0" r="0.6" fill="white" />
+                      <circle cx="0" cy="0" r="0.65" fill="white" />
                    </svg>
-                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                       <span className={`text-[7px] font-bold ${color === 'blue' ? 'text-blue-600' : 'text-green-600'}`}>{formatLargeValue(total, true)}</span>
+                   <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center p-2">
+                       <span className={`text-[11px] font-black leading-none ${color === 'blue' ? 'text-blue-700' : 'text-green-700'}`}>{formatLargeValue(total, true)}</span>
                    </div>
                 </div>
-                <div className="flex-1 overflow-y-auto custom-scrollbar h-24 text-[9px]">
+                <div className="flex-1 overflow-y-auto custom-scrollbar w-full max-h-32 lg:max-h-none">
                     {displayData.map((d, i) => (
-                        <div key={i} className="flex justify-between items-center mb-1">
-                             <div className="flex items-center gap-1.5 truncate flex-1 min-w-0">
-                                <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{backgroundColor: d.color || colorPalette[i % colorPalette.length]}}></div>
-                                <span className="text-gray-600 truncate" title={String(d.label)}>{d.label}</span>
+                        <div key={i} className="flex justify-between items-center py-1 border-b border-gray-50 last:border-0 hover:bg-gray-50 px-1 rounded transition-colors">
+                             <div className="flex items-center gap-2 truncate flex-1 min-w-0">
+                                <div className="w-2 h-2 rounded-full flex-shrink-0" style={{backgroundColor: d.color || colorPalette[i % colorPalette.length]}}></div>
+                                <span className="text-[10px] text-gray-600 font-medium truncate" title={String(d.label)}>{d.label}</span>
                              </div>
-                             <div className="flex items-center gap-2 ml-2">
-                                <span className="text-gray-400 font-medium">{isCurrency ? formatLargeValue(d.value, true) : Math.round(d.value).toLocaleString()}</span>
-                                <span className="font-bold text-gray-800 whitespace-nowrap">{total > 0 ? ((d.value / total) * 100).toFixed(0) : 0}%</span>
+                             <div className="flex items-center gap-2 ml-4">
+                                <span className="text-[9px] font-bold text-gray-400">{isCurrency ? formatLargeValue(d.value, true) : Math.round(d.value).toLocaleString()}</span>
+                                <span className="text-[10px] font-black text-gray-800 w-8 text-right">{total > 0 ? ((d.value / total) * 100).toFixed(0) : 0}%</span>
                              </div>
                         </div>
                     ))}
@@ -189,39 +187,53 @@ const SimpleDonut = ({ data, title, color, isCurrency = false }: { data: {label:
 
 const HorizontalBarChart = ({ data, title, color, totalForPercentage }: { data: { label: string; value: number, previous?: number }[], title: string, color: string, totalForPercentage?: number }) => {
     const sorted = [...data].sort((a,b) => (b.value || 0) - (a.value || 0)).slice(0, 10);
-    const maxVal = Math.max(sorted[0]?.value || 1, 1);
+    const maxVal = Math.max(sorted[0]?.value || 1, sorted[0]?.previous || 1);
     const barColorClass = color === 'blue' ? 'bg-blue-500' : color === 'emerald' ? 'bg-emerald-500' : color === 'purple' ? 'bg-purple-500' : 'bg-orange-500';
+    
     return (
         <div className="flex flex-col h-full w-full overflow-hidden">
             <h4 className="text-[11px] font-bold text-gray-600 uppercase mb-3 border-b border-gray-100 pb-1">{title}</h4>
             <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 mt-1">
                 <div className="flex flex-col gap-4">
-                    {sorted.map((item, i) => (
-                        <div key={i} className="flex flex-col gap-1.5">
-                            <div className="flex justify-between items-center text-[10px]">
-                                <div className="flex flex-col flex-1 min-w-0">
-                                    <div className="flex items-center gap-2">
-                                        <span className="truncate text-gray-700 font-bold" title={String(item.label)}>{item.label}</span>
-                                        {totalForPercentage && (
-                                            <span className="text-[9px] bg-gray-100 px-1 rounded font-black text-gray-500">
-                                                {((item.value / totalForPercentage) * 100).toFixed(1)}%
-                                            </span>
-                                        )}
+                    {sorted.map((item, i) => {
+                        const growth = item.previous && item.previous > 0 ? ((item.value - item.previous) / item.previous) * 100 : 0;
+                        const hasPY = item.previous !== undefined && item.previous > 0;
+                        
+                        return (
+                            <div key={i} className="flex flex-col gap-1.5">
+                                <div className="flex justify-between items-end text-[10px]">
+                                    <div className="flex flex-col flex-1 min-w-0">
+                                        <div className="flex items-center gap-2">
+                                            <span className="truncate text-gray-700 font-bold" title={String(item.label)}>{item.label}</span>
+                                            {hasPY && (
+                                                <span className={`text-[8px] font-black px-1 py-px rounded flex items-center gap-0.5 ${growth >= 0 ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
+                                                    {growth >= 0 ? <ArrowUpRight className="w-2 h-2"/> : <ArrowDownRight className="w-2 h-2"/>}
+                                                    {Math.abs(growth).toFixed(0)}%
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center gap-2 mt-0.5">
+                                            {item.previous !== undefined && (
+                                                <span className="text-[8px] text-gray-400 font-medium">PY: {formatLargeValue(item.previous, true)}</span>
+                                            )}
+                                            {totalForPercentage && (
+                                                <span className="text-[8px] bg-gray-50 px-1 rounded font-bold text-gray-500">
+                                                    Share: {((item.value / totalForPercentage) * 100).toFixed(1)}%
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
-                                    {item.previous !== undefined && (
-                                        <span className="text-[8px] text-gray-400 font-medium">PY: {formatLargeValue(item.previous, true)}</span>
-                                    )}
+                                    <span className="font-black text-gray-900 flex-shrink-0 bg-white pl-1">{formatLargeValue(item.value, true)}</span>
                                 </div>
-                                <span className="font-bold text-gray-900 flex-shrink-0 bg-white pl-1">{formatLargeValue(item.value, true)}</span>
+                                <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden relative">
+                                    {item.previous !== undefined && (
+                                        <div className="absolute inset-0 bg-gray-200/50" style={{ width: `${(item.previous / maxVal) * 100}%` }}></div>
+                                    )}
+                                    <div className={`h-full rounded-full ${barColorClass} transition-all duration-700 relative z-10`} style={{ width: `${(item.value / maxVal) * 100}%` }}></div>
+                                </div>
                             </div>
-                            <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden relative">
-                                {item.previous !== undefined && (
-                                    <div className="absolute inset-0 bg-gray-200/50" style={{ width: `${(item.previous / maxVal) * 100}%` }}></div>
-                                )}
-                                <div className={`h-full rounded-full ${barColorClass} transition-all duration-700 relative z-10`} style={{ width: `${(item.value / maxVal) * 100}%` }}></div>
-                            </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             </div>
         </div>
@@ -333,10 +345,14 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   const [selectedWeek, setSelectedWeek] = useState<number>(1);
   const [selectedSoItem, setSelectedSoItem] = useState<PendingSOItem | null>(null);
 
+  // Table-specific states for Inventory Snapshot
+  const [invTableSearch, setInvTableSearch] = useState('');
+  const [invTableSort, setInvTableSort] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
+
   const parseDate = (val: any): Date => {
     if (!val) return new Date();
     if (val instanceof Date) return val;
-    if (typeof val === 'number') { return new Date((val - 25569) * 86400 * 1000); }
+    if (typeof val === 'number') { return new Date((val - (25567 + 2)) * 86400 * 1000); }
     const parsed = new Date(val);
     return isNaN(parsed.getTime()) ? new Date() : parsed;
   };
@@ -348,6 +364,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     const fiscalYear = `${startYear}-${startYear + 1}`;
     const fiscalMonthIndex = month >= 3 ? month - 3 : month + 9;
     const fyStart = new Date(startYear, 3, 1);
+    // Fix: correct variable name from 'first Thu' to 'firstThu'
     let firstThu = new Date(fyStart);
     if (firstThu.getDay() <= 4) firstThu.setDate(firstThu.getDate() + (4 - firstThu.getDay()));
     else firstThu.setDate(firstThu.getDate() + (4 - firstThu.getDay() + 7));
@@ -362,7 +379,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
           const dateObj = parseDate(item.date);
           const fi = getFiscalInfo(dateObj);
           const cust = custMap.get(String(item.customerName || '').toLowerCase().trim());
-          // SWITCHED: Now using 'group' (Account Group) instead of 'customerGroup'
           const mergedGroup = getMergedGroupName(cust?.group || 'Unassigned');
           return { ...item, ...fi, rawDate: dateObj, custGroup: mergedGroup, custStatus: cust?.status || 'Unknown' };
       });
@@ -460,12 +476,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   }, [currentData, previousDataForComparison]);
 
   const inventoryStats = useMemo(() => {
-    const data = closingStock.map(i => { 
+    let data = closingStock.map(i => { 
         const mat = materials.find(m => String(m.description || '').toLowerCase().trim() === String(i.description || '').toLowerCase().trim()); 
         return { ...i, make: mat ? mat.make : 'Unspecified', group: mat ? mat.materialGroup : 'Unspecified' }; 
     });
-    const totalVal = data.reduce((a, b) => a + (b.value || 0), 0);
-    const totalQty = data.reduce((a, b) => a + (b.quantity || 0), 0);
+
+    const rawTotalVal = data.reduce((a, b) => a + (b.value || 0), 0);
+    const rawTotalQty = data.reduce((a, b) => a + (b.quantity || 0), 0);
 
     const makeMap = new Map<string, number>();
     const groupMap = new Map<string, number>();
@@ -478,16 +495,40 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         groupMap.set(groupKey, (groupMap.get(groupKey) || 0) + val);
     });
 
+    // Filtering for the detailed table
+    if (invTableSearch) {
+        const lower = invTableSearch.toLowerCase();
+        data = data.filter(i => 
+            i.description.toLowerCase().includes(lower) || 
+            i.make.toLowerCase().includes(lower) || 
+            i.group.toLowerCase().includes(lower)
+        );
+    }
+
+    // Sorting for the detailed table
+    if (invTableSort) {
+        data.sort((a, b) => {
+            const valA = (a as any)[invTableSort.key];
+            const valB = (b as any)[invTableSort.key];
+            if (valA < valB) return invTableSort.direction === 'asc' ? -1 : 1;
+            if (valA > valB) return invTableSort.direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+    }
+
     return {
-        totalVal,
-        totalQty,
-        count: data.length,
+        totalVal: rawTotalVal,
+        totalQty: rawTotalQty,
+        count: closingStock.length,
         items: data,
         makeMix: Array.from(makeMap.entries()).map(([label, value]) => ({ label, value })).sort((a,b) => b.value - a.value),
         groupMix: Array.from(groupMap.entries()).map(([label, value]) => ({ label, value })).sort((a,b) => b.value - a.value),
-        topStock: [...data].sort((a,b) => b.value - a.value).slice(0, 10).map(i => ({ label: i.description, value: i.value }))
+        topStock: closingStock.map(i => {
+            const mat = materials.find(m => String(m.description || '').toLowerCase().trim() === String(i.description || '').toLowerCase().trim()); 
+            return { ...i, make: mat ? mat.make : 'Unspecified', group: mat ? mat.materialGroup : 'Unspecified' }; 
+        }).sort((a,b) => b.value - a.value).slice(0, 10).map(i => ({ label: i.description, value: i.value }))
     };
-  }, [closingStock, materials, invGroupMetric]);
+  }, [closingStock, materials, invGroupMetric, invTableSearch, invTableSort]);
 
   const soStats = useMemo(() => {
       const totalVal = pendingSO.reduce((a, b) => a + (b.value || 0), 0);
@@ -595,6 +636,17 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   const chartMax = useMemo(() => Math.max(...lineChartData.series.flatMap(s => s.data), 1000) * 1.1, [lineChartData]);
   const formatAxisValue = (val: number) => { if(isNaN(val)) return '0'; if (val >= 10000000) return (val/10000000).toFixed(1) + 'Cr'; if (val >= 100000) return (val/100000).toFixed(1) + 'L'; if (val >= 1000) return (val/1000).toFixed(0) + 'k'; return Math.round(val).toString(); };
 
+  const toggleSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (invTableSort && invTableSort.key === key && invTableSort.direction === 'asc') direction = 'desc';
+    setInvTableSort({ key, direction });
+  };
+
+  const renderSortIcon = (key: string) => {
+      if (!invTableSort || invTableSort.key !== key) return <ArrowUpDown className="w-3 h-3 text-gray-300" />;
+      return invTableSort.direction === 'asc' ? <ArrowUp className="w-3 h-3 text-emerald-600" /> : <ArrowDown className="w-3 h-3 text-emerald-600" />;
+  };
+
   return (
     <div className="h-full w-full flex flex-col bg-gray-50/50 overflow-hidden relative">
       {/* SO Detail Modal */}
@@ -653,7 +705,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
           )}
           {activeSubTab === 'inventory' && (
             <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold text-gray-500 uppercase">View By:</span>
+                <span className="text-[10px] font-bold text-gray-500 uppercase">Metric:</span>
                 <div className="flex bg-gray-100 p-1 rounded-lg">
                     <button onClick={() => setInvGroupMetric('value')} className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${invGroupMetric === 'value' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500'}`}>Value</button>
                     <button onClick={() => setInvGroupMetric('quantity')} className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${invGroupMetric === 'quantity' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500'}`}>Qty</button>
@@ -672,12 +724,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                     <div className="lg:col-span-2 bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col h-80 overflow-hidden"><h3 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2"><TrendingUp className="w-4 h-4 text-blue-600" /> 3-Year Trend Analysis</h3><div className="flex flex-1 pt-2 overflow-hidden"><div className="flex flex-col justify-between text-[9px] text-gray-400 pr-3 pb-8 text-right w-12 border-r"><span>{formatAxisValue(chartMax)}</span><span>{formatAxisValue(chartMax*0.5)}</span><span>0</span></div><div className="flex-1 pl-4 pb-2 relative min-h-0"><SalesTrendChart data={lineChartData} maxVal={chartMax} /></div></div></div>
-                    {/* UPDATED TITLE: From Customer Group to Account Group */}
                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col h-80 overflow-hidden"><SimpleDonut data={groupedCustomerData.map(g => ({ label: g.group, value: g.total }))} title="Sales Mix by Account Group" color="blue" isCurrency={true} /></div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-96 overflow-hidden">
-                        {/* UPDATED TITLE: From Customer Group to Account Group */}
                         <HorizontalBarChart data={groupedCustomerData.map(g => ({ label: g.group, value: g.total, previous: g.totalPrevious }))} title="Top Account Groups (Current vs PY)" color="blue" />
                     </div>
                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-96 overflow-hidden">
@@ -702,7 +752,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                     </div>
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80 flex flex-col">
+                    <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm min-h-[340px] flex flex-col">
                         <SimpleDonut 
                             data={inventoryStats.makeMix} 
                             title={`Inventory by Make (${invGroupMetric === 'value' ? 'Val' : 'Qty'})`} 
@@ -710,7 +760,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                             isCurrency={invGroupMetric === 'value'}
                         />
                     </div>
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80 flex flex-col">
+                    <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm min-h-[340px] flex flex-col">
                         <SimpleDonut 
                             data={inventoryStats.groupMix} 
                             title={`Inventory by Group (${invGroupMetric === 'value' ? 'Val' : 'Qty'})`} 
@@ -718,7 +768,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                             isCurrency={invGroupMetric === 'value'}
                         />
                     </div>
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80 flex flex-col">
+                    <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm min-h-[340px] flex flex-col">
                         <HorizontalBarChart 
                             data={inventoryStats.topStock} 
                             title="Top 10 High Value Stock Items" 
@@ -728,40 +778,69 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                     </div>
                 </div>
 
-                {/* Inventory Table Integration */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
-                    <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                    <div className="p-4 border-b border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center bg-gray-50/50 gap-4">
                         <h4 className="text-sm font-bold text-gray-800 flex items-center gap-2">
                             <Table className="w-4 h-4 text-emerald-600" />
                             Detailed Inventory Snapshot
                         </h4>
-                        <span className="text-[10px] font-bold text-gray-500 uppercase">{inventoryStats.count} Total Records</span>
+                        <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+                            <div className="relative w-full sm:w-64">
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <Search className="h-3.5 w-3.5 text-gray-400" />
+                                </div>
+                                <input 
+                                    type="text" 
+                                    placeholder="Search in table..." 
+                                    className="pl-9 pr-3 py-1.5 w-full border border-gray-300 rounded-lg text-[10px] focus:ring-2 focus:ring-emerald-500 outline-none transition-shadow" 
+                                    value={invTableSearch} 
+                                    onChange={(e) => setInvTableSearch(e.target.value)} 
+                                />
+                            </div>
+                            <span className="text-[9px] font-black text-gray-400 uppercase whitespace-nowrap">{inventoryStats.items.length} of {inventoryStats.count} Shown</span>
+                        </div>
                     </div>
                     <div className="overflow-x-auto max-h-96 custom-scrollbar">
                         <table className="w-full text-left border-collapse min-w-[800px]">
                             <thead className="sticky top-0 z-10 bg-gray-100/90 backdrop-blur-md shadow-sm border-b border-gray-200">
-                                <tr className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
-                                    <th className="py-3 px-4">Description</th>
-                                    <th className="py-3 px-4">Make</th>
-                                    <th className="py-3 px-4">Group</th>
-                                    <th className="py-3 px-4 text-right">Quantity</th>
-                                    <th className="py-3 px-4 text-right">Rate</th>
-                                    <th className="py-3 px-4 text-right">Value</th>
+                                <tr className="text-[10px] font-black text-gray-500 uppercase tracking-widest cursor-pointer select-none">
+                                    <th className="py-3 px-4 hover:bg-gray-200 transition-colors" onClick={() => toggleSort('description')}>
+                                        <div className="flex items-center gap-1">Description {renderSortIcon('description')}</div>
+                                    </th>
+                                    <th className="py-3 px-4 hover:bg-gray-200 transition-colors" onClick={() => toggleSort('make')}>
+                                        <div className="flex items-center gap-1">Make {renderSortIcon('make')}</div>
+                                    </th>
+                                    <th className="py-3 px-4 hover:bg-gray-200 transition-colors" onClick={() => toggleSort('group')}>
+                                        <div className="flex items-center gap-1">Group {renderSortIcon('group')}</div>
+                                    </th>
+                                    <th className="py-3 px-4 text-right hover:bg-gray-200 transition-colors" onClick={() => toggleSort('quantity')}>
+                                        <div className="flex items-center justify-end gap-1">Quantity {renderSortIcon('quantity')}</div>
+                                    </th>
+                                    <th className="py-3 px-4 text-right hover:bg-gray-200 transition-colors" onClick={() => toggleSort('rate')}>
+                                        <div className="flex items-center justify-end gap-1">Rate {renderSortIcon('rate')}</div>
+                                    </th>
+                                    <th className="py-3 px-4 text-right hover:bg-gray-200 transition-colors" onClick={() => toggleSort('value')}>
+                                        <div className="flex items-center justify-end gap-1">Value {renderSortIcon('value')}</div>
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 text-xs text-gray-700">
-                                {inventoryStats.items.map((item, idx) => (
-                                    <tr key={idx} className="hover:bg-blue-50/20 transition-colors">
-                                        <td className="py-2.5 px-4 font-medium text-gray-900 max-w-xs truncate" title={item.description}>{item.description}</td>
-                                        <td className="py-2.5 px-4">
-                                            <span className="inline-block px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-gray-100 text-gray-700 border border-gray-200">{item.make}</span>
-                                        </td>
-                                        <td className="py-2.5 px-4 text-gray-500">{item.group}</td>
-                                        <td className="py-2.5 px-4 text-right font-mono">{item.quantity.toLocaleString()}</td>
-                                        <td className="py-2.5 px-4 text-right font-mono text-gray-400">{item.rate.toFixed(2)}</td>
-                                        <td className="py-2.5 px-4 text-right font-black text-emerald-700">{formatLargeValue(item.value, true)}</td>
-                                    </tr>
-                                ))}
+                                {inventoryStats.items.length === 0 ? (
+                                    <tr><td colSpan={6} className="py-20 text-center text-gray-400 font-bold italic">No matching records found in this view.</td></tr>
+                                ) : (
+                                    inventoryStats.items.map((item, idx) => (
+                                        <tr key={idx} className="hover:bg-blue-50/20 transition-colors">
+                                            <td className="py-2.5 px-4 font-medium text-gray-900 max-w-xs truncate" title={item.description}>{item.description}</td>
+                                            <td className="py-2.5 px-4">
+                                                <span className="inline-block px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-gray-100 text-gray-700 border border-gray-200">{item.make}</span>
+                                            </td>
+                                            <td className="py-2.5 px-4 text-gray-500">{item.group}</td>
+                                            <td className="py-2.5 px-4 text-right font-mono">{item.quantity.toLocaleString()}</td>
+                                            <td className="py-2.5 px-4 text-right font-mono text-gray-400">{item.rate.toFixed(2)}</td>
+                                            <td className="py-2.5 px-4 text-right font-black text-emerald-700">{formatLargeValue(item.value, true)}</td>
+                                        </tr>
+                                    ))
+                                )}
                             </tbody>
                         </table>
                     </div>
@@ -791,9 +870,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-teal-600 font-bold uppercase tracking-wider mb-1">Unique Customers</p><h3 className="text-xl font-black text-gray-900">{soStats.custMix.length}</h3></div>
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80"><SimpleDonut data={soStats.ageing} title="SO Ageing Analysis" color="blue" isCurrency={true} /></div>
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80"><SimpleDonut data={soStats.groupMix} title="SO by Material Group" color="green" isCurrency={true} /></div>
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80"><SimpleDonut data={soStats.custMix} title="Customer Concentration" color="blue" isCurrency={true} /></div>
+                    <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm h-80 flex flex-col"><SimpleDonut data={soStats.ageing} title="SO Ageing Analysis" color="blue" isCurrency={true} /></div>
+                    <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm h-80 flex flex-col"><SimpleDonut data={soStats.groupMix} title="SO by Material Group" color="green" isCurrency={true} /></div>
+                    <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm h-80 flex flex-col"><SimpleDonut data={soStats.custMix} title="Customer Concentration" color="blue" isCurrency={true} /></div>
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     <div className="bg-white rounded-xl border border-gray-200 shadow-sm min-h-96 flex flex-col">
@@ -840,9 +919,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-emerald-600 font-bold uppercase">Active Vendors</p><h3 className="text-xl font-extrabold text-gray-900 mt-1">{poStats.vendorMix.length}</h3></div>
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80"><SimpleDonut data={poStats.dueMix} title="PO Delivery Schedule" color="green" isCurrency={true} /></div>
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80"><SimpleDonut data={poStats.groupMix} title="PO by Material Group" color="blue" isCurrency={true} /></div>
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80"><SimpleDonut data={poStats.vendorMix} title="Vendor Concentration" color="green" isCurrency={true} /></div>
+                    <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm h-80 flex flex-col"><SimpleDonut data={poStats.dueMix} title="PO Delivery Schedule" color="green" isCurrency={true} /></div>
+                    <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm h-80 flex flex-col"><SimpleDonut data={poStats.groupMix} title="PO by Material Group" color="blue" isCurrency={true} /></div>
+                    <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm h-80 flex flex-col"><SimpleDonut data={poStats.vendorMix} title="Vendor Concentration" color="green" isCurrency={true} /></div>
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm min-h-96">
