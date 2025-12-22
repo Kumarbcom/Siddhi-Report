@@ -12,7 +12,7 @@ import CustomerMasterView from './components/CustomerMasterView';
 import DashboardView from './components/DashboardView';
 import PivotReportView from './components/PivotReportView';
 import ChatView from './components/ChatView';
-import { Database, AlertCircle, ClipboardList, ShoppingCart, TrendingUp, Package, Layers, LayoutDashboard, FileBarChart, Users, Menu, X, MessageSquare, Table } from 'lucide-react';
+import { Database, AlertCircle, ClipboardList, ShoppingCart, TrendingUp, Package, Layers, LayoutDashboard, FileBarChart, Users, ChevronRight, Menu, X, HardDrive, Table, MessageSquare, AlertTriangle } from 'lucide-react';
 import { materialService } from './services/materialService';
 import { customerService } from './services/customerService';
 import { stockService } from './services/stockService';
@@ -39,18 +39,25 @@ const App: React.FC = () => {
   const [salesReportItems, setSalesReportItems] = useState<SalesReportItem[]>([]);
   const [customerMasterItems, setCustomerMasterItems] = useState<CustomerMasterItem[]>([]);
   
-  // Loading State
+  // Loading & Error State
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [isDbLoading, setIsDbLoading] = useState(true);
+  const [dbStatus, setDbStatus] = useState<'connected' | 'partial' | 'error'>('connected');
 
   const [selectedMake, setSelectedMake] = useState<string | 'ALL'>('ALL');
-  const [error, setError] = useState<string | null>(null);
 
-  // --- Load Data Effects ---
-  const loadData = async () => {
+  const loadAllData = async () => {
     try {
       setIsDbLoading(true);
-      const [dbMaterials, dbCustomers, dbStock, dbSO, dbPO, dbSales] = await Promise.all([
+
+      const [
+          dbMaterials,
+          dbCustomers,
+          dbStock,
+          dbSO,
+          dbPO,
+          dbSales
+      ] = await Promise.all([
           materialService.getAll(),
           customerService.getAll(),
           stockService.getAll(),
@@ -70,18 +77,20 @@ const App: React.FC = () => {
       if (storedS1Y) setSales1Year(JSON.parse(storedS1Y));
       const storedS3M = localStorage.getItem(STORAGE_KEY_SALES_3M);
       if (storedS3M) setSales3Months(JSON.parse(storedS3M));
+
+      setDbStatus('connected');
     } catch (e) {
       console.error("Error loading data", e);
-      setError("Failed to load some data. Please check connection.");
+      setDbStatus('error');
     } finally {
       setIsDataLoaded(true);
       setIsDbLoading(false);
     }
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { loadAllData(); }, []);
 
-  // --- Handlers: Material ---
+  // --- Handlers ---
   const handleBulkAddMaterial = async (dataList: MaterialFormData[]) => {
     const newItems = await materialService.createBulk(dataList);
     setMaterials(prev => [...newItems, ...prev]);
@@ -91,51 +100,32 @@ const App: React.FC = () => {
     setMaterials(prev => prev.map(m => m.id === item.id ? item : m));
   };
   const handleDeleteMaterial = async (id: string) => {
-    if (confirm("Delete material master record?")) {
-        await materialService.delete(id);
-        setMaterials(prev => prev.filter(m => m.id !== id));
-    }
+    if (confirm("Delete?")) { await materialService.delete(id); setMaterials(prev => prev.filter(m => m.id !== id)); }
   };
 
-  // --- Handlers: Sales Report ---
   const handleBulkAddSales = async (items: any) => {
-      // Items are usually empty here if createBulkWithUpsert was called from View
-      // But we reload to get the latest state from DB
-      await loadData();
+      const newItems = await salesService.createBulk(items);
+      setSalesReportItems(prev => [...newItems, ...prev]);
   };
   const handleUpdateSales = async (item: SalesReportItem) => {
       await salesService.update(item);
       setSalesReportItems(prev => prev.map(i => i.id === item.id ? item : i));
   };
   const handleDeleteSales = async (id: string) => {
-      if (confirm("Delete this sales transaction?")) {
-        await salesService.delete(id);
-        setSalesReportItems(prev => prev.filter(i => i.id !== id));
-      }
+      await salesService.delete(id);
+      setSalesReportItems(prev => prev.filter(i => i.id !== id));
   };
   const handleClearSales = async () => {
-      if(confirm("DANGER: Clear all sales data from database?")) {
+      if(confirm("Clear all sales data?")) {
           await salesService.clearAll();
           setSalesReportItems([]);
       }
   };
 
-  // Other handlers follow same pattern as existing... (Customer, Stock, SO, PO)
   const handleBulkAddCustomer = async (items: any) => { const newItems = await customerService.createBulk(items); setCustomerMasterItems(prev => [...newItems, ...prev]); };
-  const handleUpdateCustomer = async (item: CustomerMasterItem) => { await customerService.update(item); setCustomerMasterItems(prev => prev.map(i => i.id === item.id ? item : i)); };
-  const handleDeleteCustomer = async (id: string) => { await customerService.delete(id); setCustomerMasterItems(prev => prev.filter(i => i.id !== id)); };
-
   const handleBulkAddStock = async (items: any) => { const newItems = await stockService.createBulk(items); setClosingStockItems(prev => [...newItems, ...prev]); };
-  const handleUpdateStock = async (item: ClosingStockItem) => { await stockService.update(item); setClosingStockItems(prev => prev.map(i => i.id === item.id ? item : i)); };
-  const handleDeleteStock = async (id: string) => { await stockService.delete(id); setClosingStockItems(prev => prev.filter(i => i.id !== id)); };
-
   const handleBulkAddSO = async (items: any) => { const newItems = await soService.createBulk(items); setPendingSOItems(prev => [...newItems, ...prev]); };
-  const handleUpdateSO = async (item: PendingSOItem) => { await soService.update(item); setPendingSOItems(prev => prev.map(i => i.id === item.id ? item : i)); };
-  const handleDeleteSO = async (id: string) => { await soService.delete(id); setPendingSOItems(prev => prev.filter(i => i.id !== id)); };
-
   const handleBulkAddPO = async (items: any) => { const newItems = await poService.createBulk(items); setPendingPOItems(prev => [...newItems, ...prev]); };
-  const handleUpdatePO = async (item: PendingPOItem) => { await poService.update(item); setPendingPOItems(prev => prev.map(i => i.id === item.id ? item : i)); };
-  const handleDeletePO = async (id: string) => { await poService.delete(id); setPendingPOItems(prev => prev.filter(i => i.id !== id)); };
 
   const makeStats = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -173,21 +163,18 @@ const App: React.FC = () => {
       <aside className={`bg-white border-r border-gray-200 flex flex-col flex-shrink-0 transition-all duration-300 ${isSidebarOpen ? 'w-64' : 'w-0 -ml-64 md:w-16 md:ml-0 overflow-hidden'}`}>
         <div className="h-14 flex items-center px-4 border-b border-gray-200 flex-shrink-0">
           <div className="flex items-center gap-2">
-            <div className="bg-blue-600 p-1.5 rounded-lg text-white flex-shrink-0">
-              <Database className="w-4 h-4" />
-            </div>
+            <div className="bg-blue-600 p-1.5 rounded-lg text-white flex-shrink-0"><Database className="w-4 h-4" /></div>
             <div className={`${isSidebarOpen ? 'opacity-100' : 'opacity-0 hidden'} transition-opacity`}>
-               <h1 className="text-sm font-bold text-gray-900 leading-tight">Siddhi Kabel Corp.</h1>
-               <p className="text-[9px] text-gray-500 font-medium uppercase tracking-tighter">Inventory Intelligence</p>
+               <h1 className="text-sm font-bold text-gray-900 leading-tight">Siddhi Kabel</h1>
+               <p className="text-[9px] text-gray-500 font-medium">Supabase Connected</p>
             </div>
           </div>
         </div>
-
         <div className="flex-1 overflow-y-auto custom-scrollbar py-4 px-3 space-y-6">
            <div>
              {isSidebarOpen && <div className="px-3 mb-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Analysis</div>}
-             <SidebarItem id="dashboard" label="Performance Dashboard" icon={LayoutDashboard} onClick={setActiveTab} />
-             <SidebarItem id="pivotReport" label="Pivot Strategy Report" icon={Table} onClick={setActiveTab} />
+             <SidebarItem id="dashboard" label="Dashboard" icon={LayoutDashboard} onClick={setActiveTab} />
+             <SidebarItem id="pivotReport" label="Strategy Report" icon={Table} onClick={setActiveTab} />
              <SidebarItem id="chat" label="AI Analyst" icon={MessageSquare} onClick={setActiveTab} />
            </div>
            <div>
@@ -198,22 +185,21 @@ const App: React.FC = () => {
              </div>
            </div>
            <div>
-             {isSidebarOpen && <div className="px-3 mb-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Operations</div>}
+             {isSidebarOpen && <div className="px-3 mb-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Reports</div>}
              <div className="space-y-1">
                 <SidebarItem id="closingStock" label="Closing Stock" icon={Package} count={closingStockItems.length} onClick={setActiveTab} />
                 <SidebarItem id="pendingSO" label="Pending SO" icon={ClipboardList} count={pendingSOItems.length} onClick={setActiveTab} />
                 <SidebarItem id="pendingPO" label="Pending PO" icon={ShoppingCart} count={pendingPOItems.length} onClick={setActiveTab} />
-                <SidebarItem id="salesReport" label="Sales History" icon={FileBarChart} count={salesReportItems.length} onClick={setActiveTab} />
+                <SidebarItem id="salesReport" label="Sales Report" icon={FileBarChart} count={salesReportItems.length} onClick={setActiveTab} />
              </div>
            </div>
         </div>
-
         <div className="p-4 border-t border-gray-200 bg-gray-50 flex-shrink-0">
            {isSidebarOpen && (
               <div className="flex flex-col gap-2">
                  <div className="flex items-center gap-2 text-[10px] text-gray-500">
-                    <div className={`w-1.5 h-1.5 rounded-full ${!isDbLoading ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]' : 'bg-orange-500 animate-pulse'}`}></div>
-                    {isDbLoading ? "Syncing Database..." : "Supabase Connected"}
+                    <div className={`w-1.5 h-1.5 rounded-full ${!isDbLoading ? 'bg-green-500' : 'bg-orange-500 animate-pulse'}`}></div>
+                    {isDbLoading ? "Syncing..." : "Online"}
                  </div>
               </div>
            )}
@@ -221,90 +207,51 @@ const App: React.FC = () => {
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0 h-full">
+        {dbStatus === 'error' && (
+            <div className="bg-red-600 text-white px-4 py-2 flex items-center justify-between text-xs font-bold">
+                <div className="flex items-center gap-2"><AlertTriangle className="w-4 h-4" /> <span>Database tables (sales_report, material_master) missing in Supabase! Ensure schemas are created.</span></div>
+                <button onClick={loadAllData} className="bg-white text-red-600 px-2 py-0.5 rounded shadow-sm hover:bg-gray-100">Retry</button>
+            </div>
+        )}
         <header className="bg-white border-b border-gray-200 h-14 flex items-center justify-between px-4 flex-shrink-0 md:hidden">
             <div className="flex items-center gap-2">
-               <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-lg">
-                  {isSidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-               </button>
-               <span className="font-bold text-gray-900 text-sm">Siddhi Kabel</span>
+               <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-lg">{isSidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}</button>
+               <span className="font-bold text-gray-900">Siddhi Kabel</span>
             </div>
         </header>
-
         <main className="flex-1 overflow-hidden p-4 relative">
-          {activeTab === 'dashboard' && (
-              <DashboardView 
-                  materials={materials}
-                  closingStock={closingStockItems}
-                  pendingSO={pendingSOItems}
-                  pendingPO={pendingPOItems}
-                  salesReportItems={salesReportItems} 
-                  customers={customerMasterItems}
-                  sales1Year={sales1Year}
-                  sales3Months={sales3Months}
-                  setActiveTab={setActiveTab}
-              />
-            )}
-            {activeTab === 'pivotReport' && (
-                <PivotReportView
-                  materials={materials}
-                  closingStock={closingStockItems}
-                  pendingSO={pendingSOItems}
-                  pendingPO={pendingPOItems}
-                  salesReportItems={salesReportItems}
-                />
-            )}
-            {activeTab === 'chat' && (
-              <div className="h-full w-full max-w-4xl mx-auto">
-                <ChatView 
-                  materials={materials}
-                  closingStock={closingStockItems}
-                  pendingSO={pendingSOItems}
-                  pendingPO={pendingPOItems}
-                  salesReportItems={salesReportItems}
-                  customers={customerMasterItems}
-                />
-              </div>
-            )}
-            {activeTab === 'master' && (
-              <div className="flex flex-col lg:flex-row gap-4 items-start h-full">
-                <div className="w-full lg:w-56 flex-shrink-0 flex flex-col gap-3 h-full">
-                  <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col items-center text-center flex-shrink-0">
-                    <div className="bg-blue-50 p-2.5 rounded-full mb-2"><Database className="w-5 h-5 text-blue-600" /></div>
-                    <p className="text-xs font-medium text-gray-500">Material Master</p>
-                    <p className="text-2xl font-black text-gray-900 mt-0.5">{materials.length}</p>
-                    <p className="text-[9px] text-green-600 font-bold bg-green-50 px-2 py-0.5 rounded-full mt-1 border border-green-100">Synchronized</p>
-                  </div>
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col flex-1 overflow-hidden min-h-0">
-                    <div className="p-3 border-b border-gray-100 bg-gray-50 flex-shrink-0">
-                      <h3 className="text-[10px] font-black text-gray-500 uppercase flex items-center gap-2">Manufacturers</h3>
-                    </div>
-                    <div className="overflow-y-auto custom-scrollbar p-1 space-y-0.5 flex-1">
-                      <button onClick={() => setSelectedMake('ALL')} className={`w-full text-left px-3 py-1.5 rounded-md text-xs flex justify-between items-center transition-all ${selectedMake === 'ALL' ? 'bg-blue-600 text-white font-bold shadow-md' : 'text-gray-700 hover:bg-gray-100'}`}>
-                        <span>All Makes</span>
-                      </button>
-                      {makeStats.map(([make, count]) => (
-                          <button key={make} onClick={() => setSelectedMake(make)} className={`w-full text-left px-3 py-1.5 rounded-md text-xs flex justify-between items-center transition-all ${selectedMake === make ? 'bg-blue-600 text-white font-bold shadow-md' : 'text-gray-700 hover:bg-gray-100'}`}>
-                            <span className="truncate w-3/4" title={make}>{make}</span>
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${selectedMake === make ? 'bg-blue-500' : 'bg-gray-100'}`}>{count}</span>
-                          </button>
-                        ))}
-                    </div>
-                  </div>
+          {activeTab === 'dashboard' && (<DashboardView materials={materials} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} salesReportItems={salesReportItems} customers={customerMasterItems} sales1Year={sales1Year} sales3Months={sales3Months} setActiveTab={setActiveTab} />)}
+          {activeTab === 'pivotReport' && (<PivotReportView materials={materials} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} salesReportItems={salesReportItems} />)}
+          {activeTab === 'chat' && (<div className="h-full w-full max-w-4xl mx-auto"><ChatView materials={materials} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} salesReportItems={salesReportItems} customers={customerMasterItems} /></div>)}
+          {activeTab === 'master' && (
+            <div className="flex flex-col lg:flex-row gap-4 items-start h-full">
+              <div className="w-full lg:w-56 flex-shrink-0 flex flex-col gap-3 h-full">
+                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col items-center text-center flex-shrink-0">
+                  <div className="bg-blue-50 p-2.5 rounded-full mb-2"><Database className="w-5 h-5 text-blue-600" /></div>
+                  <p className="text-xs font-medium text-gray-500">Material Master</p>
+                  <p className="text-2xl font-black text-gray-900 mt-0.5">{materials.length}</p>
                 </div>
-                <div className="flex-1 w-full min-w-0 flex flex-col gap-3 h-full overflow-hidden">
-                  <AddMaterialForm materials={materials} onBulkAdd={handleBulkAddMaterial} onClear={() => {}} />
-                  <div className="flex-1 min-h-0">
-                      <MaterialTable materials={filteredMaterials} onUpdate={handleUpdateMaterial} onDelete={handleDeleteMaterial} />
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col flex-1 overflow-hidden min-h-0">
+                  <div className="p-3 border-b border-gray-100 bg-gray-50 flex-shrink-0"><h3 className="text-[10px] font-black text-gray-500 uppercase">Manufacturers</h3></div>
+                  <div className="overflow-y-auto custom-scrollbar p-1 space-y-0.5 flex-1">
+                    <button onClick={() => setSelectedMake('ALL')} className={`w-full text-left px-3 py-1.5 rounded-md text-xs flex justify-between items-center transition-all ${selectedMake === 'ALL' ? 'bg-blue-600 text-white font-bold' : 'text-gray-700 hover:bg-gray-100'}`}>All Makes</button>
+                    {makeStats.map(([make, count]) => (
+                        <button key={make} onClick={() => setSelectedMake(make)} className={`w-full text-left px-3 py-1.5 rounded-md text-xs flex justify-between items-center transition-all ${selectedMake === make ? 'bg-blue-600 text-white font-bold' : 'text-gray-700 hover:bg-gray-100'}`}><span className="truncate w-3/4">{make}</span><span className={`text-[10px] px-1.5 py-0.5 rounded-full ${selectedMake === make ? 'bg-blue-500' : 'bg-gray-100'}`}>{count}</span></button>
+                    ))}
                   </div>
                 </div>
               </div>
-            )}
-            {activeTab === 'customerMaster' && <div className="h-full w-full"><CustomerMasterView items={customerMasterItems} onBulkAdd={handleBulkAddCustomer} onUpdate={handleUpdateCustomer} onDelete={handleDeleteCustomer} onClear={() => {}} /></div>}
-            {activeTab === 'closingStock' && <div className="h-full w-full"><ClosingStockView items={closingStockItems} materials={materials} onBulkAdd={handleBulkAddStock} onUpdate={handleUpdateStock} onDelete={handleDeleteStock} onClear={() => {}} /></div>}
-            {activeTab === 'pendingSO' && <div className="h-full w-full"><PendingSOView items={pendingSOItems} materials={materials} closingStockItems={closingStockItems} onBulkAdd={handleBulkAddSO} onUpdate={handleUpdateSO} onDelete={handleDeleteSO} onClear={() => {}} /></div>}
-            {activeTab === 'pendingPO' && <div className="h-full w-full"><PendingPOView items={pendingPOItems} materials={materials} closingStockItems={closingStockItems} pendingSOItems={pendingSOItems} onBulkAdd={handleBulkAddPO} onUpdate={handleUpdatePO} onDelete={handleDeletePO} onClear={() => {}} /></div>}
-            {activeTab === 'salesReport' && <div className="h-full w-full"><SalesReportView items={salesReportItems} materials={materials} customers={customerMasterItems} onBulkAdd={handleBulkAddSales} onUpdate={handleUpdateSales} onDelete={handleDeleteSales} onClear={handleClearSales} /></div>}
-            {activeTab === 'salesHistory' && <div className="h-full overflow-y-auto custom-scrollbar pr-1 text-center py-20 text-gray-400">Sales History Legacy View - Use Sales Report for Database Tracking.</div>}
+              <div className="flex-1 w-full min-w-0 flex flex-col gap-3 h-full overflow-hidden">
+                <AddMaterialForm materials={materials} onBulkAdd={handleBulkAddMaterial} onClear={() => {}} />
+                <div className="flex-1 min-h-0"><MaterialTable materials={filteredMaterials} onUpdate={handleUpdateMaterial} onDelete={handleDeleteMaterial} /></div>
+              </div>
+            </div>
+          )}
+          {activeTab === 'customerMaster' && <div className="h-full w-full"><CustomerMasterView items={customerMasterItems} onBulkAdd={handleBulkAddCustomer} onUpdate={() => {}} onDelete={() => {}} onClear={() => {}} /></div>}
+          {activeTab === 'closingStock' && <div className="h-full w-full"><ClosingStockView items={closingStockItems} materials={materials} onBulkAdd={handleBulkAddStock} onUpdate={() => {}} onDelete={() => {}} onClear={() => {}} /></div>}
+          {activeTab === 'pendingSO' && <div className="h-full w-full"><PendingSOView items={pendingSOItems} materials={materials} closingStockItems={closingStockItems} onBulkAdd={handleBulkAddSO} onUpdate={() => {}} onDelete={() => {}} onClear={() => {}} /></div>}
+          {activeTab === 'pendingPO' && <div className="h-full w-full"><PendingPOView items={pendingPOItems} materials={materials} closingStockItems={closingStockItems} onBulkAdd={handleBulkAddPO} onUpdate={() => {}} onDelete={() => {}} onClear={() => {}} /></div>}
+          {activeTab === 'salesReport' && <div className="h-full w-full"><SalesReportView items={salesReportItems} materials={materials} customers={customerMasterItems} onBulkAdd={handleBulkAddSales} onUpdate={handleUpdateSales} onDelete={handleDeleteSales} onClear={handleClearSales} /></div>}
         </main>
       </div>
     </div>

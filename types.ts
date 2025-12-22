@@ -67,15 +67,13 @@ export interface ClosingStockItem {
 
 export interface SalesReportItem {
   id: string;
-  salesDate: string; // YYYY-MM-DD
+  date: string;
   customerName: string;
-  materialCode: string;
+  particulars: string;
   consignee: string;
-  invoiceNo: string; // formerly voucherNo
+  voucherNo: string;
   voucherRefNo: string;
   quantity: number;
-  rate: number;
-  discount: number;
   value: number;
   createdAt: number;
 }

@@ -5,9 +5,9 @@ import { Material, MaterialFormData } from '../types';
 /**
  * SQL SCHEMA FOR material_master TABLE:
  * 
- * CREATE TABLE material_master (
- *   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
- *   material_code TEXT,
+ * CREATE TABLE IF NOT EXISTS public.material_master (
+ *   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+ *   material_code TEXT UNIQUE,
  *   description TEXT NOT NULL,
  *   part_no TEXT,
  *   make TEXT,
@@ -15,52 +15,39 @@ import { Material, MaterialFormData } from '../types';
  *   created_at TIMESTAMPTZ DEFAULT NOW()
  * );
  * 
- * UNIQUE CONSTRAINT (Optional but recommended):
- * CREATE UNIQUE INDEX idx_material_code ON material_master(material_code);
+ * -- Enable public access for demo (configure RLS for production)
+ * ALTER TABLE public.material_master ENABLE ROW LEVEL SECURITY;
+ * CREATE POLICY "Allow public access" ON public.material_master FOR ALL USING (true) WITH CHECK (true);
  */
 
 const LOCAL_STORAGE_KEY = 'material_master_db_v1';
 
 export const materialService = {
-  // Fetch all materials
   async getAll(): Promise<Material[]> {
-    let dbData: Material[] = [];
-    let useLocal = false;
-
     try {
       const { data, error } = await supabase
         .from('material_master')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.warn('Supabase fetch failed (Using Local Storage):', error.message);
-        useLocal = true;
-      } else {
-        dbData = (data || []).map((row: any) => ({
-          id: row.id,
-          materialCode: row.material_code || '',
-          description: row.description,
-          partNo: row.part_no,
-          make: row.make,
-          materialGroup: row.material_group,
-          createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now()
-        }));
-      }
-    } catch (e) {
-      console.warn('Supabase connection error (Using Local Storage).');
-      useLocal = true;
-    }
+      if (error) throw error;
 
-    if (useLocal) {
-        const local = localStorage.getItem(LOCAL_STORAGE_KEY);
-        return local ? JSON.parse(local) : [];
+      return (data || []).map((row: any) => ({
+        id: row.id,
+        materialCode: row.material_code || '',
+        description: row.description,
+        partNo: row.part_no || '',
+        make: row.make || '',
+        materialGroup: row.material_group || '',
+        createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now()
+      }));
+    } catch (e: any) {
+      console.warn('Supabase fetch failed (Material Master). Falling back to local storage.', e.message || e);
+      const local = localStorage.getItem(LOCAL_STORAGE_KEY);
+      return local ? JSON.parse(local) : [];
     }
-
-    return dbData;
   },
 
-  // Create multiple materials (Bulk Import)
   async createBulk(materials: MaterialFormData[]): Promise<Material[]> {
     const timestamp = Date.now();
     const newItems = materials.map(m => ({
@@ -81,23 +68,16 @@ export const materialService = {
         }));
 
         const { error } = await supabase.from('material_master').insert(rows);
-        if (error) {
-            console.error('Supabase insert error:', error.message);
-            throw error;
-        }
-    } catch (e) {
-        console.warn('Supabase save failed, backup handled in App state.');
+        if (error) throw error;
+    } catch (e: any) {
+        console.error('Supabase insert failed (Material Master). Data saved locally only.', e.message || e);
     }
 
-    // Always save to local storage as backup/fallback
     const current = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
-    const updated = [...newItems, ...current];
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
-
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify([...newItems, ...current]));
     return newItems;
   },
 
-  // Update a material
   async update(material: Material): Promise<void> {
     try {
         const { error } = await supabase
@@ -112,8 +92,8 @@ export const materialService = {
         .eq('id', material.id);
         
         if (error) throw error;
-    } catch (e) {
-        console.warn('Supabase update failed.');
+    } catch (e: any) {
+        console.warn('Supabase update failed. Syncing local cache.', e.message || e);
     }
 
     const current: Material[] = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
@@ -121,13 +101,12 @@ export const materialService = {
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
   },
 
-  // Delete a material
   async delete(id: string): Promise<void> {
     try {
         const { error } = await supabase.from('material_master').delete().eq('id', id);
         if (error) throw error;
-    } catch (e) {
-        console.warn('Supabase delete failed.');
+    } catch (e: any) {
+        console.warn('Supabase delete failed.', e.message || e);
     }
 
     const current: Material[] = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');

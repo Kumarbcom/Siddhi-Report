@@ -6,30 +6,23 @@ import { dbService } from './db';
 /**
  * SQL SCHEMA FOR sales_report TABLE:
  * 
- * CREATE TABLE sales_report (
- *   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
- *   sales_date DATE NOT NULL,
+ * CREATE TABLE IF NOT EXISTS public.sales_report (
+ *   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+ *   date DATE NOT NULL,
  *   customer_name TEXT,
- *   material_code TEXT NOT NULL,
+ *   particulars TEXT,
  *   consignee TEXT,
- *   invoice_no TEXT NOT NULL,
+ *   voucher_no TEXT,
  *   voucher_ref_no TEXT,
  *   quantity NUMERIC DEFAULT 0,
- *   rate NUMERIC DEFAULT 0,
- *   discount NUMERIC DEFAULT 0,
  *   value NUMERIC DEFAULT 0,
- *   created_at TIMESTAMPTZ DEFAULT NOW(),
- *   UNIQUE(invoice_no, material_code, sales_date)
+ *   created_at TIMESTAMPTZ DEFAULT NOW()
  * );
+ * 
+ * -- Enable public access for demo
+ * ALTER TABLE public.sales_report ENABLE ROW LEVEL SECURITY;
+ * CREATE POLICY "Allow public access" ON public.sales_report FOR ALL USING (true) WITH CHECK (true);
  */
-
-export interface SalesUploadResult {
-    total_rows_uploaded: number;
-    total_inserted: number;
-    total_updated: number;
-    total_failed: number;
-    error_log: { row: number; reason: string }[];
-}
 
 export const salesService = {
   async getAll(): Promise<SalesReportItem[]> {
@@ -37,99 +30,86 @@ export const salesService = {
       const { data, error } = await supabase
         .from('sales_report')
         .select('*')
-        .limit(10000)
-        .order('sales_date', { ascending: false });
+        .limit(5000)
+        .order('date', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        // Specifically handle "table not found" to avoid generic [object Object] errors
+        if (error.code === 'PGRST116' || error.message.includes('not found')) {
+            console.error('DATABASE ERROR: sales_report table is missing in Supabase. Run the SQL schema script.');
+        }
+        throw error;
+      }
 
       return (data || []).map((row: any) => ({
         id: row.id,
-        salesDate: row.sales_date,
-        customerName: row.customer_name,
-        materialCode: row.material_code,
-        consignee: row.consignee,
-        invoiceNo: row.invoice_no,
-        voucherRefNo: row.voucher_ref_no,
-        quantity: Number(row.quantity),
-        rate: Number(row.rate),
-        discount: Number(row.discount),
-        value: Number(row.value),
+        date: row.date,
+        customerName: row.customer_name || '',
+        particulars: row.particulars || '',
+        consignee: row.consignee || '',
+        voucherNo: row.voucher_no || '',
+        voucherRefNo: row.voucher_ref_no || '',
+        quantity: Number(row.quantity) || 0,
+        value: Number(row.value) || 0,
         createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now()
       }));
-    } catch (e) {
-      console.warn('Supabase fetch failed (Sales), using IndexedDB fallback.', e);
-      // Map old DB structure if needed, or just return empty
-      return [];
+    } catch (e: any) {
+      console.warn('Supabase fetch failed (Sales). Falling back to local IndexedDB.', e.message || e);
+      return await dbService.getAllSales();
     }
   },
 
-  async createBulkWithUpsert(items: Omit<SalesReportItem, 'id' | 'createdAt'>[]): Promise<SalesUploadResult> {
-    const result: SalesUploadResult = {
-        total_rows_uploaded: items.length,
-        total_inserted: 0,
-        total_updated: 0,
-        total_failed: 0,
-        error_log: []
-    };
-
-    // To prevent timeout and handle large files, we process in chunks
-    const CHUNK_SIZE = 100;
+  async createBulk(items: Omit<SalesReportItem, 'id' | 'createdAt'>[]): Promise<SalesReportItem[]> {
+    const timestamp = Date.now();
+    const newItems = items.map(i => ({ ...i, id: crypto.randomUUID(), createdAt: timestamp }));
     
-    for (let i = 0; i < items.length; i += CHUNK_SIZE) {
-        const chunk = items.slice(i, i + CHUNK_SIZE);
-        
-        // Prepare row mapping
-        const rows = chunk.map(r => ({
-            sales_date: r.salesDate,
-            customer_name: r.customerName,
-            material_code: r.materialCode,
-            consignee: r.consignee,
-            invoice_no: r.invoiceNo,
-            voucher_ref_no: r.voucherRefNo,
-            quantity: r.quantity,
-            rate: r.rate,
-            discount: r.discount,
-            value: r.value
-        }));
-
-        try {
-            // Using Supabase .upsert() which uses the ON CONFLICT clause
-            // We specify onConflict to match the composite unique key
-            const { data, error } = await supabase
-                .from('sales_report')
-                .upsert(rows, { 
-                    onConflict: 'invoice_no,material_code,sales_date',
-                    ignoreDuplicates: false // We want to update existing rows
-                })
-                .select();
-
+    let sbSuccess = false;
+    try {
+        const CHUNK_SIZE = 500;
+        for (let i = 0; i < newItems.length; i += CHUNK_SIZE) {
+            const chunk = newItems.slice(i, i + CHUNK_SIZE).map(r => ({
+                id: r.id,
+                date: r.date,
+                customer_name: r.customerName,
+                particulars: r.particulars,
+                consignee: r.consignee,
+                voucher_no: r.voucherNo,
+                voucher_ref_no: r.voucherRefNo,
+                quantity: r.quantity,
+                value: r.value,
+                created_at: new Date(r.createdAt).toISOString()
+            }));
+            const { error } = await supabase.from('sales_report').insert(chunk);
             if (error) throw error;
-            
-            // In a real environment, we'd compare the data to see what was inserted vs updated
-            // For now, we'll estimate or assume success if no error
-            result.total_inserted += chunk.length; 
-        } catch (e: any) {
-            result.total_failed += chunk.length;
-            result.error_log.push({ row: i + 1, reason: e.message || "Unknown batch error" });
         }
+        sbSuccess = true;
+    } catch (e: any) {
+        console.warn('Supabase insert failed (Sales). Saving to local IndexedDB.', e.message || e);
     }
 
-    return result;
+    if (!sbSuccess) {
+        await dbService.addSalesBatch(newItems as SalesReportItem[]);
+    }
+    
+    return newItems as SalesReportItem[];
   },
 
   async update(item: SalesReportItem): Promise<void> {
     try {
         const { error } = await supabase.from('sales_report').update({
             customer_name: item.customerName,
-            material_code: item.materialCode,
+            particulars: item.particulars,
             quantity: item.quantity,
-            rate: item.rate,
-            discount: item.discount,
-            value: item.value
+            value: item.value,
+            consignee: item.consignee,
+            voucher_no: item.voucherNo,
+            voucher_ref_no: item.voucherRefNo,
+            date: item.date
         }).eq('id', item.id);
         if (error) throw error;
-    } catch (e) {
-        console.warn('Supabase update failed (Sales).', e);
+    } catch (e: any) { 
+        console.warn('Supabase update failed.', e.message || e);
+        await dbService.updateSale(item);
     }
   },
 
@@ -137,17 +117,19 @@ export const salesService = {
     try {
         const { error } = await supabase.from('sales_report').delete().eq('id', id);
         if (error) throw error;
-    } catch (e) {
-        console.warn('Supabase delete failed (Sales).', e);
+    } catch (e: any) { 
+        console.warn('Supabase delete failed.', e.message || e);
+        await dbService.deleteSale(id);
     }
   },
 
   async clearAll(): Promise<void> {
       try {
-          const { error } = await supabase.from('sales_report').delete().neq('invoice_no', 'CLEAR_ALL_HACK');
+          const { error } = await supabase.from('sales_report').delete().neq('id', '00000000-0000-0000-0000-000000000000');
           if (error) throw error;
-      } catch (e) {
-          console.warn('Supabase clear failed.', e);
+      } catch (e: any) {
+          console.warn('Supabase clear failed.', e.message || e);
+          await dbService.clearAllSales();
       }
   }
 };
