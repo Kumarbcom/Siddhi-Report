@@ -1,11 +1,10 @@
 
 import { SalesReportItem } from '../types';
 
-const DB_NAME = 'MaterialMasterAI_DB';
-const DB_VERSION = 1;
+const DB_NAME = 'MaterialMasterAI_DB_V2'; // Versioned name for fresh start
+const DB_VERSION = 2; // Incremented version
 const STORE_SALES = 'sales_report';
 
-// Helper to open DB
 const openDB = (): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
@@ -16,7 +15,6 @@ const openDB = (): Promise<IDBDatabase> => {
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
       if (!db.objectStoreNames.contains(STORE_SALES)) {
-        // Create store with 'id' as keyPath
         db.createObjectStore(STORE_SALES, { keyPath: 'id' });
       }
     };
@@ -24,7 +22,6 @@ const openDB = (): Promise<IDBDatabase> => {
 };
 
 export const dbService = {
-  // Load all items (FAST)
   async getAllSales(): Promise<SalesReportItem[]> {
     try {
       const db = await openDB();
@@ -37,56 +34,68 @@ export const dbService = {
         request.onerror = () => reject(request.error);
       });
     } catch (error) {
-      console.error("DB Load Error:", error);
+      console.error("IndexedDB Load Error:", error);
       return [];
     }
   },
 
-  // Bulk add items (Transaction safe)
   async addSalesBatch(items: SalesReportItem[]): Promise<void> {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(STORE_SALES, 'readwrite');
-      const store = transaction.objectStore(STORE_SALES);
-
-      items.forEach(item => store.put(item));
-
-      transaction.oncomplete = () => resolve();
-      transaction.onerror = () => reject(transaction.error);
-    });
+    try {
+      const db = await openDB();
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction(STORE_SALES, 'readwrite');
+        const store = transaction.objectStore(STORE_SALES);
+        items.forEach(item => {
+          if (item && item.id) store.put(item);
+        });
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error);
+      });
+    } catch (e) {
+      console.error("IndexedDB Put Error:", e);
+    }
   },
 
-  // Update single item
   async updateSale(item: SalesReportItem): Promise<void> {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(STORE_SALES, 'readwrite');
-      const store = transaction.objectStore(STORE_SALES);
-      store.put(item); // put updates if key exists
-      transaction.oncomplete = () => resolve();
-      transaction.onerror = () => reject(transaction.error);
-    });
+    try {
+      const db = await openDB();
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction(STORE_SALES, 'readwrite');
+        const store = transaction.objectStore(STORE_SALES);
+        store.put(item);
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error);
+      });
+    } catch (e) {
+      console.error("IndexedDB Update Error:", e);
+    }
   },
 
-  // Delete single item
   async deleteSale(id: string): Promise<void> {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(STORE_SALES, 'readwrite');
-      const store = transaction.objectStore(STORE_SALES);
-      store.delete(id);
-      transaction.oncomplete = () => resolve();
-    });
+    try {
+      const db = await openDB();
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction(STORE_SALES, 'readwrite');
+        const store = transaction.objectStore(STORE_SALES);
+        store.delete(id);
+        transaction.oncomplete = () => resolve();
+      });
+    } catch (e) {
+      console.error("IndexedDB Delete Error:", e);
+    }
   },
 
-  // Clear all data
   async clearAllSales(): Promise<void> {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(STORE_SALES, 'readwrite');
-      const store = transaction.objectStore(STORE_SALES);
-      store.clear();
-      transaction.oncomplete = () => resolve();
-    });
+    try {
+      const db = await openDB();
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction(STORE_SALES, 'readwrite');
+        const store = transaction.objectStore(STORE_SALES);
+        store.clear();
+        transaction.oncomplete = () => resolve();
+      });
+    } catch (e) {
+      console.error("IndexedDB Clear Error:", e);
+    }
   }
 };

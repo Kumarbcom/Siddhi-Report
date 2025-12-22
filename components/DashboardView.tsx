@@ -6,6 +6,7 @@ import { TrendingUp, TrendingDown, Package, ClipboardList, ShoppingCart, Calenda
 const COLORS = ['#10B981', '#3B82F6', '#6366F1', '#8B5CF6', '#EC4899', '#F59E0B', '#EF4444', '#6B7280', '#059669', '#2563EB'];
 
 const formatLargeValue = (val: number, compact: boolean = false) => {
+    if (isNaN(val) || val === null) return '-';
     if (val === 0) return '0';
     const absVal = Math.abs(val);
     const prefix = compact ? '' : 'Rs. ';
@@ -46,6 +47,8 @@ const SalesTrendChart = ({ data, maxVal }: { data: { labels: string[], series: a
     setHoverIndex(clampedIdx);
   };
 
+  if (isNaN(maxVal) || maxVal <= 0) return <div className="flex items-center justify-center h-full text-gray-300 text-xs">No chart data</div>;
+
   return (
     <div 
       className="flex flex-col h-full select-none cursor-crosshair overflow-hidden" 
@@ -57,10 +60,10 @@ const SalesTrendChart = ({ data, maxVal }: { data: { labels: string[], series: a
          {/* Data Labels - All Series with stagger */}
          {data.series.map((s: any, sIdx: number) => 
              s.active && s.data.map((val: number, i: number) => {
-                 if (val === 0) return null;
+                 if (val === 0 || isNaN(val)) return null;
                  const x = (i / (data.labels.length - 1)) * 100;
                  const y = 100 - ((val / maxVal) * 100);
-                 const yOffset = sIdx * 12; // Stagger labels to avoid overlap
+                 const yOffset = sIdx * 12; 
                  const isHovered = hoverIndex === i;
                  return (
                      <div 
@@ -122,15 +125,13 @@ const SalesTrendChart = ({ data, maxVal }: { data: { labels: string[], series: a
             {data.labels.map((_, i) => (
                 <line key={i} x1={(i / (data.labels.length - 1)) * 100} y1="0" x2={(i / (data.labels.length - 1)) * 100} y2="100" stroke="#f3f4f6" strokeWidth="0.5" vectorEffect="non-scaling-stroke"/>
             ))}
-             {[0, 0.25, 0.5, 0.75, 1].map((p, i) => (
-                <line key={i} x1="0" y1={p * 100} x2="100" y2={p * 100} stroke="#e5e7eb" strokeWidth="1" strokeDasharray="4" vectorEffect="non-scaling-stroke"/>
-            ))}
             {data.series.map((s: any, i: number) => {
                if (!s.active) return null;
                const points: [number, number][] = s.data.map((val: number, idx: number) => [
                    (idx / (data.labels.length - 1)) * 100,
                    100 - ((val / maxVal) * 100)
-               ]);
+               ]).filter((p: any) => !isNaN(p[1]));
+               if (points.length < 2) return null;
                const pathD = getSmoothPath(points);
                const areaD = `${pathD} L 100 100 L 0 100 Z`;
                return (
@@ -139,16 +140,6 @@ const SalesTrendChart = ({ data, maxVal }: { data: { labels: string[], series: a
                        <path d={pathD} fill="none" stroke={s.color} strokeWidth="3" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" filter="url(#glow)" className="drop-shadow-sm transition-all duration-300" style={{ strokeWidth: hoverIndex !== null ? 3.5 : 2.5 }} />
                    </g>
                )
-            })}
-            {hoverIndex !== null && (
-                 <line x1={(hoverIndex / (data.labels.length - 1)) * 100} y1="0" x2={(hoverIndex / (data.labels.length - 1)) * 100} y2="100" stroke="#4b5563" strokeWidth="1.5" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
-            )}
-            {hoverIndex !== null && data.series.map((s: any, i: number) => {
-                if (!s.active) return null;
-                const val = s.data[hoverIndex];
-                const cx = (hoverIndex / (data.labels.length - 1)) * 100;
-                const cy = 100 - ((val / maxVal) * 100);
-                return ( <circle key={i} cx={cx} cy={cy} r="5" fill="white" stroke={s.color} strokeWidth="3" vectorEffect="non-scaling-stroke" className="drop-shadow-lg transition-transform duration-100 ease-out" /> );
             })}
          </svg>
       </div>
@@ -221,7 +212,7 @@ const InteractiveDrillDownChart = ({ hierarchyData, metric, totalValue }: { hier
 };
 
 const ABCAnalysisChart = ({ data }: { data: { label: string, value: number, count: number, color: string }[] }) => {
-    const totalVal = data.reduce((a, b) => a + b.value, 0);
+    const totalVal = data.reduce((a, b) => a + (b.value || 0), 0);
     let startAngle = 0;
     return (
         <div className="flex flex-col h-full">
@@ -261,9 +252,9 @@ const ABCAnalysisChart = ({ data }: { data: { label: string, value: number, coun
 
 const SimpleDonut = ({ data, title, color }: { data: {label: string, value: number, color?: string}[], title: string, color: string }) => {
      if(data.length === 0) return <div className="h-32 flex items-center justify-center text-gray-400 text-xs">No Data</div>;
-     const total = data.reduce((a,b) => a+b.value, 0);
+     const total = data.reduce((a,b) => a+(b.value || 0), 0);
      let cumPercent = 0;
-     let displayData = data.length > 5 ? [...data.slice(0, 5), { label: 'Others', value: data.slice(5).reduce((a,b) => a+b.value, 0) }] : data;
+     let displayData = data.length > 5 ? [...data.slice(0, 5), { label: 'Others', value: data.slice(5).reduce((a,b) => a+(b.value || 0), 0) }] : data;
      const colorPalette = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#9CA3AF'];
      return (
         <div className="flex flex-col h-full">
@@ -291,9 +282,9 @@ const SimpleDonut = ({ data, title, color }: { data: {label: string, value: numb
                         <div key={i} className="flex justify-between items-center mb-1">
                              <div className="flex items-center gap-1.5 truncate flex-1 min-w-0">
                                 <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{backgroundColor: d.color || colorPalette[i % colorPalette.length]}}></div>
-                                <span className="text-gray-600 truncate" title={d.label}>{d.label}</span>
+                                <span className="text-gray-600 truncate" title={String(d.label)}>{d.label}</span>
                              </div>
-                             <span className="font-bold text-gray-800 whitespace-nowrap ml-2">{formatLargeValue(total > 0 ? (d.value / total * 100) : 0, true)}%</span>
+                             <span className="font-bold text-gray-800 whitespace-nowrap ml-2">{total > 0 ? ((d.value / total) * 100).toFixed(0) : 0}%</span>
                         </div>
                     ))}
                 </div>
@@ -303,8 +294,8 @@ const SimpleDonut = ({ data, title, color }: { data: {label: string, value: numb
 };
 
 const HorizontalBarChart = ({ data, title, color }: { data: { label: string; value: number }[], title: string, color: string }) => {
-    const sorted = [...data].sort((a,b) => b.value - a.value).slice(0, 10);
-    const maxVal = sorted[0]?.value || 1;
+    const sorted = [...data].sort((a,b) => (b.value || 0) - (a.value || 0)).slice(0, 10);
+    const maxVal = Math.max(sorted[0]?.value || 1, 1);
     const barColorClass = color === 'blue' ? 'bg-blue-500' : color === 'emerald' ? 'bg-emerald-500' : color === 'purple' ? 'bg-purple-500' : 'bg-orange-500';
     return (
         <div className="flex flex-col h-full w-full overflow-hidden">
@@ -314,7 +305,7 @@ const HorizontalBarChart = ({ data, title, color }: { data: { label: string; val
                     {sorted.map((item, i) => (
                         <div key={i} className="flex flex-col gap-1.5">
                             <div className="flex justify-between items-center text-[10px]">
-                                <span className="truncate text-gray-700 font-medium flex-1 min-w-0 pr-3" title={item.label}>{item.label}</span>
+                                <span className="truncate text-gray-700 font-medium flex-1 min-w-0 pr-3" title={String(item.label)}>{item.label}</span>
                                 <span className="font-bold text-gray-900 flex-shrink-0 bg-white pl-1">{formatLargeValue(item.value, true)}</span>
                             </div>
                             <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
@@ -328,21 +319,6 @@ const HorizontalBarChart = ({ data, title, color }: { data: { label: string; val
     );
 };
 
-const ActionCard = ({ title, value, count, color, icon: Icon }: any) => (
-    <div className={`bg-${color}-50 p-4 rounded-xl border border-${color}-200 flex flex-col justify-between h-full shadow-sm`}>
-        <div className="flex justify-between items-start">
-            <p className={`text-[10px] font-bold text-${color}-700 uppercase tracking-wider`}>{title}</p>
-            <div className={`bg-white p-1.5 rounded-full shadow-sm border border-${color}-100`}><Icon className={`w-4 h-4 text-${color}-600`} /></div>
-        </div>
-        <div className="mt-2">
-            <h3 className={`text-xl font-extrabold text-${color}-900`}>{value}</h3>
-            <p className={`text-[10px] text-${color}-600 font-medium mt-0.5`}>{count} Items</p>
-        </div>
-    </div>
-);
-
-type TimeView = 'FY' | 'MONTH' | 'WEEK';
-type ComparisonMode = 'PREV_PERIOD' | 'PREV_YEAR';
 type Metric = 'quantity' | 'value';
 
 interface DashboardViewProps {
@@ -358,47 +334,31 @@ interface DashboardViewProps {
 }
 
 const DashboardView: React.FC<DashboardViewProps> = ({
-  materials,
-  closingStock,
-  pendingSO,
-  pendingPO,
+  materials = [],
+  closingStock = [],
+  pendingSO = [],
+  pendingPO = [],
   salesReportItems = [],
-  customers,
+  customers = [],
   setActiveTab
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<'sales' | 'inventory' | 'so' | 'po'>('sales');
-  const [timeView, setTimeView] = useState<TimeView>('FY');
-  const [comparisonMode, setComparisonMode] = useState<ComparisonMode>('PREV_YEAR');
+  const [timeView, setTimeView] = useState<'FY' | 'MONTH' | 'WEEK'>('FY');
   const [selectedFY, setSelectedFY] = useState<string>('');
   const [invGroupMetric, setInvGroupMetric] = useState<Metric>('value');
-  const [selectedMonth, setSelectedMonth] = useState<number>(() => {
-    const m = new Date().getMonth();
-    return m >= 3 ? m - 3 : m + 9;
-  });
+  const [selectedMonth, setSelectedMonth] = useState<number>(0);
   const [selectedWeek, setSelectedWeek] = useState<number>(1);
 
   const parseDate = (val: any): Date => {
     if (!val) return new Date();
-    if (val instanceof Date) return new Date(val.getFullYear(), val.getMonth(), val.getDate(), 12, 0, 0);
-    if (typeof val === 'number') {
-        const d = new Date(Math.round((val - 25569) * 86400 * 1000));
-        return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0);
-    }
-    if (typeof val === 'string') {
-        const parts = val.split(/[-/.]/);
-        if (parts.length === 3) {
-            let y, m, d;
-            if (parts[0].length === 4) [y, m, d] = parts.map(Number);
-            else if (parts[2].length === 4) [d, m, y] = parts.map(Number);
-            if (y && m && d) return new Date(y, m - 1, d, 12, 0, 0);
-        }
-        const parsed = new Date(val);
-        if (!isNaN(parsed.getTime())) return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate(), 12, 0, 0);
-    }
-    return new Date();
+    if (val instanceof Date) return val;
+    if (typeof val === 'number') { return new Date((val - 25569) * 86400 * 1000); }
+    const parsed = new Date(val);
+    return isNaN(parsed.getTime()) ? new Date() : parsed;
   };
 
   const getFiscalInfo = (date: Date) => {
+    if (!date || isNaN(date.getTime())) return { fiscalYear: 'N/A', fiscalMonthIndex: 0, weekNumber: 0 };
     const month = date.getMonth(); const year = date.getFullYear();
     const startYear = month >= 3 ? year : year - 1;
     const fiscalYear = `${startYear}-${startYear + 1}`;
@@ -413,149 +373,85 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
   const enrichedSales = useMemo(() => {
       const custMap = new Map<string, CustomerMasterItem>();
-      customers.forEach(c => custMap.set(c.customerName.toLowerCase().trim(), c));
+      customers.forEach(c => { if(c.customerName) custMap.set(String(c.customerName).toLowerCase().trim(), c); });
       return salesReportItems.map(item => {
           const dateObj = parseDate(item.date);
           const fi = getFiscalInfo(dateObj);
-          const cust = custMap.get(item.customerName.toLowerCase().trim());
+          const cust = custMap.get(String(item.customerName || '').toLowerCase().trim());
           return { ...item, ...fi, rawDate: dateObj, custGroup: cust?.group || 'Unassigned', custStatus: cust?.status || 'Unknown' };
       });
   }, [salesReportItems, customers]);
 
-  const uniqueFYs = useMemo(() => Array.from(new Set(enrichedSales.map(i => i.fiscalYear))).filter(Boolean).sort().reverse(), [enrichedSales]);
-  useEffect(() => { if (uniqueFYs.length > 0 && (!selectedFY || !uniqueFYs.includes(selectedFY))) setSelectedFY(uniqueFYs[0]); }, [uniqueFYs, selectedFY]);
+  const uniqueFYs = useMemo(() => Array.from(new Set(enrichedSales.map(i => i.fiscalYear))).filter(f => f !== 'N/A').sort().reverse(), [enrichedSales]);
+  
+  useEffect(() => { 
+    if (uniqueFYs.length > 0 && (!selectedFY || !uniqueFYs.includes(selectedFY))) {
+        setSelectedFY(uniqueFYs[0]);
+    }
+  }, [uniqueFYs, selectedFY]);
 
-  const getDataForPeriod = (fy: string, monthIdx?: number, week?: number) => {
+  const currentData = useMemo(() => {
       return enrichedSales.filter(i => {
-          if (i.fiscalYear !== fy) return false;
-          if (timeView === 'MONTH' && monthIdx !== undefined && i.fiscalMonthIndex !== monthIdx) return false;
-          if (timeView === 'WEEK' && week !== undefined && i.weekNumber !== week) return false;
+          if (i.fiscalYear !== selectedFY) return false;
+          if (timeView === 'MONTH' && i.fiscalMonthIndex !== selectedMonth) return false;
+          if (timeView === 'WEEK' && i.weekNumber !== selectedWeek) return false;
           return true;
       });
-  };
-
-  const currentData = useMemo(() => getDataForPeriod(selectedFY, selectedMonth, selectedWeek), [selectedFY, selectedMonth, selectedWeek, timeView, enrichedSales]);
-  const previousData = useMemo(() => {
-      if (!selectedFY) return [];
-      const startYear = parseInt(selectedFY.split('-')[0]);
-      if (comparisonMode === 'PREV_YEAR') return getDataForPeriod(`${startYear - 1}-${startYear}`, selectedMonth, selectedWeek);
-      if (timeView === 'FY') return getDataForPeriod(`${startYear - 1}-${startYear}`);
-      if (timeView === 'MONTH') { let m = selectedMonth - 1; let fy = selectedFY; if (m < 0) { m = 11; fy = `${startYear - 1}-${startYear}`; } return getDataForPeriod(fy, m); }
-      return getDataForPeriod(selectedFY, selectedMonth, selectedWeek - 1);
-  }, [selectedFY, selectedMonth, selectedWeek, timeView, comparisonMode, enrichedSales]);
+  }, [selectedFY, selectedMonth, selectedWeek, timeView, enrichedSales]);
 
   const kpis = useMemo(() => {
-      const currVal = currentData.reduce((acc, i) => acc + i.value, 0);
-      const prevVal = previousData.reduce((acc, i) => acc + i.value, 0);
-      const uniqueCusts = new Set(currentData.map(i => i.customerName)).size;
-      return { 
-          currVal, 
-          prevVal, 
-          diff: currVal - prevVal, 
-          pct: prevVal ? ((currVal - prevVal) / prevVal) * 100 : 0, 
-          currQty: currentData.reduce((acc, i) => acc + i.quantity, 0), 
-          uniqueCusts, 
-          avgOrder: currentData.length ? currVal / currentData.length : 0 
-      };
-  }, [currentData, previousData]);
+      const currVal = currentData.reduce((acc, i) => acc + (i.value || 0), 0);
+      const uniqueCusts = new Set(currentData.map(i => String(i.customerName || ''))).size;
+      const uniqueVouchers = new Set(currentData.map(i => String(i.voucherNo || ''))).size;
+      return { currVal, currQty: currentData.reduce((acc, i) => acc + (i.quantity || 0), 0), uniqueCusts, avgOrder: uniqueVouchers ? currVal / uniqueVouchers : 0 };
+  }, [currentData]);
 
   const pieDataGroup = useMemo(() => {
       const map = new Map<string, number>();
-      currentData.forEach(i => {
-          const val = map.get(i.custGroup) || 0;
-          map.set(i.custGroup, val + i.value);
-      });
-      return Array.from(map.entries())
-          .map(([label, value]) => ({ label, value }))
-          .sort((a, b) => b.value - a.value);
-  }, [currentData]);
-
-  const pieDataStatus = useMemo(() => {
-      const map = new Map<string, number>();
-      currentData.forEach(i => {
-          const val = map.get(i.custStatus) || 0;
-          map.set(i.custStatus, val + i.value);
-      });
-      return Array.from(map.entries())
-          .map(([label, value]) => ({ label, value }))
-          .sort((a, b) => b.value - a.value);
+      currentData.forEach(i => { const label = String(i.custGroup || 'Unassigned'); map.set(label, (map.get(label) || 0) + (i.value || 0)); });
+      return Array.from(map.entries()).map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value);
   }, [currentData]);
 
   const topCustomersData = useMemo(() => {
       const map = new Map<string, number>();
-      currentData.forEach(i => {
-          const val = map.get(i.customerName) || 0;
-          map.set(i.customerName, val + i.value);
-      });
+      currentData.forEach(i => { const label = String(i.customerName || 'Unknown'); map.set(label, (map.get(label) || 0) + (i.value || 0)); });
       return Array.from(map.entries()).map(([label, value]) => ({ label, value }));
   }, [currentData]);
 
   const lineChartData = useMemo(() => {
-      if (timeView === 'FY' && selectedFY) {
-          const labels = ["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"];
-          const startYear = parseInt(selectedFY.split('-')[0]);
-          const getSeries = (fy: string) => { const arr = new Array(12).fill(0); enrichedSales.filter(i => i.fiscalYear === fy).forEach(i => arr[i.fiscalMonthIndex] += i.value); return arr; };
-          return { 
-            labels, 
-            series: [ 
-                { name: selectedFY, data: getSeries(selectedFY), color: '#3b82f6', active: true }, 
-                { name: `${startYear - 1}-${startYear}`, data: getSeries(`${startYear - 1}-${startYear}`), color: '#a855f7', active: true },
-                { name: `${startYear - 2}-${startYear - 1}`, data: getSeries(`${startYear - 2}-${startYear - 1}`), color: '#f59e0b', active: true }
-            ] 
-          };
-      }
-      const days = timeView === 'MONTH' ? 31 : 7;
-      const currArr = new Array(days).fill(0); const prevArr = new Array(days).fill(0);
-      currentData.forEach(i => { const idx = timeView === 'MONTH' ? i.rawDate.getDate() - 1 : i.rawDate.getDay(); if (idx >= 0 && idx < days) currArr[idx] += i.value; });
-      previousData.forEach(i => { const idx = timeView === 'MONTH' ? i.rawDate.getDate() - 1 : i.rawDate.getDay(); if (idx >= 0 && idx < days) prevArr[idx] += i.value; });
-      return { labels: Array.from({length: days}, (_, i) => (i + 1).toString()), series: [ { name: 'Current', data: currArr, color: '#3b82f6', active: true }, { name: 'Previous', data: prevArr, color: '#cbd5e1', active: true } ] };
-  }, [currentData, previousData, timeView, selectedFY, enrichedSales]);
+      const labels = ["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"];
+      const getSeries = (fy: string) => { 
+          const arr = new Array(12).fill(0); 
+          enrichedSales.filter(i => i.fiscalYear === fy).forEach(i => {
+              if (i.fiscalMonthIndex >= 0 && i.fiscalMonthIndex < 12) arr[i.fiscalMonthIndex] += (i.value || 0);
+          }); 
+          return arr; 
+      };
+      if (!selectedFY) return { labels, series: [] };
+      const startYear = parseInt(selectedFY.split('-')[0]);
+      return { 
+        labels, 
+        series: [ 
+            { name: selectedFY, data: getSeries(selectedFY), color: '#3b82f6', active: true }, 
+            { name: `${startYear - 1}-${startYear}`, data: getSeries(`${startYear - 1}-${startYear}`), color: '#a855f7', active: true },
+            { name: `${startYear - 2}-${startYear - 1}`, data: getSeries(`${startYear - 2}-${startYear - 1}`), color: '#f59e0b', active: true }
+        ] 
+      };
+  }, [selectedFY, enrichedSales]);
 
   const inventoryStats = useMemo(() => {
-    const data = closingStock.map(i => { const mat = materials.find(m => m.description.toLowerCase().trim() === i.description.toLowerCase().trim()); return { ...i, make: mat ? mat.make : 'Unspecified', group: mat ? mat.materialGroup : 'Unspecified' }; });
-    const totalVal = data.reduce((a, b) => a + b.value, 0);
+    const data = closingStock.map(i => { const mat = materials.find(m => String(m.description || '').toLowerCase().trim() === String(i.description || '').toLowerCase().trim()); return { ...i, make: mat ? mat.make : 'Unspecified', group: mat ? mat.materialGroup : 'Unspecified' }; });
+    const totalVal = data.reduce((a, b) => a + (b.value || 0), 0);
     const hMap = new Map<string, any>();
-    data.forEach(i => { if(!hMap.has(i.make)) hMap.set(i.make, { val: 0, qty: 0, groups: new Map() }); const m = hMap.get(i.make); m.val += i.value; m.qty += i.quantity; if(!m.groups.has(i.group)) m.groups.set(i.group, { val: 0, qty: 0 }); const g = m.groups.get(i.group); g.val += i.value; g.qty += i.quantity; });
+    data.forEach(i => { const make = String(i.make || 'Unspecified'); if(!hMap.has(make)) hMap.set(make, { val: 0, qty: 0, groups: new Map() }); const m = hMap.get(make); m.val += (i.value || 0); m.qty += (i.quantity || 0); const group = String(i.group || 'Unspecified'); if(!m.groups.has(group)) m.groups.set(group, { val: 0, qty: 0 }); const g = m.groups.get(group); g.val += (i.value || 0); g.qty += (i.quantity || 0); });
     const hierarchy = Array.from(hMap.entries()).map(([label, d]) => ({ label, value: invGroupMetric === 'value' ? d.val : d.qty, groups: Array.from(d.groups.entries()).map(([gl, gd]) => ({ label: gl, value: invGroupMetric === 'value' ? gd.val : gd.qty })).sort((a,b) => b.value - a.value) })).sort((a,b) => b.value - a.value);
-    let cVal = 0; const sorted = [...data].sort((a,b) => b.value - a.value); const abc = { A: { c: 0, v: 0 }, B: { c: 0, v: 0 }, C: { c: 0, v: 0 } };
-    sorted.forEach(i => { cVal += i.value; const p = cVal / (totalVal || 1); if (p <= 0.7) { abc.A.c++; abc.A.v += i.value; } else if (p <= 0.9) { abc.B.c++; abc.B.v += i.value; } else { abc.C.c++; abc.C.v += i.value; } });
+    let cVal = 0; const sorted = [...data].sort((a,b) => (b.value || 0) - (a.value || 0)); const abc = { A: { c: 0, v: 0 }, B: { c: 0, v: 0 }, C: { c: 0, v: 0 } };
+    sorted.forEach(i => { cVal += (i.value || 0); const p = cVal / (totalVal || 1); if (p <= 0.7) { abc.A.c++; abc.A.v += (i.value || 0); } else if (p <= 0.9) { abc.B.c++; abc.B.v += (i.value || 0); } else { abc.C.c++; abc.C.v += (i.value || 0); } });
     return { totalVal, count: data.length, hierarchy, abcData: [ { label: 'A', value: abc.A.v, count: abc.A.c, color: '#10B981' }, { label: 'B', value: abc.B.v, count: abc.B.c, color: '#F59E0B' }, { label: 'C', value: abc.C.v, count: abc.C.c, color: '#EF4444' } ] };
   }, [closingStock, materials, invGroupMetric]);
 
-  const soStats = useMemo(() => {
-      const totalVal = pendingSO.reduce((a, b) => a + b.value, 0);
-      const custMap = new Map<string, number>();
-      const itemMap = new Map<string, number>();
-      pendingSO.forEach(i => {
-          custMap.set(i.partyName, (custMap.get(i.partyName) || 0) + i.value);
-          itemMap.set(i.itemName, (itemMap.get(i.itemName) || 0) + i.value);
-      });
-      return {
-          totalVal,
-          count: pendingSO.length,
-          topCustomers: Array.from(custMap.entries()).map(([label, value]) => ({ label, value })),
-          topItems: Array.from(itemMap.entries()).map(([label, value]) => ({ label, value }))
-      };
-  }, [pendingSO]);
-
-  const poStats = useMemo(() => {
-      const totalVal = pendingPO.reduce((a, b) => a + b.value, 0);
-      const vendorMap = new Map<string, number>();
-      const itemMap = new Map<string, number>();
-      pendingPO.forEach(i => {
-          vendorMap.set(i.partyName, (vendorMap.get(i.partyName) || 0) + i.value);
-          itemMap.set(i.itemName, (itemMap.get(i.itemName) || 0) + i.value);
-      });
-      return {
-          totalVal,
-          count: pendingPO.length,
-          topVendors: Array.from(vendorMap.entries()).map(([label, value]) => ({ label, value })),
-          topItems: Array.from(itemMap.entries()).map(([label, value]) => ({ label, value }))
-      };
-  }, [pendingPO]);
-
   const chartMax = useMemo(() => Math.max(...lineChartData.series.flatMap(s => s.data), 1000) * 1.1, [lineChartData]);
-  const formatAxisValue = (val: number) => { if (val >= 10000000) return (val/10000000).toFixed(1) + 'Cr'; if (val >= 100000) return (val/100000).toFixed(1) + 'L'; if (val >= 1000) return (val/1000).toFixed(0) + 'k'; return Math.round(val).toString(); };
+  const formatAxisValue = (val: number) => { if(isNaN(val)) return '0'; if (val >= 10000000) return (val/10000000).toFixed(1) + 'Cr'; if (val >= 100000) return (val/100000).toFixed(1) + 'L'; if (val >= 1000) return (val/1000).toFixed(0) + 'k'; return Math.round(val).toString(); };
 
   return (
     <div className="h-full w-full flex flex-col bg-gray-50/50 overflow-hidden">
@@ -563,14 +459,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="flex bg-gray-100 p-1 rounded-lg">{(['sales', 'inventory', 'so', 'po'] as const).map(tab => (<button key={tab} onClick={() => setActiveSubTab(tab)} className={`px-3 py-1.5 rounded-md text-xs font-bold uppercase transition-all ${activeSubTab === tab ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>{tab === 'so' ? 'Pending SO' : tab === 'po' ? 'Pending PO' : tab}</button>))}</div>
           {activeSubTab === 'sales' && (
             <div className="flex flex-wrap items-center gap-3">
-              <div className="flex bg-gray-100 p-1 rounded-lg">
-                {(['FY', 'MONTH', 'WEEK'] as const).map(v => (
-                  <button key={v} onClick={() => setTimeView(v)} className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${timeView === v ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}> {v} </button>
-                ))}
-              </div>
-              <select value={selectedFY} onChange={e => setSelectedFY(e.target.value)} className="bg-white border border-gray-300 text-xs rounded-md px-2 py-1.5 font-medium">
-                {uniqueFYs.map(fy => <option key={fy} value={fy}>{fy}</option>)}
-              </select>
+              <div className="flex bg-gray-100 p-1 rounded-lg">{(['FY', 'MONTH', 'WEEK'] as const).map(v => (<button key={v} onClick={() => setTimeView(v)} className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${timeView === v ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}> {v} </button>))}</div>
+              <select value={selectedFY} onChange={e => setSelectedFY(e.target.value)} className="bg-white border border-gray-300 text-xs rounded-md px-2 py-1.5 font-medium">{uniqueFYs.length > 0 ? uniqueFYs.map(fy => <option key={fy} value={fy}>{fy}</option>) : <option value="">No FY Data</option>}</select>
             </div>
           )}
       </div>
@@ -578,62 +468,24 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         {activeSubTab === 'sales' ? (
             <div className="flex flex-col gap-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><div className="flex justify-between items-start"><div><p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Current Sales</p><h3 className="text-2xl font-extrabold text-gray-900 mt-1">{formatLargeValue(kpis.currVal)}</h3></div><div className="bg-blue-50 p-2 rounded-lg text-blue-600"><DollarSign className="w-5 h-5" /></div></div><div className="mt-3 flex items-center justify-between"><span className={`text-xs font-bold ${kpis.diff >= 0 ? 'text-green-600' : 'text-red-600'}`}>{kpis.pct.toFixed(1)}% vs {comparisonMode === 'PREV_YEAR' ? 'LY' : 'Prev'}</span><span className="text-[10px] text-gray-400 font-medium">Prev: {formatLargeValue(kpis.prevVal, true)}</span></div></div>
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><div className="flex justify-between items-start"><div><p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Quantity</p><h3 className="text-2xl font-extrabold text-gray-900 mt-1">{kpis.currQty.toLocaleString()}</h3></div><div className="bg-orange-50 p-2 rounded-lg text-orange-600"><Package className="w-5 h-5" /></div></div></div>
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><div className="flex justify-between items-start"><div><p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Unique Customers</p><h3 className="text-2xl font-extrabold text-gray-900 mt-1">{kpis.uniqueCusts}</h3></div><div className="bg-teal-50 p-2 rounded-lg text-teal-600"><Users className="w-5 h-5" /></div></div></div>
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><div className="flex justify-between items-start"><div><p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Avg Order</p><h3 className="text-2xl font-extrabold text-gray-900 mt-1">{formatLargeValue(kpis.avgOrder)}</h3></div><div className="bg-purple-50 p-2 rounded-lg text-purple-600"><Activity className="w-5 h-5" /></div></div></div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><div><p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Current Sales</p><h3 className="text-2xl font-extrabold text-gray-900 mt-1">{formatLargeValue(kpis.currVal)}</h3></div></div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><div><p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Quantity</p><h3 className="text-2xl font-extrabold text-gray-900 mt-1">{kpis.currQty.toLocaleString()}</h3></div></div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><div><p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Unique Customers</p><h3 className="text-2xl font-extrabold text-gray-900 mt-1">{kpis.uniqueCusts}</h3></div></div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><div><p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Avg Order</p><h3 className="text-2xl font-extrabold text-gray-900 mt-1">{formatLargeValue(kpis.avgOrder)}</h3></div></div>
                 </div>
-                
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                    <div className="lg:col-span-2 bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col h-80 overflow-hidden"><h3 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2"><TrendingUp className="w-4 h-4 text-blue-600" /> 3-Year Sales Trend Analysis</h3><div className="flex flex-1 pt-2 overflow-hidden"><div className="flex flex-col justify-between text-[9px] text-gray-400 pr-3 pb-8 text-right w-12 border-r border-gray-50"><span>{formatAxisValue(chartMax)}</span><span>{formatAxisValue(chartMax*0.5)}</span><span>0</span></div><div className="flex-1 pl-4 pb-2 relative min-h-0"><SalesTrendChart data={lineChartData} maxVal={chartMax} /></div></div></div>
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col h-80 overflow-hidden"><h3 className="text-sm font-bold text-gray-800 mb-2 flex items-center gap-2"><PieIcon className="w-4 h-4 text-purple-600" /> Sales Mix</h3><div className="flex-1 flex flex-col gap-2 overflow-hidden"><div className="flex-1 pb-1 border-b border-dashed border-gray-200"><SimpleDonut data={pieDataGroup} title="Account Group" color="blue" /></div><div className="flex-1 pt-1"><SimpleDonut data={pieDataStatus} title="By Status" color="green" /></div></div></div>
+                    <div className="lg:col-span-2 bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col h-80 overflow-hidden"><h3 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2"><TrendingUp className="w-4 h-4 text-blue-600" /> 3-Year Trend Analysis</h3><div className="flex flex-1 pt-2 overflow-hidden"><div className="flex flex-col justify-between text-[9px] text-gray-400 pr-3 pb-8 text-right w-12 border-r"><span>{formatAxisValue(chartMax)}</span><span>{formatAxisValue(chartMax*0.5)}</span><span>0</span></div><div className="flex-1 pl-4 pb-2 relative min-h-0"><SalesTrendChart data={lineChartData} maxVal={chartMax} /></div></div></div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col h-80 overflow-hidden"><SimpleDonut data={pieDataGroup} title="Account Group Sales" color="blue" /></div>
                 </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-96 overflow-hidden">
-                        <HorizontalBarChart data={pieDataGroup} title="Top Customer Groups (by Value)" color="blue" />
-                    </div>
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-96 overflow-hidden">
-                        <HorizontalBarChart data={topCustomersData} title="Top 10 Customers (by Value)" color="emerald" />
-                    </div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-96 overflow-hidden"><HorizontalBarChart data={pieDataGroup} title="Sales by Customer Group" color="blue" /></div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-96 overflow-hidden"><HorizontalBarChart data={topCustomersData} title="Top 10 Customers" color="emerald" /></div>
                 </div>
             </div>
         ) : activeSubTab === 'inventory' ? (
              <div className="flex flex-col gap-4">
                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4"><div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-emerald-600 font-bold uppercase">Stock Val</p><h3 className="text-xl font-extrabold text-gray-900 mt-0.5">{formatLargeValue(inventoryStats.totalVal)}</h3></div><div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-blue-600 font-bold uppercase">Items</p><h3 className="text-xl font-extrabold text-gray-900 mt-0.5">{inventoryStats.count}</h3></div></div>
-                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4"><div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80"><h4 className="text-xs font-bold text-gray-700 mb-2"><BarChart4 className="w-4 h-4 text-indigo-600 inline mr-1"/> ABC Analysis</h4><ABCAnalysisChart data={inventoryStats.abcData} /></div><div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80"><h4 className="text-xs font-bold text-gray-700 mb-2"><Layers className="w-4 h-4 text-blue-600 inline mr-1"/> Composition</h4><InteractiveDrillDownChart hierarchyData={inventoryStats.hierarchy} metric={invGroupMetric} totalValue={inventoryStats.totalVal} /></div></div>
-             </div>
-        ) : activeSubTab === 'so' ? (
-             <div className="flex flex-col gap-4">
-                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-purple-600 font-bold uppercase">Pending SO Value</p><h3 className="text-xl font-extrabold text-gray-900 mt-0.5">{formatLargeValue(soStats.totalVal)}</h3></div>
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-blue-600 font-bold uppercase">Active Orders</p><h3 className="text-xl font-extrabold text-gray-900 mt-0.5">{soStats.count}</h3></div>
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-orange-600 font-bold uppercase">Unique Customers</p><h3 className="text-xl font-extrabold text-gray-900 mt-0.5">{soStats.topCustomers.length}</h3></div>
-                 </div>
-                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-96 overflow-hidden">
-                        <HorizontalBarChart data={soStats.topCustomers} title="Top Customers (Pending SO)" color="purple" />
-                    </div>
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-96 overflow-hidden">
-                        <HorizontalBarChart data={soStats.topItems} title="Highest Value Pending Items" color="orange" />
-                    </div>
-                 </div>
-             </div>
-        ) : activeSubTab === 'po' ? (
-             <div className="flex flex-col gap-4">
-                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-orange-600 font-bold uppercase">Open PO Commitments</p><h3 className="text-xl font-extrabold text-gray-900 mt-0.5">{formatLargeValue(poStats.totalVal)}</h3></div>
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-blue-600 font-bold uppercase">Open Orders</p><h3 className="text-xl font-extrabold text-gray-900 mt-0.5">{poStats.count}</h3></div>
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-emerald-600 font-bold uppercase">Unique Vendors</p><h3 className="text-xl font-extrabold text-gray-900 mt-0.5">{poStats.topVendors.length}</h3></div>
-                 </div>
-                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-96 overflow-hidden">
-                        <HorizontalBarChart data={poStats.topVendors} title="Top Vendors (Pending PO)" color="orange" />
-                    </div>
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-96 overflow-hidden">
-                        <HorizontalBarChart data={poStats.topItems} title="Highest Value PO Items" color="emerald" />
-                    </div>
-                 </div>
+                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4"><div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80"><ABCAnalysisChart data={inventoryStats.abcData} /></div><div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80"><InteractiveDrillDownChart hierarchyData={inventoryStats.hierarchy} metric={invGroupMetric} totalValue={inventoryStats.totalVal} /></div></div>
              </div>
         ) : null}
       </div>
