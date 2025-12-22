@@ -2,13 +2,44 @@
 import { supabase } from './supabase';
 import { PendingPOItem } from '../types';
 
+/**
+ * DATABASE SCHEMA (SQL) - Run this in Supabase SQL Editor:
+ * 
+ * CREATE TABLE pending_purchase_orders (
+ *   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+ *   date TEXT,
+ *   order_no TEXT,
+ *   party_name TEXT,
+ *   item_name TEXT,
+ *   material_code TEXT,
+ *   part_no TEXT,
+ *   ordered_qty NUMERIC DEFAULT 0,
+ *   balance_qty NUMERIC DEFAULT 0,
+ *   rate NUMERIC DEFAULT 0,
+ *   discount NUMERIC DEFAULT 0,
+ *   value NUMERIC DEFAULT 0,
+ *   due_on TEXT,
+ *   overdue_days NUMERIC DEFAULT 0,
+ *   created_at TIMESTAMPTZ DEFAULT now()
+ * );
+ * 
+ * -- Enable RLS
+ * ALTER TABLE pending_purchase_orders ENABLE ROW LEVEL SECURITY;
+ * CREATE POLICY "Allow public full access" ON pending_purchase_orders FOR ALL USING (true);
+ */
+
 const LOCAL_STORAGE_KEY = 'pending_po_db_v1';
 
 export const poService = {
   async getAll(): Promise<PendingPOItem[]> {
     try {
-      const { data, error } = await supabase.from('pending_purchase_orders').select('*');
+      const { data, error } = await supabase
+        .from('pending_purchase_orders')
+        .select('*')
+        .order('created_at', { ascending: false });
+
       if (error) throw error;
+
       return (data || []).map((row: any) => ({
         id: row.id,
         date: row.date,
@@ -17,17 +48,17 @@ export const poService = {
         itemName: row.item_name,
         materialCode: row.material_code,
         partNo: row.part_no,
-        orderedQty: Number(row.ordered_qty),
-        balanceQty: Number(row.balance_qty),
-        rate: Number(row.rate),
-        discount: Number(row.discount),
-        value: Number(row.value),
-        dueDate: row.due_on, // matched to due_on
-        overDueDays: Number(row.overdue_days),
+        orderedQty: Number(row.ordered_qty) || 0,
+        balanceQty: Number(row.balance_qty) || 0,
+        rate: Number(row.rate) || 0,
+        discount: Number(row.discount) || 0,
+        value: Number(row.value) || 0,
+        dueDate: row.due_on,
+        overDueDays: Number(row.overdue_days) || 0,
         createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now()
       }));
     } catch (e) {
-      console.warn('Supabase fetch failed (PO), using local.', e);
+      console.warn('Supabase fetch failed (PO), using local storage.', e);
       const local = localStorage.getItem(LOCAL_STORAGE_KEY);
       return local ? JSON.parse(local) : [];
     }
@@ -36,6 +67,7 @@ export const poService = {
   async createBulk(items: Omit<PendingPOItem, 'id' | 'createdAt'>[]): Promise<PendingPOItem[]> {
     const timestamp = Date.now();
     const newItems = items.map(i => ({ ...i, id: crypto.randomUUID(), createdAt: timestamp }));
+    
     try {
         const rows = newItems.map(i => ({
             id: i.id,
@@ -50,17 +82,18 @@ export const poService = {
             rate: i.rate,
             discount: i.discount,
             value: i.value,
-            due_on: i.dueDate, // matched to due_on
+            due_on: i.dueDate,
             overdue_days: i.overDueDays,
             created_at: new Date(i.createdAt).toISOString()
         }));
         const { error } = await supabase.from('pending_purchase_orders').insert(rows);
         if (error) throw error;
     } catch (e) {
-        console.warn('Supabase insert failed (PO).', e);
-        const current = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify([...newItems, ...current]));
+        console.warn('Supabase insert failed (PO), saving locally.', e);
     }
+    
+    const current = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify([...newItems, ...current]));
     return newItems;
   },
 
@@ -76,17 +109,24 @@ export const poService = {
             balance_qty: item.balanceQty,
             rate: item.rate,
             value: item.value,
-            due_on: item.dueDate // matched to due_on
+            due_on: item.dueDate
         }).eq('id', item.id);
         if (error) throw error;
-    } catch (e) { console.warn('Supabase update failed.', e); }
+    } catch (e) { 
+        console.warn('Supabase update failed.', e); 
+    }
   },
 
   async delete(id: string): Promise<void> {
     try {
         const { error } = await supabase.from('pending_purchase_orders').delete().eq('id', id);
         if (error) throw error;
-    } catch (e) { console.warn('Supabase delete failed.', e); }
+    } catch (e) { 
+        console.warn('Supabase delete failed.', e); 
+    }
+
+    const current: PendingPOItem[] = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(current.filter(i => i.id !== id)));
   },
 
   async clearAll(): Promise<void> {

@@ -152,8 +152,15 @@ const App: React.FC = () => {
   };
   
   const handleBulkAddStock = async (items: any) => { 
-    const newItems = await stockService.createBulk(items); 
-    setClosingStockItems(prev => [...newItems, ...prev]); 
+    const replace = confirm("Replace existing stock data with this import? (Cancel to Append)");
+    if (replace) {
+        await stockService.clearAll();
+        const newItems = await stockService.createBulk(items);
+        setClosingStockItems(newItems);
+    } else {
+        const newItems = await stockService.createBulk(items); 
+        setClosingStockItems(prev => [...newItems, ...prev]); 
+    }
   };
   const handleUpdateStock = async (item: ClosingStockItem) => {
     await stockService.update(item);
@@ -173,8 +180,15 @@ const App: React.FC = () => {
   };
   
   const handleBulkAddSO = async (items: any) => { 
-    const newItems = await soService.createBulk(items); 
-    setPendingSOItems(prev => [...newItems, ...prev]); 
+    const replace = confirm("Replace existing Pending SO data with this import? (Cancel to Append)");
+    if (replace) {
+        await soService.clearAll();
+        const newItems = await soService.createBulk(items);
+        setPendingSOItems(newItems);
+    } else {
+        const newItems = await soService.createBulk(items); 
+        setPendingSOItems(prev => [...newItems, ...prev]); 
+    }
   };
   const handleUpdateSO = async (item: PendingSOItem) => {
     await soService.update(item);
@@ -188,14 +202,21 @@ const App: React.FC = () => {
   };
   const handleClearSO = async () => { 
     if(confirm("DANGER: This will permanently delete ALL Pending SO records from Supabase and local storage. Continue?")) { 
-      await stockService.clearAll(); 
+      await soService.clearAll(); 
       setPendingSOItems([]); 
     } 
   };
   
   const handleBulkAddPO = async (items: any) => { 
-    const newItems = await poService.createBulk(items); 
-    setPendingPOItems(prev => [...newItems, ...prev]); 
+    const replace = confirm("Replace existing Pending PO data with this import? (Cancel to Append)");
+    if (replace) {
+        await poService.clearAll();
+        const newItems = await poService.createBulk(items);
+        setPendingPOItems(newItems);
+    } else {
+        const newItems = await poService.createBulk(items); 
+        setPendingPOItems(prev => [...newItems, ...prev]); 
+    }
   };
   const handleUpdatePO = async (item: PendingPOItem) => {
     await poService.update(item);
@@ -209,7 +230,7 @@ const App: React.FC = () => {
   };
   const handleClearPO = async () => { 
     if(confirm("DANGER: This will permanently delete ALL Pending PO records from Supabase and local storage. Continue?")) { 
-      await stockService.clearAll(); 
+      await poService.clearAll(); 
       setPendingPOItems([]); 
     } 
   };
