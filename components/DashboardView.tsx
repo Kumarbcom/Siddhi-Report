@@ -341,20 +341,25 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   const [timeView, setTimeView] = useState<'FY' | 'MONTH' | 'WEEK'>('FY');
   const [selectedFY, setSelectedFY] = useState<string>('');
   const [invGroupMetric, setInvGroupMetric] = useState<Metric>('value');
-  const [selectedMonth, setSelectedMonth] = useState<number>(0);
-  const [selectedWeek, setSelectedWeek] = useState<number>(1);
-  const [selectedSoItem, setSelectedSoItem] = useState<PendingSOItem | null>(null);
 
-  // Table-specific states for Inventory Snapshot
-  const [invTableSearch, setInvTableSearch] = useState('');
-  const [invTableSort, setInvTableSort] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
-
+  // Robust Date Parser for Dashboard
   const parseDate = (val: any): Date => {
     if (!val) return new Date();
     if (val instanceof Date) return val;
     if (typeof val === 'number') { return new Date((val - (25567 + 2)) * 86400 * 1000); }
-    const parsed = new Date(val);
-    return isNaN(parsed.getTime()) ? new Date() : parsed;
+    
+    const s = String(val).trim();
+    // Try native parser first
+    let d = new Date(s);
+    if (!isNaN(d.getTime())) return d;
+    
+    // Try DD/MM/YYYY or similar if native fails
+    const parts = s.split(/[-/.]/);
+    if (parts.length === 3) {
+      if (parts[0].length === 4) d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+      else d = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+    }
+    return isNaN(d.getTime()) ? new Date() : d;
   };
 
   const getFiscalInfo = (date: Date) => {
@@ -364,13 +369,23 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     const fiscalYear = `${startYear}-${startYear + 1}`;
     const fiscalMonthIndex = month >= 3 ? month - 3 : month + 9;
     const fyStart = new Date(startYear, 3, 1);
-    // Fix: correct variable name from 'first Thu' to 'firstThu'
     let firstThu = new Date(fyStart);
     if (firstThu.getDay() <= 4) firstThu.setDate(firstThu.getDate() + (4 - firstThu.getDay()));
     else firstThu.setDate(firstThu.getDate() + (4 - firstThu.getDay() + 7));
     const diffDays = Math.floor((date.getTime() - firstThu.getTime()) / (1000 * 3600 * 24));
     return { fiscalYear, fiscalMonthIndex, weekNumber: diffDays >= 0 ? Math.floor(diffDays / 7) + 2 : 1 };
   };
+
+  // Default time slices to current real-world date
+  const today = new Date();
+  const todayFiscal = getFiscalInfo(today);
+  const [selectedMonth, setSelectedMonth] = useState<number>(todayFiscal.fiscalMonthIndex);
+  const [selectedWeek, setSelectedWeek] = useState<number>(todayFiscal.weekNumber);
+  const [selectedSoItem, setSelectedSoItem] = useState<PendingSOItem | null>(null);
+
+  // Table-specific states for Inventory Snapshot
+  const [invTableSearch, setInvTableSearch] = useState('');
+  const [invTableSort, setInvTableSort] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
 
   const enrichedSales = useMemo(() => {
       const custMap = new Map<string, CustomerMasterItem>();
@@ -387,8 +402,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   const uniqueFYs = useMemo(() => Array.from(new Set(enrichedSales.map(i => i.fiscalYear))).filter(f => f !== 'N/A').sort().reverse(), [enrichedSales]);
   
   useEffect(() => { 
-    if (uniqueFYs.length > 0 && (!selectedFY || !uniqueFYs.includes(selectedFY))) {
+    if (uniqueFYs.length > 0) {
+      // Always favor the latest FY available in the data for the default view
+      if (!selectedFY || !uniqueFYs.includes(selectedFY)) {
         setSelectedFY(uniqueFYs[0]);
+      }
     }
   }, [uniqueFYs, selectedFY]);
 
@@ -539,8 +557,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       
       let dueValue = 0;
       let scheduledValue = 0;
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const todayDate = new Date();
+      todayDate.setHours(0, 0, 0, 0);
 
       pendingSO.forEach(i => {
           custMap.set(i.partyName, (custMap.get(i.partyName) || 0) + (i.value || 0));
@@ -558,7 +576,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
           else ageingMap['90d+'] += (i.value || 0);
 
           const dueDate = parseDate(i.dueDate);
-          if (days > 0 || (dueDate.getTime() > 0 && dueDate <= today)) {
+          if (days > 0 || (dueDate.getTime() > 0 && dueDate <= todayDate)) {
               dueValue += (i.value || 0);
           } else {
               scheduledValue += (i.value || 0);
@@ -584,10 +602,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       const statusMap = { 'Overdue': 0, 'Due Today': 0, 'Due This Week': 0, 'Future': 0 };
       const groupMap = new Map<string, number>();
 
-      const today = new Date();
-      today.setHours(0,0,0,0);
-      const weekEnd = new Date(today);
-      weekEnd.setDate(today.getDate() + 7);
+      const todayDate = new Date();
+      todayDate.setHours(0,0,0,0);
+      const weekEnd = new Date(todayDate);
+      weekEnd.setDate(todayDate.getDate() + 7);
 
       pendingPO.forEach(i => {
           vendorMap.set(i.partyName, (vendorMap.get(i.partyName) || 0) + (i.value || 0));
@@ -596,8 +614,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
           groupMap.set(group, (groupMap.get(group) || 0) + (i.value || 0));
 
           const dueDate = parseDate(i.dueDate);
-          if (dueDate < today) statusMap['Overdue'] += (i.value || 0);
-          else if (dueDate.getTime() === today.getTime()) statusMap['Due Today'] += (i.value || 0);
+          if (dueDate < todayDate) statusMap['Overdue'] += (i.value || 0);
+          else if (dueDate.getTime() === todayDate.getTime()) statusMap['Due Today'] += (i.value || 0);
           else if (dueDate <= weekEnd) statusMap['Due This Week'] += (i.value || 0);
           else statusMap['Future'] += (i.value || 0);
       });
@@ -646,6 +664,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       if (!invTableSort || invTableSort.key !== key) return <ArrowUpDown className="w-3 h-3 text-gray-300" />;
       return invTableSort.direction === 'asc' ? <ArrowUp className="w-3 h-3 text-emerald-600" /> : <ArrowDown className="w-3 h-3 text-emerald-600" />;
   };
+
+  const getFiscalMonthName = (index: number) => ["April", "May", "June", "July", "August", "September", "October", "November", "December", "January", "February", "March"][index] || "";
 
   return (
     <div className="h-full w-full flex flex-col bg-gray-50/50 overflow-hidden relative">
@@ -701,6 +721,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex bg-gray-100 p-1 rounded-lg">{(['FY', 'MONTH', 'WEEK'] as const).map(v => (<button key={v} onClick={() => setTimeView(v)} className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${timeView === v ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}> {v} </button>))}</div>
               <select value={selectedFY} onChange={e => setSelectedFY(e.target.value)} className="bg-white border border-gray-300 text-xs rounded-md px-2 py-1.5 font-medium">{uniqueFYs.length > 0 ? uniqueFYs.map(fy => <option key={fy} value={fy}>{fy}</option>) : <option value="">No FY Data</option>}</select>
+              {timeView === 'MONTH' && (<select value={selectedMonth} onChange={(e) => setSelectedMonth(Number(e.target.value))} className="bg-white border border-gray-300 text-xs rounded-md px-3 py-1.5">{[0,1,2,3,4,5,6,7,8,9,10,11].map(idx => (<option key={idx} value={idx}>{getFiscalMonthName(idx)}</option>))}</select>)}
             </div>
           )}
           {activeSubTab === 'inventory' && (
