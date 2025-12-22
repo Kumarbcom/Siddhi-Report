@@ -1,16 +1,21 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// Prioritize environment variables provided by the build system
-// These should be configured in your environment or .env file
 const supabaseUrl = process.env.SUPABASE_URL || '';
 const supabaseKey = process.env.SUPABASE_KEY || '';
 
-if (!supabaseUrl || !supabaseKey) {
-  console.warn("SUPABASE WARNING: SUPABASE_URL or SUPABASE_KEY is missing. The app will fall back to local storage.");
+// A simple check to see if we have valid-looking credentials
+export const isConfigured = 
+  supabaseUrl.length > 0 && 
+  supabaseKey.length > 0 && 
+  !supabaseUrl.includes('placeholder');
+
+if (!isConfigured) {
+  console.warn("Supabase is not configured. Running in Local Persistence mode.");
 }
 
-export const supabase = createClient(
-  supabaseUrl || 'https://placeholder-url.supabase.co', 
-  supabaseKey || 'placeholder-key'
-);
+// Ensure we don't pass an empty string which causes the "Failed to fetch" error immediately
+const validUrl = isConfigured ? supabaseUrl : 'https://unconfigured.supabase.co';
+const validKey = isConfigured ? supabaseKey : 'unconfigured';
+
+export const supabase = createClient(validUrl, validKey);

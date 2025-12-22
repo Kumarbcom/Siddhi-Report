@@ -89,23 +89,42 @@ const App: React.FC = () => {
   useEffect(() => { loadAllData(); }, []);
 
   const handleBulkAddMaterial = async (dataList: MaterialFormData[]) => {
-    const newItems = await materialService.createBulk(dataList);
-    setMaterials(prev => [...newItems, ...prev]);
-  };
-  const handleUpdateMaterial = async (item: Material) => {
-    await materialService.update(item);
-    setMaterials(prev => prev.map(m => m.id === item.id ? item : m));
-  };
-  const handleDeleteMaterial = async (id: string) => {
-    if (confirm("Delete material record?")) { 
-      await materialService.delete(id); 
-      setMaterials(prev => prev.filter(m => m.id !== id)); 
+    try {
+        const newItems = await materialService.createBulk(dataList);
+        setMaterials(prev => [...newItems, ...prev]);
+    } catch (e: any) {
+        alert("Operation Failed: " + e.message);
     }
   };
+  
+  const handleUpdateMaterial = async (item: Material) => {
+    try {
+        await materialService.update(item);
+        setMaterials(prev => prev.map(m => m.id === item.id ? item : m));
+    } catch (e: any) {
+        alert("Update Failed: " + e.message);
+    }
+  };
+  
+  const handleDeleteMaterial = async (id: string) => {
+    if (confirm("Delete material record?")) { 
+      try {
+          await materialService.delete(id); 
+          setMaterials(prev => prev.filter(m => m.id !== id)); 
+      } catch (e: any) {
+          alert("Delete Failed: " + e.message);
+      }
+    }
+  };
+  
   const handleClearMaterials = async () => {
       if(confirm("DANGER: This will permanently delete ALL Material Master records from Supabase and local storage. Continue?")) {
-          await materialService.clearAll();
-          setMaterials([]);
+          try {
+              await materialService.clearAll();
+              setMaterials([]);
+          } catch (e: any) {
+              alert("Clear Failed: " + e.message);
+          }
       }
   };
 
@@ -191,7 +210,6 @@ const App: React.FC = () => {
     }
   };
   const handleUpdateSO = async (item: PendingSOItem) => {
-    // Fixed typo: changed await_soService to await soService
     await soService.update(item);
     setPendingSOItems(prev => prev.map(i => i.id === item.id ? item : i));
   };
@@ -324,7 +342,7 @@ const App: React.FC = () => {
         )}
         <header className="bg-white border-b border-gray-200 h-14 flex items-center justify-between px-4 flex-shrink-0 md:hidden">
             <div className="flex items-center gap-2">
-               <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-lg">{isSidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}</button>
+               <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 -ml-2 text-gray-600 hover:bg-100 rounded-lg">{isSidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}</button>
                <span className="font-bold text-gray-900">Siddhi Kabel</span>
             </div>
         </header>

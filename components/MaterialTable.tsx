@@ -114,7 +114,7 @@ const MaterialTable: React.FC<MaterialTableProps> = ({ materials, onUpdate, onDe
                 <th className="py-3 px-4 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('description')}><div className="flex items-center gap-1">Description {renderSortIcon('description')}</div></th>
                 <th className="py-3 px-4 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('partNo')}><div className="flex items-center gap-1">Part No {renderSortIcon('partNo')}</div></th>
                 <th className="py-3 px-4 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('make')}><div className="flex items-center gap-1">Make {renderSortIcon('make')}</div></th>
-                <th className="py-3 px-4 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('materialGroup')}><div className="flex items-center gap-1">Group {renderSortIcon('materialGroup')}</div></th>
+                <th className="py-3 px-4 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('materialGroup')}><div className="flex items-center gap-1">Material Group {renderSortIcon('materialGroup')}</div></th>
                 <th className="py-3 px-4 text-right">Actions</th>
               </tr>
             </thead>
