@@ -1,21 +1,17 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_KEY || '';
+const supabaseUrl = 'https://lgxzqobcabiatqoklyuc.supabase.co';
+const supabaseKey = 'sb_publishable_sVtiXZDvmU1g6O9V0mahDg_bJ0o94iI';
 
-// A simple check to see if we have valid-looking credentials
+// Check if credentials are set and valid
 export const isConfigured = 
-  supabaseUrl.length > 0 && 
-  supabaseKey.length > 0 && 
-  !supabaseUrl.includes('placeholder');
+  !!supabaseUrl && 
+  !!supabaseKey && 
+  supabaseUrl.includes('supabase.co');
 
 if (!isConfigured) {
-  console.warn("Supabase is not configured. Running in Local Persistence mode.");
+  console.error("CRITICAL: Supabase credentials are missing or incorrect.");
 }
 
-// Ensure we don't pass an empty string which causes the "Failed to fetch" error immediately
-const validUrl = isConfigured ? supabaseUrl : 'https://unconfigured.supabase.co';
-const validKey = isConfigured ? supabaseKey : 'unconfigured';
-
-export const supabase = createClient(validUrl, validKey);
+export const supabase = createClient(supabaseUrl, supabaseKey);

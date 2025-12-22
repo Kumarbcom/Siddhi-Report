@@ -1,108 +1,104 @@
 
 import { supabase, isConfigured } from './supabase';
 import { SalesReportItem } from '../types';
-import { dbService } from './db';
 
 export const salesService = {
   async getAll(): Promise<SalesReportItem[]> {
-    if (isConfigured) {
-      try {
-        const { data, error } = await supabase
-          .from('sales_report')
-          .select('*')
-          .limit(10000)
-          .order('date', { ascending: false });
+    if (!isConfigured) throw new Error("Supabase not configured.");
+    
+    // Using created_at for ordering as it is a guaranteed Supabase system column
+    const { data, error } = await supabase
+      .from('sales_report_voucher')
+      .select('*')
+      .limit(20000)
+      .order('created_at', { ascending: false });
 
-        if (!error && data) {
-          const mapped = data.map((row: any) => ({
-            id: row.id,
-            date: row.date,
-            customerName: String(row.customer_name || ''),
-            particulars: String(row.particulars || ''),
-            consignee: String(row.consignee || ''),
-            voucherNo: String(row.voucher_no || ''),
-            voucherRefNo: String(row.voucher_ref_no || ''),
-            quantity: Number(row.quantity) || 0,
-            value: Number(row.value) || 0,
-            createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now()
-          }));
-          return mapped;
-        }
-      } catch (e) {
-        console.error('Sales fetch network error:', e);
-      }
+    if (error) {
+      throw new Error(`Sales Load Failed: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
     }
-    return await dbService.getAllSales();
+
+    return (data || []).map((row: any) => {
+      // Fallback: Use created_at if the specific 'date' column is missing or empty
+      const displayDate = row.date || (row.created_at ? new Date(row.created_at).toISOString().split('T')[0] : '');
+      
+      return {
+        id: row.id,
+        date: displayDate,
+        customerName: row.customer_name || '',
+        particulars: row.particulars || '',
+        consignee: row.consignee || '',
+        voucherNo: row.voucher_no || '',
+        voucherRefNo: row.voucher_ref_no || '',
+        quantity: Number(row.quantity) || 0,
+        value: Number(row.value) || 0,
+        createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now()
+      };
+    });
   },
 
   async createBulk(items: Omit<SalesReportItem, 'id' | 'createdAt'>[]): Promise<SalesReportItem[]> {
-    const newItems = items.map(i => ({ ...i, id: crypto.randomUUID(), createdAt: Date.now() }));
-    
-    if (isConfigured) {
-      try {
-        const CHUNK_SIZE = 500;
-        for (let i = 0; i < newItems.length; i += CHUNK_SIZE) {
-            const chunk = newItems.slice(i, i + CHUNK_SIZE).map(r => ({
-                id: r.id,
-                date: r.date,
-                customer_name: r.customerName,
-                particulars: r.particulars,
-                consignee: r.consignee,
-                voucher_no: r.voucherNo,
-                voucher_ref_no: r.voucherRefNo,
-                quantity: r.quantity,
-                value: r.value
-            }));
-            await supabase.from('sales_report').insert(chunk);
-        }
-      } catch (e) {
-        console.error('Sales bulk sync failed:', e);
-      }
-    }
+    if (!isConfigured) throw new Error("Supabase not configured.");
+    const CHUNK_SIZE = 500;
+    const allInserted: SalesReportItem[] = [];
 
-    await dbService.addSalesBatch(newItems as SalesReportItem[]);
-    return newItems as SalesReportItem[];
+    for (let i = 0; i < items.length; i += CHUNK_SIZE) {
+        const chunk = items.slice(i, i + CHUNK_SIZE).map(r => ({
+            date: r.date,
+            customer_name: r.customerName,
+            particulars: r.particulars,
+            consignee: r.consignee,
+            voucher_no: r.voucherNo,
+            voucher_ref_no: r.voucherRefNo,
+            quantity: r.quantity,
+            value: r.value
+        }));
+        
+        const { data, error } = await supabase.from('sales_report_voucher').insert(chunk).select();
+        
+        if (error) {
+            console.error("Insert error details:", error);
+            throw new Error(`Insert Failed at chunk ${i}: ${error.message}. Ensure the 'date' column exists in your database.`);
+        }
+        
+        if (data) {
+          allInserted.push(...data.map(row => ({
+            id: row.id,
+            date: row.date || '',
+            customerName: row.customer_name || '',
+            particulars: row.particulars || '',
+            consignee: row.consignee || '',
+            voucherNo: row.voucher_no || '',
+            voucherRefNo: row.voucher_ref_no || '',
+            quantity: Number(row.quantity) || 0,
+            value: Number(row.value) || 0,
+            createdAt: new Date(row.created_at).getTime()
+          })));
+        }
+    }
+    return allInserted;
   },
 
   async update(item: SalesReportItem): Promise<void> {
-    if (isConfigured) {
-      try {
-        await supabase.from('sales_report').update({
-          customer_name: item.customerName,
-          particulars: item.particulars,
-          quantity: item.quantity,
-          value: item.value,
-          consignee: item.consignee,
-          voucher_no: item.voucherNo,
-          voucher_ref_no: item.voucherRefNo,
-          date: item.date
-        }).eq('id', item.id);
-      } catch (e) {
-        console.error('Sales update sync failed:', e);
-      }
-    }
-    await dbService.updateSale(item);
+    const { error } = await supabase.from('sales_report_voucher').update({
+      customer_name: item.customerName,
+      particulars: item.particulars,
+      quantity: item.quantity,
+      value: item.value,
+      consignee: item.consignee,
+      voucher_no: item.voucherNo,
+      voucher_ref_no: item.voucherRefNo,
+      date: item.date
+    }).eq('id', item.id);
+    if (error) throw new Error(`Update Failed: ${error.message}`);
   },
 
   async delete(id: string): Promise<void> {
-    if (isConfigured) {
-      try {
-        await supabase.from('sales_report').delete().eq('id', id);
-      } catch (e) {
-        console.error('Sales delete sync failed:', e);
-      }
-    }
-    await dbService.deleteSale(id);
+    const { error } = await supabase.from('sales_report_voucher').delete().eq('id', id);
+    if (error) throw new Error(`Delete Failed: ${error.message}`);
   },
 
   async clearAll(): Promise<void> {
-    if (isConfigured) {
-      try {
-        await supabase.from('sales_report').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      } catch (e) {
-        console.error('Sales clear sync failed:', e);
-      }
-    }
-    await dbService.clearAllSales();
+    const { error } = await supabase.from('sales_report_voucher').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    if (error) throw new Error(`Clear Failed: ${error.message}`);
   }
 };
