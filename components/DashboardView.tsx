@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Material, ClosingStockItem, PendingSOItem, PendingPOItem, SalesReportItem, CustomerMasterItem, SalesRecord } from '../types';
-import { TrendingUp, TrendingDown, Package, ClipboardList, ShoppingCart, Calendar, Filter, PieChart as PieIcon, BarChart3, Users, ArrowRight, Activity, DollarSign, ArrowUpRight, ArrowDownRight, RefreshCw, UserCircle, Minus, Plus, ChevronDown, ChevronUp, Link2Off, AlertTriangle, Layers, Clock, CheckCircle2, AlertCircle, User, Factory, Tag, ArrowLeft, BarChart4, Hourglass, History, AlertOctagon } from 'lucide-react';
+import { TrendingUp, TrendingDown, Package, ClipboardList, ShoppingCart, Calendar, Filter, PieChart as PieIcon, BarChart3, Users, ArrowRight, Activity, DollarSign, ArrowUpRight, ArrowDownRight, RefreshCw, UserCircle, Minus, Plus, ChevronDown, ChevronUp, Link2Off, AlertTriangle, Layers, Clock, CheckCircle2, AlertCircle, User, Factory, Tag, ArrowLeft, BarChart4, Hourglass, History, AlertOctagon, ChevronRight } from 'lucide-react';
 
 const COLORS = ['#10B981', '#3B82F6', '#6366F1', '#8B5CF6', '#EC4899', '#F59E0B', '#EF4444', '#6B7280', '#059669', '#2563EB'];
 
@@ -14,6 +14,14 @@ const formatLargeValue = (val: number, compact: boolean = false) => {
     if (absVal >= 10000000) return `${prefix}${(val / 10000000).toFixed(2)} Cr`;
     if (absVal >= 100000) return `${prefix}${(val / 100000).toFixed(2)} L`;
     return `${prefix}${Math.round(val).toLocaleString('en-IN')}`;
+};
+
+// Helper to merge groups based on specific rules
+const getMergedGroupName = (groupName: string) => {
+    const g = String(groupName || 'Unassigned').trim();
+    if (g === 'Group-1' || g === 'Group-3') return 'Group-1 & 3';
+    if (['Online Business', 'Online - Giridhar', 'Online - Veeresh'].includes(g)) return 'Online Business';
+    return g;
 };
 
 const getSmoothPath = (points: [number, number][]) => {
@@ -232,8 +240,8 @@ const ABCAnalysisChart = ({ data }: { data: { label: string, value: number, coun
                             return ( <path key={i} d={pathData} fill={slice.color} stroke="white" strokeWidth="0.02" className="hover:opacity-80 transition-opacity cursor-pointer"><title>{slice.label}: {Math.round(pct * 100)}%</title></path> );
                         })}
                     </svg>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                        <span className="text-[10px] text-gray-400 font-bold">Stock Val</span>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none px-1 text-center">
+                        <span className="text-[10px] text-gray-400 font-bold uppercase leading-none">Stock</span>
                         <span className="text-xs font-extrabold text-gray-800">{formatLargeValue(totalVal, true)}</span>
                     </div>
                 </div>
@@ -319,6 +327,66 @@ const HorizontalBarChart = ({ data, title, color }: { data: { label: string; val
     );
 };
 
+/**
+ * NEW COMPONENT: Interactive Grouped Customer List
+ * Shows customers grouped by their (merged) category with expand/collapse and PY comparison.
+ */
+const GroupedCustomerAnalysis = ({ data }: { data: { group: string, total: number, customers: { name: string, current: number, previous: number, diff: number }[] }[] }) => {
+    const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+
+    const toggleGroup = (group: string) => {
+        setExpandedGroups(prev => ({ ...prev, [group]: !prev[group] }));
+    };
+
+    return (
+        <div className="flex flex-col h-full w-full overflow-hidden">
+            <h4 className="text-[11px] font-bold text-gray-600 uppercase mb-3 border-b border-gray-100 pb-1">Top Customers by Group (Current vs PY)</h4>
+            <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-2">
+                {data.map((groupData) => (
+                    <div key={groupData.group} className="border border-gray-100 rounded-lg overflow-hidden bg-white shadow-sm">
+                        <button 
+                            onClick={() => toggleGroup(groupData.group)}
+                            className="w-full flex items-center justify-between p-2.5 bg-gray-50 hover:bg-blue-50 transition-colors"
+                        >
+                            <div className="flex items-center gap-2">
+                                {expandedGroups[groupData.group] ? <ChevronDown className="w-4 h-4 text-blue-600" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
+                                <span className="text-xs font-bold text-gray-800 uppercase tracking-tight">{groupData.group}</span>
+                            </div>
+                            <span className="text-xs font-black text-blue-700">{formatLargeValue(groupData.total, true)}</span>
+                        </button>
+                        
+                        {expandedGroups[groupData.group] && (
+                            <div className="divide-y divide-gray-50 bg-white">
+                                {groupData.customers.map((cust, idx) => (
+                                    <div key={idx} className="p-2.5 hover:bg-gray-50 transition-colors">
+                                        <div className="flex justify-between items-start mb-1">
+                                            <span className="text-[10px] font-bold text-gray-700 truncate w-3/5" title={cust.name}>{cust.name}</span>
+                                            <span className="text-[10px] font-black text-gray-900">{formatLargeValue(cust.current, true)}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <div className="flex items-center gap-1">
+                                                <span className="text-[9px] text-gray-400 uppercase font-medium">PY:</span>
+                                                <span className="text-[9px] text-gray-500 font-mono">{formatLargeValue(cust.previous, true)}</span>
+                                            </div>
+                                            <div className={`flex items-center gap-0.5 text-[9px] font-bold ${cust.diff >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                {cust.diff >= 0 ? <ArrowUpRight className="w-2.5 h-2.5" /> : <ArrowDownRight className="w-2.5 h-2.5" />}
+                                                <span>{formatLargeValue(Math.abs(cust.diff), true)}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                                {groupData.customers.length === 0 && (
+                                    <div className="p-4 text-center text-gray-400 text-[10px]">No sales data found in this group.</div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
 type Metric = 'quantity' | 'value';
 
 interface DashboardViewProps {
@@ -371,6 +439,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     return { fiscalYear, fiscalMonthIndex, weekNumber: diffDays >= 0 ? Math.floor(diffDays / 7) + 2 : 1 };
   };
 
+  /**
+   * ENRICHED SALES with Merged Group Logic
+   */
   const enrichedSales = useMemo(() => {
       const custMap = new Map<string, CustomerMasterItem>();
       customers.forEach(c => { if(c.customerName) custMap.set(String(c.customerName).toLowerCase().trim(), c); });
@@ -378,7 +449,18 @@ const DashboardView: React.FC<DashboardViewProps> = ({
           const dateObj = parseDate(item.date);
           const fi = getFiscalInfo(dateObj);
           const cust = custMap.get(String(item.customerName || '').toLowerCase().trim());
-          return { ...item, ...fi, rawDate: dateObj, custGroup: cust?.group || 'Unassigned', custStatus: cust?.status || 'Unknown' };
+          
+          // Apply Merged Group Logic
+          const rawGroup = cust?.group || 'Unassigned';
+          const mergedGroup = getMergedGroupName(rawGroup);
+
+          return { 
+              ...item, 
+              ...fi, 
+              rawDate: dateObj, 
+              custGroup: mergedGroup, 
+              custStatus: cust?.status || 'Unknown' 
+          };
       });
   }, [salesReportItems, customers]);
 
@@ -399,6 +481,22 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       });
   }, [selectedFY, selectedMonth, selectedWeek, timeView, enrichedSales]);
 
+  // Previous year data for comparison in customer list
+  const previousDataForComparison = useMemo(() => {
+      if (!selectedFY) return [];
+      const parts = selectedFY.split('-');
+      const pyStart = parseInt(parts[0]) - 1;
+      const pyString = `${pyStart}-${pyStart + 1}`;
+      
+      return enrichedSales.filter(i => {
+          if (i.fiscalYear !== pyString) return false;
+          // Compare same relative month/week if filtered
+          if (timeView === 'MONTH' && i.fiscalMonthIndex !== selectedMonth) return false;
+          if (timeView === 'WEEK' && i.weekNumber !== selectedWeek) return false;
+          return true;
+      });
+  }, [selectedFY, timeView, selectedMonth, selectedWeek, enrichedSales]);
+
   const kpis = useMemo(() => {
       const currVal = currentData.reduce((acc, i) => acc + (i.value || 0), 0);
       const uniqueCusts = new Set(currentData.map(i => String(i.customerName || ''))).size;
@@ -412,11 +510,59 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       return Array.from(map.entries()).map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value);
   }, [currentData]);
 
-  const topCustomersData = useMemo(() => {
-      const map = new Map<string, number>();
-      currentData.forEach(i => { const label = String(i.customerName || 'Unknown'); map.set(label, (map.get(label) || 0) + (i.value || 0)); });
-      return Array.from(map.entries()).map(([label, value]) => ({ label, value }));
-  }, [currentData]);
+  /**
+   * DATA FOR GroupedCustomerAnalysis component
+   * Groups customers by category, sorts groups by value, and ranks top 10 customers within each group.
+   */
+  const groupedCustomerData = useMemo(() => {
+      const groupMap = new Map<string, { total: number, customers: Map<string, { current: number, previous: number }> }>();
+      
+      // 1. Process Current Sales
+      currentData.forEach(i => {
+          const group = i.custGroup;
+          const name = String(i.customerName || 'Unknown');
+          
+          if (!groupMap.has(group)) groupMap.set(group, { total: 0, customers: new Map() });
+          const groupObj = groupMap.get(group)!;
+          groupObj.total += (i.value || 0);
+          
+          if (!groupObj.customers.has(name)) groupObj.customers.set(name, { current: 0, previous: 0 });
+          groupObj.customers.get(name)!.current += (i.value || 0);
+      });
+
+      // 2. Process Previous Sales
+      previousDataForComparison.forEach(i => {
+          const group = i.custGroup;
+          const name = String(i.customerName || 'Unknown');
+          
+          if (groupMap.has(group)) {
+              const groupObj = groupMap.get(group)!;
+              if (groupObj.customers.has(name)) {
+                  groupObj.customers.get(name)!.previous += (i.value || 0);
+              } else {
+                  // Track previous sales even if they don't exist in current period (potential churn view)
+                  groupObj.customers.set(name, { current: 0, previous: (i.value || 0) });
+              }
+          }
+      });
+
+      // 3. Transform to array and sort
+      return Array.from(groupMap.entries())
+          .map(([group, data]) => ({
+              group,
+              total: data.total,
+              customers: Array.from(data.customers.entries())
+                  .map(([name, vals]) => ({
+                      name,
+                      current: vals.current,
+                      previous: vals.previous,
+                      diff: vals.current - vals.previous
+                  }))
+                  .sort((a, b) => b.current - a.current)
+                  .slice(0, 10) // Only show top 10 in each group
+          }))
+          .sort((a, b) => b.total - a.total);
+  }, [currentData, previousDataForComparison]);
 
   const lineChartData = useMemo(() => {
       const labels = ["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"];
@@ -475,11 +621,15 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                     <div className="lg:col-span-2 bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col h-80 overflow-hidden"><h3 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2"><TrendingUp className="w-4 h-4 text-blue-600" /> 3-Year Trend Analysis</h3><div className="flex flex-1 pt-2 overflow-hidden"><div className="flex flex-col justify-between text-[9px] text-gray-400 pr-3 pb-8 text-right w-12 border-r"><span>{formatAxisValue(chartMax)}</span><span>{formatAxisValue(chartMax*0.5)}</span><span>0</span></div><div className="flex-1 pl-4 pb-2 relative min-h-0"><SalesTrendChart data={lineChartData} maxVal={chartMax} /></div></div></div>
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col h-80 overflow-hidden"><SimpleDonut data={pieDataGroup} title="Account Group Sales" color="blue" /></div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col h-80 overflow-hidden"><SimpleDonut data={pieDataGroup} title="Sales Mix by Group" color="blue" /></div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-96 overflow-hidden"><HorizontalBarChart data={pieDataGroup} title="Sales by Customer Group" color="blue" /></div>
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-96 overflow-hidden"><HorizontalBarChart data={topCustomersData} title="Top 10 Customers" color="emerald" /></div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-96 overflow-hidden">
+                        <HorizontalBarChart data={pieDataGroup} title="Top Customer Groups (by Value)" color="blue" />
+                    </div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-96 overflow-hidden">
+                        <GroupedCustomerAnalysis data={groupedCustomerData} />
+                    </div>
                 </div>
             </div>
         ) : activeSubTab === 'inventory' ? (
