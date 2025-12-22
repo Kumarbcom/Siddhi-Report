@@ -6,9 +6,6 @@ export interface Material {
   partNo: string;
   make: string;
   materialGroup: string;
-  uom: string;
-  unitWeight: string;
-  hsnCode: string;
   createdAt: number;
 }
 
