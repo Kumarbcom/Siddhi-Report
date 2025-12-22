@@ -1,6 +1,7 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Material, ClosingStockItem, PendingSOItem, PendingPOItem, SalesReportItem, CustomerMasterItem, SalesRecord } from '../types';
-import { TrendingUp, TrendingDown, Package, ClipboardList, ShoppingCart, Calendar, Filter, PieChart as PieIcon, BarChart3, Users, ArrowRight, Activity, DollarSign, ArrowUpRight, ArrowDownRight, RefreshCw, UserCircle, Minus, Plus, ChevronDown, ChevronUp, Link2Off, AlertTriangle, Layers, Clock, CheckCircle2, AlertCircle, User, Factory, Tag, ArrowLeft, BarChart4, Hourglass, History, AlertOctagon, ChevronRight, ListOrdered, Table, X, Search, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { TrendingUp, TrendingDown, Package, ClipboardList, ShoppingCart, Calendar, Filter, PieChart as PieIcon, BarChart3, Users, ArrowRight, Activity, DollarSign, ArrowUpRight, ArrowDownRight, RefreshCw, UserCircle, Minus, Plus, ChevronDown, ChevronUp, Link2Off, AlertTriangle, Layers, Clock, CheckCircle2, AlertCircle, User, Factory, Tag, ArrowLeft, BarChart4, Hourglass, History, AlertOctagon, ChevronRight, ListOrdered, Table, X, Search, ArrowUpDown, ArrowUp, ArrowDown, Globe } from 'lucide-react';
 
 const COLORS = ['#10B981', '#3B82F6', '#6366F1', '#8B5CF6', '#EC4899', '#F59E0B', '#EF4444', '#6B7280', '#059669', '#2563EB'];
 
@@ -13,6 +14,26 @@ const formatLargeValue = (val: number, compact: boolean = false) => {
     if (absVal >= 10000000) return `${prefix}${(val / 10000000).toFixed(2)} Cr`;
     if (absVal >= 100000) return `${prefix}${(val / 100000).toFixed(2)} L`;
     return `${prefix}${Math.round(val).toLocaleString('en-IN')}`;
+};
+
+const getBrandLogo = (brand: string) => {
+    const b = brand.toLowerCase().trim();
+    if (b === 'unspecified' || b === 'unknown' || b === 'all') return null;
+    let domain = `${b.replace(/[^a-z0-9]/g, '')}.com`;
+    // Common overrides for industrial brands
+    if (b.includes('schneider')) domain = 'se.com';
+    if (b.includes('lapp')) domain = 'lapp.com';
+    if (b.includes('eaton')) domain = 'eaton.com';
+    if (b.includes('hager')) domain = 'hager.com';
+    if (b.includes('phoenix')) domain = 'phoenixcontact.com';
+    if (b.includes('mitsubishi')) domain = 'mitsubishielectric.com';
+    if (b.includes('siemens')) domain = 'siemens.com';
+    if (b.includes('skf')) domain = 'skf.com';
+    if (b.includes('festo')) domain = 'festo.com';
+    if (b.includes('danfoss')) domain = 'danfoss.com';
+    if (b.includes('rockwell')) domain = 'rockwellautomation.com';
+    
+    return `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
 };
 
 // Refined Group Merging Logic for Siddhi Kabel - Applied to the 'Group' field
@@ -149,7 +170,7 @@ const SimpleDonut = ({ data, title, color, isCurrency = false }: { data: {label:
         <div className="flex flex-col h-full">
             <h4 className="text-[11px] font-bold text-gray-600 uppercase mb-3 border-b border-gray-100 pb-1">{title}</h4>
             <div className="flex flex-col lg:flex-row items-center gap-6 flex-1 min-h-0">
-                <div className="w-36 h-36 relative flex-shrink-0 mx-auto lg:mx-0">
+                <div className="w-48 h-48 relative flex-shrink-0 mx-auto lg:mx-0">
                    <svg viewBox="-1 -1 2 2" className="transform -rotate-90 w-full h-full">
                       {displayData.map((slice, i) => {
                           const percent = slice.value / (total || 1);
@@ -160,13 +181,13 @@ const SimpleDonut = ({ data, title, color, isCurrency = false }: { data: {label:
                           const endY = Math.sin(2 * Math.PI * cumPercent);
                           return ( <path key={i} d={`M ${startX} ${startY} A 1 1 0 ${percent > 0.5 ? 1 : 0} 1 ${endX} ${endY} L 0 0`} fill={slice.color || colorPalette[i % colorPalette.length]} stroke="white" strokeWidth="0.04" className="hover:opacity-80 transition-opacity cursor-pointer" /> );
                       })}
-                      <circle cx="0" cy="0" r="0.65" fill="white" />
+                      <circle cx="0" cy="0" r="0.7" fill="white" />
                    </svg>
                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center p-2">
-                       <span className={`text-[11px] font-black leading-none ${color === 'blue' ? 'text-blue-700' : 'text-green-700'}`}>{formatLargeValue(total, true)}</span>
+                       <span className={`text-[12px] font-black leading-none ${color === 'blue' ? 'text-blue-700' : 'text-green-700'}`}>{formatLargeValue(total, true)}</span>
                    </div>
                 </div>
-                <div className="flex-1 overflow-y-auto custom-scrollbar w-full max-h-32 lg:max-h-none">
+                <div className="flex-1 overflow-y-auto custom-scrollbar w-full max-h-40 lg:max-h-none">
                     {displayData.map((d, i) => (
                         <div key={i} className="flex justify-between items-center py-1 border-b border-gray-50 last:border-0 hover:bg-gray-50 px-1 rounded transition-colors">
                              <div className="flex items-center gap-2 truncate flex-1 min-w-0">
@@ -341,26 +362,21 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   const [timeView, setTimeView] = useState<'FY' | 'MONTH' | 'WEEK'>('FY');
   const [selectedFY, setSelectedFY] = useState<string>('');
   const [invGroupMetric, setInvGroupMetric] = useState<Metric>('value');
-  const [invSlicerMake, setInvSlicerMake] = useState<string>('ALL');
+  const [selectedMonth, setSelectedMonth] = useState<number>(0);
+  const [selectedWeek, setSelectedWeek] = useState<number>(1);
+  const [selectedSoItem, setSelectedSoItem] = useState<PendingSOItem | null>(null);
 
-  // Robust Date Parser for Dashboard
+  // Table-specific states for Inventory Snapshot
+  const [invTableSearch, setInvTableSearch] = useState('');
+  const [invTableSort, setInvTableSort] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
+  const [selectedInvMake, setSelectedInvMake] = useState<string>('ALL');
+
   const parseDate = (val: any): Date => {
     if (!val) return new Date();
     if (val instanceof Date) return val;
     if (typeof val === 'number') { return new Date((val - (25567 + 2)) * 86400 * 1000); }
-    
-    const s = String(val).trim();
-    // Try native parser first
-    let d = new Date(s);
-    if (!isNaN(d.getTime())) return d;
-    
-    // Try DD/MM/YYYY or similar if native fails
-    const parts = s.split(/[-/.]/);
-    if (parts.length === 3) {
-      if (parts[0].length === 4) d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-      else d = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
-    }
-    return isNaN(d.getTime()) ? new Date() : d;
+    const parsed = new Date(val);
+    return isNaN(parsed.getTime()) ? new Date() : parsed;
   };
 
   const getFiscalInfo = (date: Date) => {
@@ -377,17 +393,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     return { fiscalYear, fiscalMonthIndex, weekNumber: diffDays >= 0 ? Math.floor(diffDays / 7) + 2 : 1 };
   };
 
-  // Default time slices to current real-world date
-  const today = new Date();
-  const todayFiscal = getFiscalInfo(today);
-  const [selectedMonth, setSelectedMonth] = useState<number>(todayFiscal.fiscalMonthIndex);
-  const [selectedWeek, setSelectedWeek] = useState<number>(todayFiscal.weekNumber);
-  const [selectedSoItem, setSelectedSoItem] = useState<PendingSOItem | null>(null);
-
-  // Table-specific states for Inventory Snapshot
-  const [invTableSearch, setInvTableSearch] = useState('');
-  const [invTableSort, setInvTableSort] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
-
   const enrichedSales = useMemo(() => {
       const custMap = new Map<string, CustomerMasterItem>();
       customers.forEach(c => { if(c.customerName) custMap.set(String(c.customerName).toLowerCase().trim(), c); });
@@ -403,11 +408,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   const uniqueFYs = useMemo(() => Array.from(new Set(enrichedSales.map(i => i.fiscalYear))).filter(f => f !== 'N/A').sort().reverse(), [enrichedSales]);
   
   useEffect(() => { 
-    if (uniqueFYs.length > 0) {
-      // Always favor the latest FY available in the data for the default view
-      if (!selectedFY || !uniqueFYs.includes(selectedFY)) {
+    if (uniqueFYs.length > 0 && (!selectedFY || !uniqueFYs.includes(selectedFY))) {
         setSelectedFY(uniqueFYs[0]);
-      }
     }
   }, [uniqueFYs, selectedFY]);
 
@@ -494,42 +496,36 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       })).sort((a, b) => b.total - a.total);
   }, [currentData, previousDataForComparison]);
 
-  const allInventoryMakes = useMemo(() => {
-    const set = new Set<string>();
-    closingStock.forEach(i => {
-      const mat = materials.find(m => String(m.description || '').toLowerCase().trim() === String(i.description || '').toLowerCase().trim());
-      set.add(mat?.make || 'Unspecified');
-    });
-    return Array.from(set).sort();
-  }, [closingStock, materials]);
-
   const inventoryStats = useMemo(() => {
     let data = closingStock.map(i => { 
         const mat = materials.find(m => String(m.description || '').toLowerCase().trim() === String(i.description || '').toLowerCase().trim()); 
         return { ...i, make: mat ? mat.make : 'Unspecified', group: mat ? mat.materialGroup : 'Unspecified' }; 
     });
 
-    // Apply Make Slicer
-    if (invSlicerMake !== 'ALL') {
-        data = data.filter(i => i.make === invSlicerMake);
+    const uniqueMakes = Array.from(new Set(data.map(i => i.make))).sort();
+
+    // First filter by Make slicer before calculating stats
+    let dashboardData = data;
+    if (selectedInvMake !== 'ALL') {
+        dashboardData = dashboardData.filter(i => i.make === selectedInvMake);
     }
 
-    const rawTotalVal = data.reduce((a, b) => a + (b.value || 0), 0);
-    const rawTotalQty = data.reduce((a, b) => a + (b.quantity || 0), 0);
+    const rawTotalVal = dashboardData.reduce((a, b) => a + (b.value || 0), 0);
+    const rawTotalQty = dashboardData.reduce((a, b) => a + (b.quantity || 0), 0);
 
     const makeMap = new Map<string, number>();
     const groupMap = new Map<string, number>();
     
-    data.forEach(i => {
+    dashboardData.forEach(i => {
         const makeKey = i.make || 'Unspecified';
         const groupKey = i.group || 'Unspecified';
         const val = invGroupMetric === 'value' ? (i.value || 0) : (i.quantity || 0);
         makeMap.set(makeKey, (makeMap.get(makeKey) || 0) + val);
-        groupMap.set(groupKey, (groupKey.get(groupKey) || 0) + val);
+        groupMap.set(groupKey, (groupMap.get(groupKey) || 0) + val);
     });
 
-    // Filtering for the detailed table
-    let tableItems = [...data];
+    // Detailed table logic with search and sort
+    let tableItems = [...dashboardData];
     if (invTableSearch) {
         const lower = invTableSearch.toLowerCase();
         tableItems = tableItems.filter(i => 
@@ -539,7 +535,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         );
     }
 
-    // Sorting for the detailed table
     if (invTableSort) {
         tableItems.sort((a, b) => {
             const valA = (a as any)[invTableSort.key];
@@ -553,13 +548,14 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     return {
         totalVal: rawTotalVal,
         totalQty: rawTotalQty,
-        count: data.length,
+        count: dashboardData.length,
         items: tableItems,
+        uniqueMakes,
         makeMix: Array.from(makeMap.entries()).map(([label, value]) => ({ label, value })).sort((a,b) => b.value - a.value),
         groupMix: Array.from(groupMap.entries()).map(([label, value]) => ({ label, value })).sort((a,b) => b.value - a.value),
-        topStock: data.sort((a,b) => b.value - a.value).slice(0, 10).map(i => ({ label: i.description, value: i.value }))
+        topStock: dashboardData.sort((a,b) => b.value - a.value).slice(0, 10).map(i => ({ label: i.description, value: i.value }))
     };
-  }, [closingStock, materials, invGroupMetric, invTableSearch, invTableSort, invSlicerMake]);
+  }, [closingStock, materials, invGroupMetric, invTableSearch, invTableSort, selectedInvMake]);
 
   const soStats = useMemo(() => {
       const totalVal = pendingSO.reduce((a, b) => a + (b.value || 0), 0);
@@ -570,8 +566,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       
       let dueValue = 0;
       let scheduledValue = 0;
-      const todayDate = new Date();
-      todayDate.setHours(0, 0, 0, 0);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
 
       pendingSO.forEach(i => {
           custMap.set(i.partyName, (custMap.get(i.partyName) || 0) + (i.value || 0));
@@ -589,7 +585,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
           else ageingMap['90d+'] += (i.value || 0);
 
           const dueDate = parseDate(i.dueDate);
-          if (days > 0 || (dueDate.getTime() > 0 && dueDate <= todayDate)) {
+          if (days > 0 || (dueDate.getTime() > 0 && dueDate <= today)) {
               dueValue += (i.value || 0);
           } else {
               scheduledValue += (i.value || 0);
@@ -615,10 +611,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       const statusMap = { 'Overdue': 0, 'Due Today': 0, 'Due This Week': 0, 'Future': 0 };
       const groupMap = new Map<string, number>();
 
-      const todayDate = new Date();
-      todayDate.setHours(0,0,0,0);
-      const weekEnd = new Date(todayDate);
-      weekEnd.setDate(todayDate.getDate() + 7);
+      const today = new Date();
+      today.setHours(0,0,0,0);
+      const weekEnd = new Date(today);
+      weekEnd.setDate(today.getDate() + 7);
 
       pendingPO.forEach(i => {
           vendorMap.set(i.partyName, (vendorMap.get(i.partyName) || 0) + (i.value || 0));
@@ -627,8 +623,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
           groupMap.set(group, (groupMap.get(group) || 0) + (i.value || 0));
 
           const dueDate = parseDate(i.dueDate);
-          if (dueDate < todayDate) statusMap['Overdue'] += (i.value || 0);
-          else if (dueDate.getTime() === todayDate.getTime()) statusMap['Due Today'] += (i.value || 0);
+          if (dueDate < today) statusMap['Overdue'] += (i.value || 0);
+          else if (dueDate.getTime() === today.getTime()) statusMap['Due Today'] += (i.value || 0);
           else if (dueDate <= weekEnd) statusMap['Due This Week'] += (i.value || 0);
           else statusMap['Future'] += (i.value || 0);
       });
@@ -677,8 +673,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       if (!invTableSort || invTableSort.key !== key) return <ArrowUpDown className="w-3 h-3 text-gray-300" />;
       return invTableSort.direction === 'asc' ? <ArrowUp className="w-3 h-3 text-emerald-600" /> : <ArrowDown className="w-3 h-3 text-emerald-600" />;
   };
-
-  const getFiscalMonthName = (index: number) => ["April", "May", "June", "July", "August", "September", "October", "November", "December", "January", "February", "March"][index] || "";
 
   return (
     <div className="h-full w-full flex flex-col bg-gray-50/50 overflow-hidden relative">
@@ -734,22 +728,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex bg-gray-100 p-1 rounded-lg">{(['FY', 'MONTH', 'WEEK'] as const).map(v => (<button key={v} onClick={() => setTimeView(v)} className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${timeView === v ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}> {v} </button>))}</div>
               <select value={selectedFY} onChange={e => setSelectedFY(e.target.value)} className="bg-white border border-gray-300 text-xs rounded-md px-2 py-1.5 font-medium">{uniqueFYs.length > 0 ? uniqueFYs.map(fy => <option key={fy} value={fy}>{fy}</option>) : <option value="">No FY Data</option>}</select>
-              {timeView === 'MONTH' && (<select value={selectedMonth} onChange={(e) => setSelectedMonth(Number(e.target.value))} className="bg-white border border-gray-300 text-xs rounded-md px-3 py-1.5">{[0,1,2,3,4,5,6,7,8,9,10,11].map(idx => (<option key={idx} value={idx}>{getFiscalMonthName(idx)}</option>))}</select>)}
             </div>
           )}
           {activeSubTab === 'inventory' && (
-            <div className="flex flex-wrap items-center gap-4">
-                <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold text-gray-500 uppercase">Make:</span>
-                    <select 
-                      value={invSlicerMake} 
-                      onChange={(e) => setInvSlicerMake(e.target.value)}
-                      className="bg-white border border-gray-300 text-xs rounded-md px-2 py-1 outline-none font-bold text-gray-700 shadow-sm"
-                    >
-                        <option value="ALL">All Manufacturers</option>
-                        {allInventoryMakes.map(m => <option key={m} value={m}>{m}</option>)}
-                    </select>
-                </div>
+            <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2">
                     <span className="text-[10px] font-bold text-gray-500 uppercase">Metric:</span>
                     <div className="flex bg-gray-100 p-1 rounded-lg">
@@ -760,6 +742,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
           )}
       </div>
+
       <div className="flex-1 p-4 overflow-y-auto custom-scrollbar">
         {activeSubTab === 'sales' ? (
             <div className="flex flex-col gap-4">
@@ -770,8 +753,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                     <KPICard label="Avg Order Value" value={formatLargeValue(kpis.avgOrder.curr)} growth={kpis.avgOrder.growth} />
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                    <div className="lg:col-span-2 bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col h-80 overflow-hidden"><h3 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2"><TrendingUp className="w-4 h-4 text-blue-600" /> 3-Year Trend Analysis</h3><div className="flex flex-1 pt-2 overflow-hidden"><div className="flex flex-col justify-between text-[9px] text-gray-400 pr-3 pb-8 text-right w-12 border-r"><span>{formatAxisValue(chartMax)}</span><span>{formatAxisValue(chartMax*0.5)}</span><span>0</span></div><div className="flex-1 pl-4 pb-2 relative min-h-0"><SalesTrendChart data={lineChartData} maxVal={chartMax} /></div></div></div>
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col h-80 overflow-hidden"><SimpleDonut data={groupedCustomerData.map(g => ({ label: g.group, value: g.total }))} title="Sales Mix by Account Group" color="blue" isCurrency={true} /></div>
+                    <div className="lg:col-span-2 bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col h-96 overflow-hidden"><h3 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2"><TrendingUp className="w-4 h-4 text-blue-600" /> 3-Year Trend Analysis</h3><div className="flex flex-1 pt-2 overflow-hidden"><div className="flex flex-col justify-between text-[9px] text-gray-400 pr-3 pb-8 text-right w-12 border-r"><span>{formatAxisValue(chartMax)}</span><span>{formatAxisValue(chartMax*0.5)}</span><span>0</span></div><div className="flex-1 pl-4 pb-2 relative min-h-0"><SalesTrendChart data={lineChartData} maxVal={chartMax} /></div></div></div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col h-96 overflow-hidden"><SimpleDonut data={groupedCustomerData.map(g => ({ label: g.group, value: g.total }))} title="Sales Mix by Account Group" color="blue" isCurrency={true} /></div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-96 overflow-hidden">
@@ -784,22 +767,72 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
         ) : activeSubTab === 'inventory' ? (
              <div className="flex flex-col gap-4">
+                {/* Manufacturer Slicer Row */}
+                <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                        <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                            <Factory className="w-3 h-3" /> Filter by Manufacturer
+                        </h4>
+                        <span className="text-[9px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
+                            {inventoryStats.count} Items Filtered
+                        </span>
+                    </div>
+                    <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+                        <button 
+                            onClick={() => setSelectedInvMake('ALL')}
+                            className={`flex flex-col items-center justify-center min-w-[80px] h-[80px] p-2 rounded-xl border-2 transition-all shrink-0 ${selectedInvMake === 'ALL' ? 'bg-blue-50 border-blue-600 shadow-md' : 'bg-white border-gray-100 hover:border-blue-200'}`}
+                        >
+                            <div className="w-10 h-10 rounded-lg bg-blue-600 text-white flex items-center justify-center mb-1.5 shadow-sm">
+                                <Globe className="w-5 h-5" />
+                            </div>
+                            <span className={`text-[10px] font-black uppercase ${selectedInvMake === 'ALL' ? 'text-blue-700' : 'text-gray-500'}`}>All Brands</span>
+                        </button>
+                        {inventoryStats.uniqueMakes.map((make) => {
+                            const logo = getBrandLogo(make);
+                            return (
+                                <button 
+                                    key={make}
+                                    onClick={() => setSelectedInvMake(make)}
+                                    className={`flex flex-col items-center justify-center min-w-[80px] h-[80px] p-2 rounded-xl border-2 transition-all shrink-0 ${selectedInvMake === make ? 'bg-blue-50 border-blue-600 shadow-md' : 'bg-white border-gray-100 hover:border-blue-200'}`}
+                                >
+                                    <div className="w-10 h-10 rounded-lg bg-white overflow-hidden flex items-center justify-center mb-1.5 border border-gray-100 shadow-sm relative group">
+                                        {logo ? (
+                                            <img 
+                                                src={logo} 
+                                                alt={make} 
+                                                className="w-8 h-8 object-contain"
+                                                onError={(e) => { (e.target as any).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-factory"><path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M17 18h1"/><path d="M12 18h1"/><path d="M7 18h1"/></svg>'; }}
+                                            />
+                                        ) : (
+                                            <Factory className="w-5 h-5 text-gray-400" />
+                                        )}
+                                    </div>
+                                    <span className={`text-[9px] font-black uppercase truncate w-full text-center ${selectedInvMake === make ? 'text-blue-700' : 'text-gray-500'}`}>
+                                        {make}
+                                    </span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                        <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider">Total Stock Value</p>
+                        <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider">Stock Value</p>
                         <h3 className="text-xl font-extrabold text-gray-900 mt-1">{formatLargeValue(inventoryStats.totalVal)}</h3>
                     </div>
                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                        <p className="text-[10px] text-blue-600 font-bold uppercase tracking-wider">Total Qty</p>
+                        <p className="text-[10px] text-blue-600 font-bold uppercase tracking-wider">Filtered Qty</p>
                         <h3 className="text-xl font-extrabold text-gray-900 mt-1">{inventoryStats.totalQty.toLocaleString()}</h3>
                     </div>
                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                        <p className="text-[10px] text-purple-600 font-bold uppercase tracking-wider">Total SKUs</p>
+                        <p className="text-[10px] text-purple-600 font-bold uppercase tracking-wider">SKUs in View</p>
                         <h3 className="text-xl font-extrabold text-gray-900 mt-1">{inventoryStats.count}</h3>
                     </div>
                 </div>
+
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                    <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm min-h-[340px] flex flex-col">
+                    <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm min-h-[380px] flex flex-col">
                         <SimpleDonut 
                             data={inventoryStats.makeMix} 
                             title={`Inventory by Make (${invGroupMetric === 'value' ? 'Val' : 'Qty'})`} 
@@ -807,7 +840,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                             isCurrency={invGroupMetric === 'value'}
                         />
                     </div>
-                    <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm min-h-[340px] flex flex-col">
+                    <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm min-h-[380px] flex flex-col">
                         <SimpleDonut 
                             data={inventoryStats.groupMix} 
                             title={`Inventory by Group (${invGroupMetric === 'value' ? 'Val' : 'Qty'})`} 
@@ -815,7 +848,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                             isCurrency={invGroupMetric === 'value'}
                         />
                     </div>
-                    <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm min-h-[340px] flex flex-col">
+                    <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm min-h-[380px] flex flex-col">
                         <HorizontalBarChart 
                             data={inventoryStats.topStock} 
                             title="Top 10 High Value Stock Items" 
@@ -844,7 +877,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                     onChange={(e) => setInvTableSearch(e.target.value)} 
                                 />
                             </div>
-                            <span className="text-[9px] font-black text-gray-400 uppercase whitespace-nowrap">{inventoryStats.items.length} of {closingStock.length} Shown</span>
+                            <span className="text-[9px] font-black text-gray-400 uppercase whitespace-nowrap">{inventoryStats.items.length} of {inventoryStats.count} Shown</span>
                         </div>
                     </div>
                     <div className="overflow-x-auto max-h-96 custom-scrollbar">

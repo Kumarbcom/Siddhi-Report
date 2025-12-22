@@ -1,3 +1,4 @@
+
 import React, { useRef, useMemo, useState } from 'react';
 import { PendingSOItem, Material, ClosingStockItem } from '../types';
 import { Trash2, Download, Upload, ClipboardList, Search, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, Package, Clock, AlertCircle, CheckCircle2, TrendingUp, AlertOctagon, Layers, FileDown, Pencil, Save, X, Filter, CalendarCheck, CalendarDays } from 'lucide-react';
@@ -325,7 +326,6 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
                         <th className="py-2 px-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('partyName')}>Customer / Party Name {renderSortIcon('partyName')}</th>
                         <th className="py-2 px-3 cursor-pointer hover:bg-gray-100 w-56" onClick={() => handleSort('itemName')}>Name of Item {renderSortIcon('itemName')}</th>
                         <th className="py-2 px-3 text-right">Bal Qty</th>
-                        <th className="py-2 px-3 text-right cursor-pointer hover:bg-gray-100" onClick={() => handleSort('value')}>Order Value {renderSortIcon('value')}</th>
                         <th className="py-2 px-3 text-right cursor-pointer hover:bg-gray-100" onClick={() => handleSort('dueDate')}>Due On {renderSortIcon('dueDate')}</th>
                         <th className="py-2 px-3 text-center">Status</th>
                         <th className="py-2 px-3 text-center bg-gray-50 border-l border-gray-100">Stock</th>
@@ -335,7 +335,7 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 text-xs">
-                    {processedItems.length === 0 ? (<tr><td colSpan={12} className="py-8 text-center text-gray-500">No matching orders found.</td></tr>) : (
+                    {processedItems.length === 0 ? (<tr><td colSpan={11} className="py-8 text-center text-gray-500">No matching orders found.</td></tr>) : (
                         processedItems.map(item => {
                             const inMaster = materials.some(m => m.description.toLowerCase().trim() === item.itemName.toLowerCase().trim());
                             return (
@@ -347,7 +347,6 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
                                             <td className="py-2 px-3"><input type="text" className="w-full border border-purple-300 rounded px-1.5 py-0.5 text-xs focus:outline-none" value={editForm?.partyName || ''} onChange={e => handleInputChange('partyName', e.target.value)} /></td>
                                             <td className="py-2 px-3"><input type="text" className="w-full border border-purple-300 rounded px-1.5 py-0.5 text-xs focus:outline-none" value={editForm?.itemName || ''} onChange={e => handleInputChange('itemName', e.target.value)} /></td>
                                             <td className="py-2 px-3"><input type="number" className="w-full border border-purple-300 rounded px-1.5 py-0.5 text-xs text-right focus:outline-none" value={editForm?.balanceQty || 0} onChange={e => handleInputChange('balanceQty', parseFloat(e.target.value))} /></td>
-                                            <td className="py-2 px-3 text-right text-gray-400 italic">{(editForm?.balanceQty || 0) * (editForm?.rate || 0)}</td>
                                             <td className="py-2 px-3"><input type="date" className="w-full border border-purple-300 rounded px-1.5 py-0.5 text-xs focus:outline-none" value={formatInputDate(editForm?.dueDate || '')} onChange={e => handleInputChange('dueDate', e.target.value)} /></td>
                                             <td colSpan={4} className="py-2 px-3 text-center text-[10px] text-gray-400 italic">Classification dynamic</td>
                                             <td className="py-2 px-3 text-right">
@@ -369,7 +368,6 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
                                                 </div>
                                             </td>
                                             <td className="py-2 px-3 text-right font-black text-gray-900">{item.balanceQty}</td>
-                                            <td className="py-2 px-3 text-right font-bold text-emerald-700">{formatCurrency(item.value)}</td>
                                             <td className="py-2 px-3 whitespace-nowrap">
                                                 <div className="flex flex-col">
                                                     <span className="text-gray-600">{formatDateDisplay(item.dueDate)}</span>
