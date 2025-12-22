@@ -12,12 +12,17 @@ export const materialService = {
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+          if (error.code === 'PGRST116' || error.message.includes('not found')) {
+              console.error('DATABASE ERROR: The table "material_master" does not exist in your Supabase project. Please run the SQL setup script.');
+          }
+          throw error;
+      }
 
       return (data || []).map((row: any) => ({
         id: row.id,
         materialCode: row.material_code || '',
-        description: row.description,
+        description: row.description || '',
         partNo: row.part_no || '',
         make: row.make || '',
         materialGroup: row.material_group || '',
@@ -51,10 +56,12 @@ export const materialService = {
 
         const { error } = await supabase.from('material_master').insert(rows);
         if (error) throw error;
+        console.log(`Successfully synced ${rows.length} materials to Supabase.`);
     } catch (e: any) {
-        console.error('Supabase insert failed (Material Master). Data saved locally only.', e.message || e);
+        console.error('Supabase insert failed (Material Master).', e.message || e);
     }
 
+    // Always update local cache for offline/instant feedback
     const current = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify([...newItems, ...current]));
     return newItems;
@@ -75,7 +82,7 @@ export const materialService = {
         
         if (error) throw error;
     } catch (e: any) {
-        console.warn('Supabase update failed. Syncing local cache.', e.message || e);
+        console.warn('Supabase update failed.', e.message || e);
     }
 
     const current: Material[] = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
@@ -98,8 +105,13 @@ export const materialService = {
 
   async clearAll(): Promise<void> {
     try {
-      const { error } = await supabase.from('material_master').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      // Use .neq with a dummy UUID to delete everything
+      const { error } = await supabase
+        .from('material_master')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000');
       if (error) throw error;
+      console.log('Supabase Material Master cleared.');
     } catch (e: any) {
       console.error('Supabase clearAll failed (Material Master):', e.message);
     }

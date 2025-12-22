@@ -1,7 +1,7 @@
 
 import React, { useRef } from 'react';
 import { Material, MaterialFormData } from '../types';
-import { Upload, Download, Trash2, FileDown } from 'lucide-react';
+import { Upload, Download, Trash2, FileDown, CheckCircle2, AlertCircle } from 'lucide-react';
 import { read, utils, writeFile } from 'xlsx';
 
 interface AddMaterialFormProps {
@@ -21,13 +21,6 @@ const AddMaterialForm: React.FC<AddMaterialFormProps> = ({ materials, onBulkAdd,
         "Part No": "6205-2RS", 
         "Make": "SKF", 
         "Material Group": "MECH-BRG" 
-      },
-      { 
-        "Material Code": "MAT-002",
-        "Description": "Inductive Proximity Sensor", 
-        "Part No": "IME12-04NNSZC0S", 
-        "Make": "SICK", 
-        "Material Group": "ELEC-SENS" 
       }
     ];
     const ws = utils.json_to_sheet(headers);
@@ -65,58 +58,61 @@ const AddMaterialForm: React.FC<AddMaterialFormProps> = ({ materials, onBulkAdd,
       const data = utils.sheet_to_json<any>(ws);
       
       const validItems: MaterialFormData[] = data.map((row) => {
-         // Try to match common header variations case-insensitively
-         const getVal = (key: string) => {
-             const foundKey = Object.keys(row).find(k => k.toLowerCase().trim() === key.toLowerCase().trim());
-             return foundKey ? String(row[foundKey]) : '';
+         // Helper to find column regardless of exact naming/spaces/case
+         const getVal = (keyArray: string[]) => {
+             const foundKey = Object.keys(row).find(k => 
+                keyArray.some(target => k.toLowerCase().trim() === target.toLowerCase().trim())
+             );
+             return foundKey ? String(row[foundKey]).trim() : '';
          };
 
          return {
-             materialCode: getVal('material code') || getVal('code') || getVal('id'),
-             description: getVal('description') || getVal('desc'),
-             partNo: getVal('part no') || getVal('partno') || getVal('part number'),
-             make: getVal('make') || getVal('brand') || getVal('manufacturer'),
-             materialGroup: getVal('material group') || getVal('materialgroup') || getVal('group')
+             materialCode: getVal(['material code', 'code', 'id', 'mat code']),
+             description: getVal(['description', 'desc', 'item name', 'particulars']),
+             partNo: getVal(['part no', 'partno', 'part number', 'reference']),
+             make: getVal(['make', 'brand', 'manufacturer', 'mfr']),
+             materialGroup: getVal(['material group', 'materialgroup', 'group', 'category'])
          };
-      }).filter(item => item.description && item.partNo);
+      }).filter(item => item.description); // Only Description is strictly required
 
       if (validItems.length > 0) {
         onBulkAdd(validItems);
+        alert(`Successfully extracted ${validItems.length} items from Excel.`);
       } else {
-        alert("No valid material records found in the Excel file. Please ensure columns named 'Description' and 'Part No' exist.");
+        alert("No valid material records found. Please ensure your Excel has a 'Description' column.");
       }
     } catch (err) {
       console.error("Error parsing Excel:", err);
       alert("Failed to parse the Excel file. Please ensure it is a valid .xlsx or .xls file.");
     }
     
-    // Reset the input so the same file can be selected again if needed
     if (fileInputRef.current) {
         fileInputRef.current.value = '';
     }
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-4">
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-        <h2 className="text-lg font-semibold text-gray-800">Actions</h2>
-        <div className="flex flex-wrap gap-3">
+        <div className="flex items-center gap-2">
+            <h2 className="text-sm font-bold text-gray-800 uppercase tracking-tight">Data Management</h2>
+            <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold">{materials.length} Items</span>
+        </div>
+        <div className="flex flex-wrap gap-2">
             <button
                 type="button"
                 onClick={handleExport}
-                className="flex items-center gap-2 px-4 py-2 bg-white text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors border border-gray-200 shadow-sm"
-                title="Export All Materials"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-600 rounded-lg text-xs font-bold hover:bg-gray-50 transition-colors border border-gray-200 shadow-sm"
             >
-                <FileDown className="w-4 h-4" />
-                Export All
+                <FileDown className="w-3.5 h-3.5" />
+                Export
             </button>
             <button
                 type="button"
                 onClick={handleDownloadTemplate}
-                className="flex items-center gap-2 px-4 py-2 bg-white text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors border border-gray-200 shadow-sm"
-                title="Download Excel Template"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-600 rounded-lg text-xs font-bold hover:bg-gray-50 transition-colors border border-gray-200 shadow-sm"
             >
-                <Download className="w-4 h-4" />
+                <Download className="w-3.5 h-3.5" />
                 Template
             </button>
             <input 
@@ -129,20 +125,19 @@ const AddMaterialForm: React.FC<AddMaterialFormProps> = ({ materials, onBulkAdd,
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-100 transition-colors border border-blue-100"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 transition-colors shadow-sm"
             >
-              <Upload className="w-4 h-4" />
+              <Upload className="w-3.5 h-3.5" />
               Import Excel
             </button>
-            <div className="w-px h-8 bg-gray-200 mx-1 hidden sm:block"></div>
+            <div className="w-px h-6 bg-gray-200 mx-1 hidden sm:block"></div>
             <button
                 type="button"
                 onClick={onClear}
-                className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-medium hover:bg-red-100 transition-colors border border-red-100"
-                title="Clear All Material Data"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-bold hover:bg-red-100 transition-colors border border-red-100"
             >
-                <Trash2 className="w-4 h-4" />
-                Clear Data
+                <Trash2 className="w-3.5 h-3.5" />
+                Clear
             </button>
         </div>
       </div>
