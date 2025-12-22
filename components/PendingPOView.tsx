@@ -80,100 +80,116 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' } | null>(null);
   const [actionFilter, setActionFilter] = useState<PlanningActionFilter>('ALL');
 
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<PendingPOItem | null>(null);
-
-  const handleEditClick = (item: PendingPOItem) => { setEditingId(item.id); setEditForm({ ...item }); };
-  const handleCancelEdit = () => { setEditingId(null); setEditForm(null); };
-  const handleSaveEdit = () => {
-    if (editForm) {
-      const val = (editForm.balanceQty || 0) * (editForm.rate || 0);
-      onUpdate({ ...editForm, value: val });
-      setEditingId(null);
-      setEditForm(null);
-    }
-  };
-  const handleInputChange = (field: keyof PendingPOItem, value: any) => { if (editForm) setEditForm({ ...editForm, [field]: value }); };
-
   const formatDateDisplay = (dateVal: string | Date | number) => { 
       if (!dateVal) return '-'; 
       let date = parseDate(dateVal);
       if (date && !isNaN(date.getTime()) && date.getTime() > 0) return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
       return String(dateVal); 
   };
-  const formatInputDate = (dateVal: string | Date | number) => { if (!dateVal) return ''; let date = parseDate(dateVal); if (date && !isNaN(date.getTime())) return date.toISOString().split('T')[0]; return ''; };
   const formatCurrency = (val: number) => `Rs. ${Math.round(val).toLocaleString('en-IN')}`;
 
-  // --- STRATEGY CALCULATION LOGIC ---
+  // --- RECONCILED SUPPLY MAPPING (IDENTICAL TO STRATEGY REPORT) ---
   const supplyMap = useMemo(() => {
-      const map = new Map<string, { excessPO: number, poNeed: number, expedite: number, rate: number }>();
-      const stockMap = new Map<string, { qty: number, val: number }>();
-      closingStockItems.forEach(i => {
-          const k = i.description.toLowerCase().trim();
-          const ex = stockMap.get(k) || { qty: 0, val: 0 };
-          stockMap.set(k, { qty: ex.qty + i.quantity, val: ex.val + i.value });
-      });
-      const soMap = new Map<string, { qty: number, val: number }>();
-      pendingSOItems.forEach(i => {
-          const k = i.itemName.toLowerCase().trim();
-          const ex = soMap.get(k) || { qty: 0, val: 0 };
-          soMap.set(k, { qty: ex.qty + i.balanceQty, val: ex.val + i.value });
-      });
-      const poMap = new Map<string, { qty: number, val: number }>();
-      items.forEach(i => {
-          const k = i.itemName.toLowerCase().trim();
-          const ex = poMap.get(k) || { qty: 0, val: 0 };
-          poMap.set(k, { qty: ex.qty + i.balanceQty, val: ex.val + i.value });
-      });
+    // 1. Create Index Maps for fast lookup
+    const stockMap = new Map<string, { qty: number; val: number }>();
+    closingStockItems.forEach(i => {
+        const key = String(i.description || '').toLowerCase().trim();
+        if (!key) return;
+        const ex = stockMap.get(key) || { qty: 0, val: 0 };
+        stockMap.set(key, { qty: ex.qty + i.quantity, val: ex.val + i.value });
+    });
 
-      const oneYearAgo = new Date(); oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-      const sales1yMap = new Map<string, { qty: number, val: number }>();
-      salesReportItems.forEach(i => {
-          if (parseDate(i.date) >= oneYearAgo) {
-              const k = i.particulars.toLowerCase().trim();
-              const ex = sales1yMap.get(k) || { qty: 0, val: 0 };
-              sales1yMap.set(k, { qty: ex.qty + i.quantity, val: ex.val + i.value });
-          }
-      });
+    const soMap = new Map<string, { qty: number; val: number }>();
+    pendingSOItems.forEach(i => {
+        const key = String(i.itemName || '').toLowerCase().trim();
+        if (!key) return;
+        const ex = soMap.get(key) || { qty: 0, val: 0 };
+        soMap.set(key, { qty: ex.qty + i.balanceQty, val: ex.val + i.value });
+    });
 
-      materials.forEach(mat => {
-          const k = mat.description.toLowerCase().trim();
-          const group = String(mat.materialGroup || '').trim();
-          const isPlanned = PLANNED_STOCK_GROUPS.has(group.toLowerCase());
-          
-          const s = stockMap.get(k) || { qty: 0, val: 0 };
-          const so = soMap.get(k) || { qty: 0, val: 0 };
-          const po = poMap.get(k) || { qty: 0, val: 0 };
-          const s1 = sales1yMap.get(k) || { qty: 0, val: 0 };
+    const poMap = new Map<string, { qty: number; val: number }>();
+    items.forEach(i => {
+        const key = String(i.itemName || '').toLowerCase().trim();
+        if (!key) return;
+        const ex = poMap.get(key) || { qty: 0, val: 0 };
+        poMap.set(key, { qty: ex.qty + i.balanceQty, val: ex.val + i.value });
+    });
 
-          const avg1yQty = s1.qty / 12;
-          const rate = s.qty > 0 ? s.val / s.qty : (po.qty > 0 ? po.val / po.qty : 0);
-          
-          let maxStock = 0;
-          if (isPlanned) { maxStock = roundToTen(avg1yQty * 3); }
+    const oneYearAgo = new Date(); 
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+    const sales1yMap = new Map<string, { qty: number; val: number }>();
+    salesReportItems.forEach(i => {
+        if (parseDate(i.date) >= oneYearAgo) {
+            const key = String(i.particulars || '').toLowerCase().trim();
+            if (!key) return;
+            const ex = sales1yMap.get(key) || { qty: 0, val: 0 };
+            sales1yMap.set(key, { qty: ex.qty + (i.quantity || 0), val: ex.val + (i.value || 0) });
+        }
+    });
 
-          const netQty = s.qty + po.qty - so.qty;
-          const excessStockThreshold = so.qty + maxStock;
-          const excessStockQty = Math.max(0, s.qty - excessStockThreshold);
-          const totalProjectedExcess = Math.max(0, netQty - maxStock);
-          const excessPOQty = Math.max(0, totalProjectedExcess - excessStockQty);
-          
-          const deficit = maxStock - netQty;
-          const poNeedQty = deficit > 0 ? deficit : 0;
-          
-          const immediateGap = (so.qty + maxStock) - s.qty;
-          const expediteQty = (immediateGap > 0 && po.qty > 0) ? Math.min(po.qty, immediateGap) : 0;
+    const resultMap = new Map<string, { excessPO: number, poNeed: number, expedite: number, rate: number }>();
 
-          map.set(k, { excessPO: excessPOQty, poNeed: poNeedQty, expedite: expediteQty, rate });
-      });
-      return map;
+    materials.forEach(mat => {
+        const descKey = String(mat.description || '').toLowerCase().trim();
+        const partKey = String(mat.partNo || '').toLowerCase().trim();
+        const group = String(mat.materialGroup || '').toLowerCase().trim();
+        const isPlanned = PLANNED_STOCK_GROUPS.has(group);
+        
+        const s = stockMap.get(descKey) || { qty: 0, val: 0 };
+        const so = soMap.get(descKey) || { qty: 0, val: 0 };
+        const po = poMap.get(descKey) || { qty: 0, val: 0 };
+        
+        // Sales Dual Match (Essential for PO Need calculation matching Strategy Report)
+        const s1Part = sales1yMap.get(partKey) || { qty: 0, val: 0 };
+        const s1Desc = sales1yMap.get(descKey) || { qty: 0, val: 0 };
+        let s1TotalQty = 0;
+        if (partKey && descKey && partKey !== descKey) {
+            s1TotalQty = s1Part.qty + s1Desc.qty;
+        } else {
+            s1TotalQty = s1Desc.qty > 0 ? s1Desc.qty : s1Part.qty;
+        }
+
+        const avg1yQty = s1TotalQty / 12;
+        
+        // Accurate Rate Hierarchy
+        let avgRate = 0;
+        if (s.qty > 0) avgRate = s.val / s.qty;
+        else if (po.qty > 0) avgRate = po.val / po.qty;
+        else if (so.qty > 0) avgRate = so.val / so.qty;
+
+        let maxStock = 0;
+        if (isPlanned) {
+            maxStock = roundToTen(avg1yQty * 3);
+        }
+
+        const netQty = s.qty + po.qty - so.qty;
+        
+        // Actions
+        const excessStockThreshold = so.qty + maxStock;
+        const excessStockQty = Math.max(0, s.qty - excessStockThreshold);
+        
+        const totalProjectedExcess = Math.max(0, netQty - maxStock);
+        const excessPOQty = Math.max(0, totalProjectedExcess - excessStockQty);
+        
+        const deficit = maxStock - netQty;
+        const poNeedQty = deficit > 0 ? deficit : 0;
+        
+        const immediateGap = (so.qty + maxStock) - s.qty;
+        const expediteQty = (immediateGap > 0 && po.qty > 0) ? Math.min(po.qty, immediateGap) : 0;
+
+        if (excessPOQty > 0 || poNeedQty > 0 || expediteQty > 0) {
+            resultMap.set(descKey, { excessPO: excessPOQty, poNeed: poNeedQty, expedite: expediteQty, rate: avgRate });
+        }
+    });
+    
+    return resultMap;
   }, [items, closingStockItems, pendingSOItems, salesReportItems, materials]);
 
   const optimizationStats = useMemo(() => {
       let eVal = 0, eCount = 0, nVal = 0, nCount = 0, xVal = 0, xCount = 0, dueVal = 0;
       const today = new Date(); today.setHours(0,0,0,0);
 
-      supplyMap.forEach((v, key) => {
+      supplyMap.forEach((v) => {
           if (v.poNeed > 0) { nVal += v.poNeed * v.rate; nCount++; }
           if (v.expedite > 0) { eVal += v.expedite * v.rate; eCount++; }
           if (v.excessPO > 0) { xVal += v.excessPO * v.rate; xCount++; }
@@ -262,12 +278,12 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
                         <th className="py-2 px-3 font-semibold text-right">Act</th>
                     </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
+                <tbody className="divide-y divide-gray-200 text-xs text-gray-700">
                     {processedItems.length === 0 ? (<tr><td colSpan={9} className="py-8 text-center text-gray-500 text-xs">No records found.</td></tr>) : (
                         processedItems.map(item => {
                             const strat = supplyMap.get(item.itemName.toLowerCase().trim());
                             return (
-                                <tr key={item.id} className="hover:bg-orange-50/20 transition-colors text-xs text-gray-700">
+                                <tr key={item.id} className="hover:bg-orange-50/20 transition-colors">
                                     <td className="py-2 px-3 whitespace-nowrap">{formatDateDisplay(item.date)}</td>
                                     <td className="py-2 px-3 font-medium whitespace-nowrap">{item.orderNo}</td>
                                     <td className="py-2 px-3 truncate max-w-[120px]">{item.partyName}</td>
