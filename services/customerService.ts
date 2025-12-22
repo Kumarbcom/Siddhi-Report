@@ -1,3 +1,4 @@
+
 import { supabase } from './supabase';
 import { CustomerMasterItem } from '../types';
 
@@ -13,20 +14,17 @@ export const customerService = {
 
       if (error) throw error;
 
-      const items = (data || []).map((row: any) => ({
+      return (data || []).map((row: any) => ({
         id: row.id,
-        customerName: row.customer_name || '',
-        group: row.group_name || '',
-        salesRep: row.sales_rep || '',
-        status: row.status || '',
-        customerGroup: row.customer_group || '',
+        customerName: row.customer_name,
+        group: row.group_name,
+        salesRep: row.sales_rep,
+        status: row.status,
+        customerGroup: row.customer_group,
         createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now()
       }));
-
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(items));
-      return items;
     } catch (e) {
-      console.warn('Supabase fetch failed (Customers), using local storage fallback.', e);
+      console.warn('Supabase fetch failed (Customers), using local storage.', e);
       const local = localStorage.getItem(LOCAL_STORAGE_KEY);
       return local ? JSON.parse(local) : [];
     }
@@ -49,11 +47,10 @@ export const customerService = {
         const { error } = await supabase.from('customer_master').insert(rows);
         if (error) throw error;
     } catch (e) {
-        console.warn('Supabase insert failed (Customers).', e);
+        console.warn('Supabase insert failed (Customers), saving locally.', e);
+        const current = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify([...newItems, ...current]));
     }
-
-    const current = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify([...newItems, ...current]));
     return newItems;
   },
 
@@ -70,8 +67,6 @@ export const customerService = {
     } catch (e) {
         console.warn('Supabase update failed (Customers).', e);
     }
-    const current: CustomerMasterItem[] = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(current.map(i => i.id === item.id ? item : i)));
   },
 
   async delete(id: string): Promise<void> {
@@ -81,8 +76,6 @@ export const customerService = {
     } catch (e) {
         console.warn('Supabase delete failed (Customers).', e);
     }
-    const current: CustomerMasterItem[] = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(current.filter(i => i.id !== id)));
   },
 
   async clearAll(): Promise<void> {

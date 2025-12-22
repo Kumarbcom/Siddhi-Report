@@ -1,5 +1,26 @@
+
 import { supabase } from './supabase';
 import { Material, MaterialFormData } from '../types';
+
+/**
+ * DATABASE SCHEMA (SQL) - Run this in Supabase SQL Editor:
+ * 
+ * CREATE TABLE material_master (
+ *   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+ *   material_code TEXT,
+ *   description TEXT NOT NULL,
+ *   part_no TEXT,
+ *   make TEXT,
+ *   material_group TEXT,
+ *   created_at TIMESTAMPTZ DEFAULT now()
+ * );
+ * 
+ * -- Enable Row Level Security (RLS)
+ * ALTER TABLE material_master ENABLE ROW LEVEL SECURITY;
+ * 
+ * -- Create a policy for public access (or update for authenticated users)
+ * CREATE POLICY "Allow public full access" ON material_master FOR ALL USING (true);
+ */
 
 const LOCAL_STORAGE_KEY = 'material_master_db_v1';
 
@@ -11,9 +32,16 @@ export const materialService = {
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+          if (error.code === 'PGRST116' || error.message.includes('relation "material_master" does not exist')) {
+              console.error('DATABASE LINK ERROR: The table "material_master" was not found in your Supabase database. Please run the SQL setup script.');
+          }
+          throw error;
+      }
 
-      const items = (data || []).map((row: any) => ({
+      console.log(`Supabase Linked: Fetched ${data?.length || 0} Material records.`);
+
+      return (data || []).map((row: any) => ({
         id: row.id,
         materialCode: row.material_code || '',
         description: row.description || '',
@@ -22,10 +50,6 @@ export const materialService = {
         materialGroup: row.material_group || '',
         createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now()
       }));
-
-      // Cache to local storage
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(items));
-      return items;
     } catch (e: any) {
       console.warn('LINKING FAILED: Using Local Browser Storage fallback.', e.message || e);
       const local = localStorage.getItem(LOCAL_STORAGE_KEY);
@@ -54,9 +78,10 @@ export const materialService = {
 
         const { error } = await supabase.from('material_master').insert(rows);
         if (error) throw error;
+        
         console.log(`Supabase Success: Synced ${rows.length} materials.`);
     } catch (e: any) {
-        console.error('SUPABASE SYNC ERROR:', e.message || e);
+        console.error('SUPABASE SYNC ERROR: Data was saved to Local Storage ONLY.', e.message || e);
     }
 
     const current = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');

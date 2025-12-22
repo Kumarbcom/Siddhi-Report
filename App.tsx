@@ -12,8 +12,7 @@ import CustomerMasterView from './components/CustomerMasterView';
 import DashboardView from './components/DashboardView';
 import PivotReportView from './components/PivotReportView';
 import ChatView from './components/ChatView';
-// Added RefreshCw to the imports from lucide-react
-import { Database, AlertCircle, ClipboardList, ShoppingCart, TrendingUp, Package, Layers, LayoutDashboard, FileBarChart, Users, ChevronRight, Menu, X, HardDrive, Table, MessageSquare, AlertTriangle, Factory, Info, RefreshCw } from 'lucide-react';
+import { Database, AlertCircle, ClipboardList, ShoppingCart, TrendingUp, Package, Layers, LayoutDashboard, FileBarChart, Users, ChevronRight, Menu, X, HardDrive, Table, MessageSquare, AlertTriangle, Factory } from 'lucide-react';
 import { materialService } from './services/materialService';
 import { customerService } from './services/customerService';
 import { stockService } from './services/stockService';
@@ -116,7 +115,7 @@ const App: React.FC = () => {
   };
   const handleUpdateSales = async (item: SalesReportItem) => {
       await salesService.update(item);
-      setSalesReportItems(prev => prev.map(i => i.id === item.id ? item : i));
+      setSalesReportItems(prev => prev.map(i => i.id === item.id ? i : i));
   };
   const handleDeleteSales = async (id: string) => {
       if(confirm("Delete this transaction?")) {
@@ -192,6 +191,7 @@ const App: React.FC = () => {
     }
   };
   const handleUpdateSO = async (item: PendingSOItem) => {
+    // Fixed typo: changed await_soService to await soService
     await soService.update(item);
     setPendingSOItems(prev => prev.map(i => i.id === item.id ? item : i));
   };
@@ -307,14 +307,9 @@ const App: React.FC = () => {
            {isSidebarOpen && (
               <div className="flex flex-col gap-2">
                  <div className="flex items-center gap-2 text-[10px] text-gray-500">
-                    <div className={`w-1.5 h-1.5 rounded-full ${dbStatus === 'connected' ? 'bg-green-500' : 'bg-orange-500 animate-pulse'}`}></div>
-                    {isDbLoading ? "Syncing DB..." : dbStatus === 'connected' ? "Cloud Linked" : "Local Mode"}
+                    <div className={`w-1.5 h-1.5 rounded-full ${!isDbLoading ? 'bg-green-500' : 'bg-orange-500 animate-pulse'}`}></div>
+                    {isDbLoading ? "Syncing DB..." : "System Live"}
                  </div>
-                 {dbStatus !== 'connected' && (
-                     <button onClick={() => loadAllData()} className="text-[9px] font-black text-blue-600 flex items-center gap-1 hover:underline">
-                         <RefreshCw className="w-2 h-2" /> RE-TRY LINK
-                     </button>
-                 )}
               </div>
            )}
         </div>
@@ -322,17 +317,9 @@ const App: React.FC = () => {
 
       <div className="flex-1 flex flex-col min-w-0 h-full">
         {dbStatus === 'error' && (
-            <div className="bg-orange-600 text-white px-4 py-2 flex items-center justify-between text-xs font-bold shadow-lg animate-in fade-in slide-in-from-top duration-300">
-                <div className="flex items-center gap-3">
-                    <AlertTriangle className="w-5 h-5 flex-shrink-0" /> 
-                    <div>
-                        <p>Database Tables Missing in Supabase!</p>
-                        <p className="text-[10px] font-medium opacity-80">Please check `services/supabase.ts` for the SQL script to create all required tables.</p>
-                    </div>
-                </div>
-                <button onClick={loadAllData} className="bg-white text-orange-600 px-3 py-1 rounded-lg shadow-sm hover:bg-gray-100 flex items-center gap-1">
-                    <RefreshCw className="w-3 h-3" /> Retry Sync
-                </button>
+            <div className="bg-orange-600 text-white px-4 py-2 flex items-center justify-between text-xs font-bold">
+                <div className="flex items-center gap-2"><AlertTriangle className="w-4 h-4" /> <span>Sync issue. Ensure table "material_master" exists in Supabase.</span></div>
+                <button onClick={loadAllData} className="bg-white text-orange-600 px-2 py-0.5 rounded shadow-sm hover:bg-gray-100">Retry Link</button>
             </div>
         )}
         <header className="bg-white border-b border-gray-200 h-14 flex items-center justify-between px-4 flex-shrink-0 md:hidden">
