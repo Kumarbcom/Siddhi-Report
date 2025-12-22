@@ -30,13 +30,12 @@ export const salesService = {
       const { data, error } = await supabase
         .from('sales_report')
         .select('*')
-        .limit(5000)
+        .limit(10000)
         .order('date', { ascending: false });
 
       if (error) {
-        // Specifically handle "table not found" to avoid generic [object Object] errors
         if (error.code === 'PGRST116' || error.message.includes('not found')) {
-            console.error('DATABASE ERROR: sales_report table is missing in Supabase. Run the SQL schema script.');
+            console.error('DATABASE ERROR: sales_report table is missing in Supabase.');
         }
         throw error;
       }
@@ -54,7 +53,7 @@ export const salesService = {
         createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now()
       }));
     } catch (e: any) {
-      console.warn('Supabase fetch failed (Sales). Falling back to local IndexedDB.', e.message || e);
+      console.warn('Supabase fetch failed (Sales). Using local IndexedDB.', e.message || e);
       return await dbService.getAllSales();
     }
   },
@@ -63,7 +62,6 @@ export const salesService = {
     const timestamp = Date.now();
     const newItems = items.map(i => ({ ...i, id: crypto.randomUUID(), createdAt: timestamp }));
     
-    let sbSuccess = false;
     try {
         const CHUNK_SIZE = 500;
         for (let i = 0; i < newItems.length; i += CHUNK_SIZE) {
@@ -82,15 +80,12 @@ export const salesService = {
             const { error } = await supabase.from('sales_report').insert(chunk);
             if (error) throw error;
         }
-        sbSuccess = true;
     } catch (e: any) {
-        console.warn('Supabase insert failed (Sales). Saving to local IndexedDB.', e.message || e);
+        console.warn('Supabase insert failed. Saving to local IndexedDB.', e.message || e);
     }
 
-    if (!sbSuccess) {
-        await dbService.addSalesBatch(newItems as SalesReportItem[]);
-    }
-    
+    // Always update local cache to keep UI responsive
+    await dbService.addSalesBatch(newItems as SalesReportItem[]);
     return newItems as SalesReportItem[];
   },
 
@@ -109,8 +104,8 @@ export const salesService = {
         if (error) throw error;
     } catch (e: any) { 
         console.warn('Supabase update failed.', e.message || e);
-        await dbService.updateSale(item);
     }
+    await dbService.updateSale(item);
   },
 
   async delete(id: string): Promise<void> {
@@ -119,16 +114,25 @@ export const salesService = {
         if (error) throw error;
     } catch (e: any) { 
         console.warn('Supabase delete failed.', e.message || e);
-        await dbService.deleteSale(id);
     }
+    await dbService.deleteSale(id);
   },
 
   async clearAll(): Promise<void> {
       try {
-          const { error } = await supabase.from('sales_report').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+          // Use .neq with a dummy value to delete all rows
+          const { error } = await supabase
+            .from('sales_report')
+            .delete()
+            .neq('id', '00000000-0000-0000-0000-000000000000');
+          
           if (error) throw error;
+          console.log('Supabase: Sales report cleared.');
       } catch (e: any) {
-          console.warn('Supabase clear failed.', e.message || e);
+          console.error('Supabase clear failed:', e.message || e);
+          alert('Could not clear remote database. Clearing local data only.');
+      } finally {
+          // Crucial: Always clear the local IndexedDB to keep UI in sync
           await dbService.clearAllSales();
       }
   }

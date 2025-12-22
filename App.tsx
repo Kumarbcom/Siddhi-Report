@@ -100,7 +100,13 @@ const App: React.FC = () => {
     setMaterials(prev => prev.map(m => m.id === item.id ? item : m));
   };
   const handleDeleteMaterial = async (id: string) => {
-    if (confirm("Delete?")) { await materialService.delete(id); setMaterials(prev => prev.filter(m => m.id !== id)); }
+    if (confirm("Delete material record?")) { await materialService.delete(id); setMaterials(prev => prev.filter(m => m.id !== id)); }
+  };
+  const handleClearMaterials = async () => {
+      if(confirm("DANGER: This will permanently delete ALL Material Master records from Supabase and local storage. Continue?")) {
+          await materialService.clearAll();
+          setMaterials([]);
+      }
   };
 
   const handleBulkAddSales = async (items: any) => {
@@ -112,20 +118,29 @@ const App: React.FC = () => {
       setSalesReportItems(prev => prev.map(i => i.id === item.id ? item : i));
   };
   const handleDeleteSales = async (id: string) => {
-      await salesService.delete(id);
-      setSalesReportItems(prev => prev.filter(i => i.id !== id));
+      if(confirm("Delete this transaction?")) {
+        await salesService.delete(id);
+        setSalesReportItems(prev => prev.filter(i => i.id !== id));
+      }
   };
   const handleClearSales = async () => {
-      if(confirm("Clear all sales data?")) {
+      if(confirm("DANGER: This will permanently delete ALL sales records from Supabase and Local storage. Continue?")) {
           await salesService.clearAll();
           setSalesReportItems([]);
       }
   };
 
   const handleBulkAddCustomer = async (items: any) => { const newItems = await customerService.createBulk(items); setCustomerMasterItems(prev => [...newItems, ...prev]); };
+  const handleClearCustomers = async () => { if(confirm("DANGER: This will permanently delete ALL Customer Master records from Supabase and local storage. Continue?")) { await customerService.clearAll(); setCustomerMasterItems([]); } };
+  
   const handleBulkAddStock = async (items: any) => { const newItems = await stockService.createBulk(items); setClosingStockItems(prev => [...newItems, ...prev]); };
+  const handleClearStock = async () => { if(confirm("DANGER: This will permanently delete ALL Closing Stock records from Supabase and local storage. Continue?")) { await stockService.clearAll(); setClosingStockItems([]); } };
+  
   const handleBulkAddSO = async (items: any) => { const newItems = await soService.createBulk(items); setPendingSOItems(prev => [...newItems, ...prev]); };
+  const handleClearSO = async () => { if(confirm("DANGER: This will permanently delete ALL Pending SO records from Supabase and local storage. Continue?")) { await soService.clearAll(); setPendingSOItems([]); } };
+  
   const handleBulkAddPO = async (items: any) => { const newItems = await poService.createBulk(items); setPendingPOItems(prev => [...newItems, ...prev]); };
+  const handleClearPO = async () => { if(confirm("DANGER: This will permanently delete ALL Pending PO records from Supabase and local storage. Continue?")) { await poService.clearAll(); setPendingPOItems([]); } };
 
   const makeStats = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -209,7 +224,7 @@ const App: React.FC = () => {
       <div className="flex-1 flex flex-col min-w-0 h-full">
         {dbStatus === 'error' && (
             <div className="bg-red-600 text-white px-4 py-2 flex items-center justify-between text-xs font-bold">
-                <div className="flex items-center gap-2"><AlertTriangle className="w-4 h-4" /> <span>Database tables (sales_report, material_master) missing in Supabase! Ensure schemas are created.</span></div>
+                <div className="flex items-center gap-2"><AlertTriangle className="w-4 h-4" /> <span>Database connection issue. Ensure your tables exist in Supabase!</span></div>
                 <button onClick={loadAllData} className="bg-white text-red-600 px-2 py-0.5 rounded shadow-sm hover:bg-gray-100">Retry</button>
             </div>
         )}
@@ -242,15 +257,15 @@ const App: React.FC = () => {
                 </div>
               </div>
               <div className="flex-1 w-full min-w-0 flex flex-col gap-3 h-full overflow-hidden">
-                <AddMaterialForm materials={materials} onBulkAdd={handleBulkAddMaterial} onClear={() => {}} />
+                <AddMaterialForm materials={materials} onBulkAdd={handleBulkAddMaterial} onClear={handleClearMaterials} />
                 <div className="flex-1 min-h-0"><MaterialTable materials={filteredMaterials} onUpdate={handleUpdateMaterial} onDelete={handleDeleteMaterial} /></div>
               </div>
             </div>
           )}
-          {activeTab === 'customerMaster' && <div className="h-full w-full"><CustomerMasterView items={customerMasterItems} onBulkAdd={handleBulkAddCustomer} onUpdate={() => {}} onDelete={() => {}} onClear={() => {}} /></div>}
-          {activeTab === 'closingStock' && <div className="h-full w-full"><ClosingStockView items={closingStockItems} materials={materials} onBulkAdd={handleBulkAddStock} onUpdate={() => {}} onDelete={() => {}} onClear={() => {}} /></div>}
-          {activeTab === 'pendingSO' && <div className="h-full w-full"><PendingSOView items={pendingSOItems} materials={materials} closingStockItems={closingStockItems} onBulkAdd={handleBulkAddSO} onUpdate={() => {}} onDelete={() => {}} onClear={() => {}} /></div>}
-          {activeTab === 'pendingPO' && <div className="h-full w-full"><PendingPOView items={pendingPOItems} materials={materials} closingStockItems={closingStockItems} onBulkAdd={handleBulkAddPO} onUpdate={() => {}} onDelete={() => {}} onClear={() => {}} /></div>}
+          {activeTab === 'customerMaster' && <div className="h-full w-full"><CustomerMasterView items={customerMasterItems} onBulkAdd={handleBulkAddCustomer} onUpdate={handleUpdateSales} onDelete={handleDeleteSales} onClear={handleClearCustomers} /></div>}
+          {activeTab === 'closingStock' && <div className="h-full w-full"><ClosingStockView items={closingStockItems} materials={materials} onBulkAdd={handleBulkAddStock} onUpdate={() => {}} onDelete={() => {}} onClear={handleClearStock} /></div>}
+          {activeTab === 'pendingSO' && <div className="h-full w-full"><PendingSOView items={pendingSOItems} materials={materials} closingStockItems={closingStockItems} onBulkAdd={handleBulkAddSO} onUpdate={() => {}} onDelete={() => {}} onClear={handleClearSO} /></div>}
+          {activeTab === 'pendingPO' && <div className="h-full w-full"><PendingPOView items={pendingPOItems} materials={materials} closingStockItems={closingStockItems} onBulkAdd={handleBulkAddPO} onUpdate={() => {}} onDelete={() => {}} onClear={handleClearPO} /></div>}
           {activeTab === 'salesReport' && <div className="h-full w-full"><SalesReportView items={salesReportItems} materials={materials} customers={customerMasterItems} onBulkAdd={handleBulkAddSales} onUpdate={handleUpdateSales} onDelete={handleDeleteSales} onClear={handleClearSales} /></div>}
         </main>
       </div>

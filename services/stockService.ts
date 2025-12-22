@@ -63,5 +63,15 @@ export const stockService = {
         const { error } = await supabase.from('closing_stock').delete().eq('id', id);
         if (error) throw error;
     } catch (e) { console.warn('Supabase delete failed.', e); }
+  },
+
+  async clearAll(): Promise<void> {
+    try {
+      const { error } = await supabase.from('closing_stock').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      if (error) throw error;
+    } catch (e: any) {
+      console.error('Supabase clearAll failed (Stock):', e.message);
+    }
+    localStorage.removeItem(LOCAL_STORAGE_KEY);
   }
 };

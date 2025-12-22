@@ -2,24 +2,6 @@
 import { supabase } from './supabase';
 import { Material, MaterialFormData } from '../types';
 
-/**
- * SQL SCHEMA FOR material_master TABLE:
- * 
- * CREATE TABLE IF NOT EXISTS public.material_master (
- *   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
- *   material_code TEXT UNIQUE,
- *   description TEXT NOT NULL,
- *   part_no TEXT,
- *   make TEXT,
- *   material_group TEXT,
- *   created_at TIMESTAMPTZ DEFAULT NOW()
- * );
- * 
- * -- Enable public access for demo (configure RLS for production)
- * ALTER TABLE public.material_master ENABLE ROW LEVEL SECURITY;
- * CREATE POLICY "Allow public access" ON public.material_master FOR ALL USING (true) WITH CHECK (true);
- */
-
 const LOCAL_STORAGE_KEY = 'material_master_db_v1';
 
 export const materialService = {
@@ -112,5 +94,15 @@ export const materialService = {
     const current: Material[] = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
     const updated = current.filter(m => m.id !== id);
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
+  },
+
+  async clearAll(): Promise<void> {
+    try {
+      const { error } = await supabase.from('material_master').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      if (error) throw error;
+    } catch (e: any) {
+      console.error('Supabase clearAll failed (Material Master):', e.message);
+    }
+    localStorage.removeItem(LOCAL_STORAGE_KEY);
   }
 };

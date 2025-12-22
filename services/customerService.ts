@@ -76,5 +76,15 @@ export const customerService = {
     } catch (e) {
         console.warn('Supabase delete failed (Customers).', e);
     }
+  },
+
+  async clearAll(): Promise<void> {
+    try {
+      const { error } = await supabase.from('customer_master').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      if (error) throw error;
+    } catch (e: any) {
+      console.error('Supabase clearAll failed (Customers):', e.message);
+    }
+    localStorage.removeItem(LOCAL_STORAGE_KEY);
   }
 };
