@@ -323,7 +323,7 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
                     <tr className="border-b border-gray-200">
                         <th className="py-2 px-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('date')}>Date {renderSortIcon('date')}</th>
                         <th className="py-2 px-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('orderNo')}>Order {renderSortIcon('orderNo')}</th>
-                        <th className="py-2 px-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('partyName')}>Party's Name {renderSortIcon('partyName')}</th>
+                        <th className="py-2 px-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('partyName')}>Customer / Party Name {renderSortIcon('partyName')}</th>
                         <th className="py-2 px-3 cursor-pointer hover:bg-gray-100 w-56" onClick={() => handleSort('itemName')}>Name of Item {renderSortIcon('itemName')}</th>
                         <th className="py-2 px-3 text-right">Bal Qty</th>
                         <th className="py-2 px-3 text-right cursor-pointer hover:bg-gray-100" onClick={() => handleSort('dueDate')}>Due On {renderSortIcon('dueDate')}</th>
@@ -360,11 +360,11 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
                                         <>
                                             <td className="py-2 px-3 text-gray-500 whitespace-nowrap">{formatDateDisplay(item.date)}</td>
                                             <td className="py-2 px-3 font-medium text-gray-800 whitespace-nowrap">{item.orderNo}</td>
-                                            <td className="py-2 px-3 text-gray-700 max-w-[120px] truncate" title={item.partyName}>{item.partyName}</td>
-                                            <td className="py-2 px-3 text-gray-800 max-w-[200px]">
+                                            <td className="py-2 px-3 font-bold text-gray-900 max-w-[120px] truncate" title={item.partyName}>{item.partyName}</td>
+                                            <td className="py-2 px-3 max-w-[200px]">
                                                 <div className="flex flex-col">
-                                                    <span className="font-medium line-clamp-1" title={item.itemName}>{item.itemName}</span>
-                                                    {!inMaster && <span className="inline-flex items-center gap-0.5 mt-0.5 text-[8px] text-red-600 bg-red-50 px-1 py-px rounded border border-red-100 w-fit whitespace-nowrap font-bold"><AlertTriangle className="w-2 h-2" /> Missing in Master</span>}
+                                                    <span className="font-bold text-gray-800 truncate" title={item.itemName}>{item.itemName}</span>
+                                                    {!inMaster && <span className="inline-flex items-center gap-0.5 mt-0.5 text-[8px] text-red-600 bg-red-50 px-1 py-px rounded border border-red-100 w-fit whitespace-nowrap font-black"><AlertTriangle className="w-2 h-2" /> Missing in Master</span>}
                                                 </div>
                                             </td>
                                             <td className="py-2 px-3 text-right font-black text-gray-900">{item.balanceQty}</td>

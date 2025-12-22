@@ -1,7 +1,8 @@
 
 import React, { useRef, useMemo, useState } from 'react';
 import { PendingPOItem, Material, ClosingStockItem, PendingSOItem, SalesReportItem } from '../types';
-import { Trash2, Download, Upload, ShoppingCart, Search, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, Package, FileDown, Pencil, Save, X, Calendar, PieChart, BarChart3, AlertOctagon, CheckCircle2, Filter } from 'lucide-react';
+// Added missing TrendingUp import from lucide-react
+import { Trash2, Download, Upload, ShoppingCart, Search, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, Package, FileDown, Pencil, Save, X, Calendar, PieChart, BarChart3, AlertOctagon, CheckCircle2, Filter, Info, ClipboardList, Database, Layers, TrendingUp } from 'lucide-react';
 import { read, utils, writeFile } from 'xlsx';
 
 interface PendingPOViewProps {
@@ -79,6 +80,7 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' } | null>(null);
   const [actionFilter, setActionFilter] = useState<PlanningActionFilter>('ALL');
+  const [selectedStrategyItem, setSelectedStrategyItem] = useState<any>(null);
 
   const formatDateDisplay = (dateVal: string | Date | number) => { 
       if (!dateVal) return '-'; 
@@ -95,13 +97,12 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
 
   // --- RECONCILED SUPPLY ANALYSIS (MATCHES STRATEGY REPORT PILLAR-TO-PILLAR) ---
   const calculatedStrategyItems = useMemo(() => {
-    // 1. Indexing for fast dual-match lookups
     const stockMap = new Map<string, { qty: number; val: number }>();
     closingStockItems.forEach(i => {
         const k = String(i.description || '').toLowerCase().trim();
         if (!k) return;
         const ex = stockMap.get(k) || { qty: 0, val: 0 };
-        stockMap.set(k, { qty: ex.qty + i.quantity, val: ex.val + i.value });
+        stockMap.set(k, { qty: ex.qty + (i.quantity || 0), val: ex.val + (i.value || 0) });
     });
 
     const soMap = new Map<string, { qty: number; val: number }>();
@@ -109,7 +110,8 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
         const k = String(i.itemName || '').toLowerCase().trim();
         if (!k) return;
         const ex = soMap.get(k) || { qty: 0, val: 0 };
-        soMap.set(k, { qty: ex.qty + i.balanceQty, val: ex.val + i.value });
+        const val = i.value || (i.balanceQty * i.rate);
+        soMap.set(k, { qty: ex.qty + (i.balanceQty || 0), val: ex.val + val });
     });
 
     const poMap = new Map<string, { qty: number; val: number }>();
@@ -117,7 +119,8 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
         const k = String(i.itemName || '').toLowerCase().trim();
         if (!k) return;
         const ex = poMap.get(k) || { qty: 0, val: 0 };
-        poMap.set(k, { qty: ex.qty + i.balanceQty, val: ex.val + i.value });
+        const val = i.value || (i.balanceQty * i.rate);
+        poMap.set(k, { qty: ex.qty + (i.balanceQty || 0), val: ex.val + val });
     });
 
     const oneYearAgo = new Date(); 
@@ -132,7 +135,6 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
         }
     });
 
-    // 2. Iterate through Materials to determine Org-Wide Needs (6.46 Cr Target)
     return materials.map(mat => {
         const descKey = String(mat.description || '').toLowerCase().trim();
         const partKey = String(mat.partNo || '').toLowerCase().trim();
@@ -143,19 +145,19 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
         const so = soMap.get(descKey) || { qty: 0, val: 0 };
         const po = poMap.get(descKey) || { qty: 0, val: 0 };
         
-        // Sales Dual Match
         const s1Part = sales1yMap.get(partKey) || { qty: 0, val: 0 };
         const s1Desc = sales1yMap.get(descKey) || { qty: 0, val: 0 };
+        
         let s1TotalQty = 0;
         if (partKey && descKey && partKey !== descKey) {
             s1TotalQty = s1Part.qty + s1Desc.qty;
         } else {
-            s1TotalQty = s1Desc.qty > 0 ? s1Desc.qty : s1Part.qty;
+            const bestMatch = s1Desc.qty > 0 ? s1Desc : s1Part;
+            s1TotalQty = bestMatch.qty;
         }
 
         const avg1yQty = s1TotalQty / 12;
         
-        // Accurate Rate Hierarchy
         let avgRate = 0;
         if (s.qty > 0) avgRate = s.val / s.qty;
         else if (po.qty > 0) avgRate = po.val / po.qty;
@@ -167,11 +169,11 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
         }
 
         const netQty = s.qty + po.qty - so.qty;
-        const excessStockThreshold = so.qty + maxStock;
-        const excessStockQty = Math.max(0, s.qty - excessStockThreshold);
+        const excessThreshold = so.qty + maxStock;
+        const excessStockQty = Math.max(0, s.qty - excessThreshold);
         
-        const totalProjectedExcess = Math.max(0, netQty - maxStock);
-        const excessPOQty = Math.max(0, totalProjectedExcess - excessStockQty);
+        const totalExcess = Math.max(0, netQty - maxStock);
+        const excessPOQty = Math.max(0, totalExcess - excessStockQty);
         
         const deficit = maxStock - netQty;
         const poNeedQty = deficit > 0 ? deficit : 0;
@@ -181,6 +183,13 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
 
         return { 
             descKey, 
+            description: mat.description,
+            make: mat.make,
+            materialGroup: mat.materialGroup,
+            stockQty: s.qty,
+            soQty: so.qty,
+            poQty: po.qty,
+            netQty: netQty,
             excessPO: excessPOQty, 
             poNeed: poNeedQty, 
             expedite: expediteQty, 
@@ -198,9 +207,14 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
           if (v.expedite > 0) { eVal += v.expedite * v.rate; eCount++; }
           if (v.excessPO > 0) { xVal += v.excessPO * v.rate; xCount++; }
       });
-      items.forEach(i => { if (i.dueDate && parseDate(i.dueDate) < today) dueVal += i.value; });
+      items.forEach(i => { if (i.dueDate && parseDate(i.dueDate) < today) dueVal += (i.value || (i.balanceQty * i.rate)); });
 
-      return { excess: { val: xVal, count: xCount }, need: { val: nVal, count: nCount }, expedite: { val: eVal, count: eCount }, overdue: { val: dueVal } };
+      return { 
+        excess: { val: xVal, count: xCount }, 
+        need: { val: nVal, count: nCount }, 
+        expedite: { val: eVal, count: eCount }, 
+        overdue: { val: dueVal } 
+      };
   }, [items, calculatedStrategyItems]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -221,10 +235,7 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
 
   const processedItems = useMemo(() => { 
       let data = [...items]; const today = new Date(); today.setHours(0,0,0,0);
-      
-      // Filter logic must be consistent with the action cards
       if (actionFilter !== 'ALL') {
-          // Find matching strategy for each item
           data = data.filter(item => {
               const itemKey = item.itemName.toLowerCase().trim();
               const strat = calculatedStrategyItems.find(s => s.descKey === itemKey);
@@ -235,7 +246,6 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
               return true;
           });
       }
-
       if (searchTerm) { const lower = searchTerm.toLowerCase(); data = data.filter(i => i.orderNo.toLowerCase().includes(lower) || i.partyName.toLowerCase().includes(lower) || i.itemName.toLowerCase().includes(lower)); } 
       if (sortConfig) { data.sort((a, b) => { const valA = a[sortConfig.key] as any; const valB = b[sortConfig.key] as any; if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1; if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1; return 0; }); } 
       return data; 
@@ -243,6 +253,60 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
 
   return (
     <div className="flex flex-col h-full gap-4">
+      {/* Strategy Detail Modal */}
+      {selectedStrategyItem && (
+          <div className="absolute inset-0 z-[110] bg-black/50 backdrop-blur-md flex items-center justify-center p-4">
+              <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border border-gray-100 animate-in fade-in zoom-in duration-200">
+                  <div className={`px-8 py-5 flex justify-between items-center text-white ${selectedStrategyItem.expedite > 0 ? 'bg-blue-600' : 'bg-orange-500'}`}>
+                      <div className="flex items-center gap-3">
+                          <Layers className="w-6 h-6" />
+                          <div>
+                              <h3 className="font-black text-lg uppercase tracking-widest leading-none">Strategy Breakdown</h3>
+                              <p className="text-[10px] font-bold opacity-80 mt-1">Industrial Intelligence Analysis</p>
+                          </div>
+                      </div>
+                      <button onClick={() => setSelectedStrategyItem(null)} className="p-2 hover:bg-white/20 rounded-full transition-colors"><X className="w-6 h-6" /></button>
+                  </div>
+                  <div className="p-8 space-y-6">
+                      <div className="bg-gray-50 rounded-2xl p-5 border border-gray-100 flex flex-col gap-1">
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Article Description</p>
+                          <p className="text-base font-black text-gray-900 leading-tight">{selectedStrategyItem.description}</p>
+                          <div className="flex gap-4 mt-3 pt-3 border-t border-gray-100">
+                              <div><p className="text-[9px] font-bold text-gray-400 uppercase">Manufacturer</p><p className="text-xs font-black text-blue-700">{selectedStrategyItem.make}</p></div>
+                              <div className="w-px h-6 bg-gray-200"></div>
+                              <div><p className="text-[9px] font-bold text-gray-400 uppercase">Material Group</p><p className="text-xs font-black text-gray-700">{selectedStrategyItem.materialGroup}</p></div>
+                          </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          <div className="flex flex-col gap-1"><p className="text-[10px] font-bold text-gray-400 uppercase flex items-center gap-1"><Database className="w-3 h-3"/> Stock</p><p className="text-xl font-black text-gray-900">{selectedStrategyItem.stockQty.toLocaleString()}</p></div>
+                          <div className="flex flex-col gap-1"><p className="text-[10px] font-bold text-gray-400 uppercase flex items-center gap-1"><ClipboardList className="w-3 h-3"/> Pending SO</p><p className="text-xl font-black text-orange-600">{selectedStrategyItem.soQty.toLocaleString()}</p></div>
+                          <div className="flex flex-col gap-1"><p className="text-[10px] font-bold text-gray-400 uppercase flex items-center gap-1"><ShoppingCart className="w-3 h-3"/> Pending PO</p><p className="text-xl font-black text-purple-600">{selectedStrategyItem.poQty.toLocaleString()}</p></div>
+                          <div className="flex flex-col gap-1"><p className="text-[10px] font-bold text-gray-400 uppercase flex items-center gap-1"><TrendingUp className="w-3 h-3"/> Net Position</p><p className={`text-xl font-black ${selectedStrategyItem.netQty >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{selectedStrategyItem.netQty.toLocaleString()}</p></div>
+                      </div>
+
+                      <div className={`p-6 rounded-2xl border-2 flex items-center justify-between shadow-lg ${selectedStrategyItem.expedite > 0 ? 'bg-blue-50 border-blue-200' : 'bg-orange-50 border-orange-200'}`}>
+                          <div>
+                              <p className={`text-[10px] font-black uppercase tracking-widest ${selectedStrategyItem.expedite > 0 ? 'text-blue-700' : 'text-orange-700'}`}>Recommended Action</p>
+                              <h4 className={`text-2xl font-black mt-1 ${selectedStrategyItem.expedite > 0 ? 'text-blue-900' : 'text-orange-900'}`}>
+                                  {selectedStrategyItem.expedite > 0 ? `EXPEDITE ${selectedStrategyItem.expedite} QTY` : `EXCESS PO: ${selectedStrategyItem.excessPO} QTY`}
+                              </h4>
+                          </div>
+                          <div className="text-right">
+                              <p className="text-[10px] font-bold text-gray-400 uppercase">Valuation @ Market</p>
+                              <p className={`text-xl font-black ${selectedStrategyItem.expedite > 0 ? 'text-blue-700' : 'text-orange-700'}`}>
+                                  {formatCurrency(selectedStrategyItem.rate * (selectedStrategyItem.expedite > 0 ? selectedStrategyItem.expedite : selectedStrategyItem.excessPO))}
+                              </p>
+                          </div>
+                      </div>
+                  </div>
+                  <div className="px-8 py-5 bg-gray-50 border-t border-gray-100 flex justify-end">
+                      <button onClick={() => setSelectedStrategyItem(null)} className="px-8 py-3 bg-gray-900 text-white text-xs font-black rounded-xl hover:bg-gray-800 transition-all uppercase tracking-widest shadow-xl active:scale-95">Dismiss Analysis</button>
+                  </div>
+              </div>
+          </div>
+      )}
+
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex flex-col gap-4 flex-shrink-0">
           <div className="flex justify-between items-center mb-1">
               <div className="flex items-center gap-2">
@@ -296,17 +360,42 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
                         processedItems.map(item => {
                             const itemKey = item.itemName.toLowerCase().trim();
                             const strat = calculatedStrategyItems.find(s => s.descKey === itemKey);
+                            const inMaster = materials.some(m => m.description.toLowerCase().trim() === itemKey);
+                            
                             return (
                                 <tr key={item.id} className="hover:bg-orange-50/20 transition-colors">
                                     <td className="py-2 px-3 whitespace-nowrap text-gray-500">{formatDateDisplay(item.date)}</td>
                                     <td className="py-2 px-3 font-bold text-gray-900 whitespace-nowrap">{item.orderNo}</td>
                                     <td className="py-2 px-3 truncate max-w-[120px] text-gray-600 font-medium">{item.partyName}</td>
-                                    <td className="py-2 px-3 font-bold text-gray-800 truncate max-w-[200px]" title={item.itemName}>{item.itemName}</td>
+                                    <td className="py-2 px-3 max-w-[200px]">
+                                        <div className="flex flex-col">
+                                            <span className="font-bold text-gray-800 truncate" title={item.itemName}>{item.itemName}</span>
+                                            {!inMaster && (
+                                                <span className="inline-flex items-center gap-0.5 mt-0.5 text-[8px] text-red-600 bg-red-50 px-1 py-px rounded border border-red-100 w-fit whitespace-nowrap font-black">
+                                                    <AlertTriangle className="w-2 h-2" /> Missing in Master
+                                                </span>
+                                            )}
+                                        </div>
+                                    </td>
                                     <td className="py-2 px-3 text-right font-black text-blue-600">{item.balanceQty.toLocaleString()}</td>
                                     <td className="py-2 px-3 text-right font-black text-emerald-700">{formatCurrency(item.value)}</td>
                                     <td className="py-2 px-3 whitespace-nowrap font-medium">{formatDateDisplay(item.dueDate)}</td>
                                     <td className="py-2 px-3 text-center">
-                                        {strat?.expedite ? <span className="px-2 py-0.5 rounded-full text-[8px] font-black bg-blue-100 text-blue-700 border border-blue-200 shadow-sm uppercase">Expedite</span> : (strat?.excessPO ? <span className="px-2 py-0.5 rounded-full text-[8px] font-black bg-orange-100 text-orange-700 border border-orange-200 shadow-sm uppercase">Excess</span> : <span className="text-gray-300 font-black">-</span>)}
+                                        {strat?.expedite ? (
+                                            <button 
+                                                onClick={() => setSelectedStrategyItem(strat)}
+                                                className="px-2 py-0.5 rounded-full text-[8px] font-black bg-blue-100 text-blue-700 border border-blue-200 shadow-sm hover:bg-blue-600 hover:text-white transition-all uppercase flex items-center gap-1 mx-auto"
+                                            >
+                                                Expedite <Info className="w-2 h-2" />
+                                            </button>
+                                        ) : (strat?.excessPO ? (
+                                            <button 
+                                                onClick={() => setSelectedStrategyItem(strat)}
+                                                className="px-2 py-0.5 rounded-full text-[8px] font-black bg-orange-100 text-orange-700 border border-orange-200 shadow-sm hover:bg-orange-500 hover:text-white transition-all uppercase flex items-center gap-1 mx-auto"
+                                            >
+                                                Excess <Info className="w-2 h-2" />
+                                            </button>
+                                        ) : <span className="text-gray-300 font-black">-</span>)}
                                     </td>
                                     <td className="py-2 px-3 text-right">
                                         <button onClick={() => onDelete(item.id)} className="text-gray-300 hover:text-red-600 p-1 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>

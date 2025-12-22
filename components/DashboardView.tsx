@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Material, ClosingStockItem, PendingSOItem, PendingPOItem, SalesReportItem, CustomerMasterItem, SalesRecord } from '../types';
 import { TrendingUp, TrendingDown, Package, ClipboardList, ShoppingCart, Calendar, Filter, PieChart as PieIcon, BarChart3, Users, ArrowRight, Activity, DollarSign, ArrowUpRight, ArrowDownRight, RefreshCw, UserCircle, Minus, Plus, ChevronDown, ChevronUp, Link2Off, AlertTriangle, Layers, Clock, CheckCircle2, AlertCircle, User, Factory, Tag, ArrowLeft, BarChart4, Hourglass, History, AlertOctagon, ChevronRight, ListOrdered, Table, X } from 'lucide-react';
@@ -15,7 +16,7 @@ const formatLargeValue = (val: number, compact: boolean = false) => {
     return `${prefix}${Math.round(val).toLocaleString('en-IN')}`;
 };
 
-// Refined Group Merging Logic for Siddhi Kabel
+// Refined Group Merging Logic for Siddhi Kabel - Applied to the 'Group' field
 const getMergedGroupName = (groupName: string) => {
     const g = String(groupName || 'Unassigned').trim();
     const lowerG = g.toLowerCase();
@@ -232,7 +233,7 @@ const GroupedCustomerAnalysis = ({ data }: { data: { group: string, total: numbe
     const toggleGroup = (group: string) => setExpandedGroups(prev => ({ ...prev, [group]: !prev[group] }));
     return (
         <div className="flex flex-col h-full w-full overflow-hidden">
-            <h4 className="text-[11px] font-bold text-gray-600 uppercase mb-3 border-b border-gray-100 pb-1">Customer Group (vs PY)</h4>
+            <h4 className="text-[11px] font-bold text-gray-600 uppercase mb-3 border-b border-gray-100 pb-1">Account Group Comparison (vs PY)</h4>
             <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-2">
                 {data.map((groupData) => (
                     <div key={groupData.group} className="border border-gray-100 rounded-lg overflow-hidden bg-white shadow-sm">
@@ -275,6 +276,27 @@ const GroupedCustomerAnalysis = ({ data }: { data: { group: string, total: numbe
                         )}
                     </div>
                 ))}
+            </div>
+        </div>
+    );
+};
+
+const KPICard = ({ label, value, growth, prefix = '' }: { label: string, value: string, growth: number, prefix?: string }) => {
+    const isPositive = growth > 0;
+    const isZero = growth === 0;
+    
+    return (
+        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
+            <div>
+                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{label}</p>
+                <h3 className="text-2xl font-extrabold text-gray-900 mt-1">{value}</h3>
+            </div>
+            <div className="mt-3 flex items-center gap-2">
+                <div className={`flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-black ${isZero ? 'bg-gray-100 text-gray-500' : isPositive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                    {isZero ? <Minus className="w-3 h-3" /> : isPositive ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                    <span>{Math.abs(growth).toFixed(1)}%</span>
+                </div>
+                <span className="text-[9px] text-gray-400 font-medium italic">vs Previous Year</span>
             </div>
         </div>
     );
@@ -340,7 +362,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
           const dateObj = parseDate(item.date);
           const fi = getFiscalInfo(dateObj);
           const cust = custMap.get(String(item.customerName || '').toLowerCase().trim());
-          const mergedGroup = getMergedGroupName(cust?.customerGroup || 'Unassigned');
+          // SWITCHED: Now using 'group' (Account Group) instead of 'customerGroup'
+          const mergedGroup = getMergedGroupName(cust?.group || 'Unassigned');
           return { ...item, ...fi, rawDate: dateObj, custGroup: mergedGroup, custStatus: cust?.status || 'Unknown' };
       });
   }, [salesReportItems, customers]);
@@ -378,11 +401,27 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   }, [selectedFY, timeView, selectedMonth, selectedWeek, enrichedSales]);
 
   const kpis = useMemo(() => {
-      const currVal = currentData.reduce((acc, i) => acc + (i.value || 0), 0);
-      const uniqueCusts = new Set(currentData.map(i => String(i.customerName || ''))).size;
-      const uniqueVouchers = new Set(currentData.map(i => String(i.voucherNo || ''))).size;
-      return { currVal, currQty: currentData.reduce((acc, i) => acc + (i.quantity || 0), 0), uniqueCusts, avgOrder: uniqueVouchers ? currVal / uniqueVouchers : 0 };
-  }, [currentData]);
+      const getStats = (data: any[]) => {
+          const val = data.reduce((acc, i) => acc + (i.value || 0), 0);
+          const qty = data.reduce((acc, i) => acc + (i.quantity || 0), 0);
+          const custs = new Set(data.map(i => String(i.customerName || ''))).size;
+          const vouchers = new Set(data.map(i => String(i.voucherNo || ''))).size;
+          const avg = vouchers ? val / vouchers : 0;
+          return { val, qty, custs, avg };
+      };
+
+      const curr = getStats(currentData);
+      const prev = getStats(previousDataForComparison);
+
+      const getGrowth = (c: number, p: number) => p > 0 ? ((c - p) / p) * 100 : (c > 0 ? 100 : 0);
+
+      return {
+          sales: { curr: curr.val, growth: getGrowth(curr.val, prev.val) },
+          qty: { curr: curr.qty, growth: getGrowth(curr.qty, prev.qty) },
+          custs: { curr: curr.custs, growth: getGrowth(curr.custs, prev.custs) },
+          avgOrder: { curr: curr.avg, growth: getGrowth(curr.avg, prev.avg) }
+      };
+  }, [currentData, previousDataForComparison]);
 
   const groupedCustomerData = useMemo(() => {
       const groupMap = new Map<string, { total: number, totalPrevious: number, customers: Map<string, { current: number, previous: number }> }>();
@@ -626,18 +665,20 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         {activeSubTab === 'sales' ? (
             <div className="flex flex-col gap-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><div><p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Current Sales</p><h3 className="text-2xl font-extrabold text-gray-900 mt-1">{formatLargeValue(kpis.currVal)}</h3></div></div>
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><div><p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Quantity</p><h3 className="text-2xl font-extrabold text-gray-900 mt-1">{kpis.currQty.toLocaleString()}</h3></div></div>
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><div><p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Unique Customers</p><h3 className="text-2xl font-extrabold text-gray-900 mt-1">{kpis.uniqueCusts}</h3></div></div>
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><div><p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Avg Order</p><h3 className="text-2xl font-extrabold text-gray-900 mt-1">{formatLargeValue(kpis.avgOrder)}</h3></div></div>
+                    <KPICard label="Current Sales" value={formatLargeValue(kpis.sales.curr)} growth={kpis.sales.growth} />
+                    <KPICard label="Quantity Sold" value={kpis.qty.curr.toLocaleString()} growth={kpis.qty.growth} />
+                    <KPICard label="Unique Customers" value={kpis.custs.curr.toString()} growth={kpis.custs.growth} />
+                    <KPICard label="Avg Order Value" value={formatLargeValue(kpis.avgOrder.curr)} growth={kpis.avgOrder.growth} />
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                     <div className="lg:col-span-2 bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col h-80 overflow-hidden"><h3 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2"><TrendingUp className="w-4 h-4 text-blue-600" /> 3-Year Trend Analysis</h3><div className="flex flex-1 pt-2 overflow-hidden"><div className="flex flex-col justify-between text-[9px] text-gray-400 pr-3 pb-8 text-right w-12 border-r"><span>{formatAxisValue(chartMax)}</span><span>{formatAxisValue(chartMax*0.5)}</span><span>0</span></div><div className="flex-1 pl-4 pb-2 relative min-h-0"><SalesTrendChart data={lineChartData} maxVal={chartMax} /></div></div></div>
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col h-80 overflow-hidden"><SimpleDonut data={groupedCustomerData.map(g => ({ label: g.group, value: g.total }))} title="Sales Mix by Customer Group" color="blue" isCurrency={true} /></div>
+                    {/* UPDATED TITLE: From Customer Group to Account Group */}
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col h-80 overflow-hidden"><SimpleDonut data={groupedCustomerData.map(g => ({ label: g.group, value: g.total }))} title="Sales Mix by Account Group" color="blue" isCurrency={true} /></div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-96 overflow-hidden">
-                        <HorizontalBarChart data={groupedCustomerData.map(g => ({ label: g.group, value: g.total, previous: g.totalPrevious }))} title="Top Customer Groups (Current vs PY)" color="blue" />
+                        {/* UPDATED TITLE: From Customer Group to Account Group */}
+                        <HorizontalBarChart data={groupedCustomerData.map(g => ({ label: g.group, value: g.total, previous: g.totalPrevious }))} title="Top Account Groups (Current vs PY)" color="blue" />
                     </div>
                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-96 overflow-hidden">
                         <GroupedCustomerAnalysis data={groupedCustomerData} />
