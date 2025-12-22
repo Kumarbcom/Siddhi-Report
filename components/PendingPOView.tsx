@@ -51,15 +51,15 @@ const parseDate = (val: any): Date => {
 const ActionCard = ({ title, value, count, color, icon: Icon, active, onClick }: any) => (
     <button 
         onClick={onClick}
-        className={`${active ? `bg-${color}-100 border-${color}-400 ring-2 ring-${color}-200` : `bg-${color}-50 border-${color}-100`} p-3 rounded-xl border flex flex-col justify-between h-full transition-all text-left hover:shadow-md shadow-sm`}
+        className={`${active ? `bg-${color}-100 border-${color}-400 ring-2 ring-${color}-200` : `bg-${color}-50 border-${color}-100`} p-3 rounded-xl border flex flex-col justify-between h-full transition-all text-left hover:shadow-md shadow-sm min-h-[100px]`}
     >
         <div className="flex justify-between items-start w-full">
             <p className={`text-[10px] font-bold text-${color}-700 uppercase`}>{title}</p>
             <Icon className={`w-4 h-4 text-${color}-600`} />
         </div>
         <div>
-            <h3 className={`text-lg font-black text-${color}-900`}>{value}</h3>
-            <p className={`text-[10px] text-${color}-600 font-medium`}>{count} Items</p>
+            <h3 className={`text-base font-black text-${color}-900`}>{value}</h3>
+            <p className={`text-[9px] text-${color}-600 font-medium`}>{count} Items Impacted</p>
         </div>
     </button>
 );
@@ -86,33 +86,38 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
       if (date && !isNaN(date.getTime()) && date.getTime() > 0) return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
       return String(dateVal); 
   };
-  const formatCurrency = (val: number) => `Rs. ${Math.round(val).toLocaleString('en-IN')}`;
+  const formatCurrency = (val: number) => {
+      const absVal = Math.abs(val);
+      if (absVal >= 10000000) return `Rs. ${(val / 10000000).toFixed(2)} Cr`;
+      if (absVal >= 100000) return `Rs. ${(val / 100000).toFixed(2)} L`;
+      return `Rs. ${Math.round(val).toLocaleString('en-IN')}`;
+  };
 
-  // --- RECONCILED SUPPLY MAPPING (IDENTICAL TO STRATEGY REPORT) ---
-  const supplyMap = useMemo(() => {
-    // 1. Create Index Maps for fast lookup
+  // --- RECONCILED SUPPLY ANALYSIS (MATCHES STRATEGY REPORT PILLAR-TO-PILLAR) ---
+  const calculatedStrategyItems = useMemo(() => {
+    // 1. Indexing for fast dual-match lookups
     const stockMap = new Map<string, { qty: number; val: number }>();
     closingStockItems.forEach(i => {
-        const key = String(i.description || '').toLowerCase().trim();
-        if (!key) return;
-        const ex = stockMap.get(key) || { qty: 0, val: 0 };
-        stockMap.set(key, { qty: ex.qty + i.quantity, val: ex.val + i.value });
+        const k = String(i.description || '').toLowerCase().trim();
+        if (!k) return;
+        const ex = stockMap.get(k) || { qty: 0, val: 0 };
+        stockMap.set(k, { qty: ex.qty + i.quantity, val: ex.val + i.value });
     });
 
     const soMap = new Map<string, { qty: number; val: number }>();
     pendingSOItems.forEach(i => {
-        const key = String(i.itemName || '').toLowerCase().trim();
-        if (!key) return;
-        const ex = soMap.get(key) || { qty: 0, val: 0 };
-        soMap.set(key, { qty: ex.qty + i.balanceQty, val: ex.val + i.value });
+        const k = String(i.itemName || '').toLowerCase().trim();
+        if (!k) return;
+        const ex = soMap.get(k) || { qty: 0, val: 0 };
+        soMap.set(k, { qty: ex.qty + i.balanceQty, val: ex.val + i.value });
     });
 
     const poMap = new Map<string, { qty: number; val: number }>();
     items.forEach(i => {
-        const key = String(i.itemName || '').toLowerCase().trim();
-        if (!key) return;
-        const ex = poMap.get(key) || { qty: 0, val: 0 };
-        poMap.set(key, { qty: ex.qty + i.balanceQty, val: ex.val + i.value });
+        const k = String(i.itemName || '').toLowerCase().trim();
+        if (!k) return;
+        const ex = poMap.get(k) || { qty: 0, val: 0 };
+        poMap.set(k, { qty: ex.qty + i.balanceQty, val: ex.val + i.value });
     });
 
     const oneYearAgo = new Date(); 
@@ -120,16 +125,15 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
     const sales1yMap = new Map<string, { qty: number; val: number }>();
     salesReportItems.forEach(i => {
         if (parseDate(i.date) >= oneYearAgo) {
-            const key = String(i.particulars || '').toLowerCase().trim();
-            if (!key) return;
-            const ex = sales1yMap.get(key) || { qty: 0, val: 0 };
-            sales1yMap.set(key, { qty: ex.qty + (i.quantity || 0), val: ex.val + (i.value || 0) });
+            const k = String(i.particulars || '').toLowerCase().trim();
+            if (!k) return;
+            const ex = sales1yMap.get(k) || { qty: 0, val: 0 };
+            sales1yMap.set(k, { qty: ex.qty + (i.quantity || 0), val: ex.val + (i.value || 0) });
         }
     });
 
-    const resultMap = new Map<string, { excessPO: number, poNeed: number, expedite: number, rate: number }>();
-
-    materials.forEach(mat => {
+    // 2. Iterate through Materials to determine Org-Wide Needs (6.46 Cr Target)
+    return materials.map(mat => {
         const descKey = String(mat.description || '').toLowerCase().trim();
         const partKey = String(mat.partNo || '').toLowerCase().trim();
         const group = String(mat.materialGroup || '').toLowerCase().trim();
@@ -139,7 +143,7 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
         const so = soMap.get(descKey) || { qty: 0, val: 0 };
         const po = poMap.get(descKey) || { qty: 0, val: 0 };
         
-        // Sales Dual Match (Essential for PO Need calculation matching Strategy Report)
+        // Sales Dual Match
         const s1Part = sales1yMap.get(partKey) || { qty: 0, val: 0 };
         const s1Desc = sales1yMap.get(descKey) || { qty: 0, val: 0 };
         let s1TotalQty = 0;
@@ -163,8 +167,6 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
         }
 
         const netQty = s.qty + po.qty - so.qty;
-        
-        // Actions
         const excessStockThreshold = so.qty + maxStock;
         const excessStockQty = Math.max(0, s.qty - excessStockThreshold);
         
@@ -177,19 +179,21 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
         const immediateGap = (so.qty + maxStock) - s.qty;
         const expediteQty = (immediateGap > 0 && po.qty > 0) ? Math.min(po.qty, immediateGap) : 0;
 
-        if (excessPOQty > 0 || poNeedQty > 0 || expediteQty > 0) {
-            resultMap.set(descKey, { excessPO: excessPOQty, poNeed: poNeedQty, expedite: expediteQty, rate: avgRate });
-        }
+        return { 
+            descKey, 
+            excessPO: excessPOQty, 
+            poNeed: poNeedQty, 
+            expedite: expediteQty, 
+            rate: avgRate 
+        };
     });
-    
-    return resultMap;
   }, [items, closingStockItems, pendingSOItems, salesReportItems, materials]);
 
   const optimizationStats = useMemo(() => {
       let eVal = 0, eCount = 0, nVal = 0, nCount = 0, xVal = 0, xCount = 0, dueVal = 0;
       const today = new Date(); today.setHours(0,0,0,0);
 
-      supplyMap.forEach((v) => {
+      calculatedStrategyItems.forEach((v) => {
           if (v.poNeed > 0) { nVal += v.poNeed * v.rate; nCount++; }
           if (v.expedite > 0) { eVal += v.expedite * v.rate; eCount++; }
           if (v.excessPO > 0) { xVal += v.excessPO * v.rate; xCount++; }
@@ -197,7 +201,7 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
       items.forEach(i => { if (i.dueDate && parseDate(i.dueDate) < today) dueVal += i.value; });
 
       return { excess: { val: xVal, count: xCount }, need: { val: nVal, count: nCount }, expedite: { val: eVal, count: eCount }, overdue: { val: dueVal } };
-  }, [items, supplyMap]);
+  }, [items, calculatedStrategyItems]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
@@ -217,16 +221,25 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
 
   const processedItems = useMemo(() => { 
       let data = [...items]; const today = new Date(); today.setHours(0,0,0,0);
+      
+      // Filter logic must be consistent with the action cards
       if (actionFilter !== 'ALL') {
-          if (actionFilter === 'NEED_PLACE') data = data.filter(i => (supplyMap.get(i.itemName.toLowerCase().trim())?.poNeed || 0) > 0);
-          else if (actionFilter === 'EXPEDITE') data = data.filter(i => (supplyMap.get(i.itemName.toLowerCase().trim())?.expedite || 0) > 0);
-          else if (actionFilter === 'EXCESS') data = data.filter(i => (supplyMap.get(i.itemName.toLowerCase().trim())?.excessPO || 0) > 0);
-          else if (actionFilter === 'OVERDUE') data = data.filter(i => i.dueDate && parseDate(i.dueDate) < today);
+          // Find matching strategy for each item
+          data = data.filter(item => {
+              const itemKey = item.itemName.toLowerCase().trim();
+              const strat = calculatedStrategyItems.find(s => s.descKey === itemKey);
+              if (actionFilter === 'NEED_PLACE') return (strat?.poNeed || 0) > 0;
+              if (actionFilter === 'EXPEDITE') return (strat?.expedite || 0) > 0;
+              if (actionFilter === 'EXCESS') return (strat?.excessPO || 0) > 0;
+              if (actionFilter === 'OVERDUE') return item.dueDate && parseDate(item.dueDate) < today;
+              return true;
+          });
       }
+
       if (searchTerm) { const lower = searchTerm.toLowerCase(); data = data.filter(i => i.orderNo.toLowerCase().includes(lower) || i.partyName.toLowerCase().includes(lower) || i.itemName.toLowerCase().includes(lower)); } 
       if (sortConfig) { data.sort((a, b) => { const valA = a[sortConfig.key] as any; const valB = b[sortConfig.key] as any; if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1; if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1; return 0; }); } 
       return data; 
-  }, [items, searchTerm, sortConfig, actionFilter, supplyMap]);
+  }, [items, searchTerm, sortConfig, actionFilter, calculatedStrategyItems]);
 
   return (
     <div className="flex flex-col h-full gap-4">
@@ -234,68 +247,69 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
           <div className="flex justify-between items-center mb-1">
               <div className="flex items-center gap-2">
                   <div className="bg-orange-100 p-1.5 rounded text-orange-700"><ShoppingCart className="w-4 h-4"/></div>
-                  <h2 className="text-sm font-bold text-gray-800 uppercase tracking-tight">Strategic Supply Planning</h2>
+                  <h2 className="text-sm font-black text-gray-800 uppercase tracking-tight">Strategic Supply Planning</h2>
               </div>
-              <button onClick={() => setActionFilter('ALL')} className={`text-[10px] font-bold px-2 py-1 rounded transition-colors ${actionFilter === 'ALL' ? 'bg-gray-200 text-gray-700' : 'text-blue-600 hover:bg-blue-50'}`}>Reset Strategy Filters</button>
+              <button onClick={() => setActionFilter('ALL')} className={`text-[10px] font-bold px-2 py-1 rounded transition-colors ${actionFilter === 'ALL' ? 'bg-gray-100 text-gray-700' : 'text-blue-600 hover:bg-blue-50'}`}>Clear Filters</button>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 h-32">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 h-auto">
               <ActionCard title="PO Need (Shortage)" value={formatCurrency(optimizationStats.need.val)} count={optimizationStats.need.count} color="red" icon={AlertOctagon} active={actionFilter === 'NEED_PLACE'} onClick={() => setActionFilter('NEED_PLACE')} />
               <ActionCard title="Expedite List" value={formatCurrency(optimizationStats.expedite.val)} count={optimizationStats.expedite.count} color="blue" icon={CheckCircle2} active={actionFilter === 'EXPEDITE'} onClick={() => setActionFilter('EXPEDITE')} />
               <ActionCard title="Excess PO Items" value={formatCurrency(optimizationStats.excess.val)} count={optimizationStats.excess.count} color="orange" icon={AlertTriangle} active={actionFilter === 'EXCESS'} onClick={() => setActionFilter('EXCESS')} />
-              <button onClick={() => setActionFilter('OVERDUE')} className={`p-3 rounded-xl border flex flex-col justify-between h-full transition-all text-left hover:shadow-md shadow-sm ${actionFilter === 'OVERDUE' ? 'bg-indigo-100 border-indigo-400' : 'bg-white border-gray-200'}`}>
+              <button onClick={() => setActionFilter('OVERDUE')} className={`p-3 rounded-xl border flex flex-col justify-between h-full transition-all text-left hover:shadow-md shadow-sm min-h-[100px] ${actionFilter === 'OVERDUE' ? 'bg-indigo-100 border-indigo-400' : 'bg-white border-gray-200'}`}>
                   <div className="flex justify-between items-start w-full"><p className="text-[10px] font-bold text-indigo-700 uppercase">PO Overdue</p><Calendar className="w-4 h-4 text-indigo-600" /></div>
-                  <div><h3 className="text-sm font-black text-red-700">{formatCurrency(optimizationStats.overdue.val)}</h3><p className="text-[9px] text-gray-500 font-medium">Overdue Arrivals</p></div>
+                  <div><h3 className="text-base font-black text-red-700">{formatCurrency(optimizationStats.overdue.val)}</h3><p className="text-[9px] text-gray-500 font-medium">Pending Arrival Past Due</p></div>
               </button>
           </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 flex flex-col gap-3 flex-shrink-0">
          <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
-            <h2 className="text-sm font-semibold text-gray-800 flex items-center gap-2"><Filter className="w-4 h-4 text-indigo-500" /> Pending PO List</h2>
+            <h2 className="text-sm font-semibold text-gray-800 flex items-center gap-2"><Filter className="w-4 h-4 text-indigo-500" /> Pending Purchase Orders</h2>
             <div className="flex flex-wrap gap-2">
                 <input type="file" ref={fileInputRef} className="hidden" accept=".xlsx, .xls" onChange={handleFileUpload} />
-                <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-xs border border-emerald-100 hover:bg-emerald-100 transition-colors"><Upload className="w-3.5 h-3.5" /> Import POs</button>
-                <button onClick={onClear} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs border border-red-100 hover:bg-red-100 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-xs font-bold border border-emerald-100 hover:bg-emerald-100 transition-colors shadow-sm"><Upload className="w-3.5 h-3.5" /> Import Excel</button>
+                <button onClick={onClear} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-bold border border-red-100 hover:bg-red-100 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
             </div>
          </div>
-         <div className="relative"><div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Search className="h-3.5 w-3.5 text-gray-400" /></div><input type="text" placeholder="Search POs..." className="pl-9 pr-3 py-1.5 w-full border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-orange-500 outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div>
+         <div className="relative"><div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Search className="h-3.5 w-3.5 text-gray-400" /></div><input type="text" placeholder="Filter by Order, Vendor or Item..." className="pl-9 pr-3 py-1.5 w-full border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-orange-500 outline-none transition-shadow" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col flex-1 min-h-0">
-         <div className="overflow-auto h-full">
+         <div className="overflow-auto h-full custom-scrollbar">
             <table className="w-full text-left border-collapse min-w-full">
-                <thead className="sticky top-0 z-10 bg-gray-50 shadow-sm border-b border-gray-200 text-[10px] text-gray-500 uppercase">
+                <thead className="sticky top-0 z-10 bg-gray-50 shadow-sm border-b border-gray-200 text-[10px] text-gray-500 uppercase font-black">
                     <tr>
-                        <th className="py-2 px-3 font-semibold">Date</th>
-                        <th className="py-2 px-3 font-semibold">Order</th>
-                        <th className="py-2 px-3 font-semibold">Vendor</th>
-                        <th className="py-2 px-3 font-semibold w-56">Item</th>
-                        <th className="py-2 px-3 font-semibold text-right">Qty</th>
-                        <th className="py-2 px-3 font-semibold text-right">Value</th>
-                        <th className="py-2 px-3 font-semibold">Due on</th>
-                        <th className="py-2 px-3 font-semibold text-center">Status</th>
-                        <th className="py-2 px-3 font-semibold text-right">Act</th>
+                        <th className="py-2.5 px-3">Date</th>
+                        <th className="py-2.5 px-3">Order #</th>
+                        <th className="py-2.5 px-3">Vendor</th>
+                        <th className="py-2.5 px-3 w-56">Item Description</th>
+                        <th className="py-2.5 px-3 text-right">Bal Qty</th>
+                        <th className="py-2.5 px-3 text-right">Value</th>
+                        <th className="py-2.5 px-3">Due On</th>
+                        <th className="py-2.5 px-3 text-center">Plan</th>
+                        <th className="py-2.5 px-3 text-right">Act</th>
                     </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200 text-xs text-gray-700">
-                    {processedItems.length === 0 ? (<tr><td colSpan={9} className="py-8 text-center text-gray-500 text-xs">No records found.</td></tr>) : (
+                <tbody className="divide-y divide-gray-200 text-[11px] text-gray-700">
+                    {processedItems.length === 0 ? (<tr><td colSpan={9} className="py-12 text-center text-gray-400 font-medium italic">No matching procurement records found.</td></tr>) : (
                         processedItems.map(item => {
-                            const strat = supplyMap.get(item.itemName.toLowerCase().trim());
+                            const itemKey = item.itemName.toLowerCase().trim();
+                            const strat = calculatedStrategyItems.find(s => s.descKey === itemKey);
                             return (
                                 <tr key={item.id} className="hover:bg-orange-50/20 transition-colors">
-                                    <td className="py-2 px-3 whitespace-nowrap">{formatDateDisplay(item.date)}</td>
-                                    <td className="py-2 px-3 font-medium whitespace-nowrap">{item.orderNo}</td>
-                                    <td className="py-2 px-3 truncate max-w-[120px]">{item.partyName}</td>
-                                    <td className="py-2 px-3 font-medium text-gray-900 truncate max-w-[200px]" title={item.itemName}>{item.itemName}</td>
-                                    <td className="py-2 px-3 text-right font-medium text-blue-600">{item.balanceQty}</td>
-                                    <td className="py-2 px-3 text-right font-bold text-emerald-700">{formatCurrency(item.value)}</td>
-                                    <td className="py-2 px-3 whitespace-nowrap">{formatDateDisplay(item.dueDate)}</td>
+                                    <td className="py-2 px-3 whitespace-nowrap text-gray-500">{formatDateDisplay(item.date)}</td>
+                                    <td className="py-2 px-3 font-bold text-gray-900 whitespace-nowrap">{item.orderNo}</td>
+                                    <td className="py-2 px-3 truncate max-w-[120px] text-gray-600 font-medium">{item.partyName}</td>
+                                    <td className="py-2 px-3 font-bold text-gray-800 truncate max-w-[200px]" title={item.itemName}>{item.itemName}</td>
+                                    <td className="py-2 px-3 text-right font-black text-blue-600">{item.balanceQty.toLocaleString()}</td>
+                                    <td className="py-2 px-3 text-right font-black text-emerald-700">{formatCurrency(item.value)}</td>
+                                    <td className="py-2 px-3 whitespace-nowrap font-medium">{formatDateDisplay(item.dueDate)}</td>
                                     <td className="py-2 px-3 text-center">
-                                        {strat?.expedite ? <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-blue-100 text-blue-700">EXPEDITE</span> : (strat?.excessPO ? <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-orange-100 text-orange-700">EXCESS</span> : <span className="text-gray-300">-</span>)}
+                                        {strat?.expedite ? <span className="px-2 py-0.5 rounded-full text-[8px] font-black bg-blue-100 text-blue-700 border border-blue-200 shadow-sm uppercase">Expedite</span> : (strat?.excessPO ? <span className="px-2 py-0.5 rounded-full text-[8px] font-black bg-orange-100 text-orange-700 border border-orange-200 shadow-sm uppercase">Excess</span> : <span className="text-gray-300 font-black">-</span>)}
                                     </td>
                                     <td className="py-2 px-3 text-right">
-                                        <div className="flex justify-end gap-1"><button onClick={() => onDelete(item.id)} className="text-gray-400 hover:text-red-600 p-0.5"><Trash2 className="w-3.5 h-3.5" /></button></div>
+                                        <button onClick={() => onDelete(item.id)} className="text-gray-300 hover:text-red-600 p-1 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
                                     </td>
                                 </tr>
                             );
