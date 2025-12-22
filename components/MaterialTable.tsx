@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Material } from '../types';
-import { Trash2, PackageOpen, Search, ArrowUpDown, ArrowUp, ArrowDown, Pencil, Save, X, Hash } from 'lucide-react';
+import { Trash2, PackageOpen, Search, ArrowUpDown, ArrowUp, ArrowDown, Pencil, Save, X, Hash, Globe, WifiOff } from 'lucide-react';
 
 interface MaterialTableProps {
   materials: Material[];
@@ -15,6 +15,9 @@ const MaterialTable: React.FC<MaterialTableProps> = ({ materials, onUpdate, onDe
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' } | null>(null);
   
+  // Checking if credentials exist to determine "Live" status
+  const isEnvLinked = !!(process.env.SUPABASE_URL && process.env.SUPABASE_KEY);
+
   // Editing State
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Material | null>(null);
@@ -203,7 +206,17 @@ const MaterialTable: React.FC<MaterialTableProps> = ({ materials, onUpdate, onDe
         </div>
         <div className="bg-gray-50 px-3 py-2 border-t border-gray-200 text-[10px] text-gray-500 flex justify-between items-center flex-shrink-0">
           <span>Showing {processedMaterials.length} of {materials.length} records</span>
-          <span>Live Supabase Synchronized</span>
+          <div className="flex items-center gap-2">
+              {isEnvLinked ? (
+                  <span className="inline-flex items-center gap-1 text-green-600 font-bold uppercase tracking-tight">
+                      <Globe className="w-3 h-3" /> Live Supabase Synced
+                  </span>
+              ) : (
+                  <span className="inline-flex items-center gap-1 text-orange-500 font-bold uppercase tracking-tight">
+                      <WifiOff className="w-3 h-3" /> Offline Local Mode
+                  </span>
+              )}
+          </div>
         </div>
       </div>
     </div>

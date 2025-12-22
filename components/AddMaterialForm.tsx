@@ -1,7 +1,7 @@
 
 import React, { useRef } from 'react';
 import { Material, MaterialFormData } from '../types';
-import { Upload, Download, Trash2, FileDown, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Upload, Download, Trash2, FileDown } from 'lucide-react';
 import { read, utils, writeFile } from 'xlsx';
 
 interface AddMaterialFormProps {
@@ -58,32 +58,32 @@ const AddMaterialForm: React.FC<AddMaterialFormProps> = ({ materials, onBulkAdd,
       const data = utils.sheet_to_json<any>(ws);
       
       const validItems: MaterialFormData[] = data.map((row) => {
-         // Helper to find column regardless of exact naming/spaces/case
+         // Flexible header matching helper
          const getVal = (keyArray: string[]) => {
              const foundKey = Object.keys(row).find(k => 
-                keyArray.some(target => k.toLowerCase().trim() === target.toLowerCase().trim())
+                keyArray.some(target => k.toLowerCase().replace(/[^a-z0-9]/g, '').includes(target.toLowerCase().replace(/[^a-z0-9]/g, '')))
              );
              return foundKey ? String(row[foundKey]).trim() : '';
          };
 
          return {
-             materialCode: getVal(['material code', 'code', 'id', 'mat code']),
-             description: getVal(['description', 'desc', 'item name', 'particulars']),
-             partNo: getVal(['part no', 'partno', 'part number', 'reference']),
-             make: getVal(['make', 'brand', 'manufacturer', 'mfr']),
-             materialGroup: getVal(['material group', 'materialgroup', 'group', 'category'])
+             materialCode: getVal(['materialcode', 'matcode', 'code', 'id']),
+             description: getVal(['description', 'desc', 'itemname', 'particulars', 'materialname']),
+             partNo: getVal(['partno', 'partnumber', 'reference', 'refno']),
+             make: getVal(['make', 'brand', 'manufacturer', 'mfr', 'mfg']),
+             materialGroup: getVal(['materialgroup', 'group', 'category', 'class'])
          };
-      }).filter(item => item.description); // Only Description is strictly required
+      }).filter(item => item.description); // Description is the only strict requirement
 
       if (validItems.length > 0) {
         onBulkAdd(validItems);
-        alert(`Successfully extracted ${validItems.length} items from Excel.`);
+        alert(`Successfully imported ${validItems.length} materials.`);
       } else {
-        alert("No valid material records found. Please ensure your Excel has a 'Description' column.");
+        alert("Extraction failed: No valid rows found. Please ensure your Excel has a column for 'Description'.");
       }
     } catch (err) {
-      console.error("Error parsing Excel:", err);
-      alert("Failed to parse the Excel file. Please ensure it is a valid .xlsx or .xls file.");
+      console.error("Excel Parsing Error:", err);
+      alert("Failed to read the Excel file. Please ensure it is a valid .xlsx format.");
     }
     
     if (fileInputRef.current) {
@@ -95,8 +95,8 @@ const AddMaterialForm: React.FC<AddMaterialFormProps> = ({ materials, onBulkAdd,
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-4">
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
         <div className="flex items-center gap-2">
-            <h2 className="text-sm font-bold text-gray-800 uppercase tracking-tight">Data Management</h2>
-            <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold">{materials.length} Items</span>
+            <h2 className="text-sm font-bold text-gray-800 uppercase tracking-tight">Material Master Data</h2>
+            <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold">{materials.length} Records</span>
         </div>
         <div className="flex flex-wrap gap-2">
             <button

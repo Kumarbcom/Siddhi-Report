@@ -13,11 +13,14 @@ export const materialService = {
         .order('created_at', { ascending: false });
 
       if (error) {
-          if (error.code === 'PGRST116' || error.message.includes('not found')) {
-              console.error('DATABASE ERROR: The table "material_master" does not exist in your Supabase project. Please run the SQL setup script.');
+          // If the table doesn't exist, Supabase returns error code 42P01 or PGRST116
+          if (error.code === 'PGRST116' || error.message.includes('relation "material_master" does not exist')) {
+              console.error('DATABASE LINK ERROR: The table "material_master" was not found in your Supabase database. Please run the SQL setup script.');
           }
           throw error;
       }
+
+      console.log(`Supabase Linked: Fetched ${data?.length || 0} Material records.`);
 
       return (data || []).map((row: any) => ({
         id: row.id,
@@ -29,7 +32,7 @@ export const materialService = {
         createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now()
       }));
     } catch (e: any) {
-      console.warn('Supabase fetch failed (Material Master). Falling back to local storage.', e.message || e);
+      console.warn('LINKING FAILED: Using Local Browser Storage fallback.', e.message || e);
       const local = localStorage.getItem(LOCAL_STORAGE_KEY);
       return local ? JSON.parse(local) : [];
     }
@@ -56,12 +59,13 @@ export const materialService = {
 
         const { error } = await supabase.from('material_master').insert(rows);
         if (error) throw error;
-        console.log(`Successfully synced ${rows.length} materials to Supabase.`);
+        
+        console.log(`Supabase Success: Synced ${rows.length} materials.`);
     } catch (e: any) {
-        console.error('Supabase insert failed (Material Master).', e.message || e);
+        console.error('SUPABASE SYNC ERROR: Data was saved to Local Storage ONLY.', e.message || e);
     }
 
-    // Always update local cache for offline/instant feedback
+    // Always update local cache for instant performance and offline support
     const current = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify([...newItems, ...current]));
     return newItems;
@@ -105,15 +109,14 @@ export const materialService = {
 
   async clearAll(): Promise<void> {
     try {
-      // Use .neq with a dummy UUID to delete everything
       const { error } = await supabase
         .from('material_master')
         .delete()
         .neq('id', '00000000-0000-0000-0000-000000000000');
       if (error) throw error;
-      console.log('Supabase Material Master cleared.');
+      console.log('Supabase: Material Master table cleared.');
     } catch (e: any) {
-      console.error('Supabase clearAll failed (Material Master):', e.message);
+      console.error('Supabase clearAll failed:', e.message);
     }
     localStorage.removeItem(LOCAL_STORAGE_KEY);
   }

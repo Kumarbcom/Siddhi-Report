@@ -197,7 +197,7 @@ const App: React.FC = () => {
   };
   const handleClearSO = async () => { 
     if(confirm("DANGER: This will permanently delete ALL Pending SO records from Supabase and local storage. Continue?")) { 
-      await soService.clearAll(); 
+      await stockService.clearAll(); 
       setPendingSOItems([]); 
     } 
   };
@@ -263,7 +263,7 @@ const App: React.FC = () => {
             <div className="bg-blue-600 p-1.5 rounded-lg text-white flex-shrink-0"><Database className="w-4 h-4" /></div>
             <div className={`${isSidebarOpen ? 'opacity-100' : 'opacity-0 hidden'} transition-opacity`}>
                <h1 className="text-sm font-bold text-gray-900 leading-tight">Siddhi Kabel</h1>
-               <p className="text-[9px] text-gray-500 font-medium">Supabase Connected</p>
+               <p className="text-[9px] text-gray-500 font-medium">{dbStatus === 'connected' ? 'Supabase Linked' : 'Offline Mode'}</p>
             </div>
           </div>
         </div>
@@ -296,7 +296,7 @@ const App: React.FC = () => {
               <div className="flex flex-col gap-2">
                  <div className="flex items-center gap-2 text-[10px] text-gray-500">
                     <div className={`w-1.5 h-1.5 rounded-full ${!isDbLoading ? 'bg-green-500' : 'bg-orange-500 animate-pulse'}`}></div>
-                    {isDbLoading ? "Syncing..." : "Online"}
+                    {isDbLoading ? "Syncing DB..." : "System Live"}
                  </div>
               </div>
            )}
@@ -305,9 +305,9 @@ const App: React.FC = () => {
 
       <div className="flex-1 flex flex-col min-w-0 h-full">
         {dbStatus === 'error' && (
-            <div className="bg-red-600 text-white px-4 py-2 flex items-center justify-between text-xs font-bold">
-                <div className="flex items-center gap-2"><AlertTriangle className="w-4 h-4" /> <span>Database connection issue. Ensure your tables exist in Supabase!</span></div>
-                <button onClick={loadAllData} className="bg-white text-red-600 px-2 py-0.5 rounded shadow-sm hover:bg-gray-100">Retry</button>
+            <div className="bg-orange-600 text-white px-4 py-2 flex items-center justify-between text-xs font-bold">
+                <div className="flex items-center gap-2"><AlertTriangle className="w-4 h-4" /> <span>Sync issue. Ensure table "material_master" exists in Supabase or use local cache.</span></div>
+                <button onClick={loadAllData} className="bg-white text-orange-600 px-2 py-0.5 rounded shadow-sm hover:bg-gray-100">Retry Link</button>
             </div>
         )}
         <header className="bg-white border-b border-gray-200 h-14 flex items-center justify-between px-4 flex-shrink-0 md:hidden">
