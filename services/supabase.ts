@@ -1,5 +1,5 @@
 
-import { supabase, isConfigValid, SUPABASE_URL, SUPABASE_KEY } from '../lib/supabaseClient';
+import { supabase, isConfigValid, SUPABASE_URL } from '../lib/supabaseClient';
 
 export const isSupabaseConfigured = isConfigValid;
 
