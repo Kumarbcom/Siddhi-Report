@@ -3,9 +3,11 @@ import { supabase, isSupabaseConfigured } from './supabase';
 import { dbService, STORES } from './db';
 import { Material, MaterialFormData } from '../types';
 
+/**
+ * Standard RFC 4122 compliant UUID generator.
+ * Required for Supabase tables using the UUID primary key type.
+ */
 const getUuid = () => {
-  // Use native browser crypto for standard RFC 4122 UUID generation.
-  // This is required because Supabase tables use the UUID type for primary keys.
   if (typeof window !== 'undefined' && window.crypto && window.crypto.randomUUID) {
     return window.crypto.randomUUID();
   }
@@ -17,6 +19,22 @@ const getUuid = () => {
   });
 };
 
+/**
+ * Material Master Management Service
+ * Handles CRUD operations with Supabase Cloud Sync and local IndexedDB fallback.
+ * 
+ * Database Schema Recommendation:
+ * CREATE TABLE material_master (
+ *   id UUID PRIMARY KEY,
+ *   material_code TEXT,
+ *   description TEXT NOT NULL,
+ *   part_no TEXT,
+ *   make TEXT,
+ *   material_group TEXT,
+ *   created_at TIMESTAMPTZ DEFAULT now(),
+ *   updated_at TIMESTAMPTZ DEFAULT now()
+ * );
+ */
 export const materialService = {
   async getAll(): Promise<Material[]> {
     if (isSupabaseConfigured) {

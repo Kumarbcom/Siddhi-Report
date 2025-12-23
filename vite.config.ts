@@ -16,6 +16,7 @@ export default defineConfig(({ mode }) => {
       'process.env.VITE_SUPABASE_KEY': JSON.stringify(env.VITE_SUPABASE_KEY || env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY || 'sb_publishable_sVtiXZDvmU1g6O9V0mahDg_bJ0o94iI'),
       'process.env.NODE_ENV': JSON.stringify(mode),
       // Providing a valid JSON object for 'process' to satisfy libraries checking for it.
+      // Removed parentheses to ensure strict JSON validity for Vite's define plugin.
       'process': JSON.stringify({ env: {} }),
       'global': 'globalThis'
     },
