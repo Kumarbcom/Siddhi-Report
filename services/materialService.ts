@@ -3,12 +3,9 @@ import { supabase, isSupabaseConfigured } from './supabase';
 import { dbService, STORES } from './db';
 import { Material, MaterialFormData } from '../types';
 
-// Safe ID generation for browser environments to avoid Rollup trace errors
-const generateSafeId = (): string => {
-  if (typeof self !== 'undefined' && self.crypto && self.crypto.randomUUID) {
-    return self.crypto.randomUUID();
-  }
-  return 'id-' + Math.random().toString(36).substring(2, 11) + '-' + Date.now().toString(36);
+// Statically traceable ID generator for Rollup stability
+const getUuid = () => {
+  return 'id-' + Math.random().toString(36).substring(2, 15) + '-' + Date.now().toString(36);
 };
 
 export const materialService = {
@@ -20,7 +17,7 @@ export const materialService = {
           .select('*')
           .order('material_code', { ascending: true });
 
-        if (error) throw error;
+        if (error) throw new Error(error.message);
 
         if (data) {
           const syncedData: Material[] = data.map((row: any) => ({
@@ -37,7 +34,7 @@ export const materialService = {
           return syncedData;
         }
       } catch (e: any) {
-        console.error("Cloud fetch failed for Materials. Error:", e?.message || e);
+        console.error("Cloud fetch failed for Materials:", e?.message || "Check connection");
       }
     }
     return dbService.getAll<Material>(STORES.MATERIALS);
@@ -49,7 +46,7 @@ export const materialService = {
       .filter(m => m.description && m.description.trim() !== '')
       .map(m => ({
         ...m,
-        id: generateSafeId(),
+        id: getUuid(),
         createdAt: timestamp,
         updatedAt: timestamp
       }));
@@ -69,14 +66,13 @@ export const materialService = {
 
         const CHUNK_SIZE = 200;
         for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
-          const chunk = rows.slice(i, i + CHUNK_SIZE);
           const { error } = await supabase
             .from('material_master')
-            .insert(chunk);
-          if (error) throw error;
+            .insert(rows.slice(i, i + CHUNK_SIZE));
+          if (error) throw new Error(error.message);
         }
       } catch (e: any) {
-        console.error("Sync to Supabase failed for Material Master:", e?.message || e);
+        console.error("Sync to Supabase failed for Material Master:", e?.message || "Sync Error");
       }
     }
 
@@ -101,9 +97,9 @@ export const materialService = {
             updated_at: new Date(now).toISOString()
           })
           .eq('id', updatedMaterial.id);
-        if (error) throw error;
+        if (error) throw new Error(error.message);
       } catch (e: any) {
-        console.error("Cloud update failed for Material:", e?.message || e);
+        console.error("Cloud update failed for Material:", e?.message || "Update Error");
       }
     }
     await dbService.put(STORES.MATERIALS, updatedMaterial);
@@ -116,9 +112,9 @@ export const materialService = {
           .from('material_master')
           .delete()
           .eq('id', id);
-        if (error) throw error;
+        if (error) throw new Error(error.message);
       } catch (e: any) {
-        console.error("Cloud delete failed for Material:", e?.message || e);
+        console.error("Cloud delete failed for Material:", e?.message || "Delete Error");
       }
     }
     await dbService.delete(STORES.MATERIALS, id);
@@ -131,9 +127,9 @@ export const materialService = {
           .from('material_master')
           .delete()
           .neq('id', '00000000-0000-0000-0000-000000000000');
-        if (error) throw error;
+        if (error) throw new Error(error.message);
       } catch (e: any) {
-        console.error("Cloud clear failed for Materials:", e?.message || e);
+        console.error("Cloud clear failed for Materials:", e?.message || "Clear Error");
       }
     }
     await dbService.clear(STORES.MATERIALS);

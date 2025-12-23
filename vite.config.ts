@@ -13,14 +13,15 @@ export default defineConfig(({ mode }) => {
       'process.env.SUPABASE_KEY': JSON.stringify(env.SUPABASE_KEY || '')
     },
     build: {
-      chunkSizeWarningLimit: 2000,
+      chunkSizeWarningLimit: 3000,
       rollupOptions: {
         output: {
           manualChunks: (id) => {
             if (id.includes('node_modules')) {
               if (id.includes('react')) return 'vendor-react';
               if (id.includes('lucide')) return 'vendor-ui';
-              if (id.includes('xlsx')) return 'vendor-utils';
+              if (id.includes('xlsx')) return 'vendor-xlsx';
+              if (id.includes('supabase')) return 'vendor-supabase';
               return 'vendor-core';
             }
           }
