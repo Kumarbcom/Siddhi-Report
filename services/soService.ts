@@ -20,7 +20,8 @@ export const soService = {
         const { data, error } = await supabase
           .from('pending_sales_orders')
           .select('*')
-          .order('created_at', { ascending: false });
+          .order('created_at', { ascending: false })
+          .limit(10000); // Overriding default 1000 limit
 
         if (error) throw new Error(error.message);
         if (data) {
@@ -109,7 +110,7 @@ export const soService = {
             discount: item.discount,
             value: item.value,
             due_on: item.dueDate,
-            overdue_days: item.overDueDays
+            overdue_days: item.overdue_days
         }).eq('id', item.id);
         if (error) throw new Error(error.message);
       } catch (e: any) {

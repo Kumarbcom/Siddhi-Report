@@ -4,7 +4,6 @@ import { dbService, STORES } from './db';
 import { CustomerMasterItem } from '../types';
 
 const getUuid = () => {
-  // Fixes "invalid input syntax for type uuid" by providing RFC compliant IDs.
   if (typeof window !== 'undefined' && window.crypto && window.crypto.randomUUID) {
     return window.crypto.randomUUID();
   }
@@ -22,7 +21,8 @@ export const customerService = {
         const { data, error } = await supabase
           .from('customer_master')
           .select('*')
-          .order('created_at', { ascending: false });
+          .order('created_at', { ascending: false })
+          .limit(10000); // Overriding default 1000 limit
 
         if (error) throw new Error(error.message);
         if (data) {

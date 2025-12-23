@@ -20,7 +20,8 @@ export const stockService = {
         const { data, error } = await supabase
           .from('closing_stock')
           .select('*')
-          .order('description', { ascending: true });
+          .order('description', { ascending: true })
+          .limit(10000); // Overriding default 1000 limit
 
         if (error) throw new Error(error.message);
         if (data) {

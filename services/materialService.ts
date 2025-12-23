@@ -19,30 +19,16 @@ const getUuid = () => {
   });
 };
 
-/**
- * Material Master Management Service
- * Handles CRUD operations with Supabase Cloud Sync and local IndexedDB fallback.
- * 
- * Database Schema Recommendation:
- * CREATE TABLE material_master (
- *   id UUID PRIMARY KEY,
- *   material_code TEXT,
- *   description TEXT NOT NULL,
- *   part_no TEXT,
- *   make TEXT,
- *   material_group TEXT,
- *   created_at TIMESTAMPTZ DEFAULT now(),
- *   updated_at TIMESTAMPTZ DEFAULT now()
- * );
- */
 export const materialService = {
   async getAll(): Promise<Material[]> {
     if (isSupabaseConfigured) {
       try {
+        // Explicitly set a high limit to override Supabase's default 1000 records per request limit.
         const { data, error } = await supabase
           .from('material_master')
           .select('*')
-          .order('material_code', { ascending: true });
+          .order('material_code', { ascending: true })
+          .limit(10000); 
 
         if (error) throw new Error(error.message);
 

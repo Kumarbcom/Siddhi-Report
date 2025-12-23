@@ -17,11 +17,12 @@ export const salesService = {
   async getAll(): Promise<SalesReportItem[]> {
     if (isSupabaseConfigured) {
       try {
+        // Supabase default limit is 1000. Increasing this to 50,000 for comprehensive reporting.
         const { data, error } = await supabase
           .from('sales_report')
           .select('*')
           .order('date', { ascending: false })
-          .limit(10000);
+          .limit(50000); 
 
         if (error) throw new Error(error.message);
 
