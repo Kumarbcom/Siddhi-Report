@@ -7,9 +7,10 @@ export interface Material {
   make: string;
   materialGroup: string;
   createdAt: number;
+  updatedAt?: number;
 }
 
-export type MaterialFormData = Omit<Material, 'id' | 'createdAt'>;
+export type MaterialFormData = Omit<Material, 'id' | 'createdAt' | 'updatedAt'>;
 
 export interface PendingSOItem {
   id: string;

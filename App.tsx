@@ -12,13 +12,14 @@ import CustomerMasterView from './components/CustomerMasterView';
 import DashboardView from './components/DashboardView';
 import PivotReportView from './components/PivotReportView';
 import ChatView from './components/ChatView';
-import { Database, AlertCircle, ClipboardList, ShoppingCart, TrendingUp, Package, Layers, LayoutDashboard, FileBarChart, Users, ChevronRight, Menu, X, HardDrive, Table, MessageSquare, AlertTriangle, Factory } from 'lucide-react';
+import { Database, AlertCircle, ClipboardList, ShoppingCart, TrendingUp, Package, Layers, LayoutDashboard, FileBarChart, Users, ChevronRight, Menu, X, HardDrive, Table, MessageSquare, AlertTriangle, Factory, CloudOff, CloudCheck } from 'lucide-react';
 import { materialService } from './services/materialService';
 import { customerService } from './services/customerService';
 import { stockService } from './services/stockService';
 import { soService } from './services/soService';
 import { poService } from './services/poService';
 import { salesService } from './services/salesService';
+import { isSupabaseConfigured } from './services/supabase';
 
 const STORAGE_KEY_SALES_1Y = 'sales_1year_db_v1';
 const STORAGE_KEY_SALES_3M = 'sales_3months_db_v1';
@@ -40,7 +41,9 @@ const App: React.FC = () => {
   
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [isDbLoading, setIsDbLoading] = useState(true);
-  const [dbStatus, setDbStatus] = useState<'connected' | 'partial' | 'error'>('connected');
+  const [dbStatus, setDbStatus] = useState<'connected' | 'partial' | 'error' | 'unlinked'>(
+    isSupabaseConfigured ? 'connected' : 'unlinked'
+  );
 
   const [selectedMake, setSelectedMake] = useState<string | 'ALL'>('ALL');
 
@@ -76,7 +79,11 @@ const App: React.FC = () => {
       const storedS3M = localStorage.getItem(STORAGE_KEY_SALES_3M);
       if (storedS3M) setSales3Months(JSON.parse(storedS3M));
 
-      setDbStatus('connected');
+      if (isSupabaseConfigured) {
+        setDbStatus('connected');
+      } else {
+        setDbStatus('unlinked');
+      }
     } catch (e) {
       console.error("Error loading data", e);
       setDbStatus('error');
@@ -164,7 +171,7 @@ const App: React.FC = () => {
   };
   const handleUpdateStock = async (item: ClosingStockItem) => {
     await stockService.update(item);
-    setClosingStockItems(prev => prev.map(i => i.id === item.id ? item : i));
+    setClosingStockItems(prev => prev.map(i => i.id === item.id ? i : i));
   };
   const handleDeleteStock = async (id: string) => {
     if (confirm("Delete stock record?")) {
@@ -191,9 +198,8 @@ const App: React.FC = () => {
     }
   };
   const handleUpdateSO = async (item: PendingSOItem) => {
-    // Fixed typo: changed await_soService to await soService
     await soService.update(item);
-    setPendingSOItems(prev => prev.map(i => i.id === item.id ? item : i));
+    setPendingSOItems(prev => prev.map(i => i.id === item.id ? i : i));
   };
   const handleDeleteSO = async (id: string) => {
     if (confirm("Delete pending sales order?")) {
@@ -221,7 +227,7 @@ const App: React.FC = () => {
   };
   const handleUpdatePO = async (item: PendingPOItem) => {
     await poService.update(item);
-    setPendingPOItems(prev => prev.map(i => i.id === item.id ? item : i));
+    setPendingPOItems(prev => prev.map(i => i.id === item.id ? i : i));
   };
   const handleDeletePO = async (id: string) => {
     if (confirm("Delete pending purchase order?")) {
@@ -275,7 +281,9 @@ const App: React.FC = () => {
             <div className="bg-blue-600 p-1.5 rounded-lg text-white flex-shrink-0"><Database className="w-4 h-4" /></div>
             <div className={`${isSidebarOpen ? 'opacity-100' : 'opacity-0 hidden'} transition-opacity`}>
                <h1 className="text-sm font-bold text-gray-900 leading-tight">Siddhi Kabel</h1>
-               <p className="text-[9px] text-gray-500 font-medium">{dbStatus === 'connected' ? 'Supabase Linked' : 'Offline Mode'}</p>
+               <p className="text-[9px] text-gray-500 font-medium">
+                  {dbStatus === 'connected' ? 'Cloud Master Active' : 'Local Offline Mode'}
+               </p>
             </div>
           </div>
         </div>
@@ -306,9 +314,11 @@ const App: React.FC = () => {
         <div className="p-4 border-t border-gray-200 bg-gray-50 flex-shrink-0">
            {isSidebarOpen && (
               <div className="flex flex-col gap-2">
-                 <div className="flex items-center gap-2 text-[10px] text-gray-500">
-                    <div className={`w-1.5 h-1.5 rounded-full ${!isDbLoading ? 'bg-green-500' : 'bg-orange-500 animate-pulse'}`}></div>
-                    {isDbLoading ? "Syncing DB..." : "System Live"}
+                 <div className="flex items-center gap-2 text-[10px] font-bold">
+                    <div className={`w-2 h-2 rounded-full ${dbStatus === 'connected' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-gray-400'}`}></div>
+                    <span className={dbStatus === 'connected' ? 'text-green-700' : 'text-gray-500'}>
+                        {dbStatus === 'connected' ? 'SUPABASE LINKED' : 'LOCAL ENGINE'}
+                    </span>
                  </div>
               </div>
            )}
@@ -316,12 +326,30 @@ const App: React.FC = () => {
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0 h-full">
-        {dbStatus === 'error' && (
-            <div className="bg-orange-600 text-white px-4 py-2 flex items-center justify-between text-xs font-bold">
-                <div className="flex items-center gap-2"><AlertTriangle className="w-4 h-4" /> <span>Sync issue. Ensure table "material_master" exists in Supabase.</span></div>
-                <button onClick={loadAllData} className="bg-white text-orange-600 px-2 py-0.5 rounded shadow-sm hover:bg-gray-100">Retry Link</button>
+        {dbStatus === 'unlinked' && (
+            <div className="bg-indigo-600 text-white px-4 py-2 flex items-center justify-between text-xs font-bold shadow-md z-20">
+                <div className="flex items-center gap-2">
+                    <CloudOff className="w-4 h-4" /> 
+                    <span>Cloud Sync Inactive: Running in Local IndexedDB mode. Add SUPABASE keys to connect.</span>
+                </div>
             </div>
         )}
+        {dbStatus === 'error' && (
+            <div className="bg-red-600 text-white px-4 py-2 flex items-center justify-between text-xs font-bold shadow-md z-20">
+                <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4" /> 
+                    <span>Sync Error: Check if Supabase tables exist. Defaulting to local data.</span>
+                </div>
+                <button onClick={loadAllData} className="bg-white text-red-600 px-3 py-1 rounded-md shadow-sm hover:bg-gray-100 transition-colors uppercase tracking-widest text-[10px]">Retry Cloud Link</button>
+            </div>
+        )}
+        {dbStatus === 'connected' && (
+            <div className="bg-emerald-600 text-white px-4 py-1.5 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest shadow-sm z-20">
+                <CloudCheck className="w-3.5 h-3.5" />
+                <span>Secure Cloud Link Active</span>
+            </div>
+        )}
+
         <header className="bg-white border-b border-gray-200 h-14 flex items-center justify-between px-4 flex-shrink-0 md:hidden">
             <div className="flex items-center gap-2">
                <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-lg">{isSidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}</button>
@@ -331,7 +359,11 @@ const App: React.FC = () => {
         <main className="flex-1 overflow-hidden p-4 relative">
           {activeTab === 'dashboard' && (<DashboardView materials={materials} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} salesReportItems={salesReportItems} customers={customerMasterItems} sales1Year={sales1Year} sales3Months={sales3Months} setActiveTab={setActiveTab} />)}
           {activeTab === 'pivotReport' && (<PivotReportView materials={materials} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} salesReportItems={salesReportItems} />)}
-          {activeTab === 'chat' && (<div className="h-full w-full max-w-4xl mx-auto"><ChatView materials={materials} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} salesReportItems={salesReportItems} customers={customerMasterItems} /></div>)}
+          {activeTab === 'chat' && (
+            <div className="h-full w-full max-w-4xl mx-auto flex flex-col gap-4">
+              <ChatView materials={materials} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} salesReportItems={salesReportItems} customers={customerMasterItems} />
+            </div>
+          )}
           {activeTab === 'master' && (
             <div className="flex flex-col h-full gap-4">
               <div className="bg-white border-b border-gray-200 p-4 rounded-xl shadow-sm flex flex-col md:flex-row justify-between items-center gap-4 flex-shrink-0">

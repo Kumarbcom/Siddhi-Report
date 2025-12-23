@@ -1,16 +1,17 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// Prioritize environment variables provided by the build system
-// These should be configured in your environment or .env file
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_KEY || '';
+// Using provided credentials from project ID lgxzqobcabiatqoklyuc
+const supabaseUrl = 'https://lgxzqobcabiatqoklyuc.supabase.co';
+const supabaseKey = 'sb_publishable_sVtiXZDvmU1g6O9V0mahDg_bJ0o94iI';
 
-if (!supabaseUrl || !supabaseKey) {
-  console.warn("SUPABASE WARNING: SUPABASE_URL or SUPABASE_KEY is missing. The app will fall back to local storage.");
+export const isSupabaseConfigured = 
+  supabaseUrl.length > 10 && 
+  supabaseKey.length > 10 && 
+  !supabaseUrl.includes('placeholder');
+
+if (isSupabaseConfigured) {
+  console.info("DATABASE: Supabase Cloud Link Established for Siddhi Kabel.");
 }
 
-export const supabase = createClient(
-  supabaseUrl || 'https://placeholder-url.supabase.co', 
-  supabaseKey || 'placeholder-key'
-);
+export const supabase = createClient(supabaseUrl, supabaseKey);

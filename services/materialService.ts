@@ -1,140 +1,165 @@
 
-import { supabase } from './supabase';
+import { supabase, isSupabaseConfigured } from './supabase';
+import { dbService, STORES } from './db';
 import { Material, MaterialFormData } from '../types';
-
-/**
- * DATABASE SCHEMA (SQL) - Run this in Supabase SQL Editor:
- * 
- * CREATE TABLE material_master (
- *   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
- *   material_code TEXT,
- *   description TEXT NOT NULL,
- *   part_no TEXT,
- *   make TEXT,
- *   material_group TEXT,
- *   created_at TIMESTAMPTZ DEFAULT now()
- * );
- * 
- * -- Enable Row Level Security (RLS)
- * ALTER TABLE material_master ENABLE ROW LEVEL SECURITY;
- * 
- * -- Create a policy for public access (or update for authenticated users)
- * CREATE POLICY "Allow public full access" ON material_master FOR ALL USING (true);
- */
-
-const LOCAL_STORAGE_KEY = 'material_master_db_v1';
 
 export const materialService = {
   async getAll(): Promise<Material[]> {
-    try {
-      const { data, error } = await supabase
-        .from('material_master')
-        .select('*')
-        .order('created_at', { ascending: false });
+    if (isSupabaseConfigured) {
+      try {
+        const { data, error } = await supabase
+          .from('material_master')
+          .select('*')
+          .order('material_code', { ascending: true });
 
-      if (error) {
-          if (error.code === 'PGRST116' || error.message.includes('relation "material_master" does not exist')) {
-              console.error('DATABASE LINK ERROR: The table "material_master" was not found in your Supabase database. Please run the SQL setup script.');
-          }
+        if (error) {
+          console.error("Supabase Error fetching materials:", error.message);
           throw error;
+        }
+
+        if (data) {
+          const syncedData = data.map((row: any) => ({
+            id: row.id,
+            materialCode: row.material_code || '',
+            description: row.description || '',
+            partNo: row.part_no || '',
+            make: row.make || '',
+            materialGroup: row.material_group || '',
+            createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now(),
+            updatedAt: row.updated_at ? new Date(row.updated_at).getTime() : Date.now()
+          }));
+          await dbService.putBatch(STORES.MATERIALS, syncedData);
+          return syncedData;
+        }
+      } catch (e: any) {
+        console.error("Cloud fetch failed for Materials. Falling back to local cache. Error:", e?.message || e);
       }
-
-      console.log(`Supabase Linked: Fetched ${data?.length || 0} Material records.`);
-
-      return (data || []).map((row: any) => ({
-        id: row.id,
-        materialCode: row.material_code || '',
-        description: row.description || '',
-        partNo: row.part_no || '',
-        make: row.make || '',
-        materialGroup: row.material_group || '',
-        createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now()
-      }));
-    } catch (e: any) {
-      console.warn('LINKING FAILED: Using Local Browser Storage fallback.', e.message || e);
-      const local = localStorage.getItem(LOCAL_STORAGE_KEY);
-      return local ? JSON.parse(local) : [];
     }
+    return dbService.getAll<Material>(STORES.MATERIALS);
   },
 
   async createBulk(materials: MaterialFormData[]): Promise<Material[]> {
     const timestamp = Date.now();
-    const newItems = materials.map(m => ({
+    
+    // 1. Ensure internal batch consistency (deduplicate by materialCode if present)
+    const uniqueIncoming = new Map<string, MaterialFormData>();
+    const withoutCode: MaterialFormData[] = [];
+    
+    materials.forEach(m => {
+      const code = (m.materialCode || '').trim().toUpperCase();
+      if (code) {
+        uniqueIncoming.set(code, m);
+      } else {
+        withoutCode.push(m);
+      }
+    });
+
+    const dedupedMaterials = [...Array.from(uniqueIncoming.values()), ...withoutCode];
+
+    const newItems = dedupedMaterials.map(m => ({
       ...m,
       id: crypto.randomUUID(),
-      createdAt: timestamp
+      createdAt: timestamp,
+      updatedAt: timestamp
     }));
 
-    try {
+    if (isSupabaseConfigured) {
+      try {
+        // Prepare rows for Supabase
         const rows = newItems.map(m => ({
           id: m.id,
-          material_code: m.materialCode,
+          material_code: m.materialCode || null, // Ensure empty codes are null for DB constraints if allowed
           description: m.description,
           part_no: m.partNo,
           make: m.make,
           material_group: m.materialGroup,
-          created_at: new Date(m.createdAt).toISOString()
+          created_at: new Date(m.createdAt).toISOString(),
+          updated_at: new Date(m.updatedAt || m.createdAt).toISOString()
         }));
 
-        const { error } = await supabase.from('material_master').insert(rows);
-        if (error) throw error;
-        
-        console.log(`Supabase Success: Synced ${rows.length} materials.`);
-    } catch (e: any) {
-        console.error('SUPABASE SYNC ERROR: Data was saved to Local Storage ONLY.', e.message || e);
+        // Upsert to handle potential duplicates on material_code in the cloud
+        // We use chunking to prevent large request failures
+        const CHUNK_SIZE = 200;
+        for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
+          const chunk = rows.slice(i, i + CHUNK_SIZE);
+          const { error } = await supabase
+            .from('material_master')
+            .upsert(chunk, { 
+              onConflict: 'material_code',
+              ignoreDuplicates: false // We want to update existing records if codes match
+            });
+          
+          if (error) {
+            console.error("Supabase Upsert Error Chunk " + i + ":", error.message, error.details, error.hint);
+            throw new Error(`Sync Error: ${error.message}`);
+          }
+        }
+      } catch (e: any) {
+        // Log detailed error instead of [object Object]
+        console.error("Detailed Cloud sync failed for Material import:", e?.message || JSON.stringify(e));
+        // We still save locally even if cloud fails
+      }
     }
 
-    const current = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify([...newItems, ...current]));
+    await dbService.putBatch(STORES.MATERIALS, newItems);
     return newItems;
   },
 
   async update(material: Material): Promise<void> {
-    try {
-        const { error } = await supabase
-        .from('material_master')
-        .update({
-            material_code: material.materialCode,
-            description: material.description,
-            part_no: material.partNo,
-            make: material.make,
-            material_group: material.materialGroup
-        })
-        .eq('id', material.id);
-        
-        if (error) throw error;
-    } catch (e: any) {
-        console.warn('Supabase update failed.', e.message || e);
-    }
+    const now = Date.now();
+    const updatedMaterial = { ...material, updatedAt: now };
 
-    const current: Material[] = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
-    const updated = current.map(m => m.id === material.id ? material : m);
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
+    if (isSupabaseConfigured) {
+      try {
+        const { error } = await supabase
+          .from('material_master')
+          .update({
+            material_code: updatedMaterial.materialCode,
+            description: updatedMaterial.description,
+            part_no: updatedMaterial.partNo,
+            make: updatedMaterial.make,
+            material_group: updatedMaterial.materialGroup,
+            updated_at: new Date(now).toISOString()
+          })
+          .eq('id', updatedMaterial.id);
+          
+        if (error) throw error;
+      } catch (e: any) {
+        console.error("Cloud update failed for Material:", e?.message || e);
+      }
+    }
+    await dbService.put(STORES.MATERIALS, updatedMaterial);
   },
 
   async delete(id: string): Promise<void> {
-    try {
-        const { error } = await supabase.from('material_master').delete().eq('id', id);
+    if (isSupabaseConfigured) {
+      try {
+        const { error } = await supabase
+          .from('material_master')
+          .delete()
+          .eq('id', id);
+          
         if (error) throw error;
-    } catch (e: any) {
-        console.warn('Supabase delete failed.', e.message || e);
+      } catch (e: any) {
+        console.error("Cloud delete failed for Material:", e?.message || e);
+      }
     }
-
-    const current: Material[] = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
-    const updated = current.filter(m => m.id !== id);
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
+    await dbService.delete(STORES.MATERIALS, id);
   },
 
   async clearAll(): Promise<void> {
-    try {
-      const { error } = await supabase
-        .from('material_master')
-        .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000');
-      if (error) throw error;
-    } catch (e: any) {
-      console.error('Supabase clearAll failed:', e.message);
+    if (isSupabaseConfigured) {
+      try {
+        const { error } = await supabase
+          .from('material_master')
+          .delete()
+          .neq('id', '00000000-0000-0000-0000-000000000000');
+          
+        if (error) throw error;
+      } catch (e: any) {
+        console.error("Cloud clear failed for Materials:", e?.message || e);
+      }
     }
-    localStorage.removeItem(LOCAL_STORAGE_KEY);
+    await dbService.clear(STORES.MATERIALS);
   }
 };

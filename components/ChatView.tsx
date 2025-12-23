@@ -54,9 +54,16 @@ const ChatView: React.FC<ChatViewProps> = ({
     const fyTotals: Record<string, number> = {};
     salesReportItems.forEach(item => {
         let dateObj: Date;
-        if (item.date instanceof Date) dateObj = item.date;
-        else if (typeof item.date === 'string') dateObj = new Date(item.date);
-        else dateObj = new Date((Number(item.date) - (25567 + 2)) * 86400 * 1000);
+        // Fix: Use any cast to allow checking for Date or number which can come from mixed data sources like Excel imports
+        const rawDate = item.date as any;
+        if (rawDate instanceof Date) {
+          dateObj = rawDate;
+        } else if (typeof rawDate === 'string') {
+          dateObj = new Date(rawDate);
+        } else {
+          // Handle Excel serial date if passed as number
+          dateObj = new Date((Number(rawDate) - (25567 + 2)) * 86400 * 1000);
+        }
         
         if (!isNaN(dateObj.getTime())) {
             const month = dateObj.getMonth();
@@ -112,7 +119,9 @@ const ChatView: React.FC<ChatViewProps> = ({
     setIsLoading(true);
 
     try {
+      // Using named parameter for apiKey and direct initialization as per guidelines
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      // Create chat session as per GenAI SDK guidelines for Chat tasks
       const chat: Chat = ai.chats.create({
         model: 'gemini-3-pro-preview',
         config: {
@@ -125,6 +134,7 @@ const ChatView: React.FC<ChatViewProps> = ({
       });
 
       const response: GenerateContentResponse = await chat.sendMessage({ message: text });
+      // Use .text property to extract response string
       const responseText = response.text || "I'm sorry, I couldn't generate a response.";
 
       const aiMsg: Message = { id: crypto.randomUUID(), role: 'model', content: responseText, timestamp: Date.now() };

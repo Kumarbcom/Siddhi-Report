@@ -237,7 +237,8 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
     try {
-      const arrayBuffer = await file.arrayBuffer(); const wb = read(arrayBuffer); const ws = wb.Sheets[wb.SheetNames[0]]; const data = utils.sheet_to_json<any>(ws, { cellDates: true, dateNF: 'yyyy-mm-dd' }); const newItems: Omit<PendingSOItem, 'id' | 'createdAt'>[] = [];
+      // Fixed: Moved cellDates and dateNF to read options to avoid Sheet2JSONOpts type errors
+      const arrayBuffer = await file.arrayBuffer(); const wb = read(arrayBuffer, { cellDates: true, dateNF: 'yyyy-mm-dd' }); const ws = wb.Sheets[wb.SheetNames[0]]; const data = utils.sheet_to_json<any>(ws); const newItems: Omit<PendingSOItem, 'id' | 'createdAt'>[] = [];
       const formatExcelDate = (val: any) => { if (val instanceof Date) return val.toISOString().split('T')[0]; if (typeof val === 'number') { const d = new Date((val - (25567 + 2)) * 86400 * 1000); return d.toISOString().split('T')[0]; } return String(val || ''); };
       data.forEach((row) => {
          const getVal = (keys: string[]) => { for (const k of keys) { const foundKey = Object.keys(row).find(rk => rk.toLowerCase() === k.toLowerCase()); if (foundKey) return row[foundKey]; } return ''; };

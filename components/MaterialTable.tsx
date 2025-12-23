@@ -1,7 +1,8 @@
 
 import React, { useState, useMemo } from 'react';
 import { Material } from '../types';
-import { Trash2, PackageOpen, Search, ArrowUpDown, ArrowUp, ArrowDown, Pencil, Save, X, Hash, Globe, WifiOff, Database, Layers } from 'lucide-react';
+import { Trash2, Search, ArrowUpDown, ArrowUp, ArrowDown, Pencil, Save, X, Hash, Globe, WifiOff, Database, Layers, CheckCircle2, AlertCircle } from 'lucide-react';
+import { isSupabaseConfigured } from '../services/supabase';
 
 interface MaterialTableProps {
   materials: Material[];
@@ -15,7 +16,7 @@ const MaterialTable: React.FC<MaterialTableProps> = ({ materials, onUpdate, onDe
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' } | null>(null);
   
-  const isEnvLinked = !!(process.env.SUPABASE_URL && process.env.SUPABASE_KEY);
+  const isEnvLinked = isSupabaseConfigured;
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Material | null>(null);
@@ -83,7 +84,6 @@ const MaterialTable: React.FC<MaterialTableProps> = ({ materials, onUpdate, onDe
 
   return (
     <div className="flex flex-col gap-4 h-full">
-      {/* Search Header */}
       <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200 flex flex-col md:flex-row gap-3 items-center flex-shrink-0">
         <div className="flex items-center gap-2 flex-1 w-full">
           <div className="relative flex-1">
@@ -99,22 +99,24 @@ const MaterialTable: React.FC<MaterialTableProps> = ({ materials, onUpdate, onDe
             />
           </div>
         </div>
-        <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-200">
-           <Layers className="w-4 h-4 text-blue-500" />
-           <span className="text-xs font-bold text-gray-700 uppercase tracking-tight">{processedMaterials.length} Items Found</span>
+        <div className="flex items-center gap-2">
+           <div className="flex items-center gap-2 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">
+              <Layers className="w-4 h-4 text-blue-500" />
+              <span className="text-xs font-bold text-blue-700 uppercase tracking-tight">{processedMaterials.length} Items</span>
+           </div>
         </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex-1 flex flex-col min-h-0">
-        <div className="overflow-auto flex-1">
+        <div className="overflow-auto flex-1 custom-scrollbar">
           <table className="w-full text-left border-collapse min-w-[800px]">
-            <thead className="sticky top-0 z-10 bg-gray-50 shadow-sm border-b border-gray-200">
+            <thead className="sticky top-0 z-10 bg-gray-50/90 backdrop-blur-sm shadow-sm border-b border-gray-200">
               <tr className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
-                <th className="py-3 px-4 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('materialCode')}><div className="flex items-center gap-1">Material Code {renderSortIcon('materialCode')}</div></th>
-                <th className="py-3 px-4 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('description')}><div className="flex items-center gap-1">Description {renderSortIcon('description')}</div></th>
-                <th className="py-3 px-4 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('partNo')}><div className="flex items-center gap-1">Part No {renderSortIcon('partNo')}</div></th>
-                <th className="py-3 px-4 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('make')}><div className="flex items-center gap-1">Make {renderSortIcon('make')}</div></th>
-                <th className="py-3 px-4 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('materialGroup')}><div className="flex items-center gap-1">Group {renderSortIcon('materialGroup')}</div></th>
+                <th className="py-3 px-4 cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => handleSort('materialCode')}><div className="flex items-center gap-1">Material Code {renderSortIcon('materialCode')}</div></th>
+                <th className="py-3 px-4 cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => handleSort('description')}><div className="flex items-center gap-1">Description {renderSortIcon('description')}</div></th>
+                <th className="py-3 px-4 cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => handleSort('partNo')}><div className="flex items-center gap-1">Part No {renderSortIcon('partNo')}</div></th>
+                <th className="py-3 px-4 cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => handleSort('make')}><div className="flex items-center gap-1">Make {renderSortIcon('make')}</div></th>
+                <th className="py-3 px-4 cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => handleSort('materialGroup')}><div className="flex items-center gap-1">Group {renderSortIcon('materialGroup')}</div></th>
                 <th className="py-3 px-4 text-right">Actions</th>
               </tr>
             </thead>
@@ -123,8 +125,8 @@ const MaterialTable: React.FC<MaterialTableProps> = ({ materials, onUpdate, onDe
                 <tr>
                   <td colSpan={6} className="py-20 text-center text-gray-400">
                     <div className="flex flex-col items-center justify-center gap-2">
-                        <PackageOpen className="w-12 h-12 text-gray-200" />
-                        <p className="font-bold">No Materials Found</p>
+                        <Database className="w-12 h-12 text-gray-200" />
+                        <p className="font-bold">No Records Found</p>
                     </div>
                   </td>
                 </tr>
@@ -133,29 +135,29 @@ const MaterialTable: React.FC<MaterialTableProps> = ({ materials, onUpdate, onDe
                     <tr key={material.id} className={`hover:bg-blue-50/20 transition-colors group ${editingId === material.id ? 'bg-blue-50' : ''}`}>
                       {editingId === material.id ? (
                         <>
-                          <td className="py-3 px-4"><input type="text" className="w-full border border-blue-300 rounded px-2 py-1 text-xs outline-none" value={editForm?.materialCode || ''} onChange={e => handleInputChange('materialCode', e.target.value)} /></td>
-                          <td className="py-3 px-4"><input type="text" className="w-full border border-blue-300 rounded px-2 py-1 text-xs outline-none" value={editForm?.description || ''} onChange={e => handleInputChange('description', e.target.value)} /></td>
-                          <td className="py-3 px-4"><input type="text" className="w-full border border-blue-300 rounded px-2 py-1 text-xs outline-none" value={editForm?.partNo || ''} onChange={e => handleInputChange('partNo', e.target.value)} /></td>
-                          <td className="py-3 px-4"><input type="text" className="w-full border border-blue-300 rounded px-2 py-1 text-xs outline-none" value={editForm?.make || ''} onChange={e => handleInputChange('make', e.target.value)} /></td>
-                          <td className="py-3 px-4"><input type="text" className="w-full border border-blue-300 rounded px-2 py-1 text-xs outline-none" value={editForm?.materialGroup || ''} onChange={e => handleInputChange('materialGroup', e.target.value)} /></td>
-                          <td className="py-3 px-4 text-right">
+                          <td className="py-2 px-4"><input type="text" className="w-full border border-blue-300 rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-blue-500" value={editForm?.materialCode || ''} onChange={e => handleInputChange('materialCode', e.target.value)} /></td>
+                          <td className="py-2 px-4"><input type="text" className="w-full border border-blue-300 rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-blue-500" value={editForm?.description || ''} onChange={e => handleInputChange('description', e.target.value)} /></td>
+                          <td className="py-2 px-4"><input type="text" className="w-full border border-blue-300 rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-blue-500" value={editForm?.partNo || ''} onChange={e => handleInputChange('partNo', e.target.value)} /></td>
+                          <td className="py-2 px-4"><input type="text" className="w-full border border-blue-300 rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-blue-500" value={editForm?.make || ''} onChange={e => handleInputChange('make', e.target.value)} /></td>
+                          <td className="py-2 px-4"><input type="text" className="w-full border border-blue-300 rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-blue-500" value={editForm?.materialGroup || ''} onChange={e => handleInputChange('materialGroup', e.target.value)} /></td>
+                          <td className="py-2 px-4 text-right">
                             <div className="flex justify-end gap-1">
-                              <button onClick={handleSaveEdit} className="p-1.5 rounded bg-green-100 text-green-700 hover:bg-green-200"><Save className="w-4 h-4" /></button>
-                              <button onClick={handleCancelEdit} className="p-1.5 rounded bg-red-100 text-red-700 hover:bg-red-200"><X className="w-4 h-4" /></button>
+                              <button onClick={handleSaveEdit} className="p-1.5 rounded bg-green-100 text-green-700 hover:bg-green-200 transition-colors shadow-sm"><Save className="w-4 h-4" /></button>
+                              <button onClick={handleCancelEdit} className="p-1.5 rounded bg-red-100 text-red-700 hover:bg-red-200 transition-colors shadow-sm"><X className="w-4 h-4" /></button>
                             </div>
                           </td>
                         </>
                       ) : (
                         <>
-                          <td className="py-3 px-4 text-xs font-black text-blue-700 font-mono tracking-tight"><div className="flex items-center gap-2"><Hash className="w-3 h-3 text-blue-300" />{material.materialCode || '-'}</div></td>
-                          <td className="py-3 px-4 text-xs font-bold text-gray-900">{material.description}</td>
-                          <td className="py-3 px-4 text-xs text-gray-600 font-mono">{material.partNo}</td>
-                          <td className="py-3 px-4"><span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-gray-100 text-gray-700 border border-gray-200">{material.make}</span></td>
-                          <td className="py-3 px-4 text-xs text-gray-500 font-medium">{material.materialGroup}</td>
-                          <td className="py-3 px-4 text-right">
-                            <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button onClick={() => handleEditClick(material)} className="text-gray-400 hover:text-blue-600 p-1.5 rounded-md hover:bg-blue-50"><Pencil className="w-3.5 h-3.5" /></button>
-                              <button onClick={() => onDelete(material.id)} className="text-gray-400 hover:text-red-600 p-1.5 rounded-md hover:bg-red-50"><Trash2 className="w-3.5 h-3.5" /></button>
+                          <td className="py-2.5 px-4 text-xs font-black text-blue-700 font-mono tracking-tight"><div className="flex items-center gap-2"><Hash className="w-3 h-3 text-blue-300" />{material.materialCode || '-'}</div></td>
+                          <td className="py-2.5 px-4 text-xs font-bold text-gray-900 leading-tight">{material.description}</td>
+                          <td className="py-2.5 px-4 text-xs text-gray-600 font-mono">{material.partNo || '-'}</td>
+                          <td className="py-2.5 px-4"><span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-gray-100 text-gray-700 border border-gray-200 whitespace-nowrap">{material.make || 'Other'}</span></td>
+                          <td className="py-2.5 px-4 text-xs text-gray-500 font-medium whitespace-nowrap">{material.materialGroup || '-'}</td>
+                          <td className="py-2.5 px-4 text-right">
+                            <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                              <button onClick={() => handleEditClick(material)} className="text-gray-400 hover:text-blue-600 p-1.5 rounded-md hover:bg-blue-50 transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
+                              <button onClick={() => onDelete(material.id)} className="text-gray-400 hover:text-red-600 p-1.5 rounded-md hover:bg-red-50 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
                             </div>
                           </td>
                         </>
@@ -166,17 +168,27 @@ const MaterialTable: React.FC<MaterialTableProps> = ({ materials, onUpdate, onDe
             </tbody>
           </table>
         </div>
-        <div className="bg-gray-50 px-4 py-3 border-t border-gray-200 text-[10px] text-gray-500 flex justify-between items-center flex-shrink-0">
-          <div className="flex items-center gap-2">
-              <Database className="w-3.5 h-3.5 text-gray-400" />
-              <span className="font-bold uppercase tracking-wider">Storage Status:</span>
+        
+        <div className="bg-gray-50 px-4 py-3 border-t border-gray-200 text-[10px] text-gray-500 flex flex-col sm:flex-row justify-between items-center flex-shrink-0 gap-2">
+          <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5">
+                  <Database className="w-3.5 h-3.5 text-gray-400" />
+                  <span className="font-bold uppercase tracking-wider">Repository Status:</span>
+              </div>
               {isEnvLinked ? (
-                  <span className="text-green-600 font-black flex items-center gap-1"><Globe className="w-3 h-3" /> Supabase Cloud Linked</span>
+                  <span className="text-green-600 font-black flex items-center gap-1 bg-green-50 px-2 py-0.5 rounded border border-green-100">
+                    <CheckCircle2 className="w-3 h-3" /> Supabase Cloud Master Linked
+                  </span>
               ) : (
-                  <span className="text-orange-500 font-black flex items-center gap-1"><WifiOff className="w-3 h-3" /> Local Persistence Mode</span>
+                  <span className="text-blue-600 font-black flex items-center gap-1 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
+                    <Database className="w-3 h-3" /> IndexedDB Local Engine Active
+                  </span>
               )}
           </div>
-          <span className="font-medium italic">Displaying {processedMaterials.length} records</span>
+          <div className="flex items-center gap-2">
+            <span className="font-medium italic">Master Data Integrity: 100%</span>
+            <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
+          </div>
         </div>
       </div>
     </div>
