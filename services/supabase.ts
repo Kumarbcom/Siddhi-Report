@@ -1,17 +1,16 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = 'https://lgxzqobcabiatqoklyuc.supabase.co';
-const supabaseKey = 'sb_publishable_sVtiXZDvmU1g6O9V0mahDg_bJ0o94iI';
+// Prioritize environment variables provided by the build system
+// These should be configured in your environment or .env file
+const supabaseUrl = process.env.SUPABASE_URL || '';
+const supabaseKey = process.env.SUPABASE_KEY || '';
 
-// Check if credentials are set and valid
-export const isConfigured = 
-  !!supabaseUrl && 
-  !!supabaseKey && 
-  supabaseUrl.includes('supabase.co');
-
-if (!isConfigured) {
-  console.error("CRITICAL: Supabase credentials are missing or incorrect.");
+if (!supabaseUrl || !supabaseKey) {
+  console.warn("SUPABASE WARNING: SUPABASE_URL or SUPABASE_KEY is missing. The app will fall back to local storage.");
 }
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+export const supabase = createClient(
+  supabaseUrl || 'https://placeholder-url.supabase.co', 
+  supabaseKey || 'placeholder-key'
+);

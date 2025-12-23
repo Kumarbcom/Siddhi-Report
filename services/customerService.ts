@@ -1,67 +1,90 @@
 
-import { supabase, isConfigured } from './supabase';
+import { supabase } from './supabase';
 import { CustomerMasterItem } from '../types';
+
+const LOCAL_STORAGE_KEY = 'customer_master_db_v1';
 
 export const customerService = {
   async getAll(): Promise<CustomerMasterItem[]> {
-    if (!isConfigured) throw new Error("Supabase not configured.");
-    const { data, error } = await supabase.from('customer_master').select('*').order('created_at', { ascending: false });
-    
-    if (error) {
-      throw new Error(`Customer Load Failed: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
+    try {
+      const { data, error } = await supabase
+        .from('customer_master')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      return (data || []).map((row: any) => ({
+        id: row.id,
+        customerName: row.customer_name,
+        group: row.group_name,
+        salesRep: row.sales_rep,
+        status: row.status,
+        customerGroup: row.customer_group,
+        createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now()
+      }));
+    } catch (e) {
+      console.warn('Supabase fetch failed (Customers), using local storage.', e);
+      const local = localStorage.getItem(LOCAL_STORAGE_KEY);
+      return local ? JSON.parse(local) : [];
     }
-    
-    return (data || []).map(row => ({
-      id: row.id,
-      customerName: row.customer_name,
-      group: row.group_name,
-      salesRep: row.sales_rep,
-      status: row.status,
-      customerGroup: row.customer_group,
-      createdAt: new Date(row.created_at).getTime()
-    }));
   },
 
   async createBulk(items: Omit<CustomerMasterItem, 'id' | 'createdAt'>[]): Promise<CustomerMasterItem[]> {
-    if (!isConfigured) throw new Error("Supabase not configured.");
-    const rows = items.map(i => ({
-      customer_name: i.customerName,
-      group_name: i.group,
-      sales_rep: i.salesRep,
-      status: i.status,
-      customer_group: i.customerGroup
-    }));
-    const { data, error } = await supabase.from('customer_master').insert(rows).select();
-    if (error) throw new Error(`Insert Failed: ${error.message}`);
-    return (data || []).map(row => ({
-      id: row.id,
-      customerName: row.customer_name,
-      group: row.group_name,
-      salesRep: row.sales_rep,
-      status: row.status,
-      customerGroup: row.customer_group,
-      createdAt: new Date(row.created_at).getTime()
-    }));
+    const timestamp = Date.now();
+    const newItems = items.map(i => ({ ...i, id: crypto.randomUUID(), createdAt: timestamp }));
+    
+    try {
+        const rows = newItems.map(i => ({
+            id: i.id,
+            customer_name: i.customerName,
+            group_name: i.group,
+            sales_rep: i.salesRep,
+            status: i.status,
+            customer_group: i.customerGroup,
+            created_at: new Date(i.createdAt).toISOString()
+        }));
+        const { error } = await supabase.from('customer_master').insert(rows);
+        if (error) throw error;
+    } catch (e) {
+        console.warn('Supabase insert failed (Customers), saving locally.', e);
+        const current = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify([...newItems, ...current]));
+    }
+    return newItems;
   },
 
   async update(item: CustomerMasterItem): Promise<void> {
-    const { error } = await supabase.from('customer_master').update({
-      customer_name: item.customerName,
-      group_name: item.group,
-      sales_rep: item.salesRep,
-      status: item.status,
-      customer_group: item.customerGroup
-    }).eq('id', item.id);
-    if (error) throw new Error(`Update Failed: ${error.message}`);
+    try {
+        const { error } = await supabase.from('customer_master').update({
+            customer_name: item.customerName,
+            group_name: item.group,
+            sales_rep: item.salesRep,
+            status: item.status,
+            customer_group: item.customerGroup
+        }).eq('id', item.id);
+        if (error) throw error;
+    } catch (e) {
+        console.warn('Supabase update failed (Customers).', e);
+    }
   },
 
   async delete(id: string): Promise<void> {
-    const { error } = await supabase.from('customer_master').delete().eq('id', id);
-    if (error) throw new Error(`Delete Failed: ${error.message}`);
+    try {
+        const { error } = await supabase.from('customer_master').delete().eq('id', id);
+        if (error) throw error;
+    } catch (e) {
+        console.warn('Supabase delete failed (Customers).', e);
+    }
   },
 
   async clearAll(): Promise<void> {
-    const { error } = await supabase.from('customer_master').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    if (error) throw new Error(`Clear Failed: ${error.message}`);
+    try {
+      const { error } = await supabase.from('customer_master').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      if (error) throw error;
+    } catch (e: any) {
+      console.error('Supabase clearAll failed (Customers):', e.message);
+    }
+    localStorage.removeItem(LOCAL_STORAGE_KEY);
   }
 };
