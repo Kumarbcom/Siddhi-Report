@@ -9,13 +9,10 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     define: {
-      // Defining individual properties instead of the whole 'process' object 
-      // prevents Rollup from failing during variable tracing.
-      // Gemini SDK requires process.env.API_KEY specifically.
-      // Fix: Added Supabase environment variables to process.env definition.
-      'process.env.API_KEY': JSON.stringify(env.VITE_API_KEY || env.API_KEY || ''),
-      'process.env.VITE_SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL || ''),
-      'process.env.VITE_SUPABASE_KEY': JSON.stringify(env.VITE_SUPABASE_KEY || ''),
+      // Define specific properties to avoid 'process' being undefined in Rollup's scope
+      'process.env.API_KEY': JSON.stringify(env.API_KEY || env.VITE_API_KEY || ''),
+      'process.env.VITE_SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL || 'https://lgxzqobcabiatqoklyuc.supabase.co'),
+      'process.env.VITE_SUPABASE_KEY': JSON.stringify(env.VITE_SUPABASE_KEY || env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY || 'sb_publishable_sVtiXZDvmU1g6O9V0mahDg_bJ0o94iI'),
       'process.env.NODE_ENV': JSON.stringify(mode),
       'global': 'globalThis'
     },
