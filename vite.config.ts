@@ -9,11 +9,15 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     define: {
-      'process.env.API_KEY': JSON.stringify(env.API_KEY || env.VITE_API_KEY || ''),
-      'process.env.SUPABASE_URL': JSON.stringify(env.SUPABASE_URL || env.VITE_SUPABASE_URL || 'https://lgxzqobcabiatqoklyuc.supabase.co'),
-      'process.env.SUPABASE_KEY': JSON.stringify(env.SUPABASE_KEY || env.VITE_SUPABASE_KEY || 'sb_publishable_sVtiXZDvmU1g6O9V0mahDg_bJ0o94iI'),
+      // Defining individual properties instead of the whole 'process' object 
+      // prevents Rollup from failing during variable tracing.
+      // Always obtain the Gemini API key from process.env.API_KEY.
+      'process.env.API_KEY': JSON.stringify(env.VITE_API_KEY || env.API_KEY || ''),
+      // Define Supabase keys to avoid import.meta.env errors.
+      // Updated default URL to https://lgxzqobcabiatqoklyuc.supabase.co
+      'process.env.VITE_SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL || 'https://lgxzqobcabiatqoklyuc.supabase.co'),
+      'process.env.VITE_SUPABASE_KEY': JSON.stringify(env.VITE_SUPABASE_KEY || env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY || 'sb_publishable_sVtiXZDvmU1g6O9V0mahDg_bJ0o94iI'),
       'process.env.NODE_ENV': JSON.stringify(mode),
-      'process.platform': JSON.stringify('browser'),
       'global': 'globalThis'
     },
     build: {

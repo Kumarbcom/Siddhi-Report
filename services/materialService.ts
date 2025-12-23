@@ -33,7 +33,11 @@ export const materialService = {
           return syncedData;
         }
       } catch (e: any) {
-        console.error("Cloud fetch failed for Materials:", e?.message || e);
+        if (e.name === 'TypeError' && e.message.includes('fetch')) {
+          console.warn("Material Master: Cloud sync unavailable (Network). Falling back to local data.");
+        } else {
+          console.error("Material Master: Cloud fetch failed:", e?.message || e);
+        }
       }
     }
     return dbService.getAll<Material>(STORES.MATERIALS);
@@ -71,7 +75,7 @@ export const materialService = {
           if (error) throw new Error(error.message);
         }
       } catch (e: any) {
-        console.error("Sync to Supabase failed for Material Master:", e?.message || e);
+        console.error("Material Master: Sync to Supabase failed:", e?.message || e);
       }
     }
 
@@ -98,7 +102,7 @@ export const materialService = {
           .eq('id', updatedMaterial.id);
         if (error) throw new Error(error.message);
       } catch (e: any) {
-        console.error("Cloud update failed for Material:", e?.message || e);
+        console.error("Material Master: Cloud update failed:", e?.message || e);
       }
     }
     await dbService.put(STORES.MATERIALS, updatedMaterial);
@@ -113,7 +117,7 @@ export const materialService = {
           .eq('id', id);
         if (error) throw new Error(error.message);
       } catch (e: any) {
-        console.error("Cloud delete failed for Material:", e?.message || e);
+        console.error("Material Master: Cloud delete failed:", e?.message || e);
       }
     }
     await dbService.delete(STORES.MATERIALS, id);
@@ -128,7 +132,7 @@ export const materialService = {
           .neq('id', '00000000-0000-0000-0000-000000000000');
         if (error) throw new Error(error.message);
       } catch (e: any) {
-        console.error("Cloud clear failed for Materials:", e?.message || e);
+        console.error("Material Master: Cloud clear failed:", e?.message || e);
       }
     }
     await dbService.clear(STORES.MATERIALS);

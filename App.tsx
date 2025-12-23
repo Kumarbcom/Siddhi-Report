@@ -85,7 +85,7 @@ const App: React.FC = () => {
         setDbStatus('unlinked');
       }
     } catch (e) {
-      console.error("Error loading data", e);
+      console.error("Initial load failed", e);
       setDbStatus('error');
     } finally {
       setIsDataLoaded(true);
@@ -330,7 +330,7 @@ const App: React.FC = () => {
             <div className="bg-indigo-600 text-white px-4 py-2 flex items-center justify-between text-xs font-bold shadow-md z-20">
                 <div className="flex items-center gap-2">
                     <CloudOff className="w-4 h-4" /> 
-                    <span>Cloud Sync Inactive: Running in Local IndexedDB mode. Add SUPABASE keys to connect.</span>
+                    <span>Cloud Sync Inactive: Running in Local mode. Add valid SUPABASE Keys to connect.</span>
                 </div>
             </div>
         )}
@@ -338,7 +338,7 @@ const App: React.FC = () => {
             <div className="bg-red-600 text-white px-4 py-2 flex items-center justify-between text-xs font-bold shadow-md z-20">
                 <div className="flex items-center gap-2">
                     <AlertTriangle className="w-4 h-4" /> 
-                    <span>Sync Error: Check if Supabase tables exist. Defaulting to local data.</span>
+                    <span>Sync Error: Connection to cloud failed. Reverting to local storage.</span>
                 </div>
                 <button onClick={loadAllData} className="bg-white text-red-600 px-3 py-1 rounded-md shadow-sm hover:bg-gray-100 transition-colors uppercase tracking-widest text-[10px]">Retry Cloud Link</button>
             </div>

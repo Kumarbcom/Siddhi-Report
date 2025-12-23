@@ -4,15 +4,6 @@ import { GoogleGenAI, Chat, GenerateContentResponse } from "@google/genai";
 import { Material, ClosingStockItem, PendingSOItem, PendingPOItem, SalesReportItem, CustomerMasterItem } from '../types';
 import { Send, Bot, User, Trash2, Sparkles, Loader2, StopCircle } from 'lucide-react';
 
-interface ChatViewProps {
-  materials: Material[];
-  closingStock: ClosingStockItem[];
-  pendingSO: PendingSOItem[];
-  pendingPO: PendingPOItem[];
-  salesReportItems: SalesReportItem[];
-  customers: CustomerMasterItem[];
-}
-
 interface Message {
   id: string;
   role: 'user' | 'model';
@@ -28,6 +19,15 @@ const SUGGESTED_QUERIES = [
   "Show me pending POs that are overdue.",
   "Who are my top 5 customers by sales value?"
 ];
+
+interface ChatViewProps {
+  materials: Material[];
+  closingStock: ClosingStockItem[];
+  pendingSO: PendingSOItem[];
+  pendingPO: PendingPOItem[];
+  salesReportItems: SalesReportItem[];
+  customers: CustomerMasterItem[];
+}
 
 const ChatView: React.FC<ChatViewProps> = ({
   materials,
@@ -121,8 +121,9 @@ const ChatView: React.FC<ChatViewProps> = ({
     setIsLoading(true);
 
     try {
-      // Accessing polyfilled process.env
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+      // Use process.env.API_KEY exclusively for Gemini API.
+      // Always initialize GoogleGenAI with a named parameter.
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const chat: Chat = ai.chats.create({
         model: 'gemini-3-pro-preview',
         config: {
@@ -135,6 +136,7 @@ const ChatView: React.FC<ChatViewProps> = ({
       });
 
       const response: GenerateContentResponse = await chat.sendMessage({ message: text });
+      // Use .text getter property, do not call it as a function.
       const responseText = response.text || "I'm sorry, I couldn't generate a response.";
 
       const aiMsg: Message = { id: generateSafeId(), role: 'model', content: responseText, timestamp: Date.now() };

@@ -4,8 +4,8 @@ import { Material } from "../types";
 
 export const generateMockMaterials = async (count: number = 5): Promise<Omit<Material, 'id' | 'createdAt'>[]> => {
   try {
-    const apiKey = (typeof process !== 'undefined' && process.env?.API_KEY) || '';
-    const ai = new GoogleGenAI({ apiKey });
+    // Obtain API key exclusively from process.env.API_KEY.
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `Generate ${count} realistic industrial material master records. 
@@ -31,6 +31,7 @@ export const generateMockMaterials = async (count: number = 5): Promise<Omit<Mat
       }
     });
 
+    // Use .text getter property, do not call it as a function.
     if (response.text) {
       return JSON.parse(response.text);
     }

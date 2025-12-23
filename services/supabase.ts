@@ -1,21 +1,14 @@
 
-import { createClient } from '@supabase/supabase-js';
+import { supabase, isConfigValid, SUPABASE_URL, SUPABASE_KEY } from '../lib/supabaseClient';
 
-// User provided credentials
-const PROJECT_URL = 'https://lgxzqobcabiatqoklyuc.supabase.co';
-const PROJECT_KEY = 'sb_publishable_sVtiXZDvmU1g6O9V0mahDg_bJ0o94iI';
+export const isSupabaseConfigured = isConfigValid;
 
-// Fallback logic to handle cases where process.env might be undefined during SSR or initial load
-const supabaseUrl = (typeof process !== 'undefined' && process.env?.SUPABASE_URL) || PROJECT_URL;
-const supabaseKey = (typeof process !== 'undefined' && process.env?.SUPABASE_KEY) || PROJECT_KEY;
-
-export const isSupabaseConfigured = 
-  Boolean(supabaseUrl && supabaseKey) && 
-  !supabaseUrl.includes('placeholder') &&
-  supabaseKey.length > 20;
-
-if (isSupabaseConfigured && typeof window !== 'undefined') {
-  console.info("DATABASE: Supabase Cloud Link Established for Siddhi Kabel.");
+if (typeof window !== 'undefined') {
+  if (isSupabaseConfigured) {
+    console.info("DATABASE: Supabase Cloud Link verified. Syncing with: " + SUPABASE_URL);
+  } else {
+    console.info("DATABASE: Local Mode. Supabase configuration missing or using placeholders.");
+  }
 }
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+export { supabase };

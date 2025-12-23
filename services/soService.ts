@@ -39,7 +39,11 @@ export const soService = {
           return synced;
         }
       } catch (e: any) {
-        console.error("Cloud fetch failed for Sales Orders:", e?.message || e);
+        if (e.name === 'TypeError' && e.message.includes('fetch')) {
+          console.warn("Sales Orders: Cloud sync unavailable (Network). Falling back to local data.");
+        } else {
+          console.error("Sales Orders: Cloud fetch failed:", e?.message || e);
+        }
       }
     }
     return dbService.getAll<PendingSOItem>(STORES.SO);
@@ -75,7 +79,7 @@ export const soService = {
             if (error) throw new Error(error.message);
         }
       } catch (e: any) {
-        console.error("Sync failed for Sales Orders:", e?.message || e);
+        console.error("Sales Orders: Sync failed:", e?.message || e);
       }
     }
     
@@ -103,7 +107,7 @@ export const soService = {
         }).eq('id', item.id);
         if (error) throw new Error(error.message);
       } catch (e: any) {
-        console.error("Cloud update failed for Sales Order:", e?.message || e);
+        console.error("Sales Orders: Cloud update failed:", e?.message || e);
       }
     }
     await dbService.put(STORES.SO, item);
@@ -115,7 +119,7 @@ export const soService = {
         const { error } = await supabase.from('pending_sales_orders').delete().eq('id', id);
         if (error) throw new Error(error.message);
       } catch (e: any) {
-        console.error("Cloud delete failed for Sales Order:", e?.message || e);
+        console.error("Sales Orders: Cloud delete failed:", e?.message || e);
       }
     }
     await dbService.delete(STORES.SO, id);
@@ -127,7 +131,7 @@ export const soService = {
         const { error } = await supabase.from('pending_sales_orders').delete().neq('id', '00000000-0000-0000-0000-000000000000');
         if (error) throw new Error(error.message);
       } catch (e: any) {
-        console.error("Cloud clear failed for Sales Orders:", e?.message || e);
+        console.error("Sales Orders: Cloud clear failed:", e?.message || e);
       }
     }
     await dbService.clear(STORES.SO);

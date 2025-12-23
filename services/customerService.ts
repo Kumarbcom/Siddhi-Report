@@ -31,7 +31,11 @@ export const customerService = {
           return synced;
         }
       } catch (e: any) {
-        console.error("Cloud fetch failed for Customers:", e?.message || e);
+        if (e.name === 'TypeError' && e.message.includes('fetch')) {
+          console.warn("Customer Master: Cloud sync unavailable (Network). Falling back to local data.");
+        } else {
+          console.error("Customer Master: Cloud fetch failed:", e?.message || e);
+        }
       }
     }
     return dbService.getAll<CustomerMasterItem>(STORES.CUSTOMERS);
@@ -55,7 +59,7 @@ export const customerService = {
         const { error } = await supabase.from('customer_master').insert(rows);
         if (error) throw new Error(error.message);
       } catch (e: any) {
-        console.error("Sync failed for Customers:", e?.message || e);
+        console.error("Customer Master: Sync failed:", e?.message || e);
       }
     }
 
@@ -75,7 +79,7 @@ export const customerService = {
         }).eq('id', item.id);
         if (error) throw new Error(error.message);
       } catch (e: any) {
-        console.error("Cloud update failed for Customer:", e?.message || e);
+        console.error("Customer Master: Cloud update failed:", e?.message || e);
       }
     }
     await dbService.put(STORES.CUSTOMERS, item);
@@ -87,7 +91,7 @@ export const customerService = {
         const { error } = await supabase.from('customer_master').delete().eq('id', id);
         if (error) throw new Error(error.message);
       } catch (e: any) {
-        console.error("Cloud delete failed for Customer:", e?.message || e);
+        console.error("Customer Master: Cloud delete failed:", e?.message || e);
       }
     }
     await dbService.delete(STORES.CUSTOMERS, id);
@@ -99,7 +103,7 @@ export const customerService = {
         const { error } = await supabase.from('customer_master').delete().neq('id', '00000000-0000-0000-0000-000000000000');
         if (error) throw new Error(error.message);
       } catch (e: any) {
-        console.error("Cloud clear failed for Customers:", e?.message || e);
+        console.error("Customer Master: Cloud clear failed:", e?.message || e);
       }
     }
     await dbService.clear(STORES.CUSTOMERS);

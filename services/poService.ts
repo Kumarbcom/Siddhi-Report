@@ -39,7 +39,11 @@ export const poService = {
           return synced;
         }
       } catch (e: any) {
-        console.error("Cloud fetch failed for Purchase Orders:", e?.message || e);
+        if (e.name === 'TypeError' && e.message.includes('fetch')) {
+          console.warn("Purchase Orders: Cloud sync unavailable (Network). Falling back to local data.");
+        } else {
+          console.error("Purchase Orders: Cloud fetch failed:", e?.message || e);
+        }
       }
     }
     return dbService.getAll<PendingPOItem>(STORES.PO);
@@ -75,7 +79,7 @@ export const poService = {
             if (error) throw new Error(error.message);
         }
       } catch (e: any) {
-        console.error("Sync failed for Purchase Orders:", e?.message || e);
+        console.error("Purchase Orders: Sync failed:", e?.message || e);
       }
     }
     
@@ -103,7 +107,7 @@ export const poService = {
         }).eq('id', item.id);
         if (error) throw new Error(error.message);
       } catch (e: any) {
-        console.error("Cloud update failed for Purchase Order:", e?.message || e);
+        console.error("Purchase Orders: Cloud update failed:", e?.message || e);
       }
     }
     await dbService.put(STORES.PO, item);
@@ -115,7 +119,7 @@ export const poService = {
         const { error } = await supabase.from('pending_purchase_orders').delete().eq('id', id);
         if (error) throw new Error(error.message);
       } catch (e: any) {
-        console.error("Cloud delete failed for Purchase Order:", e?.message || e);
+        console.error("Purchase Orders: Cloud delete failed:", e?.message || e);
       }
     }
     await dbService.delete(STORES.PO, id);
@@ -127,7 +131,7 @@ export const poService = {
         const { error } = await supabase.from('pending_purchase_orders').delete().neq('id', '00000000-0000-0000-0000-000000000000');
         if (error) throw new Error(error.message);
       } catch (e: any) {
-        console.error("Cloud clear failed for Purchase Orders:", e?.message || e);
+        console.error("Purchase Orders: Cloud clear failed:", e?.message || e);
       }
     }
     await dbService.clear(STORES.PO);

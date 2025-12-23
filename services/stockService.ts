@@ -30,7 +30,11 @@ export const stockService = {
           return synced;
         }
       } catch (e: any) {
-        console.error("Cloud fetch failed for Stock:", e?.message || e);
+        if (e.name === 'TypeError' && e.message.includes('fetch')) {
+          console.warn("Closing Stock: Cloud sync unavailable (Network). Falling back to local data.");
+        } else {
+          console.error("Closing Stock: Cloud fetch failed:", e?.message || e);
+        }
       }
     }
     return dbService.getAll<ClosingStockItem>(STORES.STOCK);
@@ -53,7 +57,7 @@ export const stockService = {
         const { error } = await supabase.from('closing_stock').insert(rows);
         if (error) throw new Error(error.message);
       } catch (e: any) {
-        console.error("Sync failed for Stock:", e?.message || e);
+        console.error("Closing Stock: Sync failed:", e?.message || e);
       }
     }
     
@@ -72,7 +76,7 @@ export const stockService = {
         }).eq('id', item.id);
         if (error) throw new Error(error.message);
       } catch (e: any) {
-        console.error("Cloud update failed for Stock:", e?.message || e);
+        console.error("Closing Stock: Cloud update failed:", e?.message || e);
       }
     }
     await dbService.put(STORES.STOCK, item);
@@ -84,7 +88,7 @@ export const stockService = {
         const { error } = await supabase.from('closing_stock').delete().eq('id', id);
         if (error) throw new Error(error.message);
       } catch (e: any) {
-        console.error("Cloud delete failed for Stock:", e?.message || e);
+        console.error("Closing Stock: Cloud delete failed:", e?.message || e);
       }
     }
     await dbService.delete(STORES.STOCK, id);
@@ -96,7 +100,7 @@ export const stockService = {
         const { error } = await supabase.from('closing_stock').delete().neq('id', '00000000-0000-0000-0000-000000000000');
         if (error) throw new Error(error.message);
       } catch (e: any) {
-        console.error("Cloud clear failed for Stock:", e?.message || e);
+        console.error("Closing Stock: Cloud clear failed:", e?.message || e);
       }
     }
     await dbService.clear(STORES.STOCK);
