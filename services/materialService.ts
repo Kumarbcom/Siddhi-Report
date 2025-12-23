@@ -3,6 +3,14 @@ import { supabase, isSupabaseConfigured } from './supabase';
 import { dbService, STORES } from './db';
 import { Material, MaterialFormData } from '../types';
 
+// Safe ID generation to avoid Rollup trace errors
+const generateUUID = (): string => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return 'id-' + Math.random().toString(36).substring(2, 11) + '-' + Date.now().toString(36);
+};
+
 export const materialService = {
   async getAll(): Promise<Material[]> {
     if (isSupabaseConfigured) {
@@ -12,7 +20,9 @@ export const materialService = {
           .select('*')
           .order('material_code', { ascending: true });
 
-        if (error) throw error;
+        if (error) {
+          throw new Error(error.message || 'Supabase fetch error');
+        }
 
         if (data) {
           const syncedData: Material[] = data.map((row: any) => ({
@@ -29,7 +39,8 @@ export const materialService = {
           return syncedData;
         }
       } catch (e: any) {
-        console.error("Cloud fetch failed for Materials. Using local cache. Error:", e?.message || "Unknown Cloud Error");
+        const msg = e?.message || (typeof e === 'string' ? e : 'Unknown error');
+        console.error("Cloud fetch failed for Materials. Using local cache. Error:", msg);
       }
     }
     return dbService.getAll<Material>(STORES.MATERIALS);
@@ -43,7 +54,7 @@ export const materialService = {
       .filter(m => m.description && m.description.trim() !== '')
       .map(m => ({
         ...m,
-        id: self.crypto.randomUUID(),
+        id: generateUUID(),
         createdAt: timestamp,
         updatedAt: timestamp
       }));
@@ -55,16 +66,13 @@ export const materialService = {
           id: m.id,
           material_code: (m.materialCode || '').trim() || null,
           description: m.description,
-          // Fix: Use correct camelCase property from Material interface (m.partNo)
           part_no: m.partNo, 
           make: m.make,
-          // Fix: Use correct camelCase property from Material interface (m.materialGroup)
           material_group: m.materialGroup,
           created_at: new Date(m.createdAt).toISOString(),
           updated_at: new Date(m.updatedAt || m.createdAt).toISOString()
         }));
 
-        // Use same chunked insert pattern as other working services
         const CHUNK_SIZE = 200;
         for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
           const chunk = rows.slice(i, i + CHUNK_SIZE);
@@ -73,12 +81,12 @@ export const materialService = {
             .insert(chunk);
           
           if (error) {
-            console.error(`Supabase Insert Error [Material Master] Chunk ${i}:`, error.message);
-            throw error;
+            throw new Error(error.message || `Insert error at chunk ${i}`);
           }
         }
       } catch (e: any) {
-        console.error("Sync to Supabase failed for Material Master:", e?.message || "Sync error - check table schema or duplicate codes");
+        const msg = e?.message || (typeof e === 'string' ? e : 'Unknown sync error');
+        console.error("Sync to Supabase failed for Material Master:", msg);
       }
     }
 
@@ -104,9 +112,10 @@ export const materialService = {
           })
           .eq('id', updatedMaterial.id);
           
-        if (error) throw error;
+        if (error) throw new Error(error.message);
       } catch (e: any) {
-        console.error("Cloud update failed for Material:", e?.message || "Update failed");
+        const msg = e?.message || 'Update failed';
+        console.error("Cloud update failed for Material:", msg);
       }
     }
     await dbService.put(STORES.MATERIALS, updatedMaterial);
@@ -120,9 +129,10 @@ export const materialService = {
           .delete()
           .eq('id', id);
           
-        if (error) throw error;
+        if (error) throw new Error(error.message);
       } catch (e: any) {
-        console.error("Cloud delete failed for Material:", e?.message || "Delete failed");
+        const msg = e?.message || 'Delete failed';
+        console.error("Cloud delete failed for Material:", msg);
       }
     }
     await dbService.delete(STORES.MATERIALS, id);
@@ -136,11 +146,26 @@ export const materialService = {
           .delete()
           .neq('id', '00000000-0000-0000-0000-000000000000');
           
-        if (error) throw error;
+        if (error) throw new Error(error.message);
       } catch (e: any) {
-        console.error("Cloud clear failed for Materials:", e?.message || "Clear failed");
+        const msg = e?.message || 'Clear failed';
+        console.error("Cloud clear failed for Materials:", msg);
       }
     }
     await dbService.clear(STORES.MATERIALS);
   }
 };
+/*
+SQL SCHEMA for Supabase:
+
+CREATE TABLE material_master (
+  id UUID PRIMARY KEY,
+  material_code TEXT UNIQUE,
+  description TEXT NOT NULL,
+  part_no TEXT,
+  make TEXT,
+  material_group TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+*/

@@ -18,13 +18,13 @@ export default defineConfig(({ mode }) => {
       chunkSizeWarningLimit: 2000,
       rollupOptions: {
         output: {
+          // Simplified manual chunks to reduce complex trace requirements
           manualChunks: (id) => {
             if (id.includes('node_modules')) {
               if (id.includes('react')) return 'vendor-react';
-              if (id.includes('lucide-react')) return 'vendor-icons';
-              if (id.includes('xlsx')) return 'vendor-xlsx';
-              if (id.includes('@google/genai')) return 'vendor-ai';
-              return 'vendor-others';
+              if (id.includes('lucide')) return 'vendor-ui';
+              if (id.includes('xlsx')) return 'vendor-utils';
+              return 'vendor';
             }
           }
         }
