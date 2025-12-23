@@ -3,6 +3,13 @@ import { supabase, isSupabaseConfigured } from './supabase';
 import { dbService, STORES } from './db';
 import { SalesReportItem } from '../types';
 
+const generateSafeId = (): string => {
+  if (typeof self !== 'undefined' && self.crypto && self.crypto.randomUUID) {
+    return self.crypto.randomUUID();
+  }
+  return 'id-' + Math.random().toString(36).substring(2, 11) + '-' + Date.now().toString(36);
+};
+
 export const salesService = {
   async getAll(): Promise<SalesReportItem[]> {
     if (isSupabaseConfigured) {
@@ -29,16 +36,14 @@ export const salesService = {
           await dbService.putBatch(STORES.SALES, synced);
           return synced;
         }
-      } catch (e) {
-        // Silently fallback
-      }
+      } catch (e) {}
     }
     return dbService.getAll<SalesReportItem>(STORES.SALES);
   },
 
   async createBulk(items: Omit<SalesReportItem, 'id' | 'createdAt'>[]): Promise<SalesReportItem[]> {
     const timestamp = Date.now();
-    const newItems = items.map(i => ({ ...i, id: crypto.randomUUID(), createdAt: timestamp }));
+    const newItems = items.map(i => ({ ...i, id: generateSafeId(), createdAt: timestamp }));
     
     if (isSupabaseConfigured) {
       try {
@@ -58,9 +63,7 @@ export const salesService = {
             }));
             await supabase.from('sales_report').insert(chunk);
         }
-      } catch (e) {
-        // Silent catch for network failure
-      }
+      } catch (e) {}
     }
 
     await dbService.putBatch(STORES.SALES, newItems as SalesReportItem[]);

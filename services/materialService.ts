@@ -3,10 +3,10 @@ import { supabase, isSupabaseConfigured } from './supabase';
 import { dbService, STORES } from './db';
 import { Material, MaterialFormData } from '../types';
 
-// Safe ID generation to avoid Rollup trace errors
-const generateUUID = (): string => {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    return crypto.randomUUID();
+// Safe ID generation for browser environments to avoid Rollup trace errors
+const generateSafeId = (): string => {
+  if (typeof self !== 'undefined' && self.crypto && self.crypto.randomUUID) {
+    return self.crypto.randomUUID();
   }
   return 'id-' + Math.random().toString(36).substring(2, 11) + '-' + Date.now().toString(36);
 };
@@ -20,9 +20,7 @@ export const materialService = {
           .select('*')
           .order('material_code', { ascending: true });
 
-        if (error) {
-          throw new Error(error.message || 'Supabase fetch error');
-        }
+        if (error) throw error;
 
         if (data) {
           const syncedData: Material[] = data.map((row: any) => ({
@@ -39,8 +37,7 @@ export const materialService = {
           return syncedData;
         }
       } catch (e: any) {
-        const msg = e?.message || (typeof e === 'string' ? e : 'Unknown error');
-        console.error("Cloud fetch failed for Materials. Using local cache. Error:", msg);
+        console.error("Cloud fetch failed for Materials. Error:", e?.message || e);
       }
     }
     return dbService.getAll<Material>(STORES.MATERIALS);
@@ -48,20 +45,17 @@ export const materialService = {
 
   async createBulk(materials: MaterialFormData[]): Promise<Material[]> {
     const timestamp = Date.now();
-    
-    // Clean and prepare local items
     const newItems: Material[] = materials
       .filter(m => m.description && m.description.trim() !== '')
       .map(m => ({
         ...m,
-        id: generateUUID(),
+        id: generateSafeId(),
         createdAt: timestamp,
         updatedAt: timestamp
       }));
 
     if (isSupabaseConfigured && newItems.length > 0) {
       try {
-        // Prepare rows for Supabase matching the working pattern of other services
         const rows = newItems.map(m => ({
           id: m.id,
           material_code: (m.materialCode || '').trim() || null,
@@ -79,14 +73,10 @@ export const materialService = {
           const { error } = await supabase
             .from('material_master')
             .insert(chunk);
-          
-          if (error) {
-            throw new Error(error.message || `Insert error at chunk ${i}`);
-          }
+          if (error) throw error;
         }
       } catch (e: any) {
-        const msg = e?.message || (typeof e === 'string' ? e : 'Unknown sync error');
-        console.error("Sync to Supabase failed for Material Master:", msg);
+        console.error("Sync to Supabase failed for Material Master:", e?.message || e);
       }
     }
 
@@ -111,11 +101,9 @@ export const materialService = {
             updated_at: new Date(now).toISOString()
           })
           .eq('id', updatedMaterial.id);
-          
-        if (error) throw new Error(error.message);
+        if (error) throw error;
       } catch (e: any) {
-        const msg = e?.message || 'Update failed';
-        console.error("Cloud update failed for Material:", msg);
+        console.error("Cloud update failed for Material:", e?.message || e);
       }
     }
     await dbService.put(STORES.MATERIALS, updatedMaterial);
@@ -128,11 +116,9 @@ export const materialService = {
           .from('material_master')
           .delete()
           .eq('id', id);
-          
-        if (error) throw new Error(error.message);
+        if (error) throw error;
       } catch (e: any) {
-        const msg = e?.message || 'Delete failed';
-        console.error("Cloud delete failed for Material:", msg);
+        console.error("Cloud delete failed for Material:", e?.message || e);
       }
     }
     await dbService.delete(STORES.MATERIALS, id);
@@ -145,27 +131,11 @@ export const materialService = {
           .from('material_master')
           .delete()
           .neq('id', '00000000-0000-0000-0000-000000000000');
-          
-        if (error) throw new Error(error.message);
+        if (error) throw error;
       } catch (e: any) {
-        const msg = e?.message || 'Clear failed';
-        console.error("Cloud clear failed for Materials:", msg);
+        console.error("Cloud clear failed for Materials:", e?.message || e);
       }
     }
     await dbService.clear(STORES.MATERIALS);
   }
 };
-/*
-SQL SCHEMA for Supabase:
-
-CREATE TABLE material_master (
-  id UUID PRIMARY KEY,
-  material_code TEXT UNIQUE,
-  description TEXT NOT NULL,
-  part_no TEXT,
-  make TEXT,
-  material_group TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-*/

@@ -3,6 +3,13 @@ import { supabase, isSupabaseConfigured } from './supabase';
 import { dbService, STORES } from './db';
 import { PendingPOItem } from '../types';
 
+const generateSafeId = (): string => {
+  if (typeof self !== 'undefined' && self.crypto && self.crypto.randomUUID) {
+    return self.crypto.randomUUID();
+  }
+  return 'id-' + Math.random().toString(36).substring(2, 11) + '-' + Date.now().toString(36);
+};
+
 export const poService = {
   async getAll(): Promise<PendingPOItem[]> {
     if (isSupabaseConfigured) {
@@ -40,7 +47,7 @@ export const poService = {
 
   async createBulk(items: Omit<PendingPOItem, 'id' | 'createdAt'>[]): Promise<PendingPOItem[]> {
     const timestamp = Date.now();
-    const newItems = items.map(i => ({ ...i, id: crypto.randomUUID(), createdAt: timestamp }));
+    const newItems = items.map(i => ({ ...i, id: generateSafeId(), createdAt: timestamp }));
     
     if (isSupabaseConfigured) {
       try {

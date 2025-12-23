@@ -50,18 +50,23 @@ const ChatView: React.FC<ChatViewProps> = ({
     scrollToBottom();
   }, [messages]);
 
+  const generateSafeId = (): string => {
+    if (typeof self !== 'undefined' && self.crypto && self.crypto.randomUUID) {
+      return self.crypto.randomUUID();
+    }
+    return 'id-' + Math.random().toString(36).substring(2, 11) + '-' + Date.now().toString(36);
+  };
+
   const fiscalYearSummary = useMemo(() => {
     const fyTotals: Record<string, number> = {};
     salesReportItems.forEach(item => {
         let dateObj: Date;
-        // Fix: Use any cast to allow checking for Date or number which can come from mixed data sources like Excel imports
         const rawDate = item.date as any;
         if (rawDate instanceof Date) {
           dateObj = rawDate;
         } else if (typeof rawDate === 'string') {
           dateObj = new Date(rawDate);
         } else {
-          // Handle Excel serial date if passed as number
           dateObj = new Date((Number(rawDate) - (25567 + 2)) * 86400 * 1000);
         }
         
@@ -113,15 +118,13 @@ const ChatView: React.FC<ChatViewProps> = ({
   const handleSend = async (text: string = input) => {
     if (!text.trim()) return;
 
-    const userMsg: Message = { id: crypto.randomUUID(), role: 'user', content: text, timestamp: Date.now() };
+    const userMsg: Message = { id: generateSafeId(), role: 'user', content: text, timestamp: Date.now() };
     setMessages(prev => [...prev, userMsg]);
     setInput('');
     setIsLoading(true);
 
     try {
-      // Using named parameter for apiKey and direct initialization as per guidelines
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      // Create chat session as per GenAI SDK guidelines for Chat tasks
       const chat: Chat = ai.chats.create({
         model: 'gemini-3-pro-preview',
         config: {
@@ -134,16 +137,15 @@ const ChatView: React.FC<ChatViewProps> = ({
       });
 
       const response: GenerateContentResponse = await chat.sendMessage({ message: text });
-      // Use .text property to extract response string
       const responseText = response.text || "I'm sorry, I couldn't generate a response.";
 
-      const aiMsg: Message = { id: crypto.randomUUID(), role: 'model', content: responseText, timestamp: Date.now() };
+      const aiMsg: Message = { id: generateSafeId(), role: 'model', content: responseText, timestamp: Date.now() };
       setMessages(prev => [...prev, aiMsg]);
 
     } catch (error: any) {
       console.error("AI Error:", error);
       const errorMsg: Message = { 
-        id: crypto.randomUUID(), 
+        id: generateSafeId(), 
         role: 'model', 
         content: `Error: ${error.message || "Failed to connect to AI engine."}`, 
         timestamp: Date.now() 
