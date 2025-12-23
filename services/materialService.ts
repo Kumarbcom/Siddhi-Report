@@ -15,7 +15,7 @@ export const materialService = {
         if (error) throw error;
 
         if (data) {
-          const syncedData = data.map((row: any) => ({
+          const syncedData: Material[] = data.map((row: any) => ({
             id: row.id,
             materialCode: row.material_code || '',
             description: row.description || '',
@@ -29,8 +29,7 @@ export const materialService = {
           return syncedData;
         }
       } catch (e: any) {
-        const msg = e?.message || e?.details || "Unknown Cloud Error";
-        console.error("Cloud fetch failed for Materials. Using local cache. Error:", msg);
+        console.error("Cloud fetch failed for Materials. Using local cache. Error:", e?.message || "Unknown Cloud Error");
       }
     }
     return dbService.getAll<Material>(STORES.MATERIALS);
@@ -40,11 +39,11 @@ export const materialService = {
     const timestamp = Date.now();
     
     // Clean and prepare local items
-    const newItems = materials
-      .filter(m => m.description) // Ensure basic validity
+    const newItems: Material[] = materials
+      .filter(m => m.description && m.description.trim() !== '')
       .map(m => ({
         ...m,
-        id: crypto.randomUUID(),
+        id: self.crypto.randomUUID(),
         createdAt: timestamp,
         updatedAt: timestamp
       }));
@@ -56,15 +55,17 @@ export const materialService = {
           id: m.id,
           material_code: (m.materialCode || '').trim() || null,
           description: m.description,
-          part_no: m.partNo,
+          // Fix: Use correct camelCase property from Material interface (m.partNo)
+          part_no: m.partNo, 
           make: m.make,
+          // Fix: Use correct camelCase property from Material interface (m.materialGroup)
           material_group: m.materialGroup,
           created_at: new Date(m.createdAt).toISOString(),
           updated_at: new Date(m.updatedAt || m.createdAt).toISOString()
         }));
 
-        // Use same chunked insert pattern as salesService.ts
-        const CHUNK_SIZE = 500;
+        // Use same chunked insert pattern as other working services
+        const CHUNK_SIZE = 200;
         for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
           const chunk = rows.slice(i, i + CHUNK_SIZE);
           const { error } = await supabase
@@ -72,14 +73,12 @@ export const materialService = {
             .insert(chunk);
           
           if (error) {
-            console.error(`Supabase Insert Error [Material Master] Chunk ${i}:`, error.message, error.details);
+            console.error(`Supabase Insert Error [Material Master] Chunk ${i}:`, error.message);
             throw error;
           }
         }
       } catch (e: any) {
-        const errorMsg = e?.message || e?.details || JSON.stringify(e);
-        console.error("Sync to Supabase failed for Material Master:", errorMsg);
-        // We still save locally to ensure no data loss for the user
+        console.error("Sync to Supabase failed for Material Master:", e?.message || "Sync error - check table schema or duplicate codes");
       }
     }
 
@@ -107,7 +106,7 @@ export const materialService = {
           
         if (error) throw error;
       } catch (e: any) {
-        console.error("Cloud update failed for Material:", e?.message || e);
+        console.error("Cloud update failed for Material:", e?.message || "Update failed");
       }
     }
     await dbService.put(STORES.MATERIALS, updatedMaterial);
@@ -123,7 +122,7 @@ export const materialService = {
           
         if (error) throw error;
       } catch (e: any) {
-        console.error("Cloud delete failed for Material:", e?.message || e);
+        console.error("Cloud delete failed for Material:", e?.message || "Delete failed");
       }
     }
     await dbService.delete(STORES.MATERIALS, id);
@@ -139,7 +138,7 @@ export const materialService = {
           
         if (error) throw error;
       } catch (e: any) {
-        console.error("Cloud clear failed for Materials:", e?.message || e);
+        console.error("Cloud clear failed for Materials:", e?.message || "Clear failed");
       }
     }
     await dbService.clear(STORES.MATERIALS);

@@ -5,7 +5,7 @@ import react from '@vitejs/plugin-react';
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   // Load env file based on `mode` in the current working directory.
-  const env = loadEnv(mode, (process as any).cwd(), '');
+  const env = loadEnv(mode, process.cwd(), '');
   return {
     plugins: [react()],
     define: {
@@ -15,13 +15,17 @@ export default defineConfig(({ mode }) => {
       'process.env.SUPABASE_KEY': JSON.stringify(env.SUPABASE_KEY || '')
     },
     build: {
-      chunkSizeWarningLimit: 1500,
+      chunkSizeWarningLimit: 2000,
       rollupOptions: {
         output: {
-          manualChunks: {
-            vendor: ['react', 'react-dom', 'lucide-react'],
-            xlsx: ['xlsx'],
-            genai: ['@google/genai']
+          manualChunks: (id) => {
+            if (id.includes('node_modules')) {
+              if (id.includes('react')) return 'vendor-react';
+              if (id.includes('lucide-react')) return 'vendor-icons';
+              if (id.includes('xlsx')) return 'vendor-xlsx';
+              if (id.includes('@google/genai')) return 'vendor-ai';
+              return 'vendor-others';
+            }
           }
         }
       }
