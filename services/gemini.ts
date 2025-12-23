@@ -4,7 +4,8 @@ import { Material } from "../types";
 
 export const generateMockMaterials = async (count: number = 5): Promise<Omit<Material, 'id' | 'createdAt'>[]> => {
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const apiKey = (typeof process !== 'undefined' && process.env?.API_KEY) || '';
+    const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `Generate ${count} realistic industrial material master records. 

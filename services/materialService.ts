@@ -3,7 +3,6 @@ import { supabase, isSupabaseConfigured } from './supabase';
 import { dbService, STORES } from './db';
 import { Material, MaterialFormData } from '../types';
 
-// Statically traceable ID generator for Rollup stability
 const getUuid = () => {
   return 'id-' + Math.random().toString(36).substring(2, 15) + '-' + Date.now().toString(36);
 };
@@ -55,7 +54,7 @@ export const materialService = {
       try {
         const rows = newItems.map(m => ({
           id: m.id,
-          material_code: (m.materialCode || '').trim() || null,
+          material_code: m.materialCode,
           description: m.description,
           part_no: m.partNo, 
           make: m.make,
