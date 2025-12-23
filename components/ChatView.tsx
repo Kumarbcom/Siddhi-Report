@@ -51,9 +51,6 @@ const ChatView: React.FC<ChatViewProps> = ({
   }, [messages]);
 
   const generateSafeId = (): string => {
-    if (typeof self !== 'undefined' && self.crypto && self.crypto.randomUUID) {
-      return self.crypto.randomUUID();
-    }
     return 'id-' + Math.random().toString(36).substring(2, 11) + '-' + Date.now().toString(36);
   };
 
@@ -124,7 +121,8 @@ const ChatView: React.FC<ChatViewProps> = ({
     setIsLoading(true);
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      // Accessing polyfilled process.env
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
       const chat: Chat = ai.chats.create({
         model: 'gemini-3-pro-preview',
         config: {

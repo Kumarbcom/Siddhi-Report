@@ -3,11 +3,8 @@ import { supabase, isSupabaseConfigured } from './supabase';
 import { dbService, STORES } from './db';
 import { PendingSOItem } from '../types';
 
-const generateSafeId = (): string => {
-  if (typeof self !== 'undefined' && self.crypto && self.crypto.randomUUID) {
-    return self.crypto.randomUUID();
-  }
-  return 'id-' + Math.random().toString(36).substring(2, 11) + '-' + Date.now().toString(36);
+const getUuid = () => {
+  return 'id-' + Math.random().toString(36).substring(2, 15) + '-' + Date.now().toString(36);
 };
 
 export const soService = {
@@ -19,7 +16,8 @@ export const soService = {
           .select('*')
           .order('created_at', { ascending: false });
 
-        if (!error && data) {
+        if (error) throw new Error(error.message);
+        if (data) {
           const synced = data.map((row: any) => ({
             id: row.id,
             date: row.date,
@@ -40,14 +38,16 @@ export const soService = {
           await dbService.putBatch(STORES.SO, synced);
           return synced;
         }
-      } catch (e) {}
+      } catch (e: any) {
+        console.error("Cloud fetch failed for Sales Orders:", e?.message || e);
+      }
     }
     return dbService.getAll<PendingSOItem>(STORES.SO);
   },
 
   async createBulk(items: Omit<PendingSOItem, 'id' | 'createdAt'>[]): Promise<PendingSOItem[]> {
     const timestamp = Date.now();
-    const newItems = items.map(i => ({ ...i, id: generateSafeId(), createdAt: timestamp }));
+    const newItems = items.map(i => ({ ...i, id: getUuid(), createdAt: timestamp }));
     
     if (isSupabaseConfigured) {
       try {
@@ -68,8 +68,15 @@ export const soService = {
             overdue_days: i.overDueDays,
             created_at: new Date(i.createdAt).toISOString()
         }));
-        await supabase.from('pending_sales_orders').insert(rows);
-      } catch (e) {}
+        
+        const CHUNK_SIZE = 200;
+        for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
+            const { error } = await supabase.from('pending_sales_orders').insert(rows.slice(i, i + CHUNK_SIZE));
+            if (error) throw new Error(error.message);
+        }
+      } catch (e: any) {
+        console.error("Sync failed for Sales Orders:", e?.message || e);
+      }
     }
     
     await dbService.putBatch(STORES.SO, newItems);
@@ -79,19 +86,25 @@ export const soService = {
   async update(item: PendingSOItem): Promise<void> {
     if (isSupabaseConfigured) {
       try {
-        await supabase.from('pending_sales_orders').update({
+        const { error } = await supabase.from('pending_sales_orders').update({
             date: item.date,
             order_no: item.orderNo,
             party_name: item.partyName,
             item_name: item.itemName,
+            material_code: item.materialCode,
             part_no: item.partNo,
             ordered_qty: item.orderedQty,
             balance_qty: item.balanceQty,
             rate: item.rate,
+            discount: item.discount,
             value: item.value,
-            due_on: item.dueDate
+            due_on: item.dueDate,
+            overdue_days: item.overDueDays
         }).eq('id', item.id);
-      } catch (e) {}
+        if (error) throw new Error(error.message);
+      } catch (e: any) {
+        console.error("Cloud update failed for Sales Order:", e?.message || e);
+      }
     }
     await dbService.put(STORES.SO, item);
   },
@@ -99,8 +112,11 @@ export const soService = {
   async delete(id: string): Promise<void> {
     if (isSupabaseConfigured) {
       try {
-        await supabase.from('pending_sales_orders').delete().eq('id', id);
-      } catch (e) {}
+        const { error } = await supabase.from('pending_sales_orders').delete().eq('id', id);
+        if (error) throw new Error(error.message);
+      } catch (e: any) {
+        console.error("Cloud delete failed for Sales Order:", e?.message || e);
+      }
     }
     await dbService.delete(STORES.SO, id);
   },
@@ -108,8 +124,11 @@ export const soService = {
   async clearAll(): Promise<void> {
     if (isSupabaseConfigured) {
       try {
-        await supabase.from('pending_sales_orders').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      } catch (e) {}
+        const { error } = await supabase.from('pending_sales_orders').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        if (error) throw new Error(error.message);
+      } catch (e: any) {
+        console.error("Cloud clear failed for Sales Orders:", e?.message || e);
+      }
     }
     await dbService.clear(STORES.SO);
   }

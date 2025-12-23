@@ -1,16 +1,19 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// Using provided credentials from project ID lgxzqobcabiatqoklyuc
-const supabaseUrl = 'https://lgxzqobcabiatqoklyuc.supabase.co';
-const supabaseKey = 'sb_publishable_sVtiXZDvmU1g6O9V0mahDg_bJ0o94iI';
+// User provided credentials
+const PROJECT_URL = 'https://lgxzqobcabiatqoklyuc.supabase.co';
+const PROJECT_KEY = 'sb_publishable_sVtiXZDvmU1g6O9V0mahDg_bJ0o94iI';
+
+const supabaseUrl = process.env.SUPABASE_URL || PROJECT_URL;
+const supabaseKey = process.env.SUPABASE_KEY || PROJECT_KEY;
 
 export const isSupabaseConfigured = 
-  supabaseUrl.length > 10 && 
-  supabaseKey.length > 10 && 
-  !supabaseUrl.includes('placeholder');
+  Boolean(supabaseUrl && supabaseKey) && 
+  !supabaseUrl.includes('placeholder') &&
+  supabaseKey.length > 20;
 
-if (isSupabaseConfigured) {
+if (isSupabaseConfigured && typeof window !== 'undefined') {
   console.info("DATABASE: Supabase Cloud Link Established for Siddhi Kabel.");
 }
 

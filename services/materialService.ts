@@ -34,7 +34,7 @@ export const materialService = {
           return syncedData;
         }
       } catch (e: any) {
-        console.error("Cloud fetch failed for Materials:", e?.message || "Check connection");
+        console.error("Cloud fetch failed for Materials:", e?.message || e);
       }
     }
     return dbService.getAll<Material>(STORES.MATERIALS);
@@ -64,7 +64,7 @@ export const materialService = {
           updated_at: new Date(m.updatedAt || m.createdAt).toISOString()
         }));
 
-        const CHUNK_SIZE = 200;
+        const CHUNK_SIZE = 100;
         for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
           const { error } = await supabase
             .from('material_master')
@@ -72,7 +72,7 @@ export const materialService = {
           if (error) throw new Error(error.message);
         }
       } catch (e: any) {
-        console.error("Sync to Supabase failed for Material Master:", e?.message || "Sync Error");
+        console.error("Sync to Supabase failed for Material Master:", e?.message || e);
       }
     }
 
@@ -99,7 +99,7 @@ export const materialService = {
           .eq('id', updatedMaterial.id);
         if (error) throw new Error(error.message);
       } catch (e: any) {
-        console.error("Cloud update failed for Material:", e?.message || "Update Error");
+        console.error("Cloud update failed for Material:", e?.message || e);
       }
     }
     await dbService.put(STORES.MATERIALS, updatedMaterial);
@@ -114,7 +114,7 @@ export const materialService = {
           .eq('id', id);
         if (error) throw new Error(error.message);
       } catch (e: any) {
-        console.error("Cloud delete failed for Material:", e?.message || "Delete Error");
+        console.error("Cloud delete failed for Material:", e?.message || e);
       }
     }
     await dbService.delete(STORES.MATERIALS, id);
@@ -129,7 +129,7 @@ export const materialService = {
           .neq('id', '00000000-0000-0000-0000-000000000000');
         if (error) throw new Error(error.message);
       } catch (e: any) {
-        console.error("Cloud clear failed for Materials:", e?.message || "Clear Error");
+        console.error("Cloud clear failed for Materials:", e?.message || e);
       }
     }
     await dbService.clear(STORES.MATERIALS);

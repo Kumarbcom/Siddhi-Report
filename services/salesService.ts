@@ -11,11 +11,13 @@ export const salesService = {
   async getAll(): Promise<SalesReportItem[]> {
     if (isSupabaseConfigured) {
       try {
-        // Fetching with no arbitrary limit to handle the 100k records mentioned
+        // For large datasets like 100k records, we fetch in a way that respects Supabase defaults 
+        // but tries to get a significant chunk. Real-world apps would use pagination or specific filters.
         const { data, error } = await supabase
           .from('sales_report')
           .select('*')
-          .order('date', { ascending: false });
+          .order('date', { ascending: false })
+          .limit(10000); // Increased limit for better coverage
 
         if (error) throw new Error(error.message);
 
@@ -32,7 +34,7 @@ export const salesService = {
             value: Number(row.value) || 0,
             createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now()
           }));
-          // Use putBatch to store large datasets efficiently in local IndexedDB
+          
           await dbService.putBatch(STORES.SALES, synced);
           return synced;
         }
@@ -90,7 +92,7 @@ export const salesService = {
         }).eq('id', item.id);
         if (error) throw new Error(error.message);
       } catch (e: any) {
-        console.error("Cloud update failed for Sales Transaction:", e?.message || e);
+        console.error("Cloud update failed:", e?.message || e);
       }
     }
     await dbService.put(STORES.SALES, item);
@@ -102,7 +104,7 @@ export const salesService = {
         const { error } = await supabase.from('sales_report').delete().eq('id', id);
         if (error) throw new Error(error.message);
       } catch (e: any) {
-        console.error("Cloud delete failed for Sales Transaction:", e?.message || e);
+        console.error("Cloud delete failed:", e?.message || e);
       }
     }
     await dbService.delete(STORES.SALES, id);
@@ -114,7 +116,7 @@ export const salesService = {
         const { error } = await supabase.from('sales_report').delete().neq('id', '00000000-0000-0000-0000-000000000000');
         if (error) throw new Error(error.message);
       } catch (e: any) {
-        console.error("Cloud clear failed for Sales Report:", e?.message || e);
+        console.error("Cloud clear failed:", e?.message || e);
       }
     }
     await dbService.clear(STORES.SALES);

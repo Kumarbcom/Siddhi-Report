@@ -3,11 +3,8 @@ import { supabase, isSupabaseConfigured } from './supabase';
 import { dbService, STORES } from './db';
 import { ClosingStockItem } from '../types';
 
-const generateSafeId = (): string => {
-  if (typeof self !== 'undefined' && self.crypto && self.crypto.randomUUID) {
-    return self.crypto.randomUUID();
-  }
-  return 'id-' + Math.random().toString(36).substring(2, 11) + '-' + Date.now().toString(36);
+const getUuid = () => {
+  return 'id-' + Math.random().toString(36).substring(2, 15) + '-' + Date.now().toString(36);
 };
 
 export const stockService = {
@@ -19,7 +16,8 @@ export const stockService = {
           .select('*')
           .order('description', { ascending: true });
 
-        if (!error && data) {
+        if (error) throw new Error(error.message);
+        if (data) {
           const synced = data.map((row: any) => ({
             id: row.id,
             description: row.description,
@@ -31,14 +29,16 @@ export const stockService = {
           await dbService.putBatch(STORES.STOCK, synced);
           return synced;
         }
-      } catch (e) {}
+      } catch (e: any) {
+        console.error("Cloud fetch failed for Stock:", e?.message || e);
+      }
     }
     return dbService.getAll<ClosingStockItem>(STORES.STOCK);
   },
 
   async createBulk(items: Omit<ClosingStockItem, 'id' | 'createdAt'>[]): Promise<ClosingStockItem[]> {
     const timestamp = Date.now();
-    const newItems = items.map(i => ({ ...i, id: generateSafeId(), createdAt: timestamp }));
+    const newItems = items.map(i => ({ ...i, id: getUuid(), createdAt: timestamp }));
     
     if (isSupabaseConfigured) {
       try {
@@ -50,8 +50,11 @@ export const stockService = {
             value: i.value,
             created_at: new Date(i.createdAt).toISOString()
         }));
-        await supabase.from('closing_stock').insert(rows);
-      } catch (e) {}
+        const { error } = await supabase.from('closing_stock').insert(rows);
+        if (error) throw new Error(error.message);
+      } catch (e: any) {
+        console.error("Sync failed for Stock:", e?.message || e);
+      }
     }
     
     await dbService.putBatch(STORES.STOCK, newItems);
@@ -61,13 +64,16 @@ export const stockService = {
   async update(item: ClosingStockItem): Promise<void> {
     if (isSupabaseConfigured) {
       try {
-        await supabase.from('closing_stock').update({
+        const { error } = await supabase.from('closing_stock').update({
             description: item.description,
             quantity: item.quantity,
             rate: item.rate,
             value: item.value
         }).eq('id', item.id);
-      } catch (e) {}
+        if (error) throw new Error(error.message);
+      } catch (e: any) {
+        console.error("Cloud update failed for Stock:", e?.message || e);
+      }
     }
     await dbService.put(STORES.STOCK, item);
   },
@@ -75,8 +81,11 @@ export const stockService = {
   async delete(id: string): Promise<void> {
     if (isSupabaseConfigured) {
       try {
-        await supabase.from('closing_stock').delete().eq('id', id);
-      } catch (e) {}
+        const { error } = await supabase.from('closing_stock').delete().eq('id', id);
+        if (error) throw new Error(error.message);
+      } catch (e: any) {
+        console.error("Cloud delete failed for Stock:", e?.message || e);
+      }
     }
     await dbService.delete(STORES.STOCK, id);
   },
@@ -84,8 +93,11 @@ export const stockService = {
   async clearAll(): Promise<void> {
     if (isSupabaseConfigured) {
       try {
-        await supabase.from('closing_stock').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      } catch (e) {}
+        const { error } = await supabase.from('closing_stock').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        if (error) throw new Error(error.message);
+      } catch (e: any) {
+        console.error("Cloud clear failed for Stock:", e?.message || e);
+      }
     }
     await dbService.clear(STORES.STOCK);
   }
