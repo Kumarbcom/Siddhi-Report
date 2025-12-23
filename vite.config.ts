@@ -9,13 +9,14 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     define: {
-      // Direct string replacements for environment variables
-      // This prevents Rollup from trying to trace 'process' as a variable
+      // Use JSON.stringify to ensure values are valid JSON strings for the define plugin.
+      // This prevents the "Invalid define value" error during the build process.
       'process.env.API_KEY': JSON.stringify(env.API_KEY || env.VITE_API_KEY || ''),
       'process.env.VITE_SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL || 'https://lgxzqobcabiatqoklyuc.supabase.co'),
       'process.env.VITE_SUPABASE_KEY': JSON.stringify(env.VITE_SUPABASE_KEY || env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY || 'sb_publishable_sVtiXZDvmU1g6O9V0mahDg_bJ0o94iI'),
       'process.env.NODE_ENV': JSON.stringify(mode),
-      'process': '({ env: {} })', // Best way to shim 'process' for Rollup
+      // Providing a valid JSON object for 'process' to satisfy libraries checking for it.
+      'process': JSON.stringify({ env: {} }),
       'global': 'globalThis'
     },
     build: {

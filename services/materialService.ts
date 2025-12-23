@@ -4,14 +4,15 @@ import { dbService, STORES } from './db';
 import { Material, MaterialFormData } from '../types';
 
 const getUuid = () => {
-  // Use native browser crypto for standard RFC 4122 UUID generation
-  // This prevents "invalid input syntax for type uuid" errors in Supabase
+  // Use native browser crypto for standard RFC 4122 UUID generation.
+  // This is required because Supabase tables use the UUID type for primary keys.
   if (typeof window !== 'undefined' && window.crypto && window.crypto.randomUUID) {
     return window.crypto.randomUUID();
   }
-  // Fallback for older environments
+  // Standard UUID v4 fallback
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
     return v.toString(16);
   });
 };
@@ -43,7 +44,7 @@ export const materialService = {
         }
       } catch (e: any) {
         if (e.name === 'TypeError' && e.message.includes('fetch')) {
-          console.warn("Material Master: Cloud sync unavailable (Network). Falling back to local data.");
+          console.warn("Material Master: Cloud sync unavailable. Falling back to local data.");
         } else {
           console.error("Material Master: Cloud fetch failed:", e?.message || e);
         }
