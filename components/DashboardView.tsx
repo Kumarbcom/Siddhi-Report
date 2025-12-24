@@ -293,8 +293,8 @@ const HorizontalBarChart = ({
 }) => {
     const sorted = [...data].sort((a, b) => ((b.value || 0) + (b.secondaryValue || 0)) - ((a.value || 0) + (a.secondaryValue || 0))).slice(0, 10);
     const maxVal = Math.max(sorted[0] ? (sorted[0].value + (sorted[0].secondaryValue || 0)) : 1, 1);
-    const barColorClass = color === 'blue' ? 'bg-blue-500' : color === 'emerald' ? 'bg-emerald-500' : color === 'purple' ? 'bg-purple-500' : color === 'rose' ? 'bg-rose-500' : 'bg-orange-500';
-    const secondaryColorClass = color === 'blue' ? 'bg-indigo-300' : color === 'emerald' ? 'bg-teal-300' : 'bg-gray-300';
+    const barColorClass = (color === 'blue' && isStacked) ? 'bg-red-500' : color === 'blue' ? 'bg-blue-500' : color === 'emerald' ? 'bg-emerald-500' : color === 'purple' ? 'bg-purple-500' : color === 'rose' ? 'bg-rose-500' : 'bg-orange-500';
+    const secondaryColorClass = (color === 'blue' && isStacked) ? 'bg-blue-500' : color === 'blue' ? 'bg-indigo-300' : color === 'emerald' ? 'bg-teal-300' : 'bg-gray-300';
 
     return (
         <div className="flex flex-col h-full w-full overflow-hidden">
@@ -302,8 +302,8 @@ const HorizontalBarChart = ({
                 <span>{title}</span>
                 {isStacked && (
                     <div className="flex gap-2 items-center">
-                        <div className="flex items-center gap-1"><div className={`w-2 h-2 rounded-sm ${barColorClass}`}></div><span className="text-[8px]">{title.includes('Customer') ? 'Due' : 'Ready'}</span></div>
-                        <div className="flex items-center gap-1"><div className={`w-2 h-2 rounded-sm ${secondaryColorClass}`}></div><span className="text-[8px]">{secondaryLabel}</span></div>
+                        <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-sm bg-red-500"></div><span className="text-[8px]">Due</span></div>
+                        <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-sm bg-blue-500"></div><span className="text-[8px]">{secondaryLabel}</span></div>
                     </div>
                 )}
             </h4>
@@ -323,13 +323,11 @@ const HorizontalBarChart = ({
                                                 </span>
                                             )}
                                         </div>
-                                        {item.previous !== undefined && (
-                                            <span className="text-[8px] text-gray-400 font-medium whitespace-nowrap">
-                                                {compareLabel}: {formatLargeValue(item.previous, true)}
-                                                <span className={`ml-1 font-bold ${total >= item.previous ? 'text-green-500' : 'text-red-500'}`}>
-                                                    ({item.previous > 0 ? (((total - item.previous) / item.previous) * 100).toFixed(0) : '100'}%)
-                                                </span>
-                                            </span>
+                                        {isStacked && (
+                                            <div className="flex gap-2 text-[8px] font-bold">
+                                                <span className="text-red-600">D: {formatLargeValue(item.value, true)}</span>
+                                                <span className="text-blue-500">S: {formatLargeValue(item.secondaryValue || 0, true)}</span>
+                                            </div>
                                         )}
                                     </div>
                                     <span className="font-bold text-gray-900 flex-shrink-0 bg-white pl-1">{formatLargeValue(total, true)}</span>
@@ -433,7 +431,15 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     customers = [],
     setActiveTab
 }) => {
-    const [activeSubTab, setActiveSubTab] = useState<'sales' | 'inventory' | 'so' | 'po'>('sales');
+    const [activeSubTab, setActiveSubTab] = useState<'sales' | 'inventory' | 'so' | 'po' | 'weekly'>('sales');
+    const [weeklyBenchmarks, setWeeklyBenchmarks] = useState<{ [key: string]: any }>(() => {
+        const saved = localStorage.getItem('weeklyBenchmarks');
+        return saved ? JSON.parse(saved) : {};
+    });
+
+    useEffect(() => {
+        localStorage.setItem('weeklyBenchmarks', JSON.stringify(weeklyBenchmarks));
+    }, [weeklyBenchmarks]);
     const [timeView, setTimeView] = useState<'FY' | 'MONTH' | 'WEEK'>('FY');
     const [selectedFY, setSelectedFY] = useState<string>('');
     const [invGroupMetric, setInvGroupMetric] = useState<Metric>('value');
@@ -765,7 +771,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 excessVal,
                 excessPct
             };
-        });
+        }).filter((i): i is any => i !== null);
 
         // Apply Slicers (respects Make and Material Group selections)
         const filteredData = rawItems.filter(i => {
@@ -866,6 +872,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         const custMap = new Map<string, { due: number, scheduled: number }>();
         const groupMap = new Map<string, number>();
         const itemSet = new Set<string>();
+        const soSet = new Set<string>();
         const ageingMap = { '0-30d': 0, '31-60d': 0, '61-90d': 0, '90d+': 0 };
 
         let dueValue = 0, dueQty = 0, readyDueValue = 0, readyDueQty = 0, shortageDueValue = 0, shortageDueQty = 0;
@@ -890,6 +897,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
             const iName = (i.itemName || 'Unspecified').trim().toLowerCase();
             itemSet.add(iName);
+            if (i.orderNo) soSet.add(i.orderNo);
 
             const days = i.overDueDays || 0;
             const dueDate = parseDate(i.dueDate);
@@ -941,10 +949,12 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             scheduledValue, scheduledQty, readySchValue, readySchQty, shortageSchValue, shortageSchQty,
             count: pendingSO.length,
             uniqueItemCount: itemSet.size,
+            uniqueSOCount: soSet.size,
             custMix: Array.from(custMap.entries()).map(([label, v]) => ({ label, value: v.due, secondaryValue: v.scheduled })).sort((a, b) => (b.value + b.secondaryValue) - (a.value + a.secondaryValue)),
             groupMix: Array.from(groupMap.entries()).map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value),
             ageing: Object.entries(ageingMap).map(([label, value]) => ({ label, value })),
-            topItems: enrichedItems.sort((a, b) => b.value - a.value).slice(0, 10)
+            topItems: enrichedItems.sort((a, b) => b.value - a.value).slice(0, 10),
+            enrichedItems
         };
     }, [pendingSO, materials, closingStock]);
 
@@ -984,6 +994,90 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             topItems: [...pendingPO].sort((a, b) => b.value - a.value).slice(0, 10)
         };
     }, [pendingPO, materials]);
+
+    const weeklyStats = useMemo(() => {
+        const targetDate = new Date(2025, 11, 24); // Dec 24, 2025
+        const prevDate = new Date(2025, 11, 17); // Dec 17, 2025
+        const mtdStart = new Date(2025, 11, 1);
+        const ytdStart = new Date(2025, 3, 1); // April 1st
+
+        const getSalesSum = (start: Date, end: Date) => {
+            return enrichedSales.filter(s => s.rawDate >= start && s.rawDate <= end).reduce((acc, i) => acc + (i.value || 0), 0);
+        };
+
+        const mtdPrev = getSalesSum(mtdStart, prevDate);
+        const mtdCurr = getSalesSum(mtdStart, targetDate);
+        const ytdPrev = getSalesSum(ytdStart, prevDate);
+        const ytdCurr = getSalesSum(ytdStart, targetDate);
+
+        // Specific Makes for the report
+        const reportMakes = ['Lapp', 'Eaton', 'Hager', 'Mennekes', 'Havells', 'Luker'];
+
+        const getMakeStats = (items: any[]) => {
+            const stats: Record<string, { ready: number, shortage: number, total: number }> = {};
+            reportMakes.forEach(m => stats[m] = { ready: 0, shortage: 0, total: 0 });
+            stats['Others'] = { ready: 0, shortage: 0, total: 0 };
+
+            items.forEach(i => {
+                const mat = materials.find(m => (m.description || '').toLowerCase().trim() === (i.itemName || '').toLowerCase().trim());
+                const rawMake = mat ? (mat.make || 'Unspecified') : 'Unspecified';
+                const mergedMake = getMergedMakeName(rawMake);
+                const targetKey = reportMakes.includes(mergedMake) ? mergedMake : 'Others';
+
+                stats[targetKey].ready += (i.readyVal || 0);
+                stats[targetKey].shortage += (i.shortageVal || 0);
+                stats[targetKey].total += (i.value || 0);
+            });
+            return stats;
+        };
+
+        const dueItems = soStats.topItems.filter(i => {
+            const days = i.overDueDays || 0;
+            const dd = parseDate(i.dueDate);
+            const today = new Date(); today.setHours(0, 0, 0, 0);
+            return days > 0 || (dd.getTime() > 0 && dd <= today);
+        });
+
+        const schedItems = soStats.topItems.filter(i => {
+            const days = i.overDueDays || 0;
+            const dd = parseDate(i.dueDate);
+            const today = new Date(); today.setHours(0, 0, 0, 0);
+            return !(days > 0 || (dd.getTime() > 0 && dd <= today));
+        });
+
+        const stockPivotData: { make: string, groups: { group: string, qty: number, value: number }[] }[] = [];
+        const stockMakeMap = new Map<string, Map<string, { qty: number, value: number }>>();
+
+        (inventoryStats.items || []).forEach(i => {
+            const mke = i.make || 'Unspecified';
+            const grp = i.group || 'Unspecified';
+            if (!stockMakeMap.has(mke)) stockMakeMap.set(mke, new Map());
+            const groupMap = stockMakeMap.get(mke)!;
+            if (!groupMap.has(grp)) groupMap.set(grp, { qty: 0, value: 0 });
+            const stats = groupMap.get(grp)!;
+            stats.qty += (i.quantity || 0);
+            stats.value += (i.value || 0);
+        });
+
+        stockMakeMap.forEach((groups, make) => {
+            const groupList: { group: string, qty: number, value: number }[] = [];
+            groups.forEach((stats, group) => {
+                groupList.push({ group, ...stats });
+            });
+            stockPivotData.push({ make, groups: groupList.sort((a, b) => b.value - a.value) });
+        });
+
+        return {
+            sales: {
+                mtdPrev, mtdCurr, mtdDiff: mtdCurr - mtdPrev,
+                ytdPrev, ytdCurr, ytdDiff: ytdCurr - ytdPrev
+            },
+            due: getMakeStats(dueItems),
+            sched: getMakeStats(schedItems),
+            total: getMakeStats(soStats.topItems),
+            stock: stockPivotData.sort((a, b) => b.groups.reduce((acc, g) => acc + g.value, 0) - a.groups.reduce((acc, g) => acc + g.value, 0))
+        };
+    }, [enrichedSales, soStats, materials, inventoryStats]);
 
     const lineChartData = useMemo(() => {
         if (!selectedFY) return { labels: [], series: [] };
@@ -1095,7 +1189,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             )}
 
             <div className="bg-white border-b border-gray-200 px-4 py-3 flex flex-col xl:flex-row gap-4 items-start xl:items-center justify-between flex-shrink-0 shadow-sm z-10">
-                <div className="flex bg-gray-100 p-1 rounded-lg">{(['sales', 'inventory', 'so', 'po'] as const).map(tab => (<button key={tab} onClick={() => setActiveSubTab(tab)} className={`px-3 py-1.5 rounded-md text-xs font-bold uppercase transition-all ${activeSubTab === tab ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>{tab === 'so' ? 'Pending SO' : tab === 'po' ? 'Pending PO' : tab}</button>))}</div>
+                <div className="flex bg-gray-100 p-1 rounded-lg">{(['sales', 'inventory', 'so', 'po', 'weekly'] as const).map(tab => (<button key={tab} onClick={() => setActiveSubTab(tab)} className={`px-3 py-1.5 rounded-md text-xs font-bold uppercase transition-all ${activeSubTab === tab ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>{tab === 'so' ? 'Pending SO' : tab === 'po' ? 'Pending PO' : tab === 'weekly' ? 'Weekly Report' : tab}</button>))}</div>
                 {activeSubTab === 'sales' && (
                     <div className="flex flex-wrap items-center gap-3">
                         <select value={selectedMake} onChange={e => setSelectedMake(e.target.value)} title="Make Slicer" className="bg-white border border-blue-300 text-[10px] rounded-md px-2 py-1.5 font-bold text-blue-700 shadow-sm outline-none focus:ring-2 focus:ring-blue-500 max-w-[100px]">
@@ -1431,7 +1525,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                             <span className="text-[9px] font-bold text-gray-500 uppercase">SO Pending</span>
                                             <span className="text-xs font-black text-gray-900">{formatLargeValue(soStats.totalVal, true)}</span>
                                         </div>
-                                        <p className="text-[9px] text-gray-400 font-bold">Qty: {soStats.totalQty.toLocaleString()}</p>
+                                        <div className="flex justify-between items-center">
+                                            <p className="text-[9px] text-gray-400 font-bold">Qty: {soStats.totalQty.toLocaleString()}</p>
+                                            <span className="text-[10px] font-black text-gray-600">{soStats.uniqueSOCount} SOs</span>
+                                        </div>
                                     </div>
                                     <div className="bg-indigo-50/50 p-2 rounded-lg border border-indigo-100/50">
                                         <div className="flex justify-between items-center mb-0.5">
@@ -1464,33 +1561,33 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                     <span className="text-[9px] text-purple-600 font-bold bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100 animate-pulse">Click Value for Details</span>
                                 </div>
                                 <div className="flex-1 overflow-x-auto">
-                                    <table className="w-full text-[10px] text-left">
+                                    <table className="w-full text-[9px] text-left">
                                         <thead className="bg-gray-50 text-gray-500 uppercase font-bold border-b border-gray-100">
                                             <tr>
-                                                <th className="py-3 px-4">Date</th>
-                                                <th className="py-3 px-4">Customer Name</th>
-                                                <th className="py-3 px-4">SO No</th>
-                                                <th className="py-3 px-4 text-right">Value (Ready+Arrange)</th>
+                                                <th className="py-2 px-3">Date</th>
+                                                <th className="py-2 px-3">Customer Name</th>
+                                                <th className="py-2 px-3">SO No</th>
+                                                <th className="py-2 px-3 text-right">Value (R+A)</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-50">
                                             {soStats.topItems.map((i: any) => (
                                                 <tr key={i.id} className="hover:bg-purple-50 group cursor-default">
-                                                    <td className="py-3 px-4 text-gray-400 font-medium">{i.date}</td>
-                                                    <td className="py-3 px-4 font-bold text-gray-800 truncate max-w-[150px]">{i.partyName}</td>
-                                                    <td className="py-3 px-4 font-mono text-gray-600">{i.orderNo}</td>
-                                                    <td className="py-3 px-4 text-right">
+                                                    <td className="py-1.5 px-3 text-gray-400 font-medium">{i.date}</td>
+                                                    <td className="py-1.5 px-3 font-bold text-gray-800 truncate max-w-[120px]">{i.partyName}</td>
+                                                    <td className="py-1.5 px-3 font-mono text-gray-500">{i.orderNo}</td>
+                                                    <td className="py-1.5 px-3 text-right">
                                                         <div className="flex flex-col items-end">
                                                             <button
                                                                 onClick={() => setSelectedSoItem(i)}
-                                                                className="font-black text-purple-700 bg-purple-50 px-2 py-1 rounded border border-transparent hover:border-purple-300 hover:bg-white transition-all shadow-sm flex items-center gap-1.5"
+                                                                className="font-black text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-transparent hover:border-purple-300 hover:bg-white transition-all shadow-sm flex items-center gap-1"
                                                             >
                                                                 {formatLargeValue(i.value, true)}
-                                                                <ArrowRight className="w-2.5 h-2.5 opacity-40 group-hover:opacity-100" />
+                                                                <ArrowRight className="w-2 h-2 opacity-40 group-hover:opacity-100" />
                                                             </button>
-                                                            <div className="flex gap-2 text-[8px] font-bold mt-1">
-                                                                <span className="text-emerald-600">R: {formatLargeValue(i.readyVal, true)}</span>
-                                                                <span className="text-rose-600">A: {formatLargeValue(i.shortageVal, true)}</span>
+                                                            <div className="flex gap-1.5 text-[7px] font-bold mt-0.5">
+                                                                <span className="text-emerald-600">R:{formatLargeValue(i.readyVal, true)}</span>
+                                                                <span className="text-rose-600">A:{formatLargeValue(i.shortageVal, true)}</span>
                                                             </div>
                                                         </div>
                                                     </td>
@@ -1548,6 +1645,315 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                             </div>
                             <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm min-h-96">
                                 <HorizontalBarChart data={poStats.vendorMix} title="Pending PO by Vendor" color="emerald" />
+                            </div>
+                        </div>
+                    </div>
+                ) : activeSubTab === 'weekly' ? (
+                    <div className="flex flex-col gap-6 p-4 bg-gray-50 min-h-full">
+                        {/* Sales Report Section */}
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                            <div className="bg-indigo-600 px-6 py-4 flex items-center gap-3">
+                                <TrendingUp className="w-5 h-5 text-indigo-100" />
+                                <h3 className="text-lg font-bold text-white uppercase tracking-tight">Sales Comparison Analysis</h3>
+                            </div>
+                            <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                {/* MTD Performance */}
+                                <div className="space-y-4">
+                                    <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest border-l-4 border-indigo-500 pl-3">MTD Performance</h4>
+                                    <div className="overflow-hidden border border-gray-100 rounded-xl shadow-sm">
+                                        <table className="w-full text-sm text-left">
+                                            <thead className="bg-gray-50/80 text-gray-500 uppercase text-[10px] font-bold">
+                                                <tr>
+                                                    <th className="px-4 py-3 border-b">Period</th>
+                                                    <th className="px-4 py-3 border-b text-right">Value (₹)</th>
+                                                    <th className="px-4 py-3 border-b text-right">Change</th>
+                                                    <th className="px-4 py-3 border-b text-right">%</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-50">
+                                                <tr className="hover:bg-gray-50 transition-colors">
+                                                    <td className="px-4 py-3 font-semibold text-gray-600">MTD-17.12.2025</td>
+                                                    <td className="px-4 py-3 text-right font-mono font-bold text-gray-700">{Math.round(weeklyStats.sales.mtdPrev).toLocaleString('en-IN')}</td>
+                                                    <td className="px-4 py-3 text-right">-</td>
+                                                    <td className="px-4 py-3 text-right">-</td>
+                                                </tr>
+                                                <tr className="bg-indigo-50/30">
+                                                    <td className="px-4 py-3 font-semibold text-indigo-700">MTD-24.12.2025</td>
+                                                    <td className="px-4 py-3 text-right font-mono font-black text-indigo-900">{Math.round(weeklyStats.sales.mtdCurr).toLocaleString('en-IN')}</td>
+                                                    <td className={`px-4 py-3 text-right font-bold ${weeklyStats.sales.mtdDiff >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                        {weeklyStats.sales.mtdDiff >= 0 ? '+' : ''}{Math.round(weeklyStats.sales.mtdDiff).toLocaleString('en-IN')}
+                                                    </td>
+                                                    <td className={`px-4 py-3 text-right font-black ${weeklyStats.sales.mtdDiff >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                                                        {((weeklyStats.sales.mtdDiff / (weeklyStats.sales.mtdPrev || 1)) * 100).toFixed(2)}%
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                {/* YTD Performance */}
+                                <div className="space-y-4">
+                                    <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest border-l-4 border-teal-500 pl-3">YTD Cumulative</h4>
+                                    <div className="overflow-hidden border border-gray-100 rounded-xl shadow-sm">
+                                        <table className="w-full text-sm text-left">
+                                            <thead className="bg-gray-50/80 text-gray-500 uppercase text-[10px] font-bold">
+                                                <tr>
+                                                    <th className="px-4 py-3 border-b">Period</th>
+                                                    <th className="px-4 py-3 border-b text-right">Value (₹)</th>
+                                                    <th className="px-4 py-3 border-b text-right">Change</th>
+                                                    <th className="px-4 py-3 border-b text-right">%</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-50">
+                                                <tr className="hover:bg-gray-50 transition-colors">
+                                                    <td className="px-4 py-3 font-semibold text-gray-600">YTD-17.12.2025</td>
+                                                    <td className="px-4 py-3 text-right font-mono font-bold text-gray-700">{Math.round(weeklyStats.sales.ytdPrev).toLocaleString('en-IN')}</td>
+                                                    <td className="px-4 py-3 text-right">-</td>
+                                                    <td className="px-4 py-3 text-right">-</td>
+                                                </tr>
+                                                <tr className="bg-teal-50/30">
+                                                    <td className="px-4 py-3 font-semibold text-teal-700">YTD-24.12.2025</td>
+                                                    <td className="px-4 py-3 text-right font-mono font-black text-teal-900">{Math.round(weeklyStats.sales.ytdCurr).toLocaleString('en-IN')}</td>
+                                                    <td className={`px-4 py-3 text-right font-bold ${weeklyStats.sales.ytdDiff >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                        {weeklyStats.sales.ytdDiff >= 0 ? '+' : ''}{Math.round(weeklyStats.sales.ytdDiff).toLocaleString('en-IN')}
+                                                    </td>
+                                                    <td className={`px-4 py-3 text-right font-black ${weeklyStats.sales.ytdDiff >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                                                        {((weeklyStats.sales.ytdDiff / (weeklyStats.sales.ytdPrev || 1)) * 100).toFixed(2)}%
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Pending Orders Section */}
+                        <div className="space-y-6">
+                            {[
+                                { title: 'DUE Orders Analysis (by Make)', data: weeklyStats.due, id: 'DUE' },
+                                { title: 'Scheduled Orders Analysis (by Make)', data: weeklyStats.sched, id: 'SCH' },
+                                { title: 'Total Pending Orders Analysis (by Make)', data: weeklyStats.total, id: 'TOT' }
+                            ].map((table) => (
+                                <div key={table.id} className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                                    <div className={`px-6 py-4 flex items-center gap-3 ${table.id === 'DUE' ? 'bg-rose-600' : table.id === 'SCH' ? 'bg-blue-600' : 'bg-gray-800'}`}>
+                                        <Package className="w-5 h-5 text-white/70" />
+                                        <h3 className="text-lg font-bold text-white uppercase tracking-tight">{table.title}</h3>
+                                    </div>
+                                    <div className="overflow-x-auto p-4">
+                                        <table className="w-full text-xs text-left border-collapse">
+                                            <thead>
+                                                <tr className="bg-gray-50 text-[10px] font-black text-gray-400 uppercase">
+                                                    <th className="p-3 border">Make</th>
+                                                    <th className="p-3 border text-center bg-blue-50/50" colSpan={3}>Previous Week (Manual)</th>
+                                                    <th className="p-3 border text-center bg-indigo-50/50" colSpan={3}>Current Week (Automated)</th>
+                                                    <th className="p-3 border text-center bg-gray-50" colSpan={3}>Difference</th>
+                                                </tr>
+                                                <tr className="bg-gray-50 text-[9px] font-bold text-gray-500 uppercase">
+                                                    <th className="p-2 border">Manufacturer</th>
+                                                    <th className="p-2 border text-right bg-blue-50/30">Ready</th>
+                                                    <th className="p-2 border text-right bg-blue-50/30">Shortage</th>
+                                                    <th className="p-2 border text-right bg-blue-50/30">Total</th>
+                                                    <th className="p-2 border text-right bg-indigo-50/30">Ready</th>
+                                                    <th className="p-2 border text-right bg-indigo-50/30">Shortage</th>
+                                                    <th className="p-2 border text-right bg-indigo-50/30">Total</th>
+                                                    <th className="p-2 border text-right">Ready</th>
+                                                    <th className="p-2 border text-right">Shortage</th>
+                                                    <th className="p-2 border text-right">% Chg</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {Object.keys(table.data).map(make => {
+                                                    const curr = table.data[make];
+                                                    const prevReady = parseFloat(weeklyBenchmarks[`${table.id}_${make}_Ready`] || 0);
+                                                    const prevShortage = parseFloat(weeklyBenchmarks[`${table.id}_${make}_Shortage`] || 0);
+                                                    const prevTotal = prevReady + prevShortage;
+
+                                                    const diffReady = curr.ready - prevReady;
+                                                    const diffShortage = curr.shortage - prevShortage;
+                                                    const diffTotal = curr.total - prevTotal;
+                                                    const pctChange = prevTotal > 0 ? (diffTotal / prevTotal) * 100 : 0;
+
+                                                    return (
+                                                        <tr key={make} className="hover:bg-gray-50 transition-colors">
+                                                            <td className="p-2 border font-bold text-gray-700">{make}</td>
+                                                            {/* Previous Week Inputs */}
+                                                            <td className="p-2 border bg-blue-50/10">
+                                                                <input
+                                                                    type="number"
+                                                                    className="w-full bg-transparent text-right outline-none focus:ring-1 focus:ring-blue-300 rounded px-1"
+                                                                    value={weeklyBenchmarks[`${table.id}_${make}_Ready`] || ''}
+                                                                    placeholder="0"
+                                                                    onChange={(e) => setWeeklyBenchmarks(prev => ({ ...prev, [`${table.id}_${make}_Ready`]: e.target.value }))}
+                                                                />
+                                                            </td>
+                                                            <td className="p-2 border bg-blue-50/10">
+                                                                <input
+                                                                    type="number"
+                                                                    className="w-full bg-transparent text-right outline-none focus:ring-1 focus:ring-blue-300 rounded px-1"
+                                                                    value={weeklyBenchmarks[`${table.id}_${make}_Shortage`] || ''}
+                                                                    placeholder="0"
+                                                                    onChange={(e) => setWeeklyBenchmarks(prev => ({ ...prev, [`${table.id}_${make}_Shortage`]: e.target.value }))}
+                                                                />
+                                                            </td>
+                                                            <td className="p-2 border bg-blue-50/20 text-right font-bold text-gray-500">{Math.round(prevTotal).toLocaleString('en-IN')}</td>
+
+                                                            {/* Current Week (Automated) */}
+                                                            <td className="p-2 border text-right font-mono font-bold text-emerald-600 bg-indigo-50/10">{Math.round(curr.ready).toLocaleString('en-IN')}</td>
+                                                            <td className="p-2 border text-right font-mono font-bold text-rose-600 bg-indigo-50/10">{Math.round(curr.shortage).toLocaleString('en-IN')}</td>
+                                                            <td className="p-2 border text-right font-mono font-black text-indigo-900 bg-indigo-50/20">{Math.round(curr.total).toLocaleString('en-IN')}</td>
+
+                                                            {/* Difference */}
+                                                            <td className={`p-2 border text-right font-bold ${diffReady >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{diffReady !== 0 ? Math.round(diffReady).toLocaleString('en-IN') : '-'}</td>
+                                                            <td className={`p-2 border text-right font-bold ${diffShortage >= 0 ? 'text-rose-500' : 'text-emerald-500'}`}>{diffShortage !== 0 ? Math.round(diffShortage).toLocaleString('en-IN') : '-'}</td>
+                                                            <td className={`p-2 border text-right font-black ${pctChange >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>{pctChange !== 0 ? `${pctChange.toFixed(1)}%` : '-'}</td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            ))}
+
+                            {/* Siddhi Stock Report Pivot Section */}
+                            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                                <div className="px-6 py-4 bg-emerald-600 flex items-center gap-3">
+                                    <Table className="w-5 h-5 text-white/70" />
+                                    <h3 className="text-lg font-bold text-white uppercase tracking-tight">Siddhi Stock Report Pivot (Make & Group)</h3>
+                                </div>
+                                <div className="overflow-x-auto p-4">
+                                    <table className="w-full text-xs text-left border-collapse">
+                                        <thead>
+                                            <tr className="bg-gray-50 text-[10px] font-black text-gray-400 uppercase">
+                                                <th className="p-3 border">Make / Group</th>
+                                                <th className="p-3 border text-center bg-blue-50/50" colSpan={2}>Previous Weeks (Manual)</th>
+                                                <th className="p-3 border text-center bg-indigo-50/50" colSpan={2}>Present Weeks (Actual)</th>
+                                                <th className="p-3 border text-center bg-gray-50" colSpan={3}>Difference Analysis</th>
+                                            </tr>
+                                            <tr className="bg-gray-50 text-[9px] font-bold text-gray-500 uppercase">
+                                                <th className="p-2 border">Hierarchy</th>
+                                                <th className="p-2 border text-right bg-blue-50/30">Qty</th>
+                                                <th className="p-2 border text-right bg-blue-50/30">Value (₹)</th>
+                                                <th className="p-2 border text-right bg-indigo-50/30">Qty</th>
+                                                <th className="p-2 border text-right bg-indigo-50/30">Value (₹)</th>
+                                                <th className="p-2 border text-right">Qty Diff</th>
+                                                <th className="p-2 border text-right">Val Diff</th>
+                                                <th className="p-2 border text-right">% Val Chg</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {weeklyStats.stock.map(makeGroup => {
+                                                const makeTotal = makeGroup.groups.reduce((acc, g) => ({ qty: acc.qty + g.qty, value: acc.value + g.value }), { qty: 0, value: 0 });
+                                                const prevMakeQty = parseFloat(weeklyBenchmarks[`STOCK_${makeGroup.make}_Qty`] || 0);
+                                                const prevMakeVal = parseFloat(weeklyBenchmarks[`STOCK_${makeGroup.make}_Value`] || 0);
+
+                                                const diffMakeQty = makeTotal.qty - prevMakeQty;
+                                                const diffMakeVal = makeTotal.value - prevMakeVal;
+                                                const pctMakeVal = prevMakeVal > 0 ? (diffMakeVal / prevMakeVal) * 100 : 0;
+
+                                                return (
+                                                    <React.Fragment key={makeGroup.make}>
+                                                        <tr className="bg-gray-50/50">
+                                                            <td className="p-2 border font-black text-gray-900 uppercase bg-gray-100/50">{makeGroup.make}</td>
+                                                            <td className="p-2 border bg-blue-50/5">
+                                                                <input
+                                                                    type="number"
+                                                                    className="w-full bg-transparent text-right font-bold outline-none border-b border-transparent focus:border-blue-300"
+                                                                    value={weeklyBenchmarks[`STOCK_${makeGroup.make}_Qty`] || ''}
+                                                                    onChange={(e) => setWeeklyBenchmarks(prev => ({ ...prev, [`STOCK_${makeGroup.make}_Qty`]: e.target.value }))}
+                                                                    placeholder="0"
+                                                                />
+                                                            </td>
+                                                            <td className="p-2 border bg-blue-50/5">
+                                                                <input
+                                                                    type="number"
+                                                                    className="w-full bg-transparent text-right font-bold outline-none border-b border-transparent focus:border-blue-300"
+                                                                    value={weeklyBenchmarks[`STOCK_${makeGroup.make}_Value`] || ''}
+                                                                    onChange={(e) => setWeeklyBenchmarks(prev => ({ ...prev, [`STOCK_${makeGroup.make}_Value`]: e.target.value }))}
+                                                                    placeholder="0"
+                                                                />
+                                                            </td>
+                                                            <td className="p-2 border text-right font-black text-indigo-700 bg-indigo-50/5">{Math.round(makeTotal.qty).toLocaleString('en-IN')}</td>
+                                                            <td className="p-2 border text-right font-black text-indigo-900 bg-indigo-50/10">{Math.round(makeTotal.value).toLocaleString('en-IN')}</td>
+                                                            <td className={`p-2 border text-right font-black ${diffMakeQty >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{Math.round(diffMakeQty).toLocaleString('en-IN')}</td>
+                                                            <td className={`p-2 border text-right font-black ${diffMakeVal >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>{Math.round(diffMakeVal).toLocaleString('en-IN')}</td>
+                                                            <td className={`p-2 border text-right font-black ${pctMakeVal >= 0 ? 'text-emerald-800' : 'text-rose-800'}`}>{pctMakeVal !== 0 ? `${pctMakeVal.toFixed(1)}%` : '-'}</td>
+                                                        </tr>
+                                                        {makeGroup.groups.map(grp => {
+                                                            const prevGrpQty = parseFloat(weeklyBenchmarks[`STOCK_${makeGroup.make}_${grp.group}_Qty`] || 0);
+                                                            const prevGrpVal = parseFloat(weeklyBenchmarks[`STOCK_${makeGroup.make}_${grp.group}_Value`] || 0);
+                                                            const diffGrpQty = grp.qty - prevGrpQty;
+                                                            const diffGrpVal = grp.value - prevGrpVal;
+                                                            const pctGrpVal = prevGrpVal > 0 ? (diffGrpVal / prevGrpVal) * 100 : 0;
+
+                                                            return (
+                                                                <tr key={grp.group} className="text-[10px] text-gray-500 hover:bg-emerald-50/30 transition-colors">
+                                                                    <td className="p-2 border pl-6 italic">{grp.group}</td>
+                                                                    <td className="p-2 border bg-blue-50/5">
+                                                                        <input
+                                                                            type="number"
+                                                                            className="w-full bg-transparent text-right outline-none text-[9px]"
+                                                                            value={weeklyBenchmarks[`STOCK_${makeGroup.make}_${grp.group}_Qty`] || ''}
+                                                                            onChange={(e) => setWeeklyBenchmarks(prev => ({ ...prev, [`STOCK_${makeGroup.make}_${grp.group}_Qty`]: e.target.value }))}
+                                                                            placeholder="0"
+                                                                        />
+                                                                    </td>
+                                                                    <td className="p-2 border bg-blue-50/5">
+                                                                        <input
+                                                                            type="number"
+                                                                            className="w-full bg-transparent text-right outline-none text-[9px]"
+                                                                            value={weeklyBenchmarks[`STOCK_${makeGroup.make}_${grp.group}_Value`] || ''}
+                                                                            onChange={(e) => setWeeklyBenchmarks(prev => ({ ...prev, [`STOCK_${makeGroup.make}_${grp.group}_Value`]: e.target.value }))}
+                                                                            placeholder="0"
+                                                                        />
+                                                                    </td>
+                                                                    <td className="p-2 border text-right">{Math.round(grp.qty).toLocaleString('en-IN')}</td>
+                                                                    <td className="p-2 border text-right font-bold text-gray-700">{Math.round(grp.value).toLocaleString('en-IN')}</td>
+                                                                    <td className={`p-2 border text-right ${diffGrpQty >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{Math.round(diffGrpQty).toLocaleString('en-IN')}</td>
+                                                                    <td className={`p-2 border text-right ${diffGrpVal >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{Math.round(diffGrpVal).toLocaleString('en-IN')}</td>
+                                                                    <td className={`p-2 border text-right font-medium ${pctGrpVal >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{pctGrpVal !== 0 ? `${pctGrpVal.toFixed(1)}%` : '-'}</td>
+                                                                </tr>
+                                                            );
+                                                        })}
+                                                    </React.Fragment>
+                                                );
+                                            })}
+                                            <tr className="bg-emerald-800 text-white font-black text-xs">
+                                                <td className="p-3 border uppercase tracking-widest text-[10px]">Grand Total Stock</td>
+                                                <td className="p-3 border text-right bg-blue-900/10 font-mono">
+                                                    {Math.round(weeklyStats.stock.reduce((acc, m) => acc + parseFloat(weeklyBenchmarks[`STOCK_${m.make}_Qty`] || 0), 0)).toLocaleString('en-IN')}
+                                                </td>
+                                                <td className="p-3 border text-right bg-blue-900/10 font-mono">
+                                                    {Math.round(weeklyStats.stock.reduce((acc, m) => acc + parseFloat(weeklyBenchmarks[`STOCK_${m.make}_Value`] || 0), 0)).toLocaleString('en-IN')}
+                                                </td>
+                                                <td className="p-3 border text-right font-mono">
+                                                    {Math.round(weeklyStats.stock.reduce((acc, m) => acc + m.groups.reduce((a, g) => a + g.qty, 0), 0)).toLocaleString('en-IN')}
+                                                </td>
+                                                <td className="p-3 border text-right bg-emerald-600 font-mono">
+                                                    {Math.round(weeklyStats.stock.reduce((acc, m) => acc + m.groups.reduce((a, g) => a + g.value, 0), 0)).toLocaleString('en-IN')}
+                                                </td>
+                                                {(() => {
+                                                    const totPrevQty = weeklyStats.stock.reduce((acc, m) => acc + parseFloat(weeklyBenchmarks[`STOCK_${m.make}_Qty`] || 0), 0);
+                                                    const totPrevVal = weeklyStats.stock.reduce((acc, m) => acc + parseFloat(weeklyBenchmarks[`STOCK_${m.make}_Value`] || 0), 0);
+                                                    const totCurrQty = weeklyStats.stock.reduce((acc, m) => acc + m.groups.reduce((a, g) => a + g.qty, 0), 0);
+                                                    const totCurrVal = weeklyStats.stock.reduce((acc, m) => acc + m.groups.reduce((a, g) => a + g.value, 0), 0);
+                                                    const diffQty = totCurrQty - totPrevQty;
+                                                    const diffVal = totCurrVal - totPrevVal;
+                                                    const pctVal = totPrevVal > 0 ? (diffVal / totPrevVal) * 100 : 0;
+                                                    return (
+                                                        <>
+                                                            <td className={`p-3 border text-right font-mono ${diffQty >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{Math.round(diffQty).toLocaleString('en-IN')}</td>
+                                                            <td className={`p-3 border text-right font-mono ${diffVal >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{Math.round(diffVal).toLocaleString('en-IN')}</td>
+                                                            <td className={`p-3 border text-right font-black ${pctVal >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{pctVal !== 0 ? `${pctVal.toFixed(1)}%` : '-'}</td>
+                                                        </>
+                                                    );
+                                                })()}
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         </div>
                     </div>
