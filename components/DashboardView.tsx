@@ -1001,14 +1001,22 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         const mtdStart = new Date(2025, 11, 1);
         const ytdStart = new Date(2025, 3, 1); // April 1st
 
-        const getSalesSum = (start: Date, end: Date) => {
-            return enrichedSales.filter(s => s.rawDate >= start && s.rawDate <= end).reduce((acc, i) => acc + (i.value || 0), 0);
+        const getSalesSum = (start: Date, end: Date, isOnlineOnly: boolean = false) => {
+            return enrichedSales
+                .filter(s => s.rawDate >= start && s.rawDate <= end)
+                .filter(s => !isOnlineOnly || s.custGroup === 'Online')
+                .reduce((acc, i) => acc + (i.value || 0), 0);
         };
 
         const mtdPrev = getSalesSum(mtdStart, prevDate);
         const mtdCurr = getSalesSum(mtdStart, targetDate);
         const ytdPrev = getSalesSum(ytdStart, prevDate);
         const ytdCurr = getSalesSum(ytdStart, targetDate);
+
+        const mtdPrevOnline = getSalesSum(mtdStart, prevDate, true);
+        const mtdCurrOnline = getSalesSum(mtdStart, targetDate, true);
+        const ytdPrevOnline = getSalesSum(ytdStart, prevDate, true);
+        const ytdCurrOnline = getSalesSum(ytdStart, targetDate, true);
 
         // Specific Makes for the report
         const reportMakes = ['Lapp', 'Eaton', 'Hager', 'Mennekes', 'Havells', 'Luker'];
@@ -1070,7 +1078,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         return {
             sales: {
                 mtdPrev, mtdCurr, mtdDiff: mtdCurr - mtdPrev,
-                ytdPrev, ytdCurr, ytdDiff: ytdCurr - ytdPrev
+                ytdPrev, ytdCurr, ytdDiff: ytdCurr - ytdPrev,
+                mtdPrevOnline, mtdCurrOnline, mtdDiffOnline: mtdCurrOnline - mtdPrevOnline,
+                ytdPrevOnline, ytdCurrOnline, ytdDiffOnline: ytdCurrOnline - ytdPrevOnline
             },
             due: getMakeStats(dueItems),
             sched: getMakeStats(schedItems),
@@ -1664,27 +1674,36 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                         <table className="w-full text-sm text-left">
                                             <thead className="bg-gray-50/80 text-gray-500 uppercase text-[10px] font-bold">
                                                 <tr>
-                                                    <th className="px-4 py-3 border-b">Period</th>
-                                                    <th className="px-4 py-3 border-b text-right">Value (₹)</th>
-                                                    <th className="px-4 py-3 border-b text-right">Change</th>
-                                                    <th className="px-4 py-3 border-b text-right">%</th>
+                                                    <th className="px-4 py-3 border-b">Category</th>
+                                                    <th className="px-4 py-3 border-b text-right">17.12.2025 (PW)</th>
+                                                    <th className="px-4 py-3 border-b text-right">24.12.2025 (CW)</th>
+                                                    <th className="px-4 py-3 border-b text-right">Diff</th>
+                                                    <th className="px-4 py-3 border-b text-right">% Chg</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-gray-50">
+                                                {/* Total Sales Row */}
                                                 <tr className="hover:bg-gray-50 transition-colors">
-                                                    <td className="px-4 py-3 font-semibold text-gray-600">MTD-17.12.2025</td>
+                                                    <td className="px-4 py-3 font-semibold text-gray-600">Total Sales</td>
                                                     <td className="px-4 py-3 text-right font-mono font-bold text-gray-700">{Math.round(weeklyStats.sales.mtdPrev).toLocaleString('en-IN')}</td>
-                                                    <td className="px-4 py-3 text-right">-</td>
-                                                    <td className="px-4 py-3 text-right">-</td>
-                                                </tr>
-                                                <tr className="bg-indigo-50/30">
-                                                    <td className="px-4 py-3 font-semibold text-indigo-700">MTD-24.12.2025</td>
                                                     <td className="px-4 py-3 text-right font-mono font-black text-indigo-900">{Math.round(weeklyStats.sales.mtdCurr).toLocaleString('en-IN')}</td>
                                                     <td className={`px-4 py-3 text-right font-bold ${weeklyStats.sales.mtdDiff >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                                                         {weeklyStats.sales.mtdDiff >= 0 ? '+' : ''}{Math.round(weeklyStats.sales.mtdDiff).toLocaleString('en-IN')}
                                                     </td>
                                                     <td className={`px-4 py-3 text-right font-black ${weeklyStats.sales.mtdDiff >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
                                                         {((weeklyStats.sales.mtdDiff / (weeklyStats.sales.mtdPrev || 1)) * 100).toFixed(2)}%
+                                                    </td>
+                                                </tr>
+                                                {/* Online Sales Row */}
+                                                <tr className="bg-emerald-50/20">
+                                                    <td className="px-4 py-3 font-bold text-emerald-700">Online Sales</td>
+                                                    <td className="px-4 py-3 text-right font-mono font-bold text-emerald-600">{Math.round(weeklyStats.sales.mtdPrevOnline).toLocaleString('en-IN')}</td>
+                                                    <td className="px-4 py-3 text-right font-mono font-black text-emerald-900">{Math.round(weeklyStats.sales.mtdCurrOnline).toLocaleString('en-IN')}</td>
+                                                    <td className={`px-4 py-3 text-right font-bold ${weeklyStats.sales.mtdDiffOnline >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                        {weeklyStats.sales.mtdDiffOnline >= 0 ? '+' : ''}{Math.round(weeklyStats.sales.mtdDiffOnline).toLocaleString('en-IN')}
+                                                    </td>
+                                                    <td className={`px-4 py-3 text-right font-black ${weeklyStats.sales.mtdDiffOnline >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                                                        {((weeklyStats.sales.mtdDiffOnline / (weeklyStats.sales.mtdPrevOnline || 1)) * 100).toFixed(2)}%
                                                     </td>
                                                 </tr>
                                             </tbody>
@@ -1699,27 +1718,36 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                         <table className="w-full text-sm text-left">
                                             <thead className="bg-gray-50/80 text-gray-500 uppercase text-[10px] font-bold">
                                                 <tr>
-                                                    <th className="px-4 py-3 border-b">Period</th>
-                                                    <th className="px-4 py-3 border-b text-right">Value (₹)</th>
-                                                    <th className="px-4 py-3 border-b text-right">Change</th>
-                                                    <th className="px-4 py-3 border-b text-right">%</th>
+                                                    <th className="px-4 py-3 border-b">Category</th>
+                                                    <th className="px-4 py-3 border-b text-right">17.12.2025 (PW)</th>
+                                                    <th className="px-4 py-3 border-b text-right">24.12.2025 (CW)</th>
+                                                    <th className="px-4 py-3 border-b text-right">Diff</th>
+                                                    <th className="px-4 py-3 border-b text-right">% Chg</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-gray-50">
+                                                {/* Total Sales Row */}
                                                 <tr className="hover:bg-gray-50 transition-colors">
-                                                    <td className="px-4 py-3 font-semibold text-gray-600">YTD-17.12.2025</td>
+                                                    <td className="px-4 py-3 font-semibold text-gray-600">Total Sales</td>
                                                     <td className="px-4 py-3 text-right font-mono font-bold text-gray-700">{Math.round(weeklyStats.sales.ytdPrev).toLocaleString('en-IN')}</td>
-                                                    <td className="px-4 py-3 text-right">-</td>
-                                                    <td className="px-4 py-3 text-right">-</td>
-                                                </tr>
-                                                <tr className="bg-teal-50/30">
-                                                    <td className="px-4 py-3 font-semibold text-teal-700">YTD-24.12.2025</td>
                                                     <td className="px-4 py-3 text-right font-mono font-black text-teal-900">{Math.round(weeklyStats.sales.ytdCurr).toLocaleString('en-IN')}</td>
                                                     <td className={`px-4 py-3 text-right font-bold ${weeklyStats.sales.ytdDiff >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                                                         {weeklyStats.sales.ytdDiff >= 0 ? '+' : ''}{Math.round(weeklyStats.sales.ytdDiff).toLocaleString('en-IN')}
                                                     </td>
                                                     <td className={`px-4 py-3 text-right font-black ${weeklyStats.sales.ytdDiff >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
                                                         {((weeklyStats.sales.ytdDiff / (weeklyStats.sales.ytdPrev || 1)) * 100).toFixed(2)}%
+                                                    </td>
+                                                </tr>
+                                                {/* Online Sales Row */}
+                                                <tr className="bg-teal-50/20">
+                                                    <td className="px-4 py-3 font-bold text-teal-700">Online Sales</td>
+                                                    <td className="px-4 py-3 text-right font-mono font-bold text-teal-600">{Math.round(weeklyStats.sales.ytdPrevOnline).toLocaleString('en-IN')}</td>
+                                                    <td className="px-4 py-3 text-right font-mono font-black text-teal-900">{Math.round(weeklyStats.sales.ytdCurrOnline).toLocaleString('en-IN')}</td>
+                                                    <td className={`px-4 py-3 text-right font-bold ${weeklyStats.sales.ytdDiffOnline >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                        {weeklyStats.sales.ytdDiffOnline >= 0 ? '+' : ''}{Math.round(weeklyStats.sales.ytdDiffOnline).toLocaleString('en-IN')}
+                                                    </td>
+                                                    <td className={`px-4 py-3 text-right font-black ${weeklyStats.sales.ytdDiffOnline >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                                                        {((weeklyStats.sales.ytdDiffOnline / (weeklyStats.sales.ytdPrevOnline || 1)) * 100).toFixed(2)}%
                                                     </td>
                                                 </tr>
                                             </tbody>
@@ -1774,16 +1802,14 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                     const diffShortage = curr.shortage - prevShortage;
                                                     const diffTotal = curr.total - prevTotal;
                                                     const pctChange = prevTotal > 0 ? (diffTotal / prevTotal) * 100 : 0;
-
-                                                    return (
+                                                     return (
                                                         <tr key={make} className="hover:bg-gray-50 transition-colors">
                                                             <td className="p-2 border font-bold text-gray-700">{make}</td>
-                                                            {/* Previous Week Inputs */}
                                                             <td className="p-2 border bg-blue-50/10">
                                                                 <input
                                                                     type="number"
-                                                                    className="w-full bg-transparent text-right outline-none focus:ring-1 focus:ring-blue-300 rounded px-1"
-                                                                    value={weeklyBenchmarks[`${table.id}_${make}_Ready`] || ''}
+                                                                    className="w-full bg-transparent text-right outline-none focus:ring-1 focus:ring-blue-300 rounded px-1 text-[10px]"
+                                                                    value={weeklyBenchmarks[`${table.id}_${make}_Ready`] || ""}
                                                                     placeholder="0"
                                                                     onChange={(e) => setWeeklyBenchmarks(prev => ({ ...prev, [`${table.id}_${make}_Ready`]: e.target.value }))}
                                                                 />
@@ -1791,26 +1817,50 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                             <td className="p-2 border bg-blue-50/10">
                                                                 <input
                                                                     type="number"
-                                                                    className="w-full bg-transparent text-right outline-none focus:ring-1 focus:ring-blue-300 rounded px-1"
-                                                                    value={weeklyBenchmarks[`${table.id}_${make}_Shortage`] || ''}
+                                                                    className="w-full bg-transparent text-right outline-none focus:ring-1 focus:ring-blue-300 rounded px-1 text-[10px]"
+                                                                    value={weeklyBenchmarks[`${table.id}_${make}_Shortage`] || ""}
                                                                     placeholder="0"
                                                                     onChange={(e) => setWeeklyBenchmarks(prev => ({ ...prev, [`${table.id}_${make}_Shortage`]: e.target.value }))}
                                                                 />
                                                             </td>
-                                                            <td className="p-2 border bg-blue-50/20 text-right font-bold text-gray-500">{Math.round(prevTotal).toLocaleString('en-IN')}</td>
-
-                                                            {/* Current Week (Automated) */}
-                                                            <td className="p-2 border text-right font-mono font-bold text-emerald-600 bg-indigo-50/10">{Math.round(curr.ready).toLocaleString('en-IN')}</td>
-                                                            <td className="p-2 border text-right font-mono font-bold text-rose-600 bg-indigo-50/10">{Math.round(curr.shortage).toLocaleString('en-IN')}</td>
-                                                            <td className="p-2 border text-right font-mono font-black text-indigo-900 bg-indigo-50/20">{Math.round(curr.total).toLocaleString('en-IN')}</td>
-
-                                                            {/* Difference */}
-                                                            <td className={`p-2 border text-right font-bold ${diffReady >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{diffReady !== 0 ? Math.round(diffReady).toLocaleString('en-IN') : '-'}</td>
-                                                            <td className={`p-2 border text-right font-bold ${diffShortage >= 0 ? 'text-rose-500' : 'text-emerald-500'}`}>{diffShortage !== 0 ? Math.round(diffShortage).toLocaleString('en-IN') : '-'}</td>
-                                                            <td className={`p-2 border text-right font-black ${pctChange >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>{pctChange !== 0 ? `${pctChange.toFixed(1)}%` : '-'}</td>
+                                                            <td className="p-2 border bg-blue-50/20 text-right font-bold text-gray-500">{Math.round(prevTotal).toLocaleString("en-IN")}</td>
+                                                            <td className="p-2 border text-right font-mono font-bold text-emerald-600 bg-indigo-50/5">{Math.round(curr.ready).toLocaleString("en-IN")}</td>
+                                                            <td className="p-2 border text-right font-mono font-bold text-rose-600 bg-indigo-50/5">{Math.round(curr.shortage).toLocaleString("en-IN")}</td>
+                                                            <td className="p-2 border text-right font-mono font-black text-indigo-900 bg-indigo-50/10">{Math.round(curr.total).toLocaleString("en-IN")}</td>
+                                                            <td className={`p-2 border text-right font-bold ${diffReady >= 0 ? "text-emerald-500" : "text-rose-500"}`}>{diffReady !== 0 ? Math.round(diffReady).toLocaleString("en-IN") : "-"}</td>
+                                                            <td className={`p-2 border text-right font-bold ${diffShortage >= 0 ? "text-rose-500" : "text-emerald-500"}`}>{diffShortage !== 0 ? Math.round(diffShortage).toLocaleString("en-IN") : "-"}</td>
+                                                            <td className={`p-2 border text-right font-black ${pctChange >= 0 ? "text-emerald-700" : "text-rose-700"}`}>{pctChange !== 0 ? `${pctChange.toFixed(1)}%` : "-"}</td>
                                                         </tr>
-                                                    );
-                                                })}
+                                                     );
+                                                 })
+                                                {/* Grand Total Row for Pending Orders */}
+                                                <tr className="bg-gray-100 font-black text-gray-900">
+                                                    <td className="p-2 border uppercase text-[9px]">Grand Total</td>
+                                                    {(() => {
+                                                        const totPrevReady = Object.keys(table.data).reduce((acc, m) => acc + parseFloat(weeklyBenchmarks[`${table.id}_${m}_Ready`] || 0), 0);
+                                                        const totPrevShort = Object.keys(table.data).reduce((acc, m) => acc + parseFloat(weeklyBenchmarks[`${table.id}_${m}_Shortage`] || 0), 0);
+                                                        const totPrevTotal = totPrevReady + totPrevShort;
+                                                        const totCurrReady = Object.keys(table.data).reduce((acc, m) => acc + table.data[m].ready, 0);
+                                                        const totCurrShort = Object.keys(table.data).reduce((acc, m) => acc + table.data[m].shortage, 0);
+                                                        const totCurrTotal = totCurrReady + totCurrShort;
+                                                        const diffR = totCurrReady - totPrevReady;
+                                                        const diffS = totCurrShort - totPrevShort;
+                                                        const pctT = totPrevTotal > 0 ? ((totCurrTotal - totPrevTotal) / totPrevTotal) * 100 : 0;
+                                                        return (
+                                                            <>
+                                                                <td className="p-2 border text-right bg-blue-100/30">{Math.round(totPrevReady).toLocaleString('en-IN')}</td>
+                                                                <td className="p-2 border text-right bg-blue-100/30">{Math.round(totPrevShort).toLocaleString('en-IN')}</td>
+                                                                <td className="p-2 border text-right bg-blue-200/40">{Math.round(totPrevTotal).toLocaleString('en-IN')}</td>
+                                                                <td className="p-2 border text-right bg-emerald-100/30">{Math.round(totCurrReady).toLocaleString('en-IN')}</td>
+                                                                <td className="p-2 border text-right bg-emerald-100/30">{Math.round(totCurrShort).toLocaleString('en-IN')}</td>
+                                                                <td className="p-2 border text-right bg-emerald-200/40 text-indigo-900">{Math.round(totCurrTotal).toLocaleString('en-IN')}</td>
+                                                                <td className={`p-2 border text-right ${diffR >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>{Math.round(diffR).toLocaleString('en-IN')}</td>
+                                                                <td className={`p-2 border text-right ${diffS >= 0 ? 'text-rose-700' : 'text-emerald-700'}`}>{Math.round(diffS).toLocaleString('en-IN')}</td>
+                                                                <td className={`p-2 border text-right ${pctT >= 0 ? 'text-emerald-800' : 'text-rose-800'}`}>{pctT.toFixed(1)}%</td>
+                                                            </>
+                                                        )
+                                                    })()}
+                                                </tr>
                                             </tbody>
                                         </table>
                                     </div>
