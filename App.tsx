@@ -51,6 +51,9 @@ const App: React.FC = () => {
     title: string;
     message: string;
     onConfirm: () => void;
+    onCancel?: () => void;
+    onConfirmLabel?: string;
+    onCancelLabel?: string;
     isDanger?: boolean;
     isLoading?: boolean;
   }>({
@@ -228,15 +231,37 @@ const App: React.FC = () => {
   };
 
   const handleBulkAddStock = async (items: any) => {
-    const replace = confirm("Replace existing stock data with this import? (Cancel to Append)");
-    if (replace) {
-      await stockService.clearAll();
-      const newItems = await stockService.createBulk(items);
-      setClosingStockItems(newItems);
-    } else {
-      const newItems = await stockService.createBulk(items);
-      setClosingStockItems(prev => [...newItems, ...prev]);
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: "Import Closing Stock",
+      message: "How would you like to import this data? You can replace existing records or append to them.",
+      isDanger: false,
+      onConfirmLabel: "Replace All",
+      onCancelLabel: "Append Only",
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, isLoading: true }));
+        try {
+          await stockService.clearAll();
+          const newItems = await stockService.createBulk(items);
+          setClosingStockItems(newItems);
+          setConfirmModal(prev => ({ ...prev, isOpen: false, isLoading: false }));
+        } catch (e: any) {
+          alert("Import failed: " + (e.message || "Unknown error"));
+          setConfirmModal(prev => ({ ...prev, isLoading: false }));
+        }
+      },
+      onCancel: async () => {
+        setConfirmModal(prev => ({ ...prev, isLoading: true }));
+        try {
+          const newItems = await stockService.createBulk(items);
+          setClosingStockItems(prev => [...newItems, ...prev]);
+          setConfirmModal(prev => ({ ...prev, isOpen: false, isLoading: false }));
+        } catch (e: any) {
+          alert("Import failed: " + (e.message || "Unknown error"));
+          setConfirmModal(prev => ({ ...prev, isLoading: false }));
+        }
+      }
+    });
   };
   const handleUpdateStock = async (item: ClosingStockItem) => {
     await stockService.update(item);
@@ -274,15 +299,37 @@ const App: React.FC = () => {
   };
 
   const handleBulkAddSO = async (items: any) => {
-    const replace = confirm("Replace existing Pending SO data with this import? (Cancel to Append)");
-    if (replace) {
-      await soService.clearAll();
-      const newItems = await soService.createBulk(items);
-      setPendingSOItems(newItems);
-    } else {
-      const newItems = await soService.createBulk(items);
-      setPendingSOItems(prev => [...newItems, ...prev]);
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: "Import Pending SO",
+      message: "How would you like to import this data? Replace existing records or append to them?",
+      isDanger: false,
+      onConfirmLabel: "Replace All",
+      onCancelLabel: "Append Only",
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, isLoading: true }));
+        try {
+          await soService.clearAll();
+          const newItems = await soService.createBulk(items);
+          setPendingSOItems(newItems);
+          setConfirmModal(prev => ({ ...prev, isOpen: false, isLoading: false }));
+        } catch (e: any) {
+          alert("Import failed: " + (e.message || "Unknown error"));
+          setConfirmModal(prev => ({ ...prev, isLoading: false }));
+        }
+      },
+      onCancel: async () => {
+        setConfirmModal(prev => ({ ...prev, isLoading: true }));
+        try {
+          const newItems = await soService.createBulk(items);
+          setPendingSOItems(prev => [...newItems, ...prev]);
+          setConfirmModal(prev => ({ ...prev, isOpen: false, isLoading: false }));
+        } catch (e: any) {
+          alert("Import failed: " + (e.message || "Unknown error"));
+          setConfirmModal(prev => ({ ...prev, isLoading: false }));
+        }
+      }
+    });
   };
   const handleUpdateSO = async (item: PendingSOItem) => {
     await soService.update(item);
@@ -320,15 +367,37 @@ const App: React.FC = () => {
   };
 
   const handleBulkAddPO = async (items: any) => {
-    const replace = confirm("Replace existing Pending PO data with this import? (Cancel to Append)");
-    if (replace) {
-      await poService.clearAll();
-      const newItems = await poService.createBulk(items);
-      setPendingPOItems(newItems);
-    } else {
-      const newItems = await poService.createBulk(items);
-      setPendingPOItems(prev => [...newItems, ...prev]);
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: "Import Pending PO",
+      message: "How would you like to import this data? Replace existing records or append to them?",
+      isDanger: false,
+      onConfirmLabel: "Replace All",
+      onCancelLabel: "Append Only",
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, isLoading: true }));
+        try {
+          await poService.clearAll();
+          const newItems = await poService.createBulk(items);
+          setPendingPOItems(newItems);
+          setConfirmModal(prev => ({ ...prev, isOpen: false, isLoading: false }));
+        } catch (e: any) {
+          alert("Import failed: " + (e.message || "Unknown error"));
+          setConfirmModal(prev => ({ ...prev, isLoading: false }));
+        }
+      },
+      onCancel: async () => {
+        setConfirmModal(prev => ({ ...prev, isLoading: true }));
+        try {
+          const newItems = await poService.createBulk(items);
+          setPendingPOItems(prev => [...newItems, ...prev]);
+          setConfirmModal(prev => ({ ...prev, isOpen: false, isLoading: false }));
+        } catch (e: any) {
+          alert("Import failed: " + (e.message || "Unknown error"));
+          setConfirmModal(prev => ({ ...prev, isLoading: false }));
+        }
+      }
+    });
   };
   const handleUpdatePO = async (item: PendingPOItem) => {
     await poService.update(item);
@@ -548,8 +617,10 @@ const App: React.FC = () => {
         message={confirmModal.message}
         isDanger={confirmModal.isDanger}
         isLoading={confirmModal.isLoading}
+        confirmLabel={confirmModal.onConfirmLabel}
+        cancelLabel={confirmModal.onCancelLabel}
         onConfirm={confirmModal.onConfirm}
-        onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+        onCancel={confirmModal.onCancel || (() => setConfirmModal(prev => ({ ...prev, isOpen: false })))}
       />
     </div>
   );
