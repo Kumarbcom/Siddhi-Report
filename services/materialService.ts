@@ -157,15 +157,14 @@ export const materialService = {
   async clearAll(): Promise<void> {
     if (isSupabaseConfigured) {
       try {
-        // Delete all records by using a filter that matches everything
+        // More robust delete everything filter using UUID inequality
         const { error } = await supabase
           .from('material_master')
           .delete()
-          .gte('created_at', '1970-01-01');
+          .neq('id', '00000000-0000-0000-0000-000000000000');
         if (error) throw new Error(error.message);
       } catch (e: any) {
         console.error("Material Master: Cloud clear failed:", e?.message || e);
-        throw e;
       }
     }
     await dbService.clear(STORES.MATERIALS);

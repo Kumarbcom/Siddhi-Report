@@ -249,14 +249,6 @@ const ClosingStockView: React.FC<ClosingStockViewProps> = ({
     if (selectedGroup !== 'ALL' && !uniqueGroups.includes(selectedGroup)) setSelectedGroup('ALL');
   }, [uniqueGroups, selectedGroup]);
 
-  interface ClosingStockViewProps {
-    items: ClosingStockItem[];
-    materials: Material[];
-    onBulkAdd: (items: Omit<ClosingStockItem, 'id' | 'createdAt'>[]) => void;
-    onUpdate: (item: ClosingStockItem) => void;
-    onDelete: (id: string) => void;
-    onClear: () => void;
-  }
 
   const stats = useMemo(() => {
     const totalQty = filteredData.reduce((acc, i) => acc + i.quantity, 0);
