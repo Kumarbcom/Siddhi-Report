@@ -57,23 +57,32 @@ const ChatView: React.FC<ChatViewProps> = ({
   const fiscalYearSummary = useMemo(() => {
     const fyTotals: Record<string, number> = {};
     salesReportItems.forEach(item => {
-        let dateObj: Date;
-        const rawDate = item.date as any;
-        if (rawDate instanceof Date) {
-          dateObj = rawDate;
-        } else if (typeof rawDate === 'string') {
-          dateObj = new Date(rawDate);
-        } else {
-          dateObj = new Date((Number(rawDate) - (25567 + 2)) * 86400 * 1000);
-        }
-        
-        if (!isNaN(dateObj.getTime())) {
-            const month = dateObj.getMonth();
-            const year = dateObj.getFullYear();
-            const startYear = month >= 3 ? year : year - 1;
-            const fy = `${startYear}-${startYear + 1}`;
-            fyTotals[fy] = (fyTotals[fy] || 0) + (item.value || 0);
-        }
+      let dateObj: Date;
+      const rawDate = item.date as any;
+      if (rawDate instanceof Date) {
+        dateObj = rawDate;
+      } else if (typeof rawDate === 'string') {
+        dateObj = new Date(rawDate);
+      } else if (typeof rawDate === 'number') {
+        // Excel serial date: days since 1900-01-01 (with 1900 leap year bug, offset is 25568)
+        dateObj = new Date((Math.round(Number(rawDate)) - 25568) * 86400 * 1000);
+      } else {
+        // Default fallback
+        dateObj = new Date(rawDate);
+      }
+
+      // Final sanity nudge for Date objects to handle 23:59:59 precision issues
+      if (dateObj instanceof Date && !isNaN(dateObj.getTime())) {
+        dateObj = new Date(dateObj.getTime() + (12 * 60 * 60 * 1000));
+      }
+
+      if (!isNaN(dateObj.getTime())) {
+        const month = dateObj.getMonth();
+        const year = dateObj.getFullYear();
+        const startYear = month >= 3 ? year : year - 1;
+        const fy = `${startYear}-${startYear + 1}`;
+        fyTotals[fy] = (fyTotals[fy] || 0) + (item.value || 0);
+      }
     });
     return Object.entries(fyTotals)
       .sort((a, b) => b[0].localeCompare(a[0]))
@@ -82,33 +91,69 @@ const ChatView: React.FC<ChatViewProps> = ({
   }, [salesReportItems]);
 
   const prepareContext = () => {
-    const stockContext = closingStock.slice(0, 100).map(i => `${i.description} (Qty: ${i.quantity}, Val: ${i.value})`).join('\n');
-    const soContext = pendingSO.slice(0, 100).map(i => `Order: ${i.orderNo}, Party: ${i.partyName}, Item: ${i.itemName}, Qty: ${i.balanceQty}, Val: ${i.value}`).join('\n');
-    const poContext = pendingPO.slice(0, 100).map(i => `Order: ${i.orderNo}, Vendor: ${i.partyName}, Item: ${i.itemName}, Qty: ${i.balanceQty}, Val: ${i.value}`).join('\n');
-    const custContext = customers.slice(0, 100).map(c => `${c.customerName} (Status: ${c.status})`).join('\n');
-    const recentSales = salesReportItems.slice(0, 50).map(s => `Date: ${s.date}, Cust: ${s.customerName}, Item: ${s.particulars}, Qty: ${s.quantity}, Val: ${s.value}`).join('\n');
+    // Build a comprehensive item-level context for all materials to allow specific queries (like part numbers)
+    const itemContextMap = new Map<string, { desc: string, stock: number, so: number, po: number, free: number }>();
+
+    // Initialize with materials to ensure we have partNo mapping
+    materials.forEach(m => {
+      const p = (m.partNo || '').trim();
+      const d = (m.description || '').trim();
+      if (p || d) {
+        const key = p || d;
+        itemContextMap.set(key.toLowerCase(), { desc: d, stock: 0, so: 0, po: 0, free: 0 });
+      }
+    });
+
+    // Populate Stock
+    closingStock.forEach(s => {
+      const d = (s.description || '').trim().toLowerCase();
+      const entry = itemContextMap.get(d) || { desc: s.description, stock: 0, so: 0, po: 0, free: 0 };
+      entry.stock += s.quantity || 0;
+      itemContextMap.set(d, entry);
+    });
+
+    // Populate Pending SO
+    pendingSO.forEach(so => {
+      const d = (so.itemName || '').trim().toLowerCase();
+      const p = (so.partNo || '').trim().toLowerCase();
+      const key = itemContextMap.has(p) ? p : (itemContextMap.has(d) ? d : d);
+      const entry = itemContextMap.get(key) || { desc: so.itemName, stock: 0, so: 0, po: 0, free: 0 };
+      entry.so += so.balanceQty || 0;
+      itemContextMap.set(key, entry);
+    });
+
+    // Populate Pending PO
+    pendingPO.forEach(po => {
+      const d = (po.itemName || '').trim().toLowerCase();
+      const p = (po.partNo || '').trim().toLowerCase();
+      const key = itemContextMap.has(p) ? p : (itemContextMap.has(d) ? d : d);
+      const entry = itemContextMap.get(key) || { desc: po.itemName, stock: 0, so: 0, po: 0, free: 0 };
+      entry.po += po.balanceQty || 0;
+      itemContextMap.set(key, entry);
+    });
+
+    // Calculate Free Stock for top 500 items (to stay within context limits)
+    const itemSnapshots = Array.from(itemContextMap.entries())
+      .map(([key, data]) => {
+        data.free = data.stock + data.po - data.so;
+        return `Item/Part: ${key} | Desc: ${data.desc} | Stock: ${data.stock} | Pending SO: ${data.so} | Pending PO: ${data.po} | Free: ${data.free}`;
+      })
+      .slice(0, 500)
+      .join('\n');
 
     return `You are an intelligent data analyst for Siddhi Kabel Corp. 
     HISTORICAL SALES TREND (Last 3 FYs):
     ${fiscalYearSummary || 'No aggregate data available'}
 
-    REAL-TIME SNAPSHOTS (Limited to top 100 records for brevity):
-    --- STOCK ---
-    ${stockContext}
-    --- PENDING SALES ORDERS ---
-    ${soContext}
-    --- PENDING PURCHASE ORDERS ---
-    ${poContext}
-    --- CUSTOMERS ---
-    ${custContext}
-    --- RECENT 50 SALES ---
-    ${recentSales}
+    DETAILED ITEM SNAPSHOTS (Stock, SO, PO, Free Stock):
+    ${itemSnapshots}
 
     RULES:
-    - Format lists as Markdown tables.
-    - Double check math for totals.
-    - Net Stock = Closing Stock + Pending PO - Pending SO.
-    - When asked about trends, use the HISTORICAL SALES TREND totals provided above.
+    - If a user asks about a specific Part Number or Item, use the DETAILED ITEM SNAPSHOTS to provide exact numbers.
+    - Total Stock = Current on-hand quantity.
+    - Pending SO Qty = Total balance quantity from all open sales orders.
+    - Free stock = Total Stock + Pending PO - Pending SO.
+    - Format response as a clean Markdown table for clarity.
     - Be concise and professional.`;
   };
 
@@ -121,9 +166,15 @@ const ChatView: React.FC<ChatViewProps> = ({
     setIsLoading(true);
 
     try {
-      // Use process.env.API_KEY exclusively for Gemini API.
-      // Always initialize GoogleGenAI with a named parameter.
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      // Vite uses import.meta.env for environment variables.
+      // We check for VITE_GEMINI_API_KEY (standard) and fallback to define replacements.
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY || (process.env as any).API_KEY;
+
+      if (!apiKey || apiKey === '') {
+        throw new Error("Gemini API Key is missing. Please add VITE_GEMINI_API_KEY to your .env file or environment variables.");
+      }
+
+      const ai = new GoogleGenAI({ apiKey });
       const chat: Chat = ai.chats.create({
         model: 'gemini-3-pro-preview',
         config: {
@@ -136,7 +187,6 @@ const ChatView: React.FC<ChatViewProps> = ({
       });
 
       const response: GenerateContentResponse = await chat.sendMessage({ message: text });
-      // Use .text getter property, do not call it as a function.
       const responseText = response.text || "I'm sorry, I couldn't generate a response.";
 
       const aiMsg: Message = { id: generateSafeId(), role: 'model', content: responseText, timestamp: Date.now() };
@@ -144,11 +194,11 @@ const ChatView: React.FC<ChatViewProps> = ({
 
     } catch (error: any) {
       console.error("AI Error:", error);
-      const errorMsg: Message = { 
-        id: generateSafeId(), 
-        role: 'model', 
-        content: `Error: ${error.message || "Failed to connect to AI engine."}`, 
-        timestamp: Date.now() 
+      const errorMsg: Message = {
+        id: generateSafeId(),
+        role: 'model',
+        content: `Error: ${error.message || "Failed to connect to AI engine."}`,
+        timestamp: Date.now()
       };
       setMessages(prev => [...prev, errorMsg]);
     } finally {
@@ -157,7 +207,7 @@ const ChatView: React.FC<ChatViewProps> = ({
   };
 
   const handleClear = () => {
-    if(confirm("Clear chat history?")) setMessages([]);
+    if (confirm("Clear chat history?")) setMessages([]);
   };
 
   return (

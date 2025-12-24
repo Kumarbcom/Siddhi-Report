@@ -4,8 +4,11 @@ import { Material } from "../types";
 
 export const generateMockMaterials = async (count: number = 5): Promise<Omit<Material, 'id' | 'createdAt'>[]> => {
   try {
-    // Obtain API key exclusively from process.env.API_KEY.
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY || (process.env as any).API_KEY;
+    if (!apiKey) {
+      throw new Error("Gemini API Key missing for material generation.");
+    }
+    const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `Generate ${count} realistic industrial material master records. 

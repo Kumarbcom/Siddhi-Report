@@ -12,7 +12,7 @@ const getUuid = () => {
     return window.crypto.randomUUID();
   }
   // Standard UUID v4 fallback
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
     const r = Math.random() * 16 | 0;
     const v = c === 'x' ? r : (r & 0x3 | 0x8);
     return v.toString(16);
@@ -24,13 +24,29 @@ export const materialService = {
     if (isSupabaseConfigured) {
       try {
         // Explicitly set a high limit to override Supabase's default 1000 records per request limit.
-        const { data, error } = await supabase
-          .from('material_master')
-          .select('*')
-          .order('material_code', { ascending: true })
-          .limit(10000); 
+        // Pagination Loop to bypass 1000-record Server Limits
+        let allData: any[] = [];
+        let page = 0;
+        const PAGE_SIZE = 1000;
 
-        if (error) throw new Error(error.message);
+        while (true) {
+          const { data, error } = await supabase
+            .from('material_master')
+            .select('*')
+            .order('material_code', { ascending: true })
+            .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+
+          if (error) throw new Error(error.message);
+
+          if (data) {
+            allData.push(...data);
+            if (data.length < PAGE_SIZE) break;
+            page++;
+          } else {
+            break;
+          }
+        }
+        const data = allData;
 
         if (data) {
           const syncedData: Material[] = data.map((row: any) => ({
@@ -74,7 +90,7 @@ export const materialService = {
           id: m.id,
           material_code: m.materialCode,
           description: m.description,
-          part_no: m.partNo, 
+          part_no: m.partNo,
           make: m.make,
           material_group: m.materialGroup,
           created_at: new Date(m.createdAt).toISOString(),
@@ -132,6 +148,7 @@ export const materialService = {
         if (error) throw new Error(error.message);
       } catch (e: any) {
         console.error("Material Master: Cloud delete failed:", e?.message || e);
+        throw e;
       }
     }
     await dbService.delete(STORES.MATERIALS, id);
@@ -140,13 +157,15 @@ export const materialService = {
   async clearAll(): Promise<void> {
     if (isSupabaseConfigured) {
       try {
+        // Delete all records by using a filter that matches everything
         const { error } = await supabase
           .from('material_master')
           .delete()
-          .neq('id', '00000000-0000-0000-0000-000000000000');
+          .gte('created_at', '1970-01-01');
         if (error) throw new Error(error.message);
       } catch (e: any) {
         console.error("Material Master: Cloud clear failed:", e?.message || e);
+        throw e;
       }
     }
     await dbService.clear(STORES.MATERIALS);
