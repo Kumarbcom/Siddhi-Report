@@ -998,12 +998,16 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     const weeklyStats = useMemo(() => {
         const targetDate = new Date(2025, 11, 24); // Dec 24, 2025
         const prevDate = new Date(2025, 11, 17); // Dec 17, 2025
-        const mtdStart = new Date(2025, 11, 1);
-        const ytdStart = new Date(2025, 3, 1); // April 1st
+        const mtdStart = new Date(targetDate.getFullYear(), targetDate.getMonth(), 1);
+        const ytdYear = targetDate.getMonth() >= 3 ? targetDate.getFullYear() : targetDate.getFullYear() - 1;
+        const ytdStart = new Date(ytdYear, 3, 1); // April 1st of fiscal year
 
         const getSalesSum = (start: Date, end: Date, isOnlineOnly: boolean = false) => {
+            const startOfDay = new Date(start); startOfDay.setHours(0, 0, 0, 0);
+            const endOfDay = new Date(end); endOfDay.setHours(23, 59, 59, 999);
+
             return enrichedSales
-                .filter(s => s.rawDate >= start && s.rawDate <= end)
+                .filter(s => s.rawDate >= startOfDay && s.rawDate <= endOfDay)
                 .filter(s => !isOnlineOnly || s.custGroup === 'Online')
                 .reduce((acc, i) => acc + (i.value || 0), 0);
         };
@@ -1085,7 +1089,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             due: getMakeStats(dueItems),
             sched: getMakeStats(schedItems),
             total: getMakeStats(soStats.topItems),
-            stock: stockPivotData.sort((a, b) => b.groups.reduce((acc, g) => acc + g.value, 0) - a.groups.reduce((acc, g) => acc + g.value, 0))
+            stock: stockPivotData.sort((a, b) => b.groups.reduce((acc, g) => acc + g.value, 0) - a.groups.reduce((acc, g) => acc + g.value, 0)),
+            targetDate,
+            prevDate
         };
     }, [enrichedSales, soStats, materials, inventoryStats]);
 
@@ -1675,8 +1681,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                             <thead className="bg-gray-50/80 text-gray-500 uppercase text-[10px] font-bold">
                                                 <tr>
                                                     <th className="px-4 py-3 border-b">Category</th>
-                                                    <th className="px-4 py-3 border-b text-right">17.12.2025 (PW)</th>
-                                                    <th className="px-4 py-3 border-b text-right">24.12.2025 (CW)</th>
+                                                    <th className="px-4 py-3 border-b text-right">{weeklyStats.prevDate.toLocaleDateString('en-GB')} (PW)</th>
+                                                    <th className="px-4 py-3 border-b text-right">{weeklyStats.targetDate.toLocaleDateString('en-GB')} (CW)</th>
                                                     <th className="px-4 py-3 border-b text-right">Diff</th>
                                                     <th className="px-4 py-3 border-b text-right">% Chg</th>
                                                 </tr>
@@ -1719,8 +1725,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                             <thead className="bg-gray-50/80 text-gray-500 uppercase text-[10px] font-bold">
                                                 <tr>
                                                     <th className="px-4 py-3 border-b">Category</th>
-                                                    <th className="px-4 py-3 border-b text-right">17.12.2025 (PW)</th>
-                                                    <th className="px-4 py-3 border-b text-right">24.12.2025 (CW)</th>
+                                                    <th className="px-4 py-3 border-b text-right">{weeklyStats.prevDate.toLocaleDateString('en-GB')} (PW)</th>
+                                                    <th className="px-4 py-3 border-b text-right">{weeklyStats.targetDate.toLocaleDateString('en-GB')} (CW)</th>
                                                     <th className="px-4 py-3 border-b text-right">Diff</th>
                                                     <th className="px-4 py-3 border-b text-right">% Chg</th>
                                                 </tr>
