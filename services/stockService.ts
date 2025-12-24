@@ -17,26 +17,36 @@ export const stockService = {
   async getAll(): Promise<ClosingStockItem[]> {
     if (isSupabaseConfigured) {
       try {
-        // Pagination Loop
-        let allData: any[] = [];
-        let page = 0;
         const PAGE_SIZE = 1000;
+        // Initialize with first page and get total count
+        const { data: firstPage, error: firstError, count } = await supabase
+          .from('closing_stock')
+          .select('*', { count: 'exact' })
+          .order('description', { ascending: true })
+          .range(0, PAGE_SIZE - 1);
 
-        while (true) {
-          const { data, error } = await supabase
-            .from('closing_stock')
-            .select('*')
-            .order('description', { ascending: true })
-            .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+        if (firstError) throw new Error(firstError.message);
+        const allData: any[] = [...(firstPage || [])];
+        const totalItems = count || 0;
 
-          if (error) throw new Error(error.message);
+        if (totalItems > PAGE_SIZE) {
+          const totalPages = Math.ceil(totalItems / PAGE_SIZE);
+          const pagePromises = [];
 
-          if (data) {
-            allData.push(...data);
-            if (data.length < PAGE_SIZE) break;
-            page++;
-          } else {
-            break;
+          for (let p = 1; p < totalPages; p++) {
+            pagePromises.push(
+              supabase
+                .from('closing_stock')
+                .select('*')
+                .order('description', { ascending: true })
+                .range(p * PAGE_SIZE, (p + 1) * PAGE_SIZE - 1)
+            );
+          }
+
+          const results = await Promise.all(pagePromises);
+          for (const res of results) {
+            if (res.error) throw new Error(res.error.message);
+            if (res.data) allData.push(...res.data);
           }
         }
         const data = allData;

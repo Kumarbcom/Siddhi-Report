@@ -21,6 +21,7 @@ import { soService } from './services/soService';
 import { poService } from './services/poService';
 import { salesService } from './services/salesService';
 import { isSupabaseConfigured } from './services/supabase';
+import { dbService, STORES } from './services/db';
 
 const STORAGE_KEY_SALES_1Y = 'sales_1year_db_v1';
 const STORAGE_KEY_SALES_3M = 'sales_3months_db_v1';
@@ -45,6 +46,7 @@ const App: React.FC = () => {
   const [dbStatus, setDbStatus] = useState<'connected' | 'partial' | 'error' | 'unlinked'>(
     isSupabaseConfigured ? 'connected' : 'unlinked'
   );
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
@@ -69,43 +71,63 @@ const App: React.FC = () => {
     try {
       setIsDbLoading(true);
 
+      // --- PHASE 1: Instant Local Load ---
+      // This retrieves data from the browser's IndexedDB immediately.
       const [
-        dbMaterials,
-        dbCustomers,
-        dbStock,
-        dbSO,
-        dbPO,
-        dbSales
+        localMats,
+        localCusts,
+        localStock,
+        localSO,
+        localPO,
+        localSales
       ] = await Promise.all([
-        materialService.getAll(),
-        customerService.getAll(),
-        stockService.getAll(),
-        soService.getAll(),
-        poService.getAll(),
-        salesService.getAll()
+        dbService.getAll<Material>(STORES.MATERIALS),
+        dbService.getAll<CustomerMasterItem>(STORES.CUSTOMERS),
+        dbService.getAll<ClosingStockItem>(STORES.STOCK),
+        dbService.getAll<PendingSOItem>(STORES.SO),
+        dbService.getAll<PendingPOItem>(STORES.PO),
+        dbService.getAll<SalesReportItem>(STORES.SALES)
       ]);
 
-      setMaterials(dbMaterials);
-      setCustomerMasterItems(dbCustomers);
-      setClosingStockItems(dbStock);
-      setPendingSOItems(dbSO);
-      setPendingPOItems(dbPO);
-      setSalesReportItems(dbSales);
+      setMaterials(localMats);
+      setCustomerMasterItems(localCusts);
+      setClosingStockItems(localStock);
+      setPendingSOItems(localSO);
+      setPendingPOItems(localPO);
+      setSalesReportItems(localSales);
 
       const storedS1Y = localStorage.getItem(STORAGE_KEY_SALES_1Y);
       if (storedS1Y) setSales1Year(JSON.parse(storedS1Y));
       const storedS3M = localStorage.getItem(STORAGE_KEY_SALES_3M);
       if (storedS3M) setSales3Months(JSON.parse(storedS3M));
 
+      // App is visually ready now
+      setIsDataLoaded(true);
+      setIsDbLoading(false);
+
+      // --- PHASE 2: Background Cloud Sync ---
       if (isSupabaseConfigured) {
         setDbStatus('connected');
+        setIsSyncing(true);
+
+        // We trigger all cloud fetches in parallel. 
+        // We update the state individually as each one returns fresh data.
+        const syncPromises = [
+          materialService.getAll().then(m => setMaterials(m)).catch(e => console.warn("Sync Error (Materials):", e)),
+          customerService.getAll().then(c => setCustomerMasterItems(c)).catch(e => console.warn("Sync Error (Customers):", e)),
+          stockService.getAll().then(s => setClosingStockItems(s)).catch(e => console.warn("Sync Error (Stock):", e)),
+          soService.getAll().then(s => setPendingSOItems(s)).catch(e => console.warn("Sync Error (SO):", e)),
+          poService.getAll().then(p => setPendingPOItems(p)).catch(e => console.warn("Sync Error (PO):", e)),
+          salesService.getAll().then(s => setSalesReportItems(s)).catch(e => console.warn("Sync Error (Sales):", e))
+        ];
+
+        Promise.all(syncPromises).finally(() => setIsSyncing(false));
       } else {
         setDbStatus('unlinked');
       }
     } catch (e) {
-      console.error("Initial load failed", e);
+      console.error("Critical Load Error:", e);
       setDbStatus('error');
-    } finally {
       setIsDataLoaded(true);
       setIsDbLoading(false);
     }
@@ -464,6 +486,24 @@ const App: React.FC = () => {
     </button>
   );
 
+  if (isDbLoading) {
+    return (
+      <div className="fixed inset-0 bg-white z-[200] flex flex-col items-center justify-center">
+        <div className="relative">
+          <div className="w-24 h-24 border-4 border-blue-50 rounded-full animate-spin border-t-blue-600"></div>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Database className="w-8 h-8 text-blue-600 animate-pulse" />
+          </div>
+        </div>
+        <h2 className="mt-8 text-2xl font-black text-gray-900 uppercase tracking-tighter">Siddhi Kabel</h2>
+        <div className="mt-2 flex items-center gap-2 text-sm text-gray-500 font-bold uppercase tracking-widest">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          <span>Verifying Local Engine...</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen bg-gray-100 font-sans text-gray-900 overflow-hidden">
       <aside className={`bg-white border-r border-gray-200 flex flex-col flex-shrink-0 transition-all duration-300 ${isSidebarOpen ? 'w-64' : 'w-0 -ml-64 md:w-16 md:ml-0 overflow-hidden'}`}>
@@ -535,9 +575,17 @@ const App: React.FC = () => {
           </div>
         )}
         {dbStatus === 'connected' && (
-          <div className="bg-emerald-600 text-white px-4 py-1.5 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest shadow-sm z-20">
-            <Cloud className="w-3.5 h-3.5" />
-            <span>Secure Cloud Link Active</span>
+          <div className={`bg-emerald-600 text-white px-4 py-1.5 flex items-center justify-between text-[10px] font-black uppercase tracking-widest shadow-sm z-20 transition-all duration-500`}>
+            <div className="flex items-center gap-2">
+              <Cloud className="w-3.5 h-3.5" />
+              <span>Secure Cloud Link Active</span>
+            </div>
+            {isSyncing && (
+              <div className="flex items-center gap-2 bg-emerald-700 px-2 py-0.5 rounded border border-emerald-500 animate-pulse">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                <span>Syncing Cloud Records...</span>
+              </div>
+            )}
           </div>
         )}
 
