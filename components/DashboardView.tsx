@@ -1797,12 +1797,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                     const prevReady = parseFloat(weeklyBenchmarks[`${table.id}_${make}_Ready`] || 0);
                                                     const prevShortage = parseFloat(weeklyBenchmarks[`${table.id}_${make}_Shortage`] || 0);
                                                     const prevTotal = prevReady + prevShortage;
-
                                                     const diffReady = curr.ready - prevReady;
                                                     const diffShortage = curr.shortage - prevShortage;
                                                     const diffTotal = curr.total - prevTotal;
                                                     const pctChange = prevTotal > 0 ? (diffTotal / prevTotal) * 100 : 0;
-                                                     return (
+                                                    return (
                                                         <tr key={make} className="hover:bg-gray-50 transition-colors">
                                                             <td className="p-2 border font-bold text-gray-700">{make}</td>
                                                             <td className="p-2 border bg-blue-50/10">
@@ -1831,9 +1830,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                             <td className={`p-2 border text-right font-bold ${diffShortage >= 0 ? "text-rose-500" : "text-emerald-500"}`}>{diffShortage !== 0 ? Math.round(diffShortage).toLocaleString("en-IN") : "-"}</td>
                                                             <td className={`p-2 border text-right font-black ${pctChange >= 0 ? "text-emerald-700" : "text-rose-700"}`}>{pctChange !== 0 ? `${pctChange.toFixed(1)}%` : "-"}</td>
                                                         </tr>
-                                                     );
-                                                 })
-                                                {/* Grand Total Row for Pending Orders */}
+                                                    );
+                                                })}
                                                 <tr className="bg-gray-100 font-black text-gray-900">
                                                     <td className="p-2 border uppercase text-[9px]">Grand Total</td>
                                                     {(() => {
@@ -1858,7 +1856,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                                 <td className={`p-2 border text-right ${diffS >= 0 ? 'text-rose-700' : 'text-emerald-700'}`}>{Math.round(diffS).toLocaleString('en-IN')}</td>
                                                                 <td className={`p-2 border text-right ${pctT >= 0 ? 'text-emerald-800' : 'text-rose-800'}`}>{pctT.toFixed(1)}%</td>
                                                             </>
-                                                        )
+                                                        );
                                                     })()}
                                                 </tr>
                                             </tbody>
