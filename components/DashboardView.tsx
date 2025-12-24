@@ -274,46 +274,78 @@ const ModernDonutChartDashboard: React.FC<{
 };
 
 
-const HorizontalBarChart = ({ data, title, color, totalForPercentage, compareLabel = 'PY' }: { data: { label: string; value: number, previous?: number, share?: number }[], title: string, color: string, totalForPercentage?: number, compareLabel?: string }) => {
-    const sorted = [...data].sort((a, b) => (b.value || 0) - (a.value || 0)).slice(0, 10);
-    const maxVal = Math.max(sorted[0]?.value || 1, 1);
+const HorizontalBarChart = ({
+    data,
+    title,
+    color,
+    totalForPercentage,
+    compareLabel = 'PY',
+    isStacked = false,
+    secondaryLabel = 'Scheduled'
+}: {
+    data: { label: string; value: number, secondaryValue?: number, previous?: number, share?: number }[],
+    title: string,
+    color: string,
+    totalForPercentage?: number,
+    compareLabel?: string,
+    isStacked?: boolean,
+    secondaryLabel?: string
+}) => {
+    const sorted = [...data].sort((a, b) => ((b.value || 0) + (b.secondaryValue || 0)) - ((a.value || 0) + (a.secondaryValue || 0))).slice(0, 10);
+    const maxVal = Math.max(sorted[0] ? (sorted[0].value + (sorted[0].secondaryValue || 0)) : 1, 1);
     const barColorClass = color === 'blue' ? 'bg-blue-500' : color === 'emerald' ? 'bg-emerald-500' : color === 'purple' ? 'bg-purple-500' : color === 'rose' ? 'bg-rose-500' : 'bg-orange-500';
+    const secondaryColorClass = color === 'blue' ? 'bg-indigo-300' : color === 'emerald' ? 'bg-teal-300' : 'bg-gray-300';
+
     return (
         <div className="flex flex-col h-full w-full overflow-hidden">
-            <h4 className="text-[10px] font-black text-gray-500 uppercase mb-2 border-b border-gray-100 pb-1">{title}</h4>
+            <h4 className="text-[10px] font-black text-gray-500 uppercase mb-2 border-b border-gray-100 pb-1 flex justify-between items-center">
+                <span>{title}</span>
+                {isStacked && (
+                    <div className="flex gap-2 items-center">
+                        <div className="flex items-center gap-1"><div className={`w-2 h-2 rounded-sm ${barColorClass}`}></div><span className="text-[8px]">{title.includes('Customer') ? 'Due' : 'Ready'}</span></div>
+                        <div className="flex items-center gap-1"><div className={`w-2 h-2 rounded-sm ${secondaryColorClass}`}></div><span className="text-[8px]">{secondaryLabel}</span></div>
+                    </div>
+                )}
+            </h4>
             <div className="flex-1 overflow-y-auto custom-scrollbar pr-1.5 mt-0.5">
                 <div className="flex flex-col gap-2.5">
-                    {sorted.map((item, i) => (
-                        <div key={i} className="flex flex-col gap-1">
-                            <div className="flex justify-between items-center text-[10px]">
-                                <div className="flex flex-col flex-1 min-w-0">
-                                    <div className="flex items-center gap-2">
-                                        <span className="truncate text-gray-700 font-bold" title={String(item.label)}>{item.label}</span>
-                                        {(item.share !== undefined || totalForPercentage !== undefined) && (
-                                            <span className="text-[9px] bg-gray-100 px-1 rounded font-black text-gray-500">
-                                                {item.share !== undefined ? item.share.toFixed(1) : ((item.value / (totalForPercentage || 1)) * 100).toFixed(1)}%
+                    {sorted.map((item, i) => {
+                        const total = item.value + (item.secondaryValue || 0);
+                        return (
+                            <div key={i} className="flex flex-col gap-1">
+                                <div className="flex justify-between items-center text-[10px]">
+                                    <div className="flex flex-col flex-1 min-w-0">
+                                        <div className="flex items-center gap-2">
+                                            <span className="truncate text-gray-700 font-bold" title={String(item.label)}>{item.label}</span>
+                                            {(item.share !== undefined || totalForPercentage !== undefined) && (
+                                                <span className="text-[9px] bg-gray-100 px-1 rounded font-black text-gray-500">
+                                                    {item.share !== undefined ? item.share.toFixed(1) : ((total / (totalForPercentage || 1)) * 100).toFixed(1)}%
+                                                </span>
+                                            )}
+                                        </div>
+                                        {item.previous !== undefined && (
+                                            <span className="text-[8px] text-gray-400 font-medium whitespace-nowrap">
+                                                {compareLabel}: {formatLargeValue(item.previous, true)}
+                                                <span className={`ml-1 font-bold ${total >= item.previous ? 'text-green-500' : 'text-red-500'}`}>
+                                                    ({item.previous > 0 ? (((total - item.previous) / item.previous) * 100).toFixed(0) : '100'}%)
+                                                </span>
                                             </span>
                                         )}
                                     </div>
+                                    <span className="font-bold text-gray-900 flex-shrink-0 bg-white pl-1">{formatLargeValue(total, true)}</span>
+                                </div>
+                                <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden relative flex">
                                     {item.previous !== undefined && (
-                                        <span className="text-[8px] text-gray-400 font-medium whitespace-nowrap">
-                                            {compareLabel}: {formatLargeValue(item.previous, true)}
-                                            <span className={`ml-1 font-bold ${item.value >= item.previous ? 'text-green-500' : 'text-red-500'}`}>
-                                                ({item.previous > 0 ? (((item.value - item.previous) / item.previous) * 100).toFixed(0) : '100'}%)
-                                            </span>
-                                        </span>
+                                        <div className="absolute inset-0 bg-gray-200/50" style={{ width: `${(item.previous / maxVal) * 100}%` }}></div>
+                                    )}
+                                    <div className={`h-full ${barColorClass} transition-all duration-700 relative z-10`} style={{ width: `${(item.value / maxVal) * 100}%` }}></div>
+                                    {item.secondaryValue !== undefined && (
+                                        <div className={`h-full ${secondaryColorClass} transition-all duration-700 relative z-10`} style={{ width: `${(item.secondaryValue / maxVal) * 100}%` }}></div>
                                     )}
                                 </div>
-                                <span className="font-bold text-gray-900 flex-shrink-0 bg-white pl-1">{formatLargeValue(item.value, true)}</span>
                             </div>
-                            <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden relative">
-                                {item.previous !== undefined && (
-                                    <div className="absolute inset-0 bg-gray-200/50" style={{ width: `${(item.previous / maxVal) * 100}%` }}></div>
-                                )}
-                                <div className={`h-full rounded-full ${barColorClass} transition-all duration-700 relative z-10`} style={{ width: `${(item.value / maxVal) * 100}%` }}></div>
-                            </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             </div>
         </div>
@@ -830,53 +862,91 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
     const soStats = useMemo(() => {
         const totalVal = pendingSO.reduce((a, b) => a + (b.value || 0), 0);
-        const custMap = new Map<string, number>();
+        const totalQty = pendingSO.reduce((a, b) => a + (b.balanceQty || 0), 0);
+        const custMap = new Map<string, { due: number, scheduled: number }>();
         const groupMap = new Map<string, number>();
         const itemSet = new Set<string>();
         const ageingMap = { '0-30d': 0, '31-60d': 0, '61-90d': 0, '90d+': 0 };
 
-        let dueValue = 0;
-        let scheduledValue = 0;
+        let dueValue = 0, dueQty = 0, readyDueValue = 0, readyDueQty = 0, shortageDueValue = 0, shortageDueQty = 0;
+        let scheduledValue = 0, scheduledQty = 0, readySchValue = 0, readySchQty = 0, shortageSchValue = 0, shortageSchQty = 0;
+
+        const stockMap = new Map<string, number>();
+        (closingStock || []).forEach(s => {
+            const k = (s.description || '').toLowerCase().trim();
+            stockMap.set(k, (stockMap.get(k) || 0) + (s.quantity || 0));
+        });
+
+        const tempStock = new Map(stockMap);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        (pendingSO || []).forEach(i => {
+        // Sort by due date for fair stock allocation
+        const sortedSO = [...pendingSO].sort((a, b) => parseDate(a.dueDate).getTime() - parseDate(b.dueDate).getTime());
+
+        const enrichedItems = sortedSO.map(i => {
             const pName = (i.partyName || 'Unknown').trim();
-            custMap.set(pName, (custMap.get(pName) || 0) + (i.value || 0));
+            if (!custMap.has(pName)) custMap.set(pName, { due: 0, scheduled: 0 });
 
-            const iName = (i.itemName || 'Unspecified').trim();
-            itemSet.add(iName.toLowerCase());
-
-            const mat = materials.find(m => (m.description || '').toLowerCase().trim() === iName.toLowerCase());
-            const group = mat ? (mat.materialGroup || 'Unspecified') : 'Unspecified';
-            groupMap.set(group, (groupMap.get(group) || 0) + (i.value || 0));
+            const iName = (i.itemName || 'Unspecified').trim().toLowerCase();
+            itemSet.add(iName);
 
             const days = i.overDueDays || 0;
-            if (days <= 30) ageingMap['0-30d'] += (i.value || 0);
-            else if (days <= 60) ageingMap['31-60d'] += (i.value || 0);
-            else if (days <= 90) ageingMap['61-90d'] += (i.value || 0);
-            else ageingMap['90d+'] += (i.value || 0);
-
             const dueDate = parseDate(i.dueDate);
-            if (days > 0 || (dueDate.getTime() > 0 && dueDate <= today)) {
-                dueValue += (i.value || 0);
+            const isDue = days > 0 || (dueDate.getTime() > 0 && dueDate <= today);
+
+            const qty = i.balanceQty || 0;
+            const available = tempStock.get(iName) || 0;
+            const allocated = Math.min(qty, available);
+            const shortage = Math.max(0, qty - allocated);
+            tempStock.set(iName, available - allocated);
+
+            const itemVal = i.value || 0;
+            const itemReadyVal = allocated * (i.rate || 0);
+            const itemShortageVal = shortage * (i.rate || 0);
+
+            if (isDue) {
+                dueValue += itemVal; dueQty += qty;
+                readyDueValue += itemReadyVal; readyDueQty += allocated;
+                shortageDueValue += itemShortageVal; shortageDueQty += shortage;
+                custMap.get(pName)!.due += itemVal;
             } else {
-                scheduledValue += (i.value || 0);
+                scheduledValue += itemVal; scheduledQty += qty;
+                readySchValue += itemReadyVal; readySchQty += allocated;
+                shortageSchValue += itemShortageVal; shortageSchQty += shortage;
+                custMap.get(pName)!.scheduled += itemVal;
             }
+
+            const mat = materials.find(m => (m.description || '').toLowerCase().trim() === iName);
+            const group = mat ? (mat.materialGroup || 'Unspecified') : 'Unspecified';
+            groupMap.set(group, (groupMap.get(group) || 0) + itemVal);
+
+            if (days <= 30) ageingMap['0-30d'] += itemVal;
+            else if (days <= 60) ageingMap['31-60d'] += itemVal;
+            else if (days <= 90) ageingMap['61-90d'] += itemVal;
+            else ageingMap['90d+'] += itemVal;
+
+            return {
+                ...i,
+                readyVal: itemReadyVal,
+                shortageVal: itemShortageVal,
+                readyQty: allocated,
+                shortageQty: shortage
+            };
         });
 
         return {
-            totalVal,
-            dueValue,
-            scheduledValue,
+            totalVal, totalQty,
+            dueValue, dueQty, readyDueValue, readyDueQty, shortageDueValue, shortageDueQty,
+            scheduledValue, scheduledQty, readySchValue, readySchQty, shortageSchValue, shortageSchQty,
             count: pendingSO.length,
             uniqueItemCount: itemSet.size,
-            custMix: Array.from(custMap.entries()).map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value),
+            custMix: Array.from(custMap.entries()).map(([label, v]) => ({ label, value: v.due, secondaryValue: v.scheduled })).sort((a, b) => (b.value + b.secondaryValue) - (a.value + a.secondaryValue)),
             groupMix: Array.from(groupMap.entries()).map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value),
             ageing: Object.entries(ageingMap).map(([label, value]) => ({ label, value })),
-            topItems: [...pendingSO].sort((a, b) => b.value - a.value).slice(0, 10)
+            topItems: enrichedItems.sort((a, b) => b.value - a.value).slice(0, 10)
         };
-    }, [pendingSO, materials]);
+    }, [pendingSO, materials, closingStock]);
 
     const poStats = useMemo(() => {
         const totalVal = pendingPO.reduce((a, b) => a + (b.value || 0), 0);
@@ -1287,26 +1357,94 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                     </div>
                 ) : activeSubTab === 'so' ? (
                     <div className="flex flex-col gap-4">
-                        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            {/* Total Pending SO */}
                             <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm relative overflow-hidden group">
                                 <div className="absolute top-0 right-0 p-2 opacity-5 group-hover:opacity-10 transition-opacity"><DollarSign className="w-12 h-12" /></div>
                                 <p className="text-[10px] text-purple-600 font-bold uppercase tracking-wider mb-1">Total Pending SO</p>
-                                <h3 className="text-xl font-black text-gray-900">{formatLargeValue(soStats.totalVal)}</h3>
-                                <div className="mt-2 pt-2 border-t border-gray-50 flex flex-col gap-1">
+                                <h3 className="text-2xl font-black text-gray-900 leading-none">{formatLargeValue(soStats.totalVal)}</h3>
+                                <p className="text-xs font-bold text-gray-500 mt-2">Total Qty: {soStats.totalQty.toLocaleString()}</p>
+                                <div className="mt-3 pt-3 border-t border-gray-50 flex flex-col gap-2">
                                     <div className="flex justify-between items-center text-[9px]">
-                                        <span className="text-red-500 font-bold uppercase">Due: {formatLargeValue(soStats.dueValue, true)}</span>
-                                        <span className="text-blue-500 font-bold uppercase">Sch: {formatLargeValue(soStats.scheduledValue, true)}</span>
+                                        <span className="text-red-600 font-bold uppercase">Due: {formatLargeValue(soStats.dueValue, true)}</span>
+                                        <span className="text-blue-600 font-bold uppercase">Sch: {formatLargeValue(soStats.scheduledValue, true)}</span>
                                     </div>
-                                    <div className="w-full bg-gray-100 h-1 rounded-full overflow-hidden flex">
-                                        <div className="bg-red-500 h-full" style={{ width: `${(soStats.dueValue / (soStats.totalVal || 1)) * 100}%` }}></div>
-                                        <div className="bg-blue-500 h-full" style={{ width: `${(soStats.scheduledValue / (soStats.totalVal || 1)) * 100}%` }}></div>
+                                    <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden flex shadow-inner">
+                                        <div className="bg-red-500 h-full shadow-[0_0_8px_rgba(239,68,68,0.5)]" style={{ width: `${(soStats.dueValue / (soStats.totalVal || 1)) * 100}%` }}></div>
+                                        <div className="bg-blue-500 h-full shadow-[0_0_8px_rgba(59,130,246,0.5)]" style={{ width: `${(soStats.scheduledValue / (soStats.totalVal || 1)) * 100}%` }}></div>
                                     </div>
                                 </div>
                             </div>
-                            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-blue-600 font-bold uppercase tracking-wider mb-1">Open Lines</p><h3 className="text-xl font-black text-gray-900">{soStats.count}</h3></div>
-                            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-indigo-600 font-bold uppercase tracking-wider mb-1">Unique Items</p><h3 className="text-xl font-black text-gray-900">{soStats.uniqueItemCount}</h3></div>
-                            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-orange-600 font-bold uppercase tracking-wider mb-1">Overdue Orders</p><h3 className="text-xl font-black text-red-600">{pendingSO.filter(i => i.overDueDays > 0).length}</h3></div>
-                            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-teal-600 font-bold uppercase tracking-wider mb-1">Unique Customers</p><h3 className="text-xl font-black text-gray-900">{soStats.custMix.length}</h3></div>
+
+                            {/* Due Order Card */}
+                            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col gap-2">
+                                <p className="text-[10px] text-blue-600 font-bold uppercase tracking-wider">Due order</p>
+                                <div>
+                                    <h3 className="text-2xl font-black text-gray-900 leading-none">{formatLargeValue(soStats.dueValue)}</h3>
+                                    <p className="text-xs font-bold text-gray-500 mt-2">Qty: {soStats.dueQty.toLocaleString()}</p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3 mt-2 pt-3 border-t border-gray-50">
+                                    <div>
+                                        <p className="text-[9px] font-bold text-emerald-600 uppercase mb-1">Ready Stock</p>
+                                        <p className="text-[11px] font-black text-gray-800">{formatLargeValue(soStats.readyDueValue, true)}</p>
+                                        <p className="text-[9px] text-gray-500 font-bold">Qty: {soStats.readyDueQty.toLocaleString()}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-[9px] font-bold text-rose-600 uppercase mb-1">Shortage</p>
+                                        <p className="text-[11px] font-black text-gray-800">{formatLargeValue(soStats.shortageDueValue, true)}</p>
+                                        <p className="text-[9px] text-gray-500 font-bold">Qty: {soStats.shortageDueQty.toLocaleString()}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Scheduled Order Card */}
+                            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col gap-2">
+                                <p className="text-[10px] text-indigo-600 font-bold uppercase tracking-wider">Shedule Order</p>
+                                <div>
+                                    <h3 className="text-2xl font-black text-gray-900 leading-none">{formatLargeValue(soStats.scheduledValue)}</h3>
+                                    <p className="text-xs font-bold text-gray-500 mt-2">Qty: {soStats.scheduledQty.toLocaleString()}</p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3 mt-2 pt-3 border-t border-gray-50">
+                                    <div>
+                                        <p className="text-[9px] font-bold text-emerald-600 uppercase mb-1">Ready Stock</p>
+                                        <p className="text-[11px] font-black text-gray-800">{formatLargeValue(soStats.readySchValue, true)}</p>
+                                        <p className="text-[9px] text-gray-500 font-bold">Qty: {soStats.readySchQty.toLocaleString()}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-[9px] font-bold text-rose-600 uppercase mb-1">Shortage</p>
+                                        <p className="text-[11px] font-black text-gray-800">{formatLargeValue(soStats.shortageSchValue, true)}</p>
+                                        <p className="text-[9px] text-gray-500 font-bold">Qty: {soStats.shortageSchQty.toLocaleString()}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Summary Card */}
+                            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col gap-2">
+                                <p className="text-[10px] text-teal-600 font-bold uppercase tracking-wider">Order Summary</p>
+                                <div className="flex-1 flex flex-col gap-2">
+                                    <div className="flex justify-between items-center bg-teal-50/50 p-2 rounded-lg border border-teal-100/50">
+                                        <span className="text-[9px] font-bold text-teal-700 uppercase">Customers</span>
+                                        <span className="text-sm font-black text-teal-900">{soStats.custMix.length}</span>
+                                    </div>
+                                    <div className="bg-gray-50/80 p-2 rounded-lg border border-gray-100">
+                                        <div className="flex justify-between items-center mb-0.5">
+                                            <span className="text-[9px] font-bold text-gray-500 uppercase">SO Pending</span>
+                                            <span className="text-xs font-black text-gray-900">{formatLargeValue(soStats.totalVal, true)}</span>
+                                        </div>
+                                        <p className="text-[9px] text-gray-400 font-bold">Qty: {soStats.totalQty.toLocaleString()}</p>
+                                    </div>
+                                    <div className="bg-indigo-50/50 p-2 rounded-lg border border-indigo-100/50">
+                                        <div className="flex justify-between items-center mb-0.5">
+                                            <span className="text-[9px] font-bold text-indigo-700 uppercase">Unique Items Pending</span>
+                                            <span className="text-xs font-black text-indigo-900">{formatLargeValue(soStats.totalVal, true)}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <p className="text-[9px] text-indigo-400 font-bold">Qty: {soStats.totalQty.toLocaleString()}</p>
+                                            <span className="text-[10px] font-black text-indigo-600">{soStats.uniqueItemCount} Items</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                             <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80">
@@ -1328,21 +1466,33 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                 <div className="flex-1 overflow-x-auto">
                                     <table className="w-full text-[10px] text-left">
                                         <thead className="bg-gray-50 text-gray-500 uppercase font-bold border-b border-gray-100">
-                                            <tr><th className="py-3 px-4">Customer</th><th className="py-3 px-4">Item</th><th className="py-3 px-4 text-right">Qty</th><th className="py-3 px-4 text-right">Value</th></tr>
+                                            <tr>
+                                                <th className="py-3 px-4">Date</th>
+                                                <th className="py-3 px-4">Customer Name</th>
+                                                <th className="py-3 px-4">SO No</th>
+                                                <th className="py-3 px-4 text-right">Value (Ready+Arrange)</th>
+                                            </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-50">
-                                            {soStats.topItems.map(i => (
+                                            {soStats.topItems.map((i: any) => (
                                                 <tr key={i.id} className="hover:bg-purple-50 group cursor-default">
-                                                    <td className="py-3 px-4 font-medium text-gray-800 truncate max-w-[120px]">{i.partyName}</td>
-                                                    <td className="py-3 px-4 truncate max-w-[150px] text-gray-600">{i.itemName}</td>
-                                                    <td className="py-3 px-4 text-right font-mono">{i.balanceQty}</td>
+                                                    <td className="py-3 px-4 text-gray-400 font-medium">{i.date}</td>
+                                                    <td className="py-3 px-4 font-bold text-gray-800 truncate max-w-[150px]">{i.partyName}</td>
+                                                    <td className="py-3 px-4 font-mono text-gray-600">{i.orderNo}</td>
                                                     <td className="py-3 px-4 text-right">
-                                                        <button
-                                                            onClick={() => setSelectedSoItem(i)}
-                                                            className="font-black text-purple-700 bg-purple-50 px-2 py-1 rounded border border-transparent hover:border-purple-300 hover:bg-white transition-all shadow-sm"
-                                                        >
-                                                            {formatLargeValue(i.value, true)}
-                                                        </button>
+                                                        <div className="flex flex-col items-end">
+                                                            <button
+                                                                onClick={() => setSelectedSoItem(i)}
+                                                                className="font-black text-purple-700 bg-purple-50 px-2 py-1 rounded border border-transparent hover:border-purple-300 hover:bg-white transition-all shadow-sm flex items-center gap-1.5"
+                                                            >
+                                                                {formatLargeValue(i.value, true)}
+                                                                <ArrowRight className="w-2.5 h-2.5 opacity-40 group-hover:opacity-100" />
+                                                            </button>
+                                                            <div className="flex gap-2 text-[8px] font-bold mt-1">
+                                                                <span className="text-emerald-600">R: {formatLargeValue(i.readyVal, true)}</span>
+                                                                <span className="text-rose-600">A: {formatLargeValue(i.shortageVal, true)}</span>
+                                                            </div>
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             ))}
@@ -1351,7 +1501,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                 </div>
                             </div>
                             <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm min-h-96">
-                                <HorizontalBarChart data={soStats.custMix} title="Pending SO by Customer" color="blue" />
+                                <HorizontalBarChart
+                                    data={soStats.custMix}
+                                    title="Pending SO by Customer"
+                                    color="blue"
+                                    isStacked={true}
+                                    secondaryLabel="Scheduled"
+                                />
                             </div>
                         </div>
                     </div>
