@@ -12,7 +12,8 @@ import CustomerMasterView from './components/CustomerMasterView';
 import DashboardView from './components/DashboardView';
 import PivotReportView from './components/PivotReportView';
 import ChatView from './components/ChatView';
-import { Database, AlertCircle, ClipboardList, ShoppingCart, TrendingUp, Package, Layers, LayoutDashboard, FileBarChart, Users, ChevronRight, Menu, X, HardDrive, Table, MessageSquare, AlertTriangle, Factory, CloudOff, Cloud } from 'lucide-react';
+import ConfirmationModal from './components/ConfirmationModal';
+import { Database, AlertCircle, ClipboardList, ShoppingCart, TrendingUp, Package, Layers, LayoutDashboard, FileBarChart, Users, ChevronRight, Menu, X, HardDrive, Table, MessageSquare, AlertTriangle, Factory, CloudOff, Cloud, Trash2 } from 'lucide-react';
 import { materialService } from './services/materialService';
 import { customerService } from './services/customerService';
 import { stockService } from './services/stockService';
@@ -44,6 +45,20 @@ const App: React.FC = () => {
   const [dbStatus, setDbStatus] = useState<'connected' | 'partial' | 'error' | 'unlinked'>(
     isSupabaseConfigured ? 'connected' : 'unlinked'
   );
+
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    isDanger?: boolean;
+    isLoading?: boolean;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => { }
+  });
 
   const [selectedMake, setSelectedMake] = useState<string | 'ALL'>('ALL');
 
@@ -114,14 +129,24 @@ const App: React.FC = () => {
     }
   };
   const handleClearMaterials = async () => {
-    if (confirm("DANGER: This will permanently delete ALL Material Master records from Supabase and local storage. Continue?")) {
-      try {
-        await materialService.clearAll();
-        setMaterials([]);
-      } catch (e: any) {
-        alert("Failed to clear cloud data: " + (e.message || "Unknown error"));
+    setConfirmModal({
+      isOpen: true,
+      title: "Clear All Materials?",
+      message: "DANGER: This will permanently delete ALL Material Master records from Supabase and local storage. This action cannot be undone.",
+      isDanger: true,
+      isLoading: false,
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, isLoading: true }));
+        try {
+          await materialService.clearAll();
+          setMaterials([]);
+          setConfirmModal(prev => ({ ...prev, isOpen: false, isLoading: false }));
+        } catch (e: any) {
+          alert("Failed to clear cloud data: " + (e.message || "Unknown error"));
+          setConfirmModal(prev => ({ ...prev, isLoading: false }));
+        }
       }
-    }
+    });
   };
 
   const handleBulkAddSales = async (items: any) => {
@@ -143,14 +168,24 @@ const App: React.FC = () => {
     }
   };
   const handleClearSales = async () => {
-    if (confirm("DANGER: This will permanently delete ALL sales records from Supabase and Local storage. Continue?")) {
-      try {
-        await salesService.clearAll();
-        setSalesReportItems([]);
-      } catch (e: any) {
-        alert("Failed to clear cloud data: " + (e.message || "Unknown error"));
+    setConfirmModal({
+      isOpen: true,
+      title: "Clear Sales History?",
+      message: "DANGER: This will permanently delete ALL sales records from Supabase and local storage. This action cannot be undone.",
+      isDanger: true,
+      isLoading: false,
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, isLoading: true }));
+        try {
+          await salesService.clearAll();
+          setSalesReportItems([]);
+          setConfirmModal(prev => ({ ...prev, isOpen: false, isLoading: false }));
+        } catch (e: any) {
+          alert("Failed to clear cloud data: " + (e.message || "Unknown error"));
+          setConfirmModal(prev => ({ ...prev, isLoading: false }));
+        }
       }
-    }
+    });
   };
 
   const handleBulkAddCustomer = async (items: any) => {
@@ -172,14 +207,24 @@ const App: React.FC = () => {
     }
   };
   const handleClearCustomers = async () => {
-    if (confirm("DANGER: This will permanently delete ALL Customer Master records from Supabase and local storage. Continue?")) {
-      try {
-        await customerService.clearAll();
-        setCustomerMasterItems([]);
-      } catch (e: any) {
-        alert("Failed to clear cloud data: " + (e.message || "Unknown error"));
+    setConfirmModal({
+      isOpen: true,
+      title: "Clear All Customers?",
+      message: "DANGER: This will permanently delete ALL Customer Master records from Supabase and local storage. This action cannot be undone.",
+      isDanger: true,
+      isLoading: false,
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, isLoading: true }));
+        try {
+          await customerService.clearAll();
+          setCustomerMasterItems([]);
+          setConfirmModal(prev => ({ ...prev, isOpen: false, isLoading: false }));
+        } catch (e: any) {
+          alert("Failed to clear cloud data: " + (e.message || "Unknown error"));
+          setConfirmModal(prev => ({ ...prev, isLoading: false }));
+        }
       }
-    }
+    });
   };
 
   const handleBulkAddStock = async (items: any) => {
@@ -208,14 +253,24 @@ const App: React.FC = () => {
     }
   };
   const handleClearStock = async () => {
-    if (confirm("DANGER: This will permanently delete ALL Closing Stock records from Supabase and local storage. Continue?")) {
-      try {
-        await stockService.clearAll();
-        setClosingStockItems([]);
-      } catch (e: any) {
-        alert("Failed to clear cloud data: " + (e.message || "Unknown error"));
+    setConfirmModal({
+      isOpen: true,
+      title: "Clear Closing Stock?",
+      message: "DANGER: This will permanently delete ALL Closing Stock records from Supabase and local storage. Continue?",
+      isDanger: true,
+      isLoading: false,
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, isLoading: true }));
+        try {
+          await stockService.clearAll();
+          setClosingStockItems([]);
+          setConfirmModal(prev => ({ ...prev, isOpen: false, isLoading: false }));
+        } catch (e: any) {
+          alert("Failed to clear data: " + (e.message || "Unknown error"));
+          setConfirmModal(prev => ({ ...prev, isLoading: false }));
+        }
       }
-    }
+    });
   };
 
   const handleBulkAddSO = async (items: any) => {
@@ -244,14 +299,24 @@ const App: React.FC = () => {
     }
   };
   const handleClearSO = async () => {
-    if (confirm("DANGER: This will permanently delete ALL Pending SO records from Supabase and local storage. Continue?")) {
-      try {
-        await soService.clearAll();
-        setPendingSOItems([]);
-      } catch (e: any) {
-        alert("Failed to clear cloud data: " + (e.message || "Unknown error"));
+    setConfirmModal({
+      isOpen: true,
+      title: "Clear Pending SO?",
+      message: "DANGER: This will permanently delete ALL Pending SO records from Supabase and local storage. Continue?",
+      isDanger: true,
+      isLoading: false,
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, isLoading: true }));
+        try {
+          await soService.clearAll();
+          setPendingSOItems([]);
+          setConfirmModal(prev => ({ ...prev, isOpen: false, isLoading: false }));
+        } catch (e: any) {
+          alert("Failed to clear data: " + (e.message || "Unknown error"));
+          setConfirmModal(prev => ({ ...prev, isLoading: false }));
+        }
       }
-    }
+    });
   };
 
   const handleBulkAddPO = async (items: any) => {
@@ -280,14 +345,24 @@ const App: React.FC = () => {
     }
   };
   const handleClearPO = async () => {
-    if (confirm("DANGER: This will permanently delete ALL Pending PO records from Supabase and local storage. Continue?")) {
-      try {
-        await poService.clearAll();
-        setPendingPOItems([]);
-      } catch (e: any) {
-        alert("Failed to clear cloud data: " + (e.message || "Unknown error"));
+    setConfirmModal({
+      isOpen: true,
+      title: "Clear Pending PO?",
+      message: "DANGER: This will permanently delete ALL Pending PO records from Supabase and local storage. Continue?",
+      isDanger: true,
+      isLoading: false,
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, isLoading: true }));
+        try {
+          await poService.clearAll();
+          setPendingPOItems([]);
+          setConfirmModal(prev => ({ ...prev, isOpen: false, isLoading: false }));
+        } catch (e: any) {
+          alert("Failed to clear data: " + (e.message || "Unknown error"));
+          setConfirmModal(prev => ({ ...prev, isLoading: false }));
+        }
       }
-    }
+    });
   };
 
   const makeStats = useMemo(() => {
@@ -466,6 +541,16 @@ const App: React.FC = () => {
           {activeTab === 'salesReport' && <div className="h-full w-full"><SalesReportView items={salesReportItems} materials={materials} customers={customerMasterItems} onBulkAdd={handleBulkAddSales} onUpdate={handleUpdateSales} onDelete={handleDeleteSales} onClear={handleClearSales} /></div>}
         </main>
       </div>
+
+      <ConfirmationModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        isDanger={confirmModal.isDanger}
+        isLoading={confirmModal.isLoading}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };
