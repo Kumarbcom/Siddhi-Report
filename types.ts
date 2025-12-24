@@ -88,3 +88,17 @@ export interface CustomerMasterItem {
   customerGroup: string;
   createdAt: number;
 }
+
+// Support for Vite env variables in TypeScript
+declare global {
+  interface ImportMetaEnv {
+    readonly VITE_GEMINI_API_KEY: string;
+    readonly VITE_SUPABASE_URL: string;
+    readonly VITE_SUPABASE_KEY: string;
+    // add more env variables as needed
+  }
+
+  interface ImportMeta {
+    readonly env: ImportMetaEnv;
+  }
+}
