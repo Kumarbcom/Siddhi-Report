@@ -1043,14 +1043,14 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             return stats;
         };
 
-        const dueItems = soStats.topItems.filter(i => {
+        const dueItems = soStats.enrichedItems.filter(i => {
             const days = i.overDueDays || 0;
             const dd = parseDate(i.dueDate);
             const today = new Date(); today.setHours(0, 0, 0, 0);
             return days > 0 || (dd.getTime() > 0 && dd <= today);
         });
 
-        const schedItems = soStats.topItems.filter(i => {
+        const schedItems = soStats.enrichedItems.filter(i => {
             const days = i.overDueDays || 0;
             const dd = parseDate(i.dueDate);
             const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -1088,7 +1088,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             },
             due: getMakeStats(dueItems),
             sched: getMakeStats(schedItems),
-            total: getMakeStats(soStats.topItems),
+            total: getMakeStats(soStats.enrichedItems),
             stock: stockPivotData.sort((a, b) => b.groups.reduce((acc, g) => acc + g.value, 0) - a.groups.reduce((acc, g) => acc + g.value, 0)),
             targetDate,
             prevDate
