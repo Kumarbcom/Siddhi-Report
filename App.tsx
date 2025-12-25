@@ -472,16 +472,25 @@ const App: React.FC = () => {
 
   const SidebarItem = ({ id, label, icon: Icon, count, onClick }: any) => (
     <button
-      onClick={() => onClick(id)}
-      className={`w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${activeTab === id ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+      onClick={() => {
+        onClick(id);
+        if (window.innerWidth < 768) setIsSidebarOpen(false);
+      }}
+      className={`w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-colors relative group ${activeTab === id ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
         }`}
+      title={!isSidebarOpen ? label : ''}
     >
-      <Icon className={`w-4 h-4 ${activeTab === id ? 'text-blue-600' : 'text-gray-400'}`} />
-      <span className="flex-1">{label}</span>
-      {count !== undefined && (
+      <Icon className={`w-4 h-4 flex-shrink-0 ${activeTab === id ? 'text-blue-600' : 'text-gray-400'}`} />
+      <span className={`flex-1 transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 md:hidden'}`}>{label}</span>
+      {count !== undefined && isSidebarOpen && (
         <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${activeTab === id ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
           {count > 1000 ? (count / 1000).toFixed(1) + 'k' : count}
         </span>
+      )}
+      {!isSidebarOpen && (
+        <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 transition-opacity hidden md:block">
+          {label} {count !== undefined && `(${count})`}
+        </div>
       )}
     </button>
   );
@@ -506,19 +515,42 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-gray-100 font-sans text-gray-900 overflow-hidden">
-      <aside className={`bg-white border-r border-gray-200 flex flex-col flex-shrink-0 transition-all duration-300 ${isSidebarOpen ? 'w-64' : 'w-0 -ml-64 md:w-16 md:ml-0 overflow-hidden'}`}>
-        <div className="h-14 flex items-center px-4 border-b border-gray-200 flex-shrink-0">
-          <div className="flex items-center gap-2">
+      {/* Mobile Overlay */}
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-[100] md:hidden transition-opacity duration-300"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      <aside className={`bg-white border-r border-gray-200 flex flex-col flex-shrink-0 transition-all duration-300 fixed inset-y-0 left-0 z-[110] md:relative md:translate-x-0 ${isSidebarOpen ? 'w-64 translate-x-0' : 'w-64 -translate-x-full md:w-16 md:translate-x-0'}`}>
+        <div className="h-14 flex items-center justify-between px-4 border-b border-gray-200 flex-shrink-0">
+          <div className="flex items-center gap-2 overflow-hidden">
             <div className="bg-blue-600 p-1.5 rounded-lg text-white flex-shrink-0"><Database className="w-4 h-4" /></div>
-            <div className={`${isSidebarOpen ? 'opacity-100' : 'opacity-0 hidden'} transition-opacity`}>
+            <div className={`${isSidebarOpen ? 'opacity-100 block' : 'opacity-0 hidden'} transition-all duration-300 whitespace-nowrap`}>
               <h1 className="text-sm font-bold text-gray-900 leading-tight">Siddhi Kabel</h1>
-              <p className="text-[9px] text-gray-500 font-medium">
-                {dbStatus === 'connected' ? 'Cloud Master Active' : 'Local Offline Mode'}
-              </p>
+              <p className="text-[9px] text-gray-500 font-medium"> Central Master </p>
             </div>
           </div>
+          <button
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className={`p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors ${!isSidebarOpen && 'md:hidden'}`}
+          >
+            {isSidebarOpen ? <X className="w-4 h-4 md:hidden" /> : null}
+            <Menu className={`w-4 h-4 ${isSidebarOpen ? 'hidden md:block' : 'hidden'}`} />
+          </button>
         </div>
-        <div className="flex-1 overflow-y-auto custom-scrollbar py-4 px-3 space-y-6">
+        {!isSidebarOpen && (
+          <div className="hidden md:flex flex-col items-center py-4 border-b border-gray-100">
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="p-2 rounded-lg text-gray-400 hover:bg-gray-50 hover:text-blue-600 transition-colors"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+          </div>
+        )}
+        <div className={`flex-1 ${isSidebarOpen ? 'overflow-y-auto' : 'overflow-y-visible'} custom-scrollbar py-4 px-3 space-y-6`}>
           <div>
             {isSidebarOpen && <div className="px-3 mb-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Analysis</div>}
             <SidebarItem id="dashboard" label="Dashboard" icon={LayoutDashboard} onClick={setActiveTab} />
@@ -589,10 +621,16 @@ const App: React.FC = () => {
           </div>
         )}
 
-        <header className="bg-white border-b border-gray-200 h-14 flex items-center justify-between px-4 flex-shrink-0 md:hidden">
+        <header className="bg-white border-b border-gray-200 h-14 flex items-center justify-between px-4 flex-shrink-0 md:hidden z-30">
           <div className="flex items-center gap-2">
-            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-lg">{isSidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}</button>
+            <button onClick={() => setIsSidebarOpen(true)} className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-lg">
+              <Menu className="w-5 h-5" />
+            </button>
             <span className="font-bold text-gray-900">Siddhi Kabel</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className={`w-2 h-2 rounded-full ${dbStatus === 'connected' ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+            <span className="text-[10px] font-bold text-gray-500 uppercase">{dbStatus === 'connected' ? 'Cloud' : 'Local'}</span>
           </div>
         </header>
         <main className="flex-1 overflow-hidden p-4 relative">
