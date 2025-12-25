@@ -15,28 +15,7 @@ const formatLargeValue = (val: number, compact: boolean = false) => {
     return `${prefix}${Math.round(val).toLocaleString('en-IN')}`;
 };
 
-// Refined Group Merging Logic for Siddhi Kabel
-const getMergedGroupName = (groupName: string) => {
-    const g = String(groupName || 'Unassigned').trim();
-    const lowerG = g.toLowerCase();
 
-    // 1. Group-1 Giridhar: Merge Group-1 and Peenya
-    if (lowerG.includes('group-1') || lowerG.includes('peenya')) {
-        return 'Group-1 Giridhar';
-    }
-
-    // 2. Group - Office: Merge Group -4 Office and DCV
-    if (lowerG.includes('group -4 office') || lowerG.includes('group-4') || lowerG.includes('dcv')) {
-        return 'Group - Office';
-    }
-
-    // 3. Online: Merge all online variations
-    if (lowerG.includes('online')) {
-        return 'Online';
-    }
-
-    return g;
-};
 
 const getMergedMakeName = (makeName: string) => {
     const m = String(makeName || 'Unspecified').trim();
@@ -355,7 +334,7 @@ const GroupedCustomerAnalysis = ({ data, compareLabel = 'PY' }: { data: { group:
     const toggleGroup = (group: string) => setExpandedGroups(prev => ({ ...prev, [group]: !prev[group] }));
     return (
         <div className="flex flex-col h-full w-full overflow-hidden">
-            <h4 className="text-[10px] font-black text-gray-500 uppercase mb-2 border-b border-gray-100 pb-1">Group Analytics (vs {compareLabel})</h4>
+            <h4 className="text-[10px] font-black text-gray-500 uppercase mb-2 border-b border-gray-100 pb-1">Customer Group Analytics (vs {compareLabel})</h4>
             <div className="flex-1 overflow-y-auto custom-scrollbar pr-1.5 space-y-1.5">
                 {data.map((groupData) => (
                     <div key={groupData.group} className="border border-gray-100 rounded-lg overflow-hidden bg-white shadow-sm">
@@ -523,7 +502,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             const dateObj = parseDate(item.date);
             const fi = getFiscalInfo(dateObj);
             const cust = custMap.get(String(item.customerName || '').toLowerCase().trim());
-            const mergedGroup = getMergedGroupName(cust?.group || 'Unassigned');
+            const custGroupName = cust?.customerGroup || 'Unassigned';
 
             const searchKey = String(item.particulars || '').toLowerCase().trim();
             const matInfo = matByPartNo.get(searchKey) || matByDesc.get(searchKey);
@@ -535,7 +514,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 ...item,
                 ...fi,
                 rawDate: dateObj,
-                custGroup: mergedGroup,
+                custGroup: custGroupName,
                 custStatus: cust?.status || 'Unknown',
                 make: mergedMake,
                 matGroup: matInfo?.group || 'Unspecified'
@@ -1368,7 +1347,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                 <div className="flex items-center justify-between mb-3 border-b border-gray-100 pb-2">
                                     <h3 className="text-xs font-black text-gray-800 uppercase tracking-tight flex items-center gap-2">
                                         <Users className="w-4 h-4 text-blue-600" />
-                                        Top 10 Customers (Group-wise)
+                                        Top 10 Customers (Customer Group-wise)
                                     </h3>
                                     <span className="text-[9px] font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full uppercase">Global Top 10</span>
                                 </div>
@@ -1383,7 +1362,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                 <div className="flex items-center justify-between mb-3 border-b border-gray-100 pb-2">
                                     <h3 className="text-xs font-black text-gray-800 uppercase tracking-tight flex items-center gap-2">
                                         <Layers className="w-4 h-4 text-emerald-600" />
-                                        Full Group Analytics
+                                        Full Customer Group Analytics
                                     </h3>
                                     <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full uppercase">All Customer Groups</span>
                                 </div>
