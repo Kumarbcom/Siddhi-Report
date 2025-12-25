@@ -17,6 +17,15 @@ const formatLargeValue = (val: number, compact: boolean = false) => {
 
 
 
+const getMergedGroupName = (groupName: string) => {
+    const g = String(groupName || 'Unassigned').trim();
+    const lowerG = g.toLowerCase();
+    if (lowerG.includes('group-1') || lowerG.includes('peenya')) return 'Group-1 Giridhar';
+    if (lowerG.includes('group -4 office') || lowerG.includes('group-4') || lowerG.includes('dcv')) return 'Group - Office';
+    if (lowerG.includes('online')) return 'Online';
+    return g;
+};
+
 const getMergedMakeName = (makeName: string) => {
     const m = String(makeName || 'Unspecified').trim();
     const lowerM = m.toLowerCase();
@@ -334,7 +343,7 @@ const GroupedCustomerAnalysis = ({ data, compareLabel = 'PY' }: { data: { group:
     const toggleGroup = (group: string) => setExpandedGroups(prev => ({ ...prev, [group]: !prev[group] }));
     return (
         <div className="flex flex-col h-full w-full overflow-hidden">
-            <h4 className="text-[10px] font-black text-gray-500 uppercase mb-2 border-b border-gray-100 pb-1">Customer Group Analytics (vs {compareLabel})</h4>
+            <h4 className="text-[10px] font-black text-gray-500 uppercase mb-2 border-b border-gray-100 pb-1">Analytics (vs {compareLabel})</h4>
             <div className="flex-1 overflow-y-auto custom-scrollbar pr-1.5 space-y-1.5">
                 {data.map((groupData) => (
                     <div key={groupData.group} className="border border-gray-100 rounded-lg overflow-hidden bg-white shadow-sm">
@@ -430,6 +439,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     const [invSearchTerm, setInvSearchTerm] = useState<string>('');
     const [invSortKey, setInvSortKey] = useState<string>('value');
     const [invSortOrder, setInvSortOrder] = useState<'asc' | 'desc'>('desc');
+    const [groupingMode, setGroupingMode] = useState<'RAW' | 'MERGED'>('MERGED');
 
     const parseDate = (val: any): Date => {
         if (!val) return new Date();
@@ -502,7 +512,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             const dateObj = parseDate(item.date);
             const fi = getFiscalInfo(dateObj);
             const cust = custMap.get(String(item.customerName || '').toLowerCase().trim());
-            const custGroupName = cust?.customerGroup || 'Unassigned';
+
+            const rawGroup = cust?.customerGroup || 'Unassigned';
+            const mergedGroup = getMergedGroupName(cust?.group || 'Unassigned');
+            const custGroupName = groupingMode === 'RAW' ? rawGroup : mergedGroup;
 
             const searchKey = String(item.particulars || '').toLowerCase().trim();
             const matInfo = matByPartNo.get(searchKey) || matByDesc.get(searchKey);
@@ -520,7 +533,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 matGroup: matInfo?.group || 'Unspecified'
             };
         });
-    }, [salesReportItems, customers, materials]);
+    }, [salesReportItems, customers, materials, groupingMode]);
 
     const uniqueFYs = useMemo(() => Array.from(new Set(enrichedSales.map(i => i.fiscalYear))).filter(f => f !== 'N/A').sort().reverse(), [enrichedSales]);
     const uniqueMakes = useMemo(() => {
@@ -1235,6 +1248,23 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                             ))}
                         </select>
                         <div className="flex bg-gray-100 p-1 rounded-lg">{(['FY', 'MONTH', 'WEEK'] as const).map(v => (<button key={v} onClick={() => setTimeView(v)} className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${timeView === v ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}> {v} </button>))}</div>
+
+                        <div className="flex bg-gray-100 p-1 rounded-lg">
+                            <button
+                                onClick={() => setGroupingMode('MERGED')}
+                                className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${groupingMode === 'MERGED' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                                title="Use Merged Groups (Giridhar, Office, Online)"
+                            >
+                                Merged
+                            </button>
+                            <button
+                                onClick={() => setGroupingMode('RAW')}
+                                className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${groupingMode === 'RAW' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                                title="Use Raw Customer Groups (OEM, End User, etc.)"
+                            >
+                                Raw
+                            </button>
+                        </div>
                         <select value={selectedFY} onChange={e => setSelectedFY(e.target.value)} className="bg-white border border-gray-300 text-xs rounded-md px-2 py-1.5 font-medium shadow-sm outline-none focus:ring-2 focus:ring-blue-500">{uniqueFYs.length > 0 ? uniqueFYs.map(fy => <option key={fy} value={fy}>{fy}</option>) : <option value="">No FY Data</option>}</select>
 
                         {timeView === 'MONTH' && (
@@ -1354,7 +1384,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                             <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex flex-col h-72 overflow-hidden transition-all hover:shadow-md">
                                 <ModernDonutChartDashboard
                                     data={groupedCustomerData.map(g => ({ label: g.group, value: g.total }))}
-                                    title="Revenue by Customer Group"
+                                    title={`Revenue by ${groupingMode === 'RAW' ? 'Customer Group' : 'Merged Group'}`}
                                     isCurrency={true}
                                     centerColorClass="text-blue-700"
                                 />
@@ -1373,7 +1403,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                 <div className="flex items-center justify-between mb-3 border-b border-gray-100 pb-2">
                                     <h3 className="text-xs font-black text-gray-800 uppercase tracking-tight flex items-center gap-2">
                                         <Users className="w-4 h-4 text-blue-600" />
-                                        Top 10 Customers (Customer Group-wise)
+                                        Top 10 Customers ({groupingMode === 'RAW' ? 'Customer Group' : 'Merged'}-wise)
                                     </h3>
                                     <span className="text-[9px] font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full uppercase">Global Top 10</span>
                                 </div>
@@ -1388,7 +1418,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                 <div className="flex items-center justify-between mb-3 border-b border-gray-100 pb-2">
                                     <h3 className="text-xs font-black text-gray-800 uppercase tracking-tight flex items-center gap-2">
                                         <Layers className="w-4 h-4 text-emerald-600" />
-                                        Full Customer Group Analytics
+                                        Full {groupingMode === 'RAW' ? 'Customer Group' : 'Merged Group'} Analytics
                                     </h3>
                                     <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full uppercase">All Customer Groups</span>
                                 </div>
