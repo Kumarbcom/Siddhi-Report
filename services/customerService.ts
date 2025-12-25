@@ -75,6 +75,37 @@ export const customerService = {
     return dbService.getAll<CustomerMasterItem>(STORES.CUSTOMERS);
   },
 
+  async create(item: Omit<CustomerMasterItem, 'id' | 'createdAt'>): Promise<CustomerMasterItem> {
+    const timestamp = Date.now();
+    const newItem: CustomerMasterItem = {
+      ...item,
+      id: getUuid(),
+      createdAt: timestamp
+    };
+
+    if (isSupabaseConfigured) {
+      try {
+        const { error } = await supabase
+          .from('customer_master')
+          .insert([{
+            id: newItem.id,
+            customer_name: newItem.customerName,
+            group_name: newItem.group,
+            sales_rep: newItem.salesRep,
+            status: newItem.status,
+            customer_group: newItem.customerGroup,
+            created_at: new Date(timestamp).toISOString()
+          }]);
+        if (error) throw new Error(error.message);
+      } catch (e: any) {
+        console.error("Customer Master: Cloud create failed:", e?.message || e);
+      }
+    }
+
+    await dbService.put(STORES.CUSTOMERS, newItem);
+    return newItem;
+  },
+
   async createBulk(items: Omit<CustomerMasterItem, 'id' | 'createdAt'>[]): Promise<CustomerMasterItem[]> {
     const timestamp = Date.now();
     const newItems = items.map(i => ({ ...i, id: getUuid(), createdAt: timestamp }));

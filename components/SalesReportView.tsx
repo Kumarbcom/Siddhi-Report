@@ -1,7 +1,7 @@
 
 import React, { useRef, useState, useMemo, useEffect } from 'react';
 import { SalesReportItem, Material, CustomerMasterItem } from '../types';
-import { Trash2, Download, Upload, Search, ArrowUpDown, ArrowUp, ArrowDown, FileBarChart, AlertTriangle, UserX, PackageX, Users, Package, FileWarning, FileDown, Loader2, ChevronLeft, ChevronRight, Filter, Calendar, CalendarRange, Layers, TrendingUp, TrendingDown, Minus, UserCheck, Target, BarChart2, AlertOctagon, DollarSign, Pencil, Save, X, Database } from 'lucide-react';
+import { Trash2, Download, Upload, Search, ArrowUpDown, ArrowUp, ArrowDown, FileBarChart, AlertTriangle, UserX, PackageX, Users, Package, FileWarning, FileDown, Loader2, ChevronLeft, ChevronRight, Filter, Calendar, CalendarRange, Layers, TrendingUp, TrendingDown, Minus, UserCheck, Target, BarChart2, AlertOctagon, DollarSign, Pencil, Save, X, Database, Plus, UserPlus } from 'lucide-react';
 import { read, utils, writeFile } from 'xlsx';
 
 interface SalesReportViewProps {
@@ -12,6 +12,8 @@ interface SalesReportViewProps {
     onUpdate: (item: SalesReportItem) => void;
     onDelete: (id: string) => void;
     onClear: () => void;
+    onAddMaterial?: (data: any) => Promise<void>;
+    onAddCustomer?: (data: any) => Promise<void>;
 }
 
 type EnrichedSalesItem = SalesReportItem & {
@@ -47,7 +49,9 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
     onBulkAdd,
     onUpdate,
     onDelete,
-    onClear
+    onClear,
+    onAddMaterial,
+    onAddCustomer
 }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [searchTerm, setSearchTerm] = useState('');
@@ -75,6 +79,53 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
     // Edit State
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editForm, setEditForm] = useState<SalesReportItem | null>(null);
+
+    // Quick Add States
+    const [quickAddMatModal, setQuickAddMatModal] = useState<{ isOpen: boolean; item: EnrichedSalesItem | null }>({ isOpen: false, item: null });
+    const [quickAddMatForm, setQuickAddMatForm] = useState<{ description: string; partNo: string; make: string; materialGroup: string; materialCode: string }>({ description: '', partNo: '', make: '', materialGroup: '', materialCode: '' });
+
+    const [quickAddCustModal, setQuickAddCustModal] = useState<{ isOpen: boolean; item: EnrichedSalesItem | null }>({ isOpen: false, item: null });
+    const [quickAddCustForm, setQuickAddCustForm] = useState<{ customerName: string; group: string; salesRep: string; status: string; customerGroup: string }>({ customerName: '', group: '', salesRep: '', status: 'Active', customerGroup: '' });
+
+    const [isAdding, setIsAdding] = useState(false);
+
+    const handleOpenQuickAddMat = (item: EnrichedSalesItem) => {
+        setQuickAddMatModal({ isOpen: true, item });
+        setQuickAddMatForm({ description: item.particulars || '', partNo: '', make: '', materialGroup: '', materialCode: '' });
+    };
+
+    const handleOpenQuickAddCust = (item: EnrichedSalesItem) => {
+        setQuickAddCustModal({ isOpen: true, item });
+        setQuickAddCustForm({ customerName: item.customerName || '', group: '', salesRep: '', status: 'Active', customerGroup: '' });
+    };
+
+    const handleQuickAddMaterial = async () => {
+        if (!onAddMaterial || !quickAddMatForm.description) return;
+        setIsAdding(true);
+        try {
+            await onAddMaterial(quickAddMatForm);
+            setQuickAddMatModal({ isOpen: false, item: null });
+            alert("Added to Material Master successfully!");
+        } catch (e: any) {
+            alert("Failed to add material: " + (e.message || "Unknown error"));
+        } finally {
+            setIsAdding(false);
+        }
+    };
+
+    const handleQuickAddCustomer = async () => {
+        if (!onAddCustomer || !quickAddCustForm.customerName) return;
+        setIsAdding(true);
+        try {
+            await onAddCustomer(quickAddCustForm);
+            setQuickAddCustModal({ isOpen: false, item: null });
+            alert("Added to Customer Master successfully!");
+        } catch (e: any) {
+            alert("Failed to add customer: " + (e.message || "Unknown error"));
+        } finally {
+            setIsAdding(false);
+        }
+    };
 
     const handleEditClick = (item: SalesReportItem) => {
         setEditingId(item.id);
@@ -108,10 +159,8 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
         const fiscalYear = `${startYear}-${startYear + 1}`;
         const fiscalMonthIndex = month >= 3 ? month - 3 : month + 9;
 
-        // Define weeks starting on Thursday and ending on Wednesday
-        // Find the Thursday on or before April 1st of the current fiscal year
         const fyStart = new Date(startYear, 3, 1);
-        const day = fyStart.getDay(); // 0=Sun, 4=Thu
+        const day = fyStart.getDay();
         const daysToSubtract = (day >= 4) ? (day - 4) : (day + 3);
         const refThursday = new Date(fyStart);
         refThursday.setDate(fyStart.getDate() - daysToSubtract);
@@ -122,8 +171,6 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
 
         const diffTime = targetDate.getTime() - refThursday.getTime();
         const diffDays = Math.floor(diffTime / (1000 * 3600 * 24));
-
-        // Week 1 starts on the Thursday on or before April 1st
         const weekNumber = Math.max(1, Math.floor(diffDays / 7) + 1);
 
         return { fiscalYear, fiscalMonthIndex, weekNumber };
@@ -136,26 +183,18 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
         try {
             const startYear = parseInt(fy.split('-')[0]);
             if (isNaN(startYear)) return '';
-
             const fyStart = new Date(startYear, 3, 1);
             const day = fyStart.getDay();
             const daysToSubtract = (day >= 4) ? (day - 4) : (day + 3);
             const refThursday = new Date(fyStart);
             refThursday.setDate(fyStart.getDate() - daysToSubtract);
             refThursday.setHours(0, 0, 0, 0);
-
             const weekStart = new Date(refThursday);
             weekStart.setDate(refThursday.getDate() + (weekNum - 1) * 7);
-
             let displayStart = new Date(weekStart);
-            if (weekNum === 1) {
-                // For the very first week of the fiscal year, show it starting from April 1st
-                displayStart = new Date(fyStart);
-            }
-
+            if (weekNum === 1) displayStart = new Date(fyStart);
             const displayEnd = new Date(weekStart);
             displayEnd.setDate(weekStart.getDate() + 6);
-
             const fmt = (d: Date) => isNaN(d.getTime()) ? 'Invalid' : d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
             return `${fmt(displayStart)} - ${fmt(displayEnd)}`;
         } catch (e) { return ''; }
@@ -191,7 +230,6 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
             const rawDate = item.date as any;
             if (rawDate instanceof Date) { dateObj = rawDate; }
             else if (typeof rawDate === 'string') { dateObj = new Date(rawDate); }
-            // Excel serial date: days since 1900-01-01 (with 1900 leap year bug, offset is 25568)
             else if (typeof rawDate === 'number') { dateObj = new Date((rawDate - 25568) * 86400 * 1000); }
 
             const { fiscalYear, fiscalMonthIndex, weekNumber } = getFiscalInfo(dateObj);
@@ -286,7 +324,6 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
         let date: Date | null = null;
         if (dateVal instanceof Date) date = dateVal;
         else if (typeof dateVal === 'string') date = new Date(dateVal);
-        // Excel serial date: days since 1900-01-01 (with 1900 leap year bug, offset is 25568)
         else if (typeof dateVal === 'number') date = new Date((dateVal - 25568) * 86400 * 1000);
         if (date && !isNaN(date.getTime())) return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
         return String(dateVal);
@@ -297,7 +334,6 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
         let date: Date | null = null;
         if (dateVal instanceof Date) date = dateVal;
         else if (typeof dateVal === 'string') date = new Date(dateVal);
-        // Excel serial date: days since 1900-01-01 (with 1900 leap year bug, offset is 25568)
         else if (typeof dateVal === 'number') date = new Date((dateVal - 25568) * 86400 * 1000);
         if (date && !isNaN(date.getTime())) {
             const year = date.getFullYear();
@@ -309,7 +345,6 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
     };
 
     const formatCurrency = (val: number) => `Rs. ${Math.round(val || 0).toLocaleString('en-IN')}`;
-    const getStatusColor = (status: string) => { const s = String(status || '').toLowerCase(); if (s === 'active') return 'bg-green-100 text-green-700 border-green-200'; if (s === 'inactive' || s === 'blocked') return 'bg-red-100 text-red-700 border-red-200'; return 'text-gray-500'; };
     const handleSort = (key: SortKey) => { let direction: 'asc' | 'desc' = 'asc'; if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc'; setSortConfig({ key, direction }); };
     const renderSortIcon = (key: SortKey) => { if (!sortConfig || sortConfig.key !== key) return <ArrowUpDown className="w-3 h-3 text-gray-400" />; return sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 text-blue-500" /> : <ArrowDown className="w-3 h-3 text-blue-500" />; };
 
@@ -321,11 +356,9 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
         setIsProcessing(true);
         setUploadProgress(0);
         setStatusMessage("Reading file...");
-
         setTimeout(async () => {
             try {
                 const arrayBuffer = await file.arrayBuffer();
-                // Fixed: Moved cellDates and dateNF to read options to avoid Sheet2JSONOpts type errors
                 const wb = read(arrayBuffer, { type: 'array', cellDates: true, dateNF: 'yyyy-mm-dd' });
                 const ws = wb.Sheets[wb.SheetNames[0]];
                 setStatusMessage("Parsing rows...");
@@ -335,21 +368,12 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                 const allNewItems: any[] = [];
                 let currentIndex = 0;
 
-                // Format Excel dates properly with "Nudge Fix" for 23:59:59 issues
                 const formatExcelDate = (val: any) => {
                     let d: Date;
-                    if (val instanceof Date) {
-                        // Nudge by 12 hours to handle dates that are at 23:59:50 due to floating point error
-                        d = new Date(val.getTime() + (12 * 60 * 60 * 1000));
-                    } else if (typeof val === 'number') {
-                        // Use Math.round to get the nearest whole day
-                        d = new Date((Math.round(val) - 25568) * 86400 * 1000);
-                    } else {
-                        return String(val || '');
-                    }
-
+                    if (val instanceof Date) { d = new Date(val.getTime() + (12 * 60 * 60 * 1000)); }
+                    else if (typeof val === 'number') { d = new Date((Math.round(val) - 25568) * 86400 * 1000); }
+                    else { return String(val || ''); }
                     if (isNaN(d.getTime())) return String(val || '');
-
                     const year = d.getFullYear();
                     const month = String(d.getMonth() + 1).padStart(2, '0');
                     const day = String(d.getDate()).padStart(2, '0');
@@ -360,15 +384,8 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                     const end = Math.min(currentIndex + CHUNK_SIZE, totalRows);
                     for (let i = currentIndex; i < end; i++) {
                         const row = jsonData[i];
-                        let customerName = '';
-                        let particulars = '';
-                        let voucherNo = '';
-                        let value = 0;
-                        let quantity = 0;
-                        let date = null;
-                        const keys = Object.keys(row);
-                        for (let k = 0; k < keys.length; k++) {
-                            const key = keys[k];
+                        let customerName = '', particulars = '', voucherNo = '', value = 0, quantity = 0, date = null;
+                        Object.keys(row).forEach(key => {
                             const lowerKey = key.toLowerCase();
                             if (lowerKey.includes('customer') || lowerKey === 'name') customerName = String(row[key]);
                             else if (lowerKey.includes('particular') || lowerKey.includes('item')) particulars = String(row[key]);
@@ -376,36 +393,27 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                             else if (lowerKey.includes('value') || lowerKey.includes('amount')) value = parseFloat(row[key]);
                             else if (lowerKey.includes('quant') || lowerKey === 'qty') quantity = parseFloat(row[key]);
                             else if (lowerKey.includes('date') || lowerKey === 'dt') date = formatExcelDate(row[key]);
-                        }
-                        if (customerName) {
-                            allNewItems.push({ date, customerName, particulars, voucherNo, quantity: quantity || 0, value: value || 0, consignee: '', voucherRefNo: '' });
-                        }
+                        });
+                        if (customerName) allNewItems.push({ date, customerName, particulars, voucherNo, quantity: quantity || 0, value: value || 0, consignee: '', voucherRefNo: '' });
                     }
                     currentIndex = end;
                     const progress = Math.round((currentIndex / totalRows) * 100);
                     setUploadProgress(progress);
                     setStatusMessage(`Processing... ${progress}%`);
-                    if (currentIndex < totalRows) {
-                        setTimeout(processChunk, 0);
-                    } else {
-                        setStatusMessage("Finalizing import...");
+                    if (currentIndex < totalRows) { setTimeout(processChunk, 0); }
+                    else {
+                        setStatusMessage("Finalizing...");
                         setTimeout(() => {
-                            if (allNewItems.length > 0) {
-                                onBulkAdd(allNewItems);
-                            } else {
-                                alert("No valid records found.");
-                            }
+                            if (allNewItems.length > 0) onBulkAdd(allNewItems);
+                            else alert("No valid records.");
                             setIsProcessing(false);
                             setUploadProgress(null);
                             if (fileInputRef.current) fileInputRef.current.value = '';
                         }, 50);
                     }
                 };
-                setTimeout(processChunk, 50);
-            } catch (e) {
-                alert("Error parsing file.");
-                setIsProcessing(false);
-            }
+                processChunk();
+            } catch (e) { alert("Error parsing file."); setIsProcessing(false); }
         }, 100);
     };
 
@@ -413,7 +421,6 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
         <div className="flex flex-col h-full gap-4 relative">
             {isProcessing && (<div className="absolute inset-0 z-50 bg-white/90 flex flex-col items-center justify-center backdrop-blur-sm rounded-xl"><Loader2 className="w-12 h-12 text-blue-600 animate-spin mb-4" /><h3 className="text-xl font-bold text-gray-800">{statusMessage}</h3>{uploadProgress !== null && (<div className="w-64 bg-gray-200 rounded-full h-3 mt-4"><div className="bg-blue-600 h-3 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div></div>)}</div>)}
 
-            {/* Quick Stats & Quality Check */}
             <div className="flex flex-col sm:flex-row items-center justify-between bg-white p-3 rounded-xl shadow-sm border border-gray-200 flex-shrink-0 gap-4">
                 <div className="flex items-center gap-3"><div className={`p-2 rounded-lg ${mismatchStats.total > 0 ? 'bg-orange-50 text-orange-600' : 'bg-green-50 text-green-600'}`}>{mismatchStats.total > 0 ? <AlertTriangle className="w-5 h-5" /> : <UserCheck className="w-5 h-5" />}</div><div><h3 className="text-sm font-bold text-gray-800">Master Data Quality</h3><p className={`text-xs ${mismatchStats.total > 0 ? 'text-red-600 font-medium' : 'text-gray-500'}`}>{mismatchStats.total > 0 ? `${mismatchStats.total} Mismatches found. Need Master Data updates.` : "All records fully verified."}</p></div></div>
                 <div className="flex gap-2">
@@ -422,7 +429,6 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                 </div>
             </div>
 
-            {/* Main Filter Bar */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex flex-col gap-4 flex-shrink-0">
                 <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center border-b border-gray-100 pb-4">
                     <div className="flex items-center gap-2 bg-gray-50 p-1.5 rounded-lg border border-gray-200"><span className="text-xs font-bold text-gray-700 px-2">FY:</span><select value={selectedFY} onChange={(e) => setSelectedFY(e.target.value)} className="bg-white border border-gray-300 text-sm rounded-md px-2 py-1 outline-none">{options.fys.map(fy => <option key={fy} value={fy}>{fy}</option>)}</select></div>
@@ -431,95 +437,98 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                     {timeView === 'WEEK' && (<div className="flex items-center gap-2"><span className="text-xs text-gray-500">Week:</span><input type="number" min={1} max={53} value={selectedWeek} onChange={(e) => setSelectedWeek(Number(e.target.value))} className="w-16 bg-white border border-gray-300 text-xs rounded-md px-2 py-1" /><span className="text-[9px] text-gray-400 bg-gray-50 px-2 py-1 rounded border border-gray-100">{getWeekRangeString(selectedFY, selectedWeek)}</span></div>)}
                 </div>
                 <div className="flex flex-wrap gap-4 items-center">
-                    <div className="flex flex-col gap-0.5"><label className="text-[9px] font-black text-gray-400 uppercase">Group</label><select value={slicerGroup} onChange={(e) => setSlicerGroup(e.target.value)} className="bg-gray-50 border border-gray-200 text-xs rounded-md px-2 py-1 w-32">{<option value="ALL">All Groups</option>}{options.groups.map(g => <option key={g} value={g}>{g}</option>)}</select></div>
-                    <div className="flex flex-col gap-0.5"><label className="text-[9px] font-black text-gray-400 uppercase">Make</label><select value={slicerMake} onChange={(e) => setSlicerMake(e.target.value)} className="bg-gray-50 border border-gray-200 text-xs rounded-md px-2 py-1 w-32">{<option value="ALL">All Makes</option>}{options.makes.map(m => <option key={m} value={m}>{m}</option>)}</select></div>
-                    <div className="flex-1 min-w-[200px] flex items-end"><div className="relative w-full"><div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Search className="h-3.5 w-3.5 text-gray-400" /></div><input type="text" placeholder="Search Customer, Item or Voucher..." className="pl-9 pr-3 py-1.5 w-full border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div></div>
+                    <div className="flex flex-col gap-0.5"><label className="text-[9px] font-black text-gray-400 uppercase">Group</label><select value={slicerGroup} onChange={(e) => setSlicerGroup(e.target.value)} className="bg-gray-50 border border-gray-200 text-xs rounded-md px-2 py-1 w-32"><option value="ALL">All Groups</option>{options.groups.map(g => <option key={g} value={g}>{g}</option>)}</select></div>
+                    <div className="flex flex-col gap-0.5"><label className="text-[9px] font-black text-gray-400 uppercase">Make</label><select value={slicerMake} onChange={(e) => setSlicerMake(e.target.value)} className="bg-gray-50 border border-gray-200 text-xs rounded-md px-2 py-1 w-32"><option value="ALL">All Makes</option>{options.makes.map(m => <option key={m} value={m}>{m}</option>)}</select></div>
+                    <div className="flex-1 min-w-[200px] flex items-end"><div className="relative w-full"><div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Search className="h-3.5 w-3.5 text-gray-400" /></div><input type="text" placeholder="Search..." className="pl-9 pr-3 py-1.5 w-full border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div></div>
                 </div>
             </div>
 
-            {/* Header Summary & Actions */}
             <div className="flex items-center justify-between bg-white p-2 rounded-xl shadow-sm border border-gray-200 flex-shrink-0">
-                <div className="flex items-center gap-4 pl-2">
-                    <div className="flex flex-col"><span className="text-[10px] text-gray-500 font-bold uppercase">Qty</span><span className="text-sm font-black text-blue-600">{totals.qty.toLocaleString()}</span></div>
-                    <div className="w-px h-6 bg-gray-200"></div>
-                    <div className="flex flex-col"><span className="text-[10px] text-gray-500 font-bold uppercase">Total Value</span><span className="text-sm font-black text-emerald-600">{formatCurrency(totals.val)}</span></div>
-                </div>
-                <div className="flex gap-2">
-                    <input type="file" ref={fileInputRef} className="hidden" accept=".xlsx, .xls" onChange={handleFileUpload} />
-                    <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold border border-blue-100 hover:bg-blue-100"><Upload className="w-3.5 h-3.5" /> Import</button>
-                    <button onClick={onClear} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-bold border border-red-100 hover:bg-red-100"><Trash2 className="w-3.5 h-3.5" /></button>
-                </div>
+                <div className="flex items-center gap-4 pl-2"><div className="flex flex-col"><span className="text-[10px] text-gray-500 font-bold uppercase">Qty</span><span className="text-sm font-black text-blue-600">{totals.qty.toLocaleString()}</span></div><div className="w-px h-6 bg-gray-200"></div><div className="flex flex-col"><span className="text-[10px] text-gray-500 font-bold uppercase">Total Value</span><span className="text-sm font-black text-emerald-600">{formatCurrency(totals.val)}</span></div></div>
+                <div className="flex gap-2"><input type="file" ref={fileInputRef} className="hidden" accept=".xlsx, .xls" onChange={handleFileUpload} /><button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold border border-blue-100 hover:bg-blue-100"><Upload className="w-3.5 h-3.5" /> Import</button><button onClick={onClear} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-bold border border-red-100 hover:bg-red-100"><Trash2 className="w-3.5 h-3.5" /></button></div>
             </div>
 
-            {/* Data Table */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col flex-1 min-h-0">
                 <div className="overflow-auto flex-1 h-full">
                     <table className="w-full text-left border-collapse min-w-full">
-                        <thead className="sticky top-0 z-10 bg-gray-50 shadow-sm text-[10px] font-bold text-gray-500 uppercase tracking-tighter">
-                            <tr className="border-b border-gray-200">
-                                <th className="py-2 px-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('date')}>Date {renderSortIcon('date')}</th>
-                                <th className="py-2 px-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('customerName')}>Customer {renderSortIcon('customerName')}</th>
-                                <th className="py-2 px-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('custGroup')}>Group {renderSortIcon('custGroup')}</th>
-                                <th className="py-2 px-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('particulars')}>Item {renderSortIcon('particulars')}</th>
-                                <th className="py-2 px-3">Make</th>
-                                <th className="py-2 px-3">Voucher</th>
-                                <th className="py-2 px-3 text-right">Qty</th>
-                                <th className="py-2 px-3 text-right">Value</th>
-                                <th className="py-2 px-3 text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200 text-xs">
-                            {paginatedItems.length === 0 ? (
-                                <tr><td colSpan={8} className="py-20 text-center"><div className="flex flex-col items-center gap-2 opacity-30"><Database className="w-12 h-12" /><p className="text-sm font-bold">No Records Found</p><p className="text-[10px]">Import an Excel file to see sales data here.</p></div></td></tr>
-                            ) : (
-                                paginatedItems.map(item => (
-                                    <tr key={item.id} className={`hover:bg-blue-50/10 transition-colors ${editingId === item.id ? 'bg-blue-50' : ''}`}>
-                                        {editingId === item.id ? (
-                                            <>
-                                                <td className="py-2 px-3"><input type="date" className="w-full border border-blue-300 rounded px-1.5 py-0.5" value={formatInputDate(editForm?.date)} onChange={e => handleInputChange('date', e.target.value)} /></td>
-                                                <td className="py-2 px-3"><input type="text" className="w-full border border-blue-300 rounded px-1.5 py-0.5" value={editForm?.customerName} onChange={e => handleInputChange('customerName', e.target.value)} /></td>
-                                                <td className="py-2 px-3 text-gray-400 text-[10px] font-bold uppercase">{item.custGroup}</td>
-                                                <td className="py-2 px-3"><input type="text" className="w-full border border-blue-300 rounded px-1.5 py-0.5" value={editForm?.particulars} onChange={e => handleInputChange('particulars', e.target.value)} /></td>
-                                                <td colSpan={2} className="py-2 px-3 text-gray-400 italic">Editing...</td>
-                                                <td className="py-2 px-3 text-right"><input type="number" className="w-16 border border-blue-300 rounded px-1.5 py-0.5 text-right" value={editForm?.quantity} onChange={e => handleInputChange('quantity', parseFloat(e.target.value))} /></td>
-                                                <td className="py-2 px-3 text-right"><input type="number" className="w-24 border border-blue-300 rounded px-1.5 py-0.5 text-right" value={editForm?.value} onChange={e => handleInputChange('value', parseFloat(e.target.value))} /></td>
-                                                <td className="py-2 px-3 text-right">
-                                                    <div className="flex justify-end gap-1"><button onClick={handleSaveEdit} className="p-1 rounded bg-green-100 text-green-700 hover:bg-green-200"><Save className="w-3.5 h-3.5" /></button><button onClick={handleCancelEdit} className="p-1 rounded bg-red-100 text-red-700 hover:bg-red-200"><X className="w-3.5 h-3.5" /></button></div>
-                                                </td>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <td className="py-2 px-3 text-gray-500 whitespace-nowrap">{formatDateDisplay(item.date)}</td>
-                                                <td className="py-2 px-3 max-w-[150px]"><div className="flex flex-col"><span className="font-bold text-gray-900 truncate" title={item.customerName}>{item.customerName}</span>{item.isCustUnknown && <span className="text-[8px] text-red-600 bg-red-50 px-1 rounded w-fit border border-red-100">Unknown Master</span>}</div></td>
-                                                <td className="py-2 px-3 text-gray-500 text-[10px] font-bold uppercase truncate max-w-[100px]" title={item.custGroup}>{item.custGroup}</td>
-                                                <td className="py-2 px-3 max-w-[180px]"><div className="flex flex-col"><span className="truncate text-gray-800" title={item.particulars}>{item.particulars}</span>{item.isMatUnknown && <span className="text-[8px] text-red-600 bg-red-50 px-1 rounded w-fit border border-red-100">Item Error</span>}</div></td>
-                                                <td className="py-2 px-3 text-gray-500 italic truncate max-w-[80px]">{item.make}</td>
-                                                <td className="py-2 px-3 text-gray-400 font-mono text-[9px] whitespace-nowrap">{item.voucherNo}</td>
-                                                <td className="py-2 px-3 text-right font-medium text-blue-700">{item.quantity}</td>
-                                                <td className="py-2 px-3 text-right font-bold text-emerald-700 whitespace-nowrap">{formatCurrency(item.value)}</td>
-                                                <td className="py-2 px-3 text-right">
-                                                    <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={() => handleEditClick(item)} className="text-gray-400 hover:text-blue-600 p-0.5 rounded hover:bg-blue-50"><Pencil className="w-3.5 h-3.5" /></button><button onClick={() => onDelete(item.id)} className="text-gray-400 hover:text-red-600 p-0.5 rounded hover:bg-red-50"><Trash2 className="w-3.5 h-3.5" /></button></div>
-                                                </td>
-                                            </>
-                                        )}
-                                    </tr>
-                                ))
-                            )}
+                        <thead className="sticky top-0 z-10 bg-gray-50 shadow-sm text-[10px] font-bold text-gray-500 uppercase tracking-tighter"><tr className="border-b border-gray-200"><th className="py-2 px-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('date')}>Date {renderSortIcon('date')}</th><th className="py-2 px-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('customerName')}>Customer {renderSortIcon('customerName')}</th><th className="py-2 px-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('custGroup')}>Group {renderSortIcon('custGroup')}</th><th className="py-2 px-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('particulars')}>Item {renderSortIcon('particulars')}</th><th className="py-2 px-3">Make</th><th className="py-2 px-3">Voucher</th><th className="py-2 px-3 text-right">Qty</th><th className="py-2 px-3 text-right">Value</th><th className="py-2 px-3 text-right">Actions</th></tr></thead>
+                        <tbody className="divide-y divide-gray-200 text-xs text-gray-700">
+                            {paginatedItems.map(item => (
+                                <tr key={item.id} className="hover:bg-blue-50/10 transition-colors">
+                                    <td className="py-2 px-3 text-gray-500">{formatDateDisplay(item.date)}</td>
+                                    <td className="py-2 px-3">
+                                        <div className="flex flex-col">
+                                            <span className="font-bold text-gray-900 truncate max-w-[150px]">{item.customerName}</span>
+                                            {item.isCustUnknown && (
+                                                <div className="flex items-center gap-1 mt-0.5">
+                                                    <span className="text-[8px] text-red-600 bg-red-50 px-1 rounded font-bold border border-red-100">Unknown Master</span>
+                                                    <button onClick={() => handleOpenQuickAddCust(item)} className="p-0.5 bg-red-100 text-red-700 rounded hover:bg-red-200"><UserPlus className="w-2.5 h-2.5" /></button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </td>
+                                    <td className="py-2 px-3 font-bold uppercase text-[9px] text-gray-400">{item.custGroup}</td>
+                                    <td className="py-2 px-3">
+                                        <div className="flex flex-col">
+                                            <span className="truncate max-w-[180px]">{item.particulars}</span>
+                                            {item.isMatUnknown && (
+                                                <div className="flex items-center gap-1 mt-0.5">
+                                                    <span className="text-[8px] text-red-600 bg-red-50 px-1 rounded font-bold border border-red-100">Unknown Item</span>
+                                                    <button onClick={() => handleOpenQuickAddMat(item)} className="p-0.5 bg-red-100 text-red-700 rounded hover:bg-red-200"><Plus className="w-2.5 h-2.5" /></button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </td>
+                                    <td className="py-2 px-3 italic text-gray-500">{item.make}</td>
+                                    <td className="py-2 px-3 font-mono text-[9px] text-gray-400">{item.voucherNo}</td>
+                                    <td className="py-2 px-3 text-right font-medium text-blue-700">{item.quantity}</td>
+                                    <td className="py-2 px-3 text-right font-bold text-emerald-700">{formatCurrency(item.value)}</td>
+                                    <td className="py-2 px-3 text-right">
+                                        <button onClick={() => onDelete(item.id)} className="text-gray-400 hover:text-red-600 p-1"><Trash2 className="w-3.5 h-3.5" /></button>
+                                    </td>
+                                </tr>
+                            ))}
                         </tbody>
                     </table>
                 </div>
-                <div className="bg-gray-50 px-3 py-2 border-t border-gray-200 text-[10px] text-gray-500 flex justify-between items-center flex-shrink-0">
-                    <div className="flex items-center gap-4">
-                        <span>Rows per page: <select value={itemsPerPage} onChange={(e) => setItemsPerPage(Number(e.target.value))} className="bg-white border rounded text-[10px]">{[50, 100, 500].map(v => <option key={v} value={v}>{v}</option>)}</select></span>
-                        <span>Showing {paginatedItems.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} - {Math.min(currentPage * itemsPerPage, processedItems.length)} of {processedItems.length}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                        <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-1 rounded hover:bg-gray-200 disabled:opacity-30"><ChevronLeft className="w-4 h-4" /></button>
-                        <span className="px-2">Page {currentPage} of {totalPages}</span>
-                        <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="p-1 rounded hover:bg-gray-200 disabled:opacity-30"><ChevronRight className="w-4 h-4" /></button>
-                    </div>
+                <div className="bg-gray-50 px-3 py-2 border-t border-gray-200 text-[10px] text-gray-500 flex justify-between items-center">
+                    <div className="flex items-center gap-4">Rows: {processedItems.length}</div>
+                    <div className="flex items-center gap-1"><button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}><ChevronLeft className="w-4 h-4" /></button><span>Page {currentPage} of {totalPages}</span><button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}><ChevronRight className="w-4 h-4" /></button></div>
                 </div>
             </div>
+
+            {/* Quick Add Modals */}
+            {quickAddMatModal.isOpen && (
+                <div className="fixed inset-0 bg-black/50 z-[200] flex items-center justify-center p-4 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden p-4">
+                        <div className="flex justify-between items-center mb-4 border-b pb-2"><h3 className="font-bold flex items-center gap-2"><Package className="text-indigo-600" /> Add Material</h3><button onClick={() => setQuickAddMatModal({ isOpen: false, item: null })}><X /></button></div>
+                        <div className="space-y-3">
+                            <div><label className="text-[10px] font-bold uppercase text-gray-400">Description</label><input type="text" className="w-full border rounded-lg px-3 py-2 text-xs" value={quickAddMatForm.description} onChange={e => setQuickAddMatForm({ ...quickAddMatForm, description: e.target.value })} /></div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div><label className="text-[10px] font-bold uppercase text-gray-400">Part No</label><input type="text" className="w-full border rounded-lg px-3 py-2 text-xs" value={quickAddMatForm.partNo} onChange={e => setQuickAddMatForm({ ...quickAddMatForm, partNo: e.target.value })} /></div>
+                                <div><label className="text-[10px] font-bold uppercase text-gray-400">Make</label><input type="text" className="w-full border rounded-lg px-3 py-2 text-xs" value={quickAddMatForm.make} onChange={e => setQuickAddMatForm({ ...quickAddMatForm, make: e.target.value })} /></div>
+                            </div>
+                        </div>
+                        <div className="mt-6 flex justify-end gap-3"><button onClick={() => setQuickAddMatModal({ isOpen: false, item: null })} className="text-xs font-bold text-gray-500">Cancel</button><button onClick={handleQuickAddMaterial} disabled={isAdding} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2">{isAdding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Save</button></div>
+                    </div>
+                </div>
+            )}
+
+            {quickAddCustModal.isOpen && (
+                <div className="fixed inset-0 bg-black/50 z-[200] flex items-center justify-center p-4 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden p-4">
+                        <div className="flex justify-between items-center mb-4 border-b pb-2"><h3 className="font-bold flex items-center gap-2"><Users className="text-indigo-600" /> Add Customer</h3><button onClick={() => setQuickAddCustModal({ isOpen: false, item: null })}><X /></button></div>
+                        <div className="space-y-3">
+                            <div><label className="text-[10px] font-bold uppercase text-gray-400">Customer Name</label><input type="text" className="w-full border rounded-lg px-3 py-2 text-xs" value={quickAddCustForm.customerName} onChange={e => setQuickAddCustForm({ ...quickAddCustForm, customerName: e.target.value })} /></div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div><label className="text-[10px] font-bold uppercase text-gray-400">Sales Rep</label><input type="text" className="w-full border rounded-lg px-3 py-2 text-xs" value={quickAddCustForm.salesRep} onChange={e => setQuickAddCustForm({ ...quickAddCustForm, salesRep: e.target.value })} /></div>
+                                <div><label className="text-[10px] font-bold uppercase text-gray-400">Group</label><input type="text" className="w-full border rounded-lg px-3 py-2 text-xs" value={quickAddCustForm.group} onChange={e => setQuickAddCustForm({ ...quickAddCustForm, group: e.target.value })} /></div>
+                            </div>
+                        </div>
+                        <div className="mt-6 flex justify-end gap-3"><button onClick={() => setQuickAddCustModal({ isOpen: false, item: null })} className="text-xs font-bold text-gray-500">Cancel</button><button onClick={handleQuickAddCustomer} disabled={isAdding} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2">{isAdding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Save</button></div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

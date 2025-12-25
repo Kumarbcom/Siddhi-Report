@@ -217,9 +217,13 @@ const App: React.FC = () => {
     });
   };
 
-  const handleBulkAddCustomer = async (items: any) => {
-    const newItems = await customerService.createBulk(items);
+  const handleBulkAddCustomer = async (dataList: Omit<CustomerMasterItem, 'id' | 'createdAt'>[]) => {
+    const newItems = await customerService.createBulk(dataList);
     setCustomerMasterItems(prev => [...newItems, ...prev]);
+  };
+  const handleAddCustomer = async (data: Omit<CustomerMasterItem, 'id' | 'createdAt'>) => {
+    const newItem = await customerService.create(data);
+    setCustomerMasterItems(prev => [newItem, ...prev]);
   };
   const handleUpdateCustomer = async (item: CustomerMasterItem) => {
     await customerService.update(item);
@@ -697,7 +701,7 @@ const App: React.FC = () => {
           {activeTab === 'closingStock' && <div className="h-full w-full"><ClosingStockView items={closingStockItems} materials={materials} onBulkAdd={handleBulkAddStock} onUpdate={handleUpdateStock} onDelete={handleDeleteStock} onClear={handleClearStock} /></div>}
           {activeTab === 'pendingSO' && <div className="h-full w-full"><PendingSOView items={pendingSOItems} materials={materials} closingStockItems={closingStockItems} onBulkAdd={handleBulkAddSO} onUpdate={handleUpdateSO} onDelete={handleDeleteSO} onClear={handleClearSO} onAddMaterial={handleAddMaterial} /></div>}
           {activeTab === 'pendingPO' && <div className="h-full w-full"><PendingPOView items={pendingPOItems} materials={materials} closingStockItems={closingStockItems} pendingSOItems={pendingSOItems} salesReportItems={salesReportItems} onBulkAdd={handleBulkAddPO} onUpdate={handleUpdatePO} onDelete={handleDeletePO} onClear={handleClearPO} onAddMaterial={handleAddMaterial} /></div>}
-          {activeTab === 'salesReport' && <div className="h-full w-full"><SalesReportView items={salesReportItems} materials={materials} customers={customerMasterItems} onBulkAdd={handleBulkAddSales} onUpdate={handleUpdateSales} onDelete={handleDeleteSales} onClear={handleClearSales} /></div>}
+          {activeTab === 'salesReport' && <div className="h-full w-full"><SalesReportView items={salesReportItems} materials={materials} customers={customerMasterItems} onBulkAdd={handleBulkAddSales} onUpdate={handleUpdateSales} onDelete={handleDeleteSales} onClear={handleClearSales} onAddMaterial={handleAddMaterial} onAddCustomer={handleAddCustomer} /></div>}
         </main>
       </div>
 
