@@ -1,7 +1,7 @@
 
 import React, { useRef, useMemo, useState } from 'react';
 import { PendingPOItem, Material, ClosingStockItem, PendingSOItem, SalesReportItem } from '../types';
-import { Trash2, Download, Upload, ShoppingCart, Search, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, Package, FileDown, Pencil, Save, X, Calendar, PieChart, BarChart3, AlertOctagon, CheckCircle2, Filter } from 'lucide-react';
+import { Trash2, Download, Upload, ShoppingCart, Search, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, Package, FileDown, Pencil, Save, X, Calendar, PieChart, BarChart3, AlertOctagon, CheckCircle2, Filter, Plus, Layers } from 'lucide-react';
 import { read, utils, writeFile } from 'xlsx';
 
 interface PendingPOViewProps {
@@ -14,6 +14,7 @@ interface PendingPOViewProps {
     onClear: () => void;
     pendingSOItems?: PendingSOItem[];
     salesReportItems?: SalesReportItem[];
+    onAddMaterial?: (data: any) => Promise<void>;
 }
 
 type SortKey = keyof PendingPOItem;
@@ -74,12 +75,41 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
     onDelete,
     onClear,
     pendingSOItems = [],
-    salesReportItems = []
+    salesReportItems = [],
+    onAddMaterial
 }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' } | null>(null);
     const [actionFilter, setActionFilter] = useState<PlanningActionFilter>('ALL');
+    const [quickAddModal, setQuickAddModal] = useState<{ isOpen: boolean; item: PendingPOItem | null }>({ isOpen: false, item: null });
+    const [quickAddForm, setQuickAddForm] = useState<{ description: string; partNo: string; make: string; materialGroup: string; materialCode: string }>({ description: '', partNo: '', make: '', materialGroup: '', materialCode: '' });
+    const [isAddingMaster, setIsAddingMaster] = useState(false);
+
+    const handleOpenQuickAdd = (item: PendingPOItem) => {
+        setQuickAddModal({ isOpen: true, item });
+        setQuickAddForm({
+            description: item.itemName || '',
+            partNo: item.partNo || '',
+            make: '',
+            materialGroup: '',
+            materialCode: item.materialCode || ''
+        });
+    };
+
+    const handleQuickAddMaster = async () => {
+        if (!onAddMaterial || !quickAddForm.description) return;
+        setIsAddingMaster(true);
+        try {
+            await onAddMaterial(quickAddForm);
+            setQuickAddModal({ isOpen: false, item: null });
+            alert("Added to Material Master successfully!");
+        } catch (e: any) {
+            alert("Failed to add material: " + (e.message || "Unknown error"));
+        } finally {
+            setIsAddingMaster(false);
+        }
+    };
 
     const formatDateDisplay = (dateVal: string | Date | number) => {
         if (!dateVal) return '-';
@@ -309,7 +339,16 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
                                             <td className="py-2 px-3 whitespace-nowrap">{formatDateDisplay(item.date)}</td>
                                             <td className="py-2 px-3 font-medium whitespace-nowrap">{item.orderNo}</td>
                                             <td className="py-2 px-3 truncate max-w-[120px]">{item.partyName}</td>
-                                            <td className="py-2 px-3 font-medium text-gray-900 truncate max-w-[200px]" title={item.itemName}>{item.itemName}</td>
+                                            <td className="py-2 px-3 font-medium text-gray-900 max-w-[200px]">
+                                                <div className="flex flex-col">
+                                                    <span className="truncate block" title={item.itemName}>{item.itemName}</span>
+                                                    {!materials.some(m => m.description.toLowerCase().trim() === item.itemName.toLowerCase().trim()) && (
+                                                        <span className="inline-flex items-center gap-0.5 mt-0.5 text-[8px] text-red-600 bg-red-50 px-1 py-px rounded border border-red-100 w-fit whitespace-nowrap font-bold">
+                                                            <AlertTriangle className="w-2 h-2" /> Missing Master
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </td>
                                             <td className="py-2 px-3 text-right font-medium text-blue-600">{item.balanceQty}</td>
                                             <td className="py-2 px-3 text-right font-bold text-emerald-700">{formatCurrency(item.value)}</td>
                                             <td className="py-2 px-3 whitespace-nowrap">{formatDateDisplay(item.dueDate)}</td>
@@ -317,7 +356,21 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
                                                 {strat?.expedite ? <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-blue-100 text-blue-700">EXPEDITE</span> : (strat?.excessPO ? <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-orange-100 text-orange-700">EXCESS</span> : <span className="text-gray-300">-</span>)}
                                             </td>
                                             <td className="py-2 px-3 text-right">
-                                                <div className="flex justify-end gap-1"><button onClick={() => onDelete(item.id)} className="text-gray-400 hover:text-red-600 p-0.5"><Trash2 className="w-3.5 h-3.5" /></button></div>
+                                                <div className="flex justify-end gap-1">
+                                                    {!materials.some(m => m.description.toLowerCase().trim() === item.itemName.toLowerCase().trim()) && (
+                                                        <button
+                                                            onClick={() => handleOpenQuickAdd(item)}
+                                                            className="text-red-600 hover:text-red-700 p-1 rounded hover:bg-red-50 transition-colors flex items-center gap-1 group relative"
+                                                            title="Add to Material Master"
+                                                        >
+                                                            <Plus className="w-4 h-4" />
+                                                            <div className="absolute bottom-full right-0 mb-2 px-2 py-1 bg-gray-900 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 transition-opacity">
+                                                                Add to Master
+                                                            </div>
+                                                        </button>
+                                                    )}
+                                                    <button onClick={() => onDelete(item.id)} className="text-gray-400 hover:text-red-600 p-0.5"><Trash2 className="w-3.5 h-3.5" /></button>
+                                                </div>
                                             </td>
                                         </tr>
                                     );
@@ -327,6 +380,89 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
                     </table>
                 </div>
             </div>
+            {/* Quick Add Modal */}
+            {quickAddModal.isOpen && (
+                <div className="fixed inset-0 bg-black/50 z-[200] flex items-center justify-center p-4 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in duration-200">
+                        <div className="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+                            <h3 className="font-black text-gray-800 uppercase tracking-tight flex items-center gap-2">
+                                <Layers className="w-5 h-5 text-indigo-600" />
+                                Quick Add to Master
+                            </h3>
+                            <button onClick={() => setQuickAddModal({ isOpen: false, item: null })} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+                        </div>
+                        <div className="p-4 space-y-4">
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase">Description</label>
+                                <input
+                                    type="text"
+                                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+                                    value={quickAddForm.description}
+                                    onChange={e => setQuickAddForm(v => ({ ...v, description: e.target.value }))}
+                                />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase">Part No</label>
+                                    <input
+                                        type="text"
+                                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+                                        value={quickAddForm.partNo}
+                                        onChange={e => setQuickAddForm(v => ({ ...v, partNo: e.target.value }))}
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase">Material Code</label>
+                                    <input
+                                        type="text"
+                                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+                                        value={quickAddForm.materialCode}
+                                        onChange={e => setQuickAddForm(v => ({ ...v, materialCode: e.target.value }))}
+                                    />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase">Make (Brand)</label>
+                                    <input
+                                        type="text"
+                                        placeholder="e.g. LAPP, EATON"
+                                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+                                        value={quickAddForm.make}
+                                        onChange={e => setQuickAddForm(v => ({ ...v, make: e.target.value }))}
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase">Material Group</label>
+                                    <input
+                                        type="text"
+                                        placeholder="e.g. CABLES, SWITCH"
+                                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+                                        value={quickAddForm.materialGroup}
+                                        onChange={e => setQuickAddForm(v => ({ ...v, materialGroup: e.target.value }))}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                        <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+                            <button
+                                onClick={() => setQuickAddModal({ isOpen: false, item: null })}
+                                className="px-4 py-2 text-xs font-bold text-gray-600 hover:text-gray-800"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleQuickAddMaster}
+                                disabled={isAddingMaster || !quickAddForm.description}
+                                className="px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-lg shadow-md hover:bg-indigo-700 transition-all disabled:opacity-50 flex items-center gap-2"
+                            >
+                                {isAddingMaster ? <Layers className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                                Add to Master
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

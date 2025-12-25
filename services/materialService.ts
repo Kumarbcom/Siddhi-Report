@@ -83,6 +83,39 @@ export const materialService = {
     return dbService.getAll<Material>(STORES.MATERIALS);
   },
 
+  async create(material: MaterialFormData): Promise<Material> {
+    const timestamp = Date.now();
+    const newItem: Material = {
+      ...material,
+      id: getUuid(),
+      createdAt: timestamp,
+      updatedAt: timestamp
+    };
+
+    if (isSupabaseConfigured) {
+      try {
+        const { error } = await supabase
+          .from('material_master')
+          .insert([{
+            id: newItem.id,
+            material_code: newItem.materialCode,
+            description: newItem.description,
+            part_no: newItem.partNo,
+            make: newItem.make,
+            material_group: newItem.materialGroup,
+            created_at: new Date(timestamp).toISOString(),
+            updated_at: new Date(timestamp).toISOString()
+          }]);
+        if (error) throw new Error(error.message);
+      } catch (e: any) {
+        console.error("Material Master: Cloud create failed:", e?.message || e);
+      }
+    }
+
+    await dbService.put(STORES.MATERIALS, newItem);
+    return newItem;
+  },
+
   async createBulk(materials: MaterialFormData[]): Promise<Material[]> {
     const timestamp = Date.now();
     const newItems: Material[] = materials
