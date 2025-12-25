@@ -1331,14 +1331,40 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                 );
                             })}
                         </div>
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
-                            <div className="lg:col-span-2 bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex flex-col h-64 overflow-hidden"><h3 className="text-xs font-bold text-gray-800 mb-2 flex items-center gap-2"><TrendingUp className="w-3.5 h-3.5 text-blue-600" /> 3-Year Trend</h3><div className="flex flex-1 pt-1 overflow-hidden"><div className="flex flex-col justify-between text-[8px] text-gray-400 pr-2 pb-6 text-right w-10 border-r"><span>{formatAxisValue(chartMax)}</span><span>{formatAxisValue(chartMax * 0.5)}</span><span>0</span></div><div className="flex-1 pl-2 pb-1 relative min-h-0"><SalesTrendChart data={lineChartData} maxVal={chartMax} /></div></div></div>
-                            <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex flex-col h-64 overflow-hidden">
+                        {/* Trends and Analytics Section */}
+                        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col h-72 overflow-hidden shadow-inner group transition-all hover:shadow-md">
+                            <h3 className="text-[11px] font-black text-gray-800 mb-3 flex items-center gap-2 uppercase tracking-widest border-b border-gray-50 pb-2">
+                                <TrendingUp className="w-4 h-4 text-blue-600" />
+                                3-Year Sales Performance Trend
+                            </h3>
+                            <div className="flex flex-1 pt-1 overflow-hidden">
+                                <div className="flex flex-col justify-between text-[9px] font-bold text-gray-400 pr-3 pb-8 text-right w-12 border-r border-gray-50">
+                                    <span>{formatAxisValue(chartMax)}</span>
+                                    <span>{formatAxisValue(chartMax * 0.5)}</span>
+                                    <span>0</span>
+                                </div>
+                                <div className="flex-1 pl-3 pb-1 relative min-h-0">
+                                    <SalesTrendChart data={lineChartData} maxVal={chartMax} />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Top Mix Analytics */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+                            <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex flex-col h-72 overflow-hidden transition-all hover:shadow-md">
                                 <ModernDonutChartDashboard
                                     data={groupedCustomerData.map(g => ({ label: g.group, value: g.total }))}
-                                    title="Sales Mix"
+                                    title="Revenue by Customer Group"
                                     isCurrency={true}
                                     centerColorClass="text-blue-700"
+                                />
+                            </div>
+                            <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex flex-col h-72 overflow-hidden transition-all hover:shadow-md">
+                                <ModernDonutChartDashboard
+                                    data={topTenCustomers.map(c => ({ label: c.label, value: c.value }))}
+                                    title="Top 10 Customers Sales Mix"
+                                    isCurrency={true}
+                                    centerColorClass="text-emerald-700"
                                 />
                             </div>
                         </div>
