@@ -718,43 +718,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             .slice(0, 10);
     }, [currentData, previousDataForComparison]);
 
-    const top10GroupedData = useMemo(() => {
-        const top10Labels = new Set(topTenCustomers.map(c => c.label));
-        const groupMap = new Map<string, { total: number, totalPrevious: number, customers: Map<string, { current: number, previous: number }> }>();
-
-        const processItem = (i: any, isCurrent: boolean) => {
-            const name = String(i.customerName || 'Unknown');
-            if (!top10Labels.has(name)) return;
-            const group = i.custGroup || 'Unassigned';
-            if (!groupMap.has(group)) groupMap.set(group, { total: 0, totalPrevious: 0, customers: new Map() });
-            const gObj = groupMap.get(group)!;
-            if (isCurrent) {
-                gObj.total += (i.value || 0);
-                if (!gObj.customers.has(name)) gObj.customers.set(name, { current: 0, previous: 0 });
-                gObj.customers.get(name)!.current += (i.value || 0);
-            } else {
-                gObj.totalPrevious += (i.value || 0);
-                if (!gObj.customers.has(name)) gObj.customers.set(name, { current: 0, previous: 0 });
-                gObj.customers.get(name)!.previous += (i.value || 0);
-            }
-        };
-
-        currentData.forEach(i => processItem(i, true));
-        previousDataForComparison.forEach(i => processItem(i, false));
-
-        return Array.from(groupMap.entries()).map(([group, data]) => ({
-            group,
-            total: data.total,
-            totalPrevious: data.totalPrevious,
-            customers: Array.from(data.customers.entries()).map(([name, vals]) => ({
-                name,
-                current: vals.current,
-                previous: vals.previous,
-                diff: vals.current - vals.previous
-            })).sort((a, b) => b.current - a.current)
-        })).sort((a, b) => b.total - a.total);
-    }, [topTenCustomers, currentData, previousDataForComparison]);
-
     const inventoryStats = useMemo(() => {
         // Build maps for O(1) matching
         const matByPartNo = new Map<string, { make: string, group: string }>();
@@ -1392,27 +1355,20 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                         </div>
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
                             <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm h-[380px] flex flex-col overflow-hidden transition-all hover:shadow-md">
-                                <div className="flex items-center justify-between mb-2 border-b border-gray-100 pb-2">
-                                    <h3 className="text-[10px] font-black text-gray-800 uppercase tracking-tight flex items-center gap-2">
-                                        <Users className="w-3.5 h-3.5 text-blue-600" />
-                                        Top 10 Customers ({groupingMode === 'RAW' ? 'Customer Group' : 'Merged'}-wise)
-                                    </h3>
-                                    <span className="text-[8px] font-bold text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full uppercase">Top 10</span>
-                                </div>
-                                <div className="flex-1 overflow-hidden">
-                                    <GroupedCustomerAnalysis
-                                        data={top10GroupedData}
-                                        compareLabel={timeView === 'WEEK' ? 'PW' : timeView === 'MONTH' ? 'PM' : 'LY'}
-                                    />
-                                </div>
+                                <HorizontalBarChart
+                                    data={topTenCustomers}
+                                    title="Universal Top 10 Customers"
+                                    color="emerald"
+                                    compareLabel={timeView === 'WEEK' ? 'PW' : timeView === 'MONTH' ? 'PM' : 'LY'}
+                                />
                             </div>
                             <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm h-[380px] flex flex-col overflow-hidden transition-all hover:shadow-md">
                                 <div className="flex items-center justify-between mb-2 border-b border-gray-100 pb-2">
                                     <h3 className="text-[10px] font-black text-gray-800 uppercase tracking-tight flex items-center gap-2">
-                                        <Layers className="w-3.5 h-3.5 text-emerald-600" />
-                                        Full {groupingMode === 'RAW' ? 'Customer Group' : 'Merged Group'} Analytics
+                                        <Layers className="w-3.5 h-3.5 text-blue-600" />
+                                        Advanced {groupingMode === 'RAW' ? 'Customer Group' : 'Merged Group'} Analytics
                                     </h3>
-                                    <span className="text-[8px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full uppercase">All Groups</span>
+                                    <span className="text-[8px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full uppercase">All Groups</span>
                                 </div>
                                 <div className="flex-1 overflow-hidden">
                                     <GroupedCustomerAnalysis
