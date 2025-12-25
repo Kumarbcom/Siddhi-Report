@@ -15,7 +15,7 @@ type SortKey = keyof Material;
 const MaterialTable: React.FC<MaterialTableProps> = ({ materials, onUpdate, onDelete }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' } | null>(null);
-  
+
   const isEnvLinked = isSupabaseConfigured;
 
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -56,14 +56,11 @@ const MaterialTable: React.FC<MaterialTableProps> = ({ materials, onUpdate, onDe
   const processedMaterials = useMemo(() => {
     let data = [...materials];
     if (searchTerm) {
-      const lowerSearch = searchTerm.toLowerCase();
-      data = data.filter(item => 
-        (item.materialCode || '').toLowerCase().includes(lowerSearch) ||
-        item.description.toLowerCase().includes(lowerSearch) ||
-        item.partNo.toLowerCase().includes(lowerSearch) ||
-        item.make.toLowerCase().includes(lowerSearch) ||
-        item.materialGroup.toLowerCase().includes(lowerSearch)
-      );
+      const words = searchTerm.toLowerCase().split(/\s+/).filter(Boolean);
+      data = data.filter(item => {
+        const searchableText = `${item.materialCode || ''} ${item.description || ''} ${item.partNo || ''} ${item.make || ''} ${item.materialGroup || ''}`.toLowerCase();
+        return words.every(word => searchableText.includes(word));
+      });
     }
     if (sortConfig) {
       data.sort((a, b) => {
@@ -100,10 +97,10 @@ const MaterialTable: React.FC<MaterialTableProps> = ({ materials, onUpdate, onDe
           </div>
         </div>
         <div className="flex items-center gap-2">
-           <div className="flex items-center gap-2 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">
-              <Layers className="w-4 h-4 text-blue-500" />
-              <span className="text-xs font-bold text-blue-700 uppercase tracking-tight">{processedMaterials.length} Items</span>
-           </div>
+          <div className="flex items-center gap-2 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">
+            <Layers className="w-4 h-4 text-blue-500" />
+            <span className="text-xs font-bold text-blue-700 uppercase tracking-tight">{processedMaterials.length} Items</span>
+          </div>
         </div>
       </div>
 
@@ -125,65 +122,65 @@ const MaterialTable: React.FC<MaterialTableProps> = ({ materials, onUpdate, onDe
                 <tr>
                   <td colSpan={6} className="py-20 text-center text-gray-400">
                     <div className="flex flex-col items-center justify-center gap-2">
-                        <Database className="w-12 h-12 text-gray-200" />
-                        <p className="font-bold">No Records Found</p>
+                      <Database className="w-12 h-12 text-gray-200" />
+                      <p className="font-bold">No Records Found</p>
                     </div>
                   </td>
                 </tr>
               ) : (
-                  processedMaterials.map((material) => (
-                    <tr key={material.id} className={`hover:bg-blue-50/20 transition-colors group ${editingId === material.id ? 'bg-blue-50' : ''}`}>
-                      {editingId === material.id ? (
-                        <>
-                          <td className="py-2 px-4"><input type="text" className="w-full border border-blue-300 rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-blue-500" value={editForm?.materialCode || ''} onChange={e => handleInputChange('materialCode', e.target.value)} /></td>
-                          <td className="py-2 px-4"><input type="text" className="w-full border border-blue-300 rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-blue-500" value={editForm?.description || ''} onChange={e => handleInputChange('description', e.target.value)} /></td>
-                          <td className="py-2 px-4"><input type="text" className="w-full border border-blue-300 rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-blue-500" value={editForm?.partNo || ''} onChange={e => handleInputChange('partNo', e.target.value)} /></td>
-                          <td className="py-2 px-4"><input type="text" className="w-full border border-blue-300 rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-blue-500" value={editForm?.make || ''} onChange={e => handleInputChange('make', e.target.value)} /></td>
-                          <td className="py-2 px-4"><input type="text" className="w-full border border-blue-300 rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-blue-500" value={editForm?.materialGroup || ''} onChange={e => handleInputChange('materialGroup', e.target.value)} /></td>
-                          <td className="py-2 px-4 text-right">
-                            <div className="flex justify-end gap-1">
-                              <button onClick={handleSaveEdit} className="p-1.5 rounded bg-green-100 text-green-700 hover:bg-green-200 transition-colors shadow-sm"><Save className="w-4 h-4" /></button>
-                              <button onClick={handleCancelEdit} className="p-1.5 rounded bg-red-100 text-red-700 hover:bg-red-200 transition-colors shadow-sm"><X className="w-4 h-4" /></button>
-                            </div>
-                          </td>
-                        </>
-                      ) : (
-                        <>
-                          <td className="py-2.5 px-4 text-xs font-black text-blue-700 font-mono tracking-tight"><div className="flex items-center gap-2"><Hash className="w-3 h-3 text-blue-300" />{material.materialCode || '-'}</div></td>
-                          <td className="py-2.5 px-4 text-xs font-bold text-gray-900 leading-tight">{material.description}</td>
-                          <td className="py-2.5 px-4 text-xs text-gray-600 font-mono">{material.partNo || '-'}</td>
-                          <td className="py-2.5 px-4"><span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-gray-100 text-gray-700 border border-gray-200 whitespace-nowrap">{material.make || 'Other'}</span></td>
-                          <td className="py-2.5 px-4 text-xs text-gray-500 font-medium whitespace-nowrap">{material.materialGroup || '-'}</td>
-                          <td className="py-2.5 px-4 text-right">
-                            <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                              <button onClick={() => handleEditClick(material)} className="text-gray-400 hover:text-blue-600 p-1.5 rounded-md hover:bg-blue-50 transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
-                              <button onClick={() => onDelete(material.id)} className="text-gray-400 hover:text-red-600 p-1.5 rounded-md hover:bg-red-50 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
-                            </div>
-                          </td>
-                        </>
-                      )}
-                    </tr>
-                  ))
+                processedMaterials.map((material) => (
+                  <tr key={material.id} className={`hover:bg-blue-50/20 transition-colors group ${editingId === material.id ? 'bg-blue-50' : ''}`}>
+                    {editingId === material.id ? (
+                      <>
+                        <td className="py-2 px-4"><input type="text" className="w-full border border-blue-300 rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-blue-500" value={editForm?.materialCode || ''} onChange={e => handleInputChange('materialCode', e.target.value)} /></td>
+                        <td className="py-2 px-4"><input type="text" className="w-full border border-blue-300 rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-blue-500" value={editForm?.description || ''} onChange={e => handleInputChange('description', e.target.value)} /></td>
+                        <td className="py-2 px-4"><input type="text" className="w-full border border-blue-300 rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-blue-500" value={editForm?.partNo || ''} onChange={e => handleInputChange('partNo', e.target.value)} /></td>
+                        <td className="py-2 px-4"><input type="text" className="w-full border border-blue-300 rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-blue-500" value={editForm?.make || ''} onChange={e => handleInputChange('make', e.target.value)} /></td>
+                        <td className="py-2 px-4"><input type="text" className="w-full border border-blue-300 rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-blue-500" value={editForm?.materialGroup || ''} onChange={e => handleInputChange('materialGroup', e.target.value)} /></td>
+                        <td className="py-2 px-4 text-right">
+                          <div className="flex justify-end gap-1">
+                            <button onClick={handleSaveEdit} className="p-1.5 rounded bg-green-100 text-green-700 hover:bg-green-200 transition-colors shadow-sm"><Save className="w-4 h-4" /></button>
+                            <button onClick={handleCancelEdit} className="p-1.5 rounded bg-red-100 text-red-700 hover:bg-red-200 transition-colors shadow-sm"><X className="w-4 h-4" /></button>
+                          </div>
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="py-2.5 px-4 text-xs font-black text-blue-700 font-mono tracking-tight"><div className="flex items-center gap-2"><Hash className="w-3 h-3 text-blue-300" />{material.materialCode || '-'}</div></td>
+                        <td className="py-2.5 px-4 text-xs font-bold text-gray-900 leading-tight">{material.description}</td>
+                        <td className="py-2.5 px-4 text-xs text-gray-600 font-mono">{material.partNo || '-'}</td>
+                        <td className="py-2.5 px-4"><span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-gray-100 text-gray-700 border border-gray-200 whitespace-nowrap">{material.make || 'Other'}</span></td>
+                        <td className="py-2.5 px-4 text-xs text-gray-500 font-medium whitespace-nowrap">{material.materialGroup || '-'}</td>
+                        <td className="py-2.5 px-4 text-right">
+                          <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                            <button onClick={() => handleEditClick(material)} className="text-gray-400 hover:text-blue-600 p-1.5 rounded-md hover:bg-blue-50 transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
+                            <button onClick={() => onDelete(material.id)} className="text-gray-400 hover:text-red-600 p-1.5 rounded-md hover:bg-red-50 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                          </div>
+                        </td>
+                      </>
+                    )}
+                  </tr>
+                ))
               )}
             </tbody>
           </table>
         </div>
-        
+
         <div className="bg-gray-50 px-4 py-3 border-t border-gray-200 text-[10px] text-gray-500 flex flex-col sm:flex-row justify-between items-center flex-shrink-0 gap-2">
           <div className="flex items-center gap-3">
-              <div className="flex items-center gap-1.5">
-                  <Database className="w-3.5 h-3.5 text-gray-400" />
-                  <span className="font-bold uppercase tracking-wider">Repository Status:</span>
-              </div>
-              {isEnvLinked ? (
-                  <span className="text-green-600 font-black flex items-center gap-1 bg-green-50 px-2 py-0.5 rounded border border-green-100">
-                    <CheckCircle2 className="w-3 h-3" /> Supabase Cloud Master Linked
-                  </span>
-              ) : (
-                  <span className="text-blue-600 font-black flex items-center gap-1 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
-                    <Database className="w-3 h-3" /> IndexedDB Local Engine Active
-                  </span>
-              )}
+            <div className="flex items-center gap-1.5">
+              <Database className="w-3.5 h-3.5 text-gray-400" />
+              <span className="font-bold uppercase tracking-wider">Repository Status:</span>
+            </div>
+            {isEnvLinked ? (
+              <span className="text-green-600 font-black flex items-center gap-1 bg-green-50 px-2 py-0.5 rounded border border-green-100">
+                <CheckCircle2 className="w-3 h-3" /> Supabase Cloud Master Linked
+              </span>
+            ) : (
+              <span className="text-blue-600 font-black flex items-center gap-1 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
+                <Database className="w-3 h-3" /> IndexedDB Local Engine Active
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <span className="font-medium italic">Master Data Integrity: 100%</span>

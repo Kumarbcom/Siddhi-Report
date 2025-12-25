@@ -290,12 +290,11 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
         if (slicerMatGroup !== 'ALL') data = data.filter(i => i.matGroup === slicerMatGroup);
 
         if (searchTerm) {
-            const lower = searchTerm.toLowerCase();
-            data = data.filter(i =>
-                String(i.customerName || '').toLowerCase().includes(lower) ||
-                String(i.particulars || '').toLowerCase().includes(lower) ||
-                String(i.voucherNo || '').toLowerCase().includes(lower)
-            );
+            const words = searchTerm.toLowerCase().split(/\s+/).filter(Boolean);
+            data = data.filter(i => {
+                const searchableText = `${i.customerName || ''} ${i.particulars || ''} ${i.voucherNo || ''}`.toLowerCase();
+                return words.every(word => searchableText.includes(word));
+            });
         }
         if (sortConfig) {
             data.sort((a, b) => {

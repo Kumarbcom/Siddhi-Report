@@ -233,8 +233,11 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
         }
 
         if (searchTerm) {
-            const lower = searchTerm.toLowerCase();
-            data = data.filter(i => i.orderNo.toLowerCase().includes(lower) || i.partyName.toLowerCase().includes(lower) || i.itemName.toLowerCase().includes(lower) || i.partNo.toLowerCase().includes(lower));
+            const words = searchTerm.toLowerCase().split(/\s+/).filter(Boolean);
+            data = data.filter(i => {
+                const searchableText = `${i.orderNo || ''} ${i.partyName || ''} ${i.itemName || ''} ${i.partNo || ''}`.toLowerCase();
+                return words.every(word => searchableText.includes(word));
+            });
         }
         if (sortConfig) {
             data.sort((a, b) => {

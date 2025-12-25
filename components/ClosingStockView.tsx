@@ -236,8 +236,11 @@ const ClosingStockView: React.FC<ClosingStockViewProps> = ({
     if (selectedMake !== 'ALL') data = data.filter(i => i.make === selectedMake);
     if (selectedGroup !== 'ALL') data = data.filter(i => i.group === selectedGroup);
     if (searchTerm) {
-      const low = searchTerm.toLowerCase();
-      data = data.filter(i => i.description.toLowerCase().includes(low));
+      const words = searchTerm.toLowerCase().split(/\s+/).filter(Boolean);
+      data = data.filter(i => {
+        const searchableText = `${i.description || ''} ${i.make || ''} ${i.group || ''}`.toLowerCase();
+        return words.every(word => searchableText.includes(word));
+      });
     }
     return data;
   }, [enrichedItems, selectedMake, selectedGroup, searchTerm]);
