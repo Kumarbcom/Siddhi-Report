@@ -1,5 +1,5 @@
 
-import React, { useRef, useState, useMemo, useEffect } from 'react';
+import React, { useRef, useState, useMemo, useEffect, useDeferredValue } from 'react';
 import { SalesReportItem, Material, CustomerMasterItem } from '../types';
 import { Trash2, Download, Upload, Search, ArrowUpDown, ArrowUp, ArrowDown, FileBarChart, AlertTriangle, UserX, PackageX, Users, Package, FileWarning, FileDown, Loader2, ChevronLeft, ChevronRight, Filter, Calendar, CalendarRange, Layers, TrendingUp, TrendingDown, Minus, UserCheck, Target, BarChart2, AlertOctagon, DollarSign, Pencil, Save, X, Database, Plus, UserPlus } from 'lucide-react';
 import { read, utils, writeFile } from 'xlsx';
@@ -249,6 +249,16 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
         });
     }, [items, customerLookup, materialLookup]);
 
+    const deferredSearchTerm = useDeferredValue(searchTerm);
+
+    // Pre-calculate searching text for performance
+    const itemsWithSearch = useMemo(() => {
+        return enrichedItems.map(i => ({
+            ...i,
+            searchText: `${i.customerName || ''} ${i.particulars || ''} ${i.voucherNo || ''}`.toLowerCase()
+        }));
+    }, [enrichedItems]);
+
     const mismatchStats = useMemo(() => {
         let recordsWithError = 0;
         const uniqueCustErrors = new Set<string>();
@@ -275,7 +285,7 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
     useEffect(() => { if (!selectedFY && options.fys.length > 0) { setSelectedFY(options.fys[0]); } }, [options.fys, selectedFY]);
 
     const processedItems = useMemo(() => {
-        let data = [...enrichedItems];
+        let data = [...itemsWithSearch];
         if (showMismatchesOnly) {
             data = data.filter(i => i.isCustUnknown || i.isMatUnknown);
         } else {
@@ -289,11 +299,10 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
         if (slicerMake !== 'ALL') data = data.filter(i => i.make === slicerMake);
         if (slicerMatGroup !== 'ALL') data = data.filter(i => i.matGroup === slicerMatGroup);
 
-        if (searchTerm) {
-            const words = searchTerm.toLowerCase().split(/\s+/).filter(Boolean);
+        if (deferredSearchTerm) {
+            const words = deferredSearchTerm.toLowerCase().split(/\s+/).filter(Boolean);
             data = data.filter(i => {
-                const searchableText = `${i.customerName || ''} ${i.particulars || ''} ${i.voucherNo || ''}`.toLowerCase();
-                return words.every(word => searchableText.includes(word));
+                return words.every(word => i.searchText.includes(word));
             });
         }
         if (sortConfig) {
@@ -306,7 +315,7 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
             });
         }
         return data;
-    }, [enrichedItems, selectedFY, timeView, selectedMonth, selectedWeek, slicerGroup, slicerRep, slicerStatus, slicerMake, slicerMatGroup, searchTerm, sortConfig, showMismatchesOnly]);
+    }, [itemsWithSearch, selectedFY, timeView, selectedMonth, selectedWeek, slicerGroup, slicerRep, slicerStatus, slicerMake, slicerMatGroup, deferredSearchTerm, sortConfig, showMismatchesOnly]);
 
     const totals = useMemo(() => {
         return processedItems.reduce((acc, item) => ({ qty: acc.qty + (item.quantity || 0), val: acc.val + (item.value || 0) }), { qty: 0, val: 0 });
@@ -438,7 +447,18 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                 <div className="flex flex-wrap gap-4 items-center">
                     <div className="flex flex-col gap-0.5"><label className="text-[9px] font-black text-gray-400 uppercase">Group</label><select value={slicerGroup} onChange={(e) => setSlicerGroup(e.target.value)} className="bg-gray-50 border border-gray-200 text-xs rounded-md px-2 py-1 w-32"><option value="ALL">All Groups</option>{options.groups.map(g => <option key={g} value={g}>{g}</option>)}</select></div>
                     <div className="flex flex-col gap-0.5"><label className="text-[9px] font-black text-gray-400 uppercase">Make</label><select value={slicerMake} onChange={(e) => setSlicerMake(e.target.value)} className="bg-gray-50 border border-gray-200 text-xs rounded-md px-2 py-1 w-32"><option value="ALL">All Makes</option>{options.makes.map(m => <option key={m} value={m}>{m}</option>)}</select></div>
-                    <div className="flex-1 min-w-[200px] flex items-end"><div className="relative w-full"><div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Search className="h-3.5 w-3.5 text-gray-400" /></div><input type="text" placeholder="Search..." className="pl-9 pr-3 py-1.5 w-full border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div></div>
+                    <div className="flex-1 min-w-[200px] flex items-end">
+                        <div className="relative w-full">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Search className="h-3.5 w-3.5 text-gray-400" /></div>
+                            <input type="text" placeholder="Search..." className="pl-9 pr-24 py-1.5 w-full border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                            {deferredSearchTerm !== searchTerm && (
+                                <div className="absolute inset-y-0 right-3 flex items-center gap-1.5 text-[10px] text-blue-500 font-bold animate-pulse">
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                    <span>Filtering...</span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 </div>
             </div>
 

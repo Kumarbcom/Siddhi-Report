@@ -1,7 +1,7 @@
 
-import React, { useRef, useState, useMemo, useEffect } from 'react';
+import React, { useRef, useState, useMemo, useEffect, useDeferredValue } from 'react';
 import { ClosingStockItem, Material } from '../types';
-import { Trash2, Download, Upload, Package, Search, ArrowUpDown, ArrowUp, ArrowDown, Filter, PieChart as PieChartIcon, BarChart3, Layers, AlertTriangle, Link2Off, FileDown, Pencil, Save, X } from 'lucide-react';
+import { Trash2, Download, Upload, Package, Search, ArrowUpDown, ArrowUp, ArrowDown, Filter, PieChart as PieChartIcon, BarChart3, Layers, AlertTriangle, Link2Off, FileDown, Pencil, Save, X, Loader2 } from 'lucide-react';
 import { read, utils, writeFile } from 'xlsx';
 
 const formatLargeValue = (val: number, compact: boolean = false) => {
@@ -231,19 +231,28 @@ const ClosingStockView: React.FC<ClosingStockViewProps> = ({
     return ['ALL', ...groups, ...(hasUnspecified ? ['Unspecified'] : [])];
   }, [enrichedItems, selectedMake]);
 
+  const deferredSearchTerm = useDeferredValue(searchTerm);
+
+  // Pre-calculate search text
+  const itemsWithSearch = useMemo(() => {
+    return enrichedItems.map(i => ({
+      ...i,
+      searchText: `${i.description || ''} ${i.make || ''} ${i.group || ''}`.toLowerCase()
+    }));
+  }, [enrichedItems]);
+
   const filteredData = useMemo(() => {
-    let data = enrichedItems;
+    let data = [...itemsWithSearch];
     if (selectedMake !== 'ALL') data = data.filter(i => i.make === selectedMake);
     if (selectedGroup !== 'ALL') data = data.filter(i => i.group === selectedGroup);
-    if (searchTerm) {
-      const words = searchTerm.toLowerCase().split(/\s+/).filter(Boolean);
+    if (deferredSearchTerm) {
+      const words = deferredSearchTerm.toLowerCase().split(/\s+/).filter(Boolean);
       data = data.filter(i => {
-        const searchableText = `${i.description || ''} ${i.make || ''} ${i.group || ''}`.toLowerCase();
-        return words.every(word => searchableText.includes(word));
+        return words.every(word => i.searchText.includes(word));
       });
     }
     return data;
-  }, [enrichedItems, selectedMake, selectedGroup, searchTerm]);
+  }, [itemsWithSearch, selectedMake, selectedGroup, deferredSearchTerm]);
 
   useEffect(() => {
     if (selectedMake !== 'ALL' && !uniqueMakes.includes(selectedMake)) setSelectedMake('ALL');
@@ -345,7 +354,13 @@ const ClosingStockView: React.FC<ClosingStockViewProps> = ({
             <label className="text-[9px] font-black text-gray-400 uppercase mb-1">Live Article Search</label>
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-              <input type="text" placeholder="Type to filter items..." className="w-full pl-8 pr-3 py-1.5 bg-gray-50 border border-gray-200 rounded-md text-xs font-medium focus:ring-2 focus:ring-blue-500 bg-white outline-none shadow-sm transition-all" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+              <input type="text" placeholder="Type to filter items..." className="w-full pl-8 pr-24 py-1.5 bg-gray-50 border border-gray-200 rounded-md text-xs font-medium focus:ring-2 focus:ring-blue-500 bg-white outline-none shadow-sm transition-all" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+              {deferredSearchTerm !== searchTerm && (
+                <div className="absolute inset-y-0 right-3 flex items-center gap-1.5 text-[10px] text-blue-500 font-bold animate-pulse">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  <span>Filtering...</span>
+                </div>
+              )}
             </div>
           </div>
           <div className="flex items-end gap-2 px-1">

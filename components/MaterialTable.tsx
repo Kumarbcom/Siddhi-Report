@@ -1,7 +1,7 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useDeferredValue } from 'react';
 import { Material } from '../types';
-import { Trash2, Search, ArrowUpDown, ArrowUp, ArrowDown, Pencil, Save, X, Hash, Globe, WifiOff, Database, Layers, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Trash2, Search, ArrowUpDown, ArrowUp, ArrowDown, Pencil, Save, X, Hash, Globe, WifiOff, Database, Layers, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { isSupabaseConfigured } from '../services/supabase';
 
 interface MaterialTableProps {
@@ -14,6 +14,7 @@ type SortKey = keyof Material;
 
 const MaterialTable: React.FC<MaterialTableProps> = ({ materials, onUpdate, onDelete }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const deferredSearchTerm = useDeferredValue(searchTerm);
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' } | null>(null);
 
   const isEnvLinked = isSupabaseConfigured;
@@ -53,26 +54,33 @@ const MaterialTable: React.FC<MaterialTableProps> = ({ materials, onUpdate, onDe
     setSortConfig({ key, direction });
   };
 
+  // Pre-calculate search text for performance
+  const materialsWithSearch = useMemo(() => {
+    return materials.map(m => ({
+      ...m,
+      searchText: `${m.materialCode || ''} ${m.description || ''} ${m.partNo || ''} ${m.make || ''} ${m.materialGroup || ''}`.toLowerCase()
+    }));
+  }, [materials]);
+
   const processedMaterials = useMemo(() => {
-    let data = [...materials];
-    if (searchTerm) {
-      const words = searchTerm.toLowerCase().split(/\s+/).filter(Boolean);
+    let data = [...materialsWithSearch];
+    if (deferredSearchTerm) {
+      const words = deferredSearchTerm.toLowerCase().split(/\s+/).filter(Boolean);
       data = data.filter(item => {
-        const searchableText = `${item.materialCode || ''} ${item.description || ''} ${item.partNo || ''} ${item.make || ''} ${item.materialGroup || ''}`.toLowerCase();
-        return words.every(word => searchableText.includes(word));
+        return words.every(word => item.searchText.includes(word));
       });
     }
     if (sortConfig) {
       data.sort((a, b) => {
-        const valA = String(a[sortConfig.key] || '');
-        const valB = String(b[sortConfig.key] || '');
+        const valA = String((a as any)[sortConfig.key] || '');
+        const valB = String((b as any)[sortConfig.key] || '');
         if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
         if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
         return 0;
       });
     }
     return data;
-  }, [materials, searchTerm, sortConfig]);
+  }, [materialsWithSearch, deferredSearchTerm, sortConfig]);
 
   const renderSortIcon = (key: SortKey) => {
     if (!sortConfig || sortConfig.key !== key) return <ArrowUpDown className="w-3 h-3 text-gray-400" />;
@@ -95,8 +103,15 @@ const MaterialTable: React.FC<MaterialTableProps> = ({ materials, onUpdate, onDe
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
+          {deferredSearchTerm !== searchTerm && (
+            <div className="flex items-center gap-2 text-[10px] text-blue-500 font-bold animate-pulse">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              <span>Filtering...</span>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-2">
+
           <div className="flex items-center gap-2 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">
             <Layers className="w-4 h-4 text-blue-500" />
             <span className="text-xs font-bold text-blue-700 uppercase tracking-tight">{processedMaterials.length} Items</span>

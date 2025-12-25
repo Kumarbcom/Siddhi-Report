@@ -1,7 +1,7 @@
 
-import React, { useRef, useMemo, useState } from 'react';
+import React, { useRef, useMemo, useState, useDeferredValue } from 'react';
 import { PendingSOItem, Material, ClosingStockItem } from '../types';
-import { Trash2, Download, Upload, ClipboardList, Search, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, Package, Clock, AlertCircle, CheckCircle2, TrendingUp, AlertOctagon, Layers, FileDown, Pencil, Save, X, Filter, CalendarCheck, CalendarDays, Plus } from 'lucide-react';
+import { Trash2, Download, Upload, ClipboardList, Search, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, Package, Clock, AlertCircle, CheckCircle2, TrendingUp, AlertOctagon, Layers, FileDown, Pencil, Save, X, Filter, CalendarCheck, CalendarDays, Plus, Loader2 } from 'lucide-react';
 import { read, utils, writeFile } from 'xlsx';
 
 interface PendingSOViewProps {
@@ -221,8 +221,18 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
 
     const handleSort = (key: SortKey) => { let direction: 'asc' | 'desc' = 'asc'; if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc'; setSortConfig({ key, direction }); };
 
+    const deferredSearchTerm = useDeferredValue(searchTerm);
+
+    // Pre-calculate searchable text
+    const itemsWithSearch = useMemo(() => {
+        return (itemsWithStockLogic || []).map(i => ({
+            ...i,
+            searchText: `${i.orderNo || ''} ${i.partyName || ''} ${i.itemName || ''} ${i.partNo || ''}`.toLowerCase()
+        }));
+    }, [itemsWithStockLogic]);
+
     const processedItems = useMemo(() => {
-        let data = [...itemsWithStockLogic];
+        let data = [...itemsWithSearch];
 
         if (supplyFilter !== 'ALL') {
             if (supplyFilter === 'READY') data = data.filter(i => i.supplyStatus === 'full');
@@ -232,11 +242,10 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
             else if (supplyFilter === 'SCHEDULED') data = data.filter(i => i.deliveryClass === 'scheduled');
         }
 
-        if (searchTerm) {
-            const words = searchTerm.toLowerCase().split(/\s+/).filter(Boolean);
+        if (deferredSearchTerm) {
+            const words = deferredSearchTerm.toLowerCase().split(/\s+/).filter(Boolean);
             data = data.filter(i => {
-                const searchableText = `${i.orderNo || ''} ${i.partyName || ''} ${i.itemName || ''} ${i.partNo || ''}`.toLowerCase();
-                return words.every(word => searchableText.includes(word));
+                return words.every(word => i.searchText.includes(word));
             });
         }
         if (sortConfig) {
@@ -249,7 +258,7 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
             });
         }
         return data;
-    }, [itemsWithStockLogic, searchTerm, sortConfig, supplyFilter]);
+    }, [itemsWithSearch, deferredSearchTerm, sortConfig, supplyFilter]);
 
     const totals = useMemo(() => {
         const t = {
@@ -460,7 +469,13 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
                 <div className="flex flex-col lg:flex-row gap-3">
                     <div className="relative flex-1">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Search className="h-3.5 w-3.5 text-gray-400" /></div>
-                        <input type="text" placeholder="Search orders..." className="pl-9 pr-3 py-1.5 w-full border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                        <input type="text" placeholder="Search orders..." className="pl-9 pr-24 py-1.5 w-full border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                        {deferredSearchTerm !== searchTerm && (
+                            <div className="absolute inset-y-0 right-3 flex items-center gap-1.5 text-[10px] text-blue-500 font-bold animate-pulse">
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                                <span>Filtering...</span>
+                            </div>
+                        )}
                     </div>
                     <div className="flex bg-gray-100 p-1 rounded-lg border border-gray-200 overflow-x-auto">
                         {(['ALL', 'DUE', 'SCHEDULED', 'READY', 'SHORTAGE'] as SupplyStatusFilter[]).map(f => (

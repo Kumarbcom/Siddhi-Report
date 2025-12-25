@@ -1,7 +1,7 @@
 
-import React, { useRef, useMemo, useState } from 'react';
+import React, { useRef, useMemo, useState, useDeferredValue } from 'react';
 import { PendingPOItem, Material, ClosingStockItem, PendingSOItem, SalesReportItem } from '../types';
-import { Trash2, Download, Upload, ShoppingCart, Search, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, Package, FileDown, Pencil, Save, X, Calendar, PieChart, BarChart3, AlertOctagon, CheckCircle2, Filter, Plus, Layers } from 'lucide-react';
+import { Trash2, Download, Upload, ShoppingCart, Search, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, Package, FileDown, Pencil, Save, X, Calendar, PieChart, BarChart3, AlertOctagon, CheckCircle2, Filter, Plus, Layers, Loader2 } from 'lucide-react';
 import { read, utils, writeFile } from 'xlsx';
 
 interface PendingPOViewProps {
@@ -267,24 +267,34 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
+    const deferredSearchTerm = useDeferredValue(searchTerm);
+
+    // Pre-calculate search text
+    const itemsWithSearch = useMemo(() => {
+        return items.map(i => ({
+            ...i,
+            searchText: `${i.orderNo || ''} ${i.partyName || ''} ${i.itemName || ''} ${(i as any).partNo || ''}`.toLowerCase()
+        }));
+    }, [items]);
+
     const processedItems = useMemo(() => {
-        let data = [...items]; const today = new Date(); today.setHours(0, 0, 0, 0);
+        let data = [...itemsWithSearch];
+        const today = new Date(); today.setHours(0, 0, 0, 0);
         if (actionFilter !== 'ALL') {
             if (actionFilter === 'NEED_PLACE') data = data.filter(i => (supplyMap.get(i.itemName.toLowerCase().trim())?.poNeed || 0) > 0);
             else if (actionFilter === 'EXPEDITE') data = data.filter(i => (supplyMap.get(i.itemName.toLowerCase().trim())?.expedite || 0) > 0);
             else if (actionFilter === 'EXCESS') data = data.filter(i => (supplyMap.get(i.itemName.toLowerCase().trim())?.excessPO || 0) > 0);
             else if (actionFilter === 'OVERDUE') data = data.filter(i => i.dueDate && parseDate(i.dueDate) < today);
         }
-        if (searchTerm) {
-            const words = searchTerm.toLowerCase().split(/\s+/).filter(Boolean);
+        if (deferredSearchTerm) {
+            const words = deferredSearchTerm.toLowerCase().split(/\s+/).filter(Boolean);
             data = data.filter(i => {
-                const searchableText = `${i.orderNo || ''} ${i.partyName || ''} ${i.itemName || ''} ${(i as any).partNo || ''}`.toLowerCase();
-                return words.every(word => searchableText.includes(word));
+                return words.every(word => i.searchText.includes(word));
             });
         }
-        if (sortConfig) { data.sort((a, b) => { const valA = a[sortConfig.key] as any; const valB = b[sortConfig.key] as any; if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1; if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1; return 0; }); }
+        if (sortConfig) { data.sort((a, b) => { const valA = String(a[sortConfig.key] || '').toLowerCase(); const valB = String(b[sortConfig.key] || '').toLowerCase(); if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1; if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1; return 0; }); }
         return data;
-    }, [items, searchTerm, sortConfig, actionFilter, supplyMap]);
+    }, [itemsWithSearch, deferredSearchTerm, sortConfig, actionFilter, supplyMap]);
 
     return (
         <div className="flex flex-col h-full gap-4">
