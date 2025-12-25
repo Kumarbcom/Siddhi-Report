@@ -1361,26 +1361,26 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                 );
                             })}
                         </div>
-                        {/* Trends and Analytics Section */}
-                        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col h-72 overflow-hidden shadow-inner group transition-all hover:shadow-md">
-                            <h3 className="text-[11px] font-black text-gray-800 mb-3 flex items-center gap-2 uppercase tracking-widest border-b border-gray-50 pb-2">
-                                <TrendingUp className="w-4 h-4 text-blue-600" />
-                                3-Year Sales Performance Trend
-                            </h3>
-                            <div className="flex flex-1 pt-1 overflow-hidden">
-                                <div className="flex flex-col justify-between text-[9px] font-bold text-gray-400 pr-3 pb-8 text-right w-12 border-r border-gray-50">
-                                    <span>{formatAxisValue(chartMax)}</span>
-                                    <span>{formatAxisValue(chartMax * 0.5)}</span>
-                                    <span>0</span>
-                                </div>
-                                <div className="flex-1 pl-3 pb-1 relative min-h-0">
-                                    <SalesTrendChart data={lineChartData} maxVal={chartMax} />
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
+                            {/* Trend Chart (2/3 width) */}
+                            <div className="lg:col-span-2 bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col h-72 overflow-hidden transition-all hover:shadow-md">
+                                <h3 className="text-[11px] font-black text-gray-800 mb-3 flex items-center gap-2 uppercase tracking-widest border-b border-gray-50 pb-2">
+                                    <TrendingUp className="w-4 h-4 text-blue-600" />
+                                    3-Year Sales Trend
+                                </h3>
+                                <div className="flex flex-1 pt-1 overflow-hidden">
+                                    <div className="flex flex-col justify-between text-[9px] font-bold text-gray-400 pr-3 pb-8 text-right w-12 border-r border-gray-50">
+                                        <span>{formatAxisValue(chartMax)}</span>
+                                        <span>{formatAxisValue(chartMax * 0.5)}</span>
+                                        <span>0</span>
+                                    </div>
+                                    <div className="flex-1 pl-3 pb-1 relative min-h-0">
+                                        <SalesTrendChart data={lineChartData} maxVal={chartMax} />
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        {/* Top Mix Analytics */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+                            {/* Revenue Mix (1/3 width) */}
                             <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex flex-col h-72 overflow-hidden transition-all hover:shadow-md">
                                 <ModernDonutChartDashboard
                                     data={groupedCustomerData.map(g => ({ label: g.group, value: g.total }))}
@@ -1389,23 +1389,15 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                     centerColorClass="text-blue-700"
                                 />
                             </div>
-                            <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex flex-col h-72 overflow-hidden transition-all hover:shadow-md">
-                                <ModernDonutChartDashboard
-                                    data={topTenCustomers.map(c => ({ label: c.label, value: c.value }))}
-                                    title="Top 10 Customers Sales Mix"
-                                    isCurrency={true}
-                                    centerColorClass="text-emerald-700"
-                                />
-                            </div>
                         </div>
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
-                            <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm h-[400px] flex flex-col overflow-hidden">
-                                <div className="flex items-center justify-between mb-3 border-b border-gray-100 pb-2">
-                                    <h3 className="text-xs font-black text-gray-800 uppercase tracking-tight flex items-center gap-2">
-                                        <Users className="w-4 h-4 text-blue-600" />
+                            <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm h-[380px] flex flex-col overflow-hidden transition-all hover:shadow-md">
+                                <div className="flex items-center justify-between mb-2 border-b border-gray-100 pb-2">
+                                    <h3 className="text-[10px] font-black text-gray-800 uppercase tracking-tight flex items-center gap-2">
+                                        <Users className="w-3.5 h-3.5 text-blue-600" />
                                         Top 10 Customers ({groupingMode === 'RAW' ? 'Customer Group' : 'Merged'}-wise)
                                     </h3>
-                                    <span className="text-[9px] font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full uppercase">Global Top 10</span>
+                                    <span className="text-[8px] font-bold text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full uppercase">Top 10</span>
                                 </div>
                                 <div className="flex-1 overflow-hidden">
                                     <GroupedCustomerAnalysis
@@ -1414,13 +1406,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                     />
                                 </div>
                             </div>
-                            <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm h-[400px] flex flex-col overflow-hidden">
-                                <div className="flex items-center justify-between mb-3 border-b border-gray-100 pb-2">
-                                    <h3 className="text-xs font-black text-gray-800 uppercase tracking-tight flex items-center gap-2">
-                                        <Layers className="w-4 h-4 text-emerald-600" />
+                            <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm h-[380px] flex flex-col overflow-hidden transition-all hover:shadow-md">
+                                <div className="flex items-center justify-between mb-2 border-b border-gray-100 pb-2">
+                                    <h3 className="text-[10px] font-black text-gray-800 uppercase tracking-tight flex items-center gap-2">
+                                        <Layers className="w-3.5 h-3.5 text-emerald-600" />
                                         Full {groupingMode === 'RAW' ? 'Customer Group' : 'Merged Group'} Analytics
                                     </h3>
-                                    <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full uppercase">All Customer Groups</span>
+                                    <span className="text-[8px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full uppercase">All Groups</span>
                                 </div>
                                 <div className="flex-1 overflow-hidden">
                                     <GroupedCustomerAnalysis
