@@ -400,12 +400,37 @@ const MOMView: React.FC<MOMViewProps> = ({
         if (!currentMom.title || !currentMom.date) return alert('Title and Date are required');
         setIsLoading(true);
         try {
-            const saved = await momService.save(currentMom as any);
+            const fullMom = { ...currentMom, benchmarks: autoPullData.benchmarks };
+            const saved = await momService.save(fullMom as any);
             if (saved) {
                 alert('MOM saved successfully!');
                 setMoms(await momService.getAll());
             }
-        } catch (e) { alert('Error saving MOM'); } finally { setIsLoading(false); }
+        } catch (e) {
+            console.error('Error saving MOM:', e);
+            alert('Error saving MOM');
+        } finally { setIsLoading(false); }
+    };
+
+    const handleDeleteMom = async (id: string) => {
+        if (!confirm('Are you sure you want to delete this MOM?')) return;
+        try {
+            await momService.delete(id);
+            setMoms(prev => prev.filter(m => m.id !== id));
+            if (currentMom.id === id) {
+                setCurrentMom({
+                    id: crypto.randomUUID(),
+                    title: 'Weekly Review Meeting',
+                    date: getThursdayOfWeek(new Date()),
+                    attendees: [],
+                    items: [],
+                    createdAt: Date.now()
+                });
+            }
+        } catch (error) {
+            console.error('Error deleting MOM:', error);
+            alert('Failed to delete MOM');
+        }
     };
 
     const toggleAttendee = (id: string) => {
@@ -470,10 +495,22 @@ const MOMView: React.FC<MOMViewProps> = ({
                         </div>
                         <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-2">
                             {filteredMoms.map(mom => (
-                                <button key={mom.id} onClick={() => setCurrentMom(mom)} className={`flex flex-col gap-1 p-3 rounded-xl border text-left transition-all ${currentMom.id === mom.id ? 'bg-indigo-50 border-indigo-200' : 'bg-white border-gray-100 hover:border-gray-300'}`}>
-                                    <span className="text-sm font-bold text-gray-800">{mom.title}</span>
-                                    <div className="text-[10px] text-gray-500 font-bold tracking-tight">{mom.date}</div>
-                                </button>
+                                <div key={mom.id} className="group relative">
+                                    <button
+                                        onClick={() => setCurrentMom(mom)}
+                                        className={`w-full flex flex-col gap-1 p-3 rounded-xl border text-left transition-all ${currentMom.id === mom.id ? 'bg-indigo-50 border-indigo-200' : 'bg-white border-gray-100 hover:border-gray-300'}`}
+                                    >
+                                        <span className="text-[11px] font-black text-gray-800 uppercase tracking-tight line-clamp-1 pr-6">{mom.title}</span>
+                                        <div className="text-[10px] text-gray-400 font-bold tracking-tight">{mom.date}</div>
+                                    </button>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); handleDeleteMom(mom.id); }}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+                                        title="Delete MOM"
+                                    >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                </div>
                             ))}
                         </div>
                     </div>
