@@ -236,8 +236,9 @@ const MOMView: React.FC<MOMViewProps> = ({
             const k = (s.description || '').toLowerCase().trim();
             const m = matLookup.get(k);
             if (!m) return acc;
+
             const group = (m.materialGroup || '').toLowerCase();
-            if (!PLANNED_STOCK_GROUPS.has(group)) return acc;
+            const isPlanned = PLANNED_STOCK_GROUPS.has(group);
 
             const descKey = (m.description || '').toLowerCase().trim();
             const partKey = (m.partNo || '').toLowerCase().trim();
@@ -246,7 +247,7 @@ const MOMView: React.FC<MOMViewProps> = ({
             const total1yQty = s1DescQty + s1PartQty;
 
             const avg1yQty = total1yQty / 12;
-            const maxStock = Math.ceil((avg1yQty * 3) / 10) * 10;
+            const maxStock = isPlanned ? Math.ceil((avg1yQty * 3) / 10) * 10 : 0;
             const committed = soAggMap.get(k)?.qty || 0;
             const excessQty = Math.max(0, (s.quantity || 0) - (committed + maxStock));
             const val = excessQty * (s.rate || 0);
@@ -259,12 +260,12 @@ const MOMView: React.FC<MOMViewProps> = ({
             return acc;
         }, 0);
 
-        let totalExcessPOVal = 0;
         poAggMap.forEach((p, k) => {
             const m = matLookup.get(k);
             if (!m) return;
+
             const group = (m.materialGroup || '').toLowerCase();
-            if (!PLANNED_STOCK_GROUPS.has(group)) return;
+            const isPlanned = PLANNED_STOCK_GROUPS.has(group);
 
             const descKey = (m.description || '').toLowerCase().trim();
             const partKey = (m.partNo || '').toLowerCase().trim();
@@ -275,7 +276,7 @@ const MOMView: React.FC<MOMViewProps> = ({
             const sRec = stockMap.get(k) || { qty: 0, rate: 0 };
             const soQty = soAggMap.get(k)?.qty || 0;
             const avg1yQty = total1yQty / 12;
-            const maxStock = Math.ceil((avg1yQty * 3) / 10) * 10;
+            const maxStock = isPlanned ? Math.ceil((avg1yQty * 3) / 10) * 10 : 0;
             const projectedExcess = Math.max(0, (sRec.qty + p.qty - soQty) - maxStock);
             const committed = soAggMap.get(k)?.qty || 0;
             const eStockQty = Math.max(0, sRec.qty - (committed + maxStock));
