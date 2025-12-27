@@ -5,6 +5,7 @@ import { Plus, Trash2, Save, FileSpreadsheet, FileText, Calendar, Search, ArrowR
 import { utils, writeFile } from 'xlsx';
 import { momService } from '../services/momService';
 import { attendeeService } from '../services/attendeeService';
+import AttendeeMasterView from './AttendeeMasterView';
 
 interface MOMViewProps {
     materials: Material[];
@@ -53,6 +54,7 @@ const MOMView: React.FC<MOMViewProps> = ({
     }, [currentMom.items]);
     const [showAttendeeDropdown, setShowAttendeeDropdown] = useState(false);
     const [isHistoryVisible, setIsHistoryVisible] = useState(true);
+    const [isAttendeeModalOpen, setIsAttendeeModalOpen] = useState(false);
 
     const toCr = (val: number) => (val / 10000000).toFixed(2) + ' Cr';
 
@@ -543,7 +545,10 @@ const MOMView: React.FC<MOMViewProps> = ({
                             <div className="relative">
                                 <label className="text-[9px] font-black text-gray-400 uppercase mb-1 block flex justify-between">
                                     Attendees ({currentMom.attendees?.length || 0})
-                                    <button onClick={() => setShowAttendeeDropdown(!showAttendeeDropdown)} className="text-indigo-600 font-black text-[10px] print:hidden">Select Participants</button>
+                                    <div className="flex gap-2 print:hidden">
+                                        <button onClick={() => setIsAttendeeModalOpen(true)} className="text-gray-400 hover:text-indigo-600 font-bold text-[10px]">Manage</button>
+                                        <button onClick={() => setShowAttendeeDropdown(!showAttendeeDropdown)} className="text-indigo-600 font-black text-[10px]">Select Participants</button>
+                                    </div>
                                 </label>
                                 <div className="flex flex-wrap gap-1.5 min-h-[38px] p-1.5 bg-white border border-gray-100 rounded-lg print:border-none print:p-0">
                                     {currentMom.attendees?.map(id => {
@@ -766,6 +771,28 @@ const MOMView: React.FC<MOMViewProps> = ({
                 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
                 .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
 `}</style>
+            {isAttendeeModalOpen && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
+                    <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+                        <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                            <h3 className="text-lg font-black text-gray-900 uppercase tracking-tight">Manage Attendees</h3>
+                            <button
+                                onClick={async () => {
+                                    const data = await attendeeService.getAll();
+                                    setAttendeeMaster(data);
+                                    setIsAttendeeModalOpen(false);
+                                }}
+                                className="p-2 hover:bg-white rounded-xl transition-all"
+                            >
+                                <X className="w-5 h-5 text-gray-400" />
+                            </button>
+                        </div>
+                        <div className="flex-1 overflow-auto p-4">
+                            <AttendeeMasterView />
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
