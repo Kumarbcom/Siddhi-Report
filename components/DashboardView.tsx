@@ -31,7 +31,7 @@ const getMergedGroupName = (groupName: string) => {
 const getMergedMakeName = (makeName: string) => {
     const m = String(makeName || 'Unspecified').trim();
     const lowerM = m.toLowerCase();
-    if (lowerM.includes('lapp')) return 'Lapp';
+    if (lowerM.includes('lapp')) return 'LAPP';
     if (lowerM.includes('luker')) return 'Luker';
     return m;
 };
@@ -1051,7 +1051,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         const ytdCurrOnline = getSalesSum(ytdStart, targetDate, true);
 
         // Specific Makes for the report
-        const reportMakes = ['Lapp', 'Eaton', 'Hager', 'Mennekes', 'Havells', 'Luker'];
+        const reportMakes = ['LAPP', 'Eaton', 'Hager', 'Mennekes', 'Havells', 'Luker'];
 
         const getMakeStats = (items: any[]) => {
             const stats: Record<string, { ready: number, shortage: number, total: number }> = {};
@@ -1785,7 +1785,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                     <h4 className="text-[11px] font-bold text-gray-600 uppercase mb-4 flex items-center gap-2"><ShoppingCart className="w-4 h-4 text-orange-600" /> Top 10 High Value Open POs</h4>
                                     <div className="overflow-x-auto">
                                         <table className="w-full text-[10px] text-left">
-                                            <thead className="bg-gray-50 text-gray-500 uppercase font-bold border-b border-gray-100">
+                                            <thead className="sticky top-0 z-10 bg-gray-50/95 backdrop-blur-md text-gray-500 uppercase font-bold border-b border-gray-100 shadow-sm">
                                                 <tr><th className="py-2 px-2">Vendor</th><th className="py-2 px-2">Item</th><th className="py-2 px-2 text-right">Qty</th><th className="py-2 px-2 text-right">Value</th></tr>
                                             </thead>
                                             <tbody className="divide-y divide-gray-50">

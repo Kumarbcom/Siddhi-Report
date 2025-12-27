@@ -42,6 +42,14 @@ const roundToTen = (num: number) => {
     return Math.ceil(num / 10) * 10;
 };
 
+const getMergedMakeName = (makeName: string) => {
+    const m = String(makeName || 'Unspecified').trim();
+    const lowerM = m.toLowerCase();
+    if (lowerM.includes('lapp')) return 'LAPP';
+    if (lowerM.includes('luker')) return 'Luker';
+    return m;
+};
+
 // --- Helper: Format Large Values ---
 const formatLargeValue = (val: number) => {
     if (val === 0) return '-';
@@ -188,7 +196,7 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
 
             // Normalize Make and Group for consistent filtering
             // CLUBBED: Normalizing Make to uppercase to merge 'Lapp' and 'LAPP'
-            const normalizedMake = String(mat.make || '').trim().toUpperCase() || 'UNSPECIFIED';
+            const normalizedMake = getMergedMakeName(mat.make || 'UNSPECIFIED').toUpperCase();
             const normalizedGroup = String(mat.materialGroup || '').trim() || 'Unspecified';
 
             const stock = stockMap.get(descriptionKey) || { qty: 0, val: 0 };

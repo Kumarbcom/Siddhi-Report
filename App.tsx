@@ -28,6 +28,14 @@ import { dbService, STORES } from './services/db';
 const STORAGE_KEY_SALES_1Y = 'sales_1year_db_v1';
 const STORAGE_KEY_SALES_3M = 'sales_3months_db_v1';
 
+const getMergedMakeName = (makeName: string) => {
+  const m = String(makeName || 'Unspecified').trim();
+  const lowerM = m.toLowerCase();
+  if (lowerM.includes('lapp')) return 'LAPP';
+  if (lowerM.includes('luker')) return 'Luker';
+  return m;
+};
+
 type ActiveTab = 'dashboard' | 'chat' | 'master' | 'customerMaster' | 'closingStock' | 'pendingSO' | 'pendingPO' | 'salesHistory' | 'salesReport' | 'pivotReport' | 'mom' | 'attendees';
 
 const App: React.FC = () => {
@@ -469,7 +477,7 @@ const App: React.FC = () => {
   const makeStats = useMemo(() => {
     const counts: Record<string, number> = {};
     materials.forEach(m => {
-      const makeKey = (m.make?.trim() || 'Unspecified').toUpperCase();
+      const makeKey = getMergedMakeName(m.make || 'Unspecified').toUpperCase();
       counts[makeKey] = (counts[makeKey] || 0) + 1;
     });
     return Object.entries(counts).sort((a, b) => b[1] - a[1]);
@@ -477,7 +485,7 @@ const App: React.FC = () => {
 
   const filteredMaterials = useMemo(() => {
     if (selectedMake === 'ALL') return materials;
-    return materials.filter(m => (m.make?.trim() || 'Unspecified').toUpperCase() === selectedMake);
+    return materials.filter(m => getMergedMakeName(m.make || 'Unspecified').toUpperCase() === selectedMake);
   }, [materials, selectedMake]);
 
   const SidebarItem = ({ id, label, icon: Icon, count, onClick }: any) => (

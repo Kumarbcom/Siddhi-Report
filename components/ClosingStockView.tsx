@@ -29,7 +29,7 @@ const Toggle: React.FC<{ value: Metric; onChange: (m: Metric) => void; colorClas
 const getMergedMakeName = (makeName: string) => {
   const m = String(makeName || 'Unspecified').trim();
   const lowerM = m.toLowerCase();
-  if (lowerM.includes('lapp')) return 'Lapp';
+  if (lowerM.includes('lapp')) return 'LAPP';
   if (lowerM.includes('luker')) return 'Luker';
   return m;
 };

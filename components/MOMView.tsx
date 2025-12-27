@@ -23,6 +23,15 @@ const MOMView: React.FC<MOMViewProps> = ({
     salesReportItems,
     customers
 }) => {
+    const PLANNED_STOCK_GROUPS = useMemo(() => new Set([
+        "eaton-ace", "eaton-biesse", "eaton-coffee day", "eaton-enrx pvt ltd",
+        "eaton-eta technology", "eaton-faively", "eaton-planned stock specific customer",
+        "eaton-probat india", "eaton-rinac", "eaton-schenck process", "eaton-planned stock general",
+        "hager-incap contracting", "lapp-ace group", "lapp-ams group", "lapp-disa india",
+        "lapp-engineered customized control", "lapp-kennametal", "lapp-planned stock general",
+        "lapp-rinac", "lapp-titan"
+    ]), []);
+
     const [moms, setMoms] = useState<MOM[]>([]);
     const [attendeeMaster, setAttendeeMaster] = useState<Attendee[]>([]);
     const [currentMom, setCurrentMom] = useState<Partial<MOM>>({
@@ -34,8 +43,17 @@ const MOMView: React.FC<MOMViewProps> = ({
     const [isLoading, setIsLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [showAttendeeDropdown, setShowAttendeeDropdown] = useState(false);
+    const [isHistoryVisible, setIsHistoryVisible] = useState(true);
 
     const toCr = (val: number) => (val / 10000000).toFixed(2) + ' Cr';
+
+    const getMergedMakeName = (makeName: string) => {
+        const m = String(makeName || 'Unspecified').trim();
+        const lowerM = m.toLowerCase();
+        if (lowerM.includes('lapp')) return 'LAPP';
+        if (lowerM.includes('luker')) return 'Luker';
+        return m;
+    };
 
     useEffect(() => {
         const loadInitialData = async () => {
@@ -75,29 +93,33 @@ const MOMView: React.FC<MOMViewProps> = ({
         });
         const ytdSales = salesFY.reduce((acc, i) => acc + (i.value || 0), 0);
 
-        const lastWeekStart = new Date(momDate);
-        lastWeekStart.setDate(momDate.getDate() - 7);
-        const prevWeekStart = new Date(lastWeekStart);
-        prevWeekStart.setDate(prevWeekStart.getDate() - 7);
+        // Sales Performance
+        const today = new Date();
+        today.setHours(23, 59, 59, 999);
+        const sevenDaysAgo = new Date(today);
+        sevenDaysAgo.setDate(today.getDate() - 7);
+        const fourteenDaysAgo = new Date(today);
+        fourteenDaysAgo.setDate(today.getDate() - 14);
+
+        const thisWeekSales = salesReportItems
+            .filter(i => {
+                const d = new Date(i.date);
+                return d > sevenDaysAgo && d <= today;
+            })
+            .reduce((acc, i) => acc + (i.value || 0), 0);
 
         const lastWeekSales = salesReportItems
             .filter(i => {
                 const d = new Date(i.date);
-                return d >= lastWeekStart && d <= momDate;
-            })
-            .reduce((acc, i) => acc + (i.value || 0), 0);
-
-        const prevWeekSales = salesReportItems
-            .filter(i => {
-                const d = new Date(i.date);
-                return d >= prevWeekStart && d < lastWeekStart;
+                return d > fourteenDaysAgo && d <= sevenDaysAgo;
             })
             .reduce((acc, i) => acc + (i.value || 0), 0);
 
         const onlineSales = salesFY
             .filter(i => {
                 const cust = customers.find(c => c.customerName === i.customerName);
-                return cust?.customerGroup === 'Online' || cust?.group === 'Online';
+                const g = (cust?.customerGroup || cust?.group || '').toLowerCase();
+                return g.includes('online');
             })
             .reduce((acc, i) => acc + (i.value || 0), 0);
 
@@ -130,13 +152,15 @@ const MOMView: React.FC<MOMViewProps> = ({
         });
         const shortageVal = Math.max(0, dueOrdersVal - readyStockVal);
 
-        const soldItemKeys = new Set(salesReportItems.map(s => (s.particulars || '').toLowerCase().trim()));
-        const nonMovingItems = closingStock.filter(s => !soldItemKeys.has((s.description || '').toLowerCase().trim()));
+        const nonMovingItems = closingStock.filter(s => {
+            const m = matLookup.get((s.description || '').toLowerCase().trim());
+            return (m?.materialGroup || '').toLowerCase().includes('non-moving');
+        });
 
         const lappNonMoving = nonMovingItems
             .filter(i => {
                 const mRec = matLookup.get((i.description || '').toLowerCase().trim());
-                return (mRec?.make || '').toUpperCase().includes('LAPP');
+                return getMergedMakeName(mRec?.make || '').toUpperCase() === 'LAPP';
             })
             .reduce((acc, i) => acc + (i.value || 0), 0);
 
@@ -161,11 +185,11 @@ const MOMView: React.FC<MOMViewProps> = ({
             .filter(i => {
                 const k = (i.description || '').toLowerCase().trim();
                 const mRec = matLookup.get(k);
-                const make = (mRec?.make || '').toUpperCase();
+                const mergedMake = getMergedMakeName(mRec?.make || '').toUpperCase();
                 const g = (mRec?.materialGroup || '').toLowerCase();
-                const isLapp = make.includes('LAPP');
-                const isEaton = make.includes('EATON');
-                const isHagerNonIncap = make.includes('HAGER') && !g.includes('incap');
+                const isLapp = mergedMake === 'LAPP';
+                const isEaton = (mRec?.make || '').toUpperCase().includes('EATON');
+                const isHagerNonIncap = (mRec?.make || '').toUpperCase().includes('HAGER') && !g.includes('incap');
                 return !isLapp && !isEaton && !isHagerNonIncap;
             })
             .reduce((acc, i) => acc + (i.value || 0), 0);
@@ -175,6 +199,13 @@ const MOMView: React.FC<MOMViewProps> = ({
             const k = (s.itemName || '').toLowerCase().trim();
             const ex = soAggMap.get(k) || { qty: 0, rate: 0 };
             soAggMap.set(k, { qty: ex.qty + (s.balanceQty || 0), rate: s.rate || 0 });
+        });
+
+        const poAggMap = new Map<string, { qty: number; rate: number }>();
+        pendingPO.forEach(p => {
+            const k = (p.itemName || '').toLowerCase().trim();
+            const ex = poAggMap.get(k) || { qty: 0, rate: 0 };
+            poAggMap.set(k, { qty: ex.qty + (p.balanceQty || 0), rate: p.rate || 0 });
         });
 
         const sales1yMap = new Map<string, number>();
@@ -188,32 +219,35 @@ const MOMView: React.FC<MOMViewProps> = ({
         });
 
         const excessStockByMake: Record<string, number> = {};
-        let totalExcessStockVal = 0;
-        let totalExcessPOVal = 0;
 
-        closingStock.forEach(s => {
+        const totalExcessStockVal = closingStock.reduce((acc, s) => {
             const k = (s.description || '').toLowerCase().trim();
+            const m = matLookup.get(k);
+            if (!m) return acc;
+            const group = (m.materialGroup || '').toLowerCase();
+            if (!PLANNED_STOCK_GROUPS.has(group)) return acc;
+
             const avg1yQty = (sales1yMap.get(k) || 0) / 12;
             const maxStock = Math.ceil((avg1yQty * 3) / 10) * 10;
             const committed = soAggMap.get(k)?.qty || 0;
             const excessQty = Math.max(0, (s.quantity || 0) - (committed + maxStock));
             const val = excessQty * (s.rate || 0);
+
             if (val > 0) {
-                const mRec = matLookup.get(k);
-                const make = (mRec?.make || 'UNSPECIFIED').toUpperCase();
+                const make = (m.make || 'UNSPECIFIED').toUpperCase();
                 excessStockByMake[make] = (excessStockByMake[make] || 0) + val;
-                totalExcessStockVal += val;
+                return acc + val;
             }
-        });
+            return acc;
+        }, 0);
 
-        const poAggMap = new Map<string, { qty: number; rate: number }>();
-        pendingPO.forEach(p => {
-            const k = (p.itemName || '').toLowerCase().trim();
-            const ex = poAggMap.get(k) || { qty: 0, rate: 0 };
-            poAggMap.set(k, { qty: ex.qty + (p.balanceQty || 0), rate: p.rate || 0 });
-        });
-
+        let totalExcessPOVal = 0;
         poAggMap.forEach((p, k) => {
+            const m = matLookup.get(k);
+            if (!m) return;
+            const group = (m.materialGroup || '').toLowerCase();
+            if (!PLANNED_STOCK_GROUPS.has(group)) return;
+
             const sRec = stockMap.get(k) || { qty: 0, rate: 0 };
             const soQty = soAggMap.get(k)?.qty || 0;
             const avg1yQty = (sales1yMap.get(k) || 0) / 12;
@@ -229,7 +263,7 @@ const MOMView: React.FC<MOMViewProps> = ({
         });
 
         return {
-            ytdSales, lastWeekSales, prevWeekSales, onlineSales,
+            ytdSales, thisWeekSales, lastWeekSales, onlineSales,
             totalPendingSO: totalPendingSOVal, scheduledOrders: scheduledOrdersVal, dueOrdersVal, readyStockVal, shortageVal,
             lappNonMoving, eatonNonMoving, hagerNonMoving, othersNonMoving,
             totalExcess: totalExcessStockVal, excessByMake: excessStockByMake, excessPOVal: totalExcessPOVal
@@ -240,7 +274,7 @@ const MOMView: React.FC<MOMViewProps> = ({
         const agendaItems: MOMItem[] = [
             {
                 id: crypto.randomUUID(), slNo: 1, agendaItem: 'Sales Review: Present YTD vs Weekly Momentum',
-                discussion: `• Present YTD Sales (FY): ${toCr(autoPullData.ytdSales)}\n• Online Sales YTD: ${toCr(autoPullData.onlineSales)}\n• Last Week Sales Achievement: ${toCr(autoPullData.lastWeekSales)}\n• Previous Week Performance: ${toCr(autoPullData.prevWeekSales)}`,
+                discussion: `• Present YTD Sales (FY): ${toCr(autoPullData.ytdSales)}\n• Online Sales YTD: ${toCr(autoPullData.onlineSales)}\n• Current Week Sales: ${toCr(autoPullData.thisWeekSales)}\n• Last Week Sales Performance: ${toCr(autoPullData.lastWeekSales)}`,
                 actionAccount: ['Kumar'], timeline: currentMom.date || '', isCompleted: false
             },
             {
@@ -250,7 +284,7 @@ const MOMView: React.FC<MOMViewProps> = ({
             },
             {
                 id: crypto.randomUUID(), slNo: 3, agendaItem: 'System Stock & Non-Moving Status',
-                discussion: `• Lapp Non-Moving: ${toCr(autoPullData.lappNonMoving)}\n• Eaton Non-Moving: ${toCr(autoPullData.eatonNonMoving)}\n• Hager - Non-Moving (Excl. Incap): ${toCr(autoPullData.hagerNonMoving)}\n• Others Non-Moving: ${toCr(autoPullData.othersNonMoving)}\n• Total Physical Stock: ${toCr(closingStock.reduce((a, b) => a + (b.value || 0), 0))}`,
+                discussion: `• LAPP Non-Moving: ${toCr(autoPullData.lappNonMoving)}\n• Eaton Non-Moving: ${toCr(autoPullData.eatonNonMoving)}\n• Hager - Non-Moving (Excl. Incap): ${toCr(autoPullData.hagerNonMoving)}\n• Others Non-Moving: ${toCr(autoPullData.othersNonMoving)}\n• Total Physical Stock: ${toCr(closingStock.reduce((a, b) => a + (b.value || 0), 0))}`,
                 actionAccount: ['Logistic Team'], timeline: 'Next Thursday', isCompleted: false
             },
             {
@@ -260,7 +294,7 @@ const MOMView: React.FC<MOMViewProps> = ({
             },
             {
                 id: crypto.randomUUID(), slNo: 5, agendaItem: 'Procurement Action Plan - Excess PO Analysis',
-                discussion: `• Excess PO Value (Strategy Report): ${toCr(autoPullData.excessPOVal)}\n• Need to send back: [INPUT AMOUNT]\n• Old Physical Excess to Liquidate: [INPUT AMOUNT]`,
+                discussion: `• Excess PO Value (Strategy Report): ${toCr(autoPullData.excessPOVal)}\n• Pending Payment Outstanding: ₹ _________ Cr.\n• Overdue (>30 days): ₹ _________ Cr.`,
                 actionAccount: ['Mohan'], timeline: 'Immediate', isCompleted: false
             }
         ];
@@ -315,6 +349,13 @@ const MOMView: React.FC<MOMViewProps> = ({
                     </div>
                 </div>
                 <div className="flex gap-2">
+                    <button
+                        onClick={() => setIsHistoryVisible(!isHistoryVisible)}
+                        className={`p-2 rounded-xl border transition-all ${isHistoryVisible ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+                        title={isHistoryVisible ? "Hide History" : "Show History"}
+                    >
+                        <Search className="w-5 h-5" />
+                    </button>
                     <button onClick={handleAutoPopulate} className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 rounded-xl text-xs font-black border border-indigo-100 hover:bg-indigo-100 transition-all">
                         <ArrowRight className="w-4 h-4" /> Pull Report Info
                     </button>
@@ -327,23 +368,25 @@ const MOMView: React.FC<MOMViewProps> = ({
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1 min-h-0">
-                <div className="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex flex-col gap-4 overflow-hidden print:hidden">
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                        <input type="text" placeholder="Search history..." className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+            <div className={`grid grid-cols-1 ${isHistoryVisible ? 'lg:grid-cols-4' : 'lg:grid-cols-1'} gap-6 flex-1 min-h-0`}>
+                {isHistoryVisible && (
+                    <div className="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex flex-col gap-4 overflow-hidden print:hidden animate-in slide-in-from-left duration-300">
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                            <input type="text" placeholder="Search history..." className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                        </div>
+                        <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-2">
+                            {filteredMoms.map(mom => (
+                                <button key={mom.id} onClick={() => setCurrentMom(mom)} className={`flex flex-col gap-1 p-3 rounded-xl border text-left transition-all ${currentMom.id === mom.id ? 'bg-indigo-50 border-indigo-200' : 'bg-white border-gray-100 hover:border-gray-300'}`}>
+                                    <span className="text-sm font-bold text-gray-800">{mom.title}</span>
+                                    <div className="text-[10px] text-gray-500 font-bold tracking-tight">{mom.date}</div>
+                                </button>
+                            ))}
+                        </div>
                     </div>
-                    <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-2">
-                        {filteredMoms.map(mom => (
-                            <button key={mom.id} onClick={() => setCurrentMom(mom)} className={`flex flex-col gap-1 p-3 rounded-xl border text-left transition-all ${currentMom.id === mom.id ? 'bg-indigo-50 border-indigo-200' : 'bg-white border-gray-100 hover:border-gray-300'}`}>
-                                <span className="text-sm font-bold text-gray-800">{mom.title}</span>
-                                <div className="text-[10px] text-gray-500 font-bold tracking-tight">{mom.date}</div>
-                            </button>
-                        ))}
-                    </div>
-                </div>
+                )}
 
-                <div className="lg:col-span-3 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col print:border-none print:shadow-none">
+                <div className={`${isHistoryVisible ? 'lg:col-span-3' : 'lg:col-span-1'} bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col print:border-none print:shadow-none transition-all duration-300`}>
                     {/* Compact Header */}
                     <div className="p-4 border-b border-gray-100 bg-gray-50/30 print:bg-white print:p-2">
                         <div className="flex justify-between items-start mb-4">
@@ -400,8 +443,8 @@ const MOMView: React.FC<MOMViewProps> = ({
 
                     <div className="flex-1 overflow-auto p-4">
                         <table className="w-full border-collapse">
-                            <thead>
-                                <tr className="border-b-2 border-gray-900">
+                            <thead className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm border-b-2 border-gray-900 print:static">
+                                <tr>
                                     <th className="py-2 text-left w-6 text-[9px] font-black uppercase text-gray-400">#</th>
                                     <th className="py-2 text-left text-[9px] font-black uppercase text-gray-400">Agenda & Discussion</th>
                                     <th className="py-2 text-left w-48 text-[9px] font-black uppercase text-gray-400">Action Account</th>
