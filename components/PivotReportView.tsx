@@ -1,7 +1,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { Material, ClosingStockItem, PendingSOItem, PendingPOItem, SalesReportItem } from '../types';
-import { FileDown, Search, ArrowUp, ArrowDown, Filter, AlertTriangle, Minus, ArrowUpDown, Layers, AlignLeft } from 'lucide-react';
+import { FileDown, Search, ArrowUp, ArrowDown, Filter, AlertTriangle, Minus, ArrowUpDown, Layers, AlignLeft, Eye, EyeOff } from 'lucide-react';
 import { utils, writeFile } from 'xlsx';
 
 interface PivotReportViewProps {
@@ -121,6 +121,8 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
         key: 'stock.val',
         direction: 'desc'
     });
+
+    const [showPlanningColumns, setShowPlanningColumns] = useState(true);
 
     // --- Core Calculation Logic ---
     const pivotData = useMemo(() => {
@@ -536,11 +538,24 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                     </div>
 
                     {/* Toggles */}
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap items-center gap-1.5 flex-1">
                         <button onClick={() => setShowExcessStock(!showExcessStock)} className={`px-2 py-1 rounded text-[10px] font-bold border transition-colors ${showExcessStock ? 'bg-red-50 text-red-700 border-red-200 shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}>Excess Stock</button>
                         <button onClick={() => setShowExcessPO(!showExcessPO)} className={`px-2 py-1 rounded text-[10px] font-bold border transition-colors ${showExcessPO ? 'bg-orange-50 text-orange-700 border-orange-200 shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}>Excess PO</button>
                         <button onClick={() => setShowPONeed(!showPONeed)} className={`px-2 py-1 rounded text-[10px] font-bold border transition-colors ${showPONeed ? 'bg-green-50 text-green-700 border-green-200 shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}>PO Need</button>
                         <button onClick={() => setShowExpedite(!showExpedite)} className={`px-2 py-1 rounded text-[10px] font-bold border transition-colors ${showExpedite ? 'bg-blue-50 text-blue-700 border-blue-200 shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}>Expedite</button>
+
+                        <div className="h-6 w-px bg-gray-200 mx-2 hidden md:block"></div>
+
+                        <button
+                            onClick={() => setShowPlanningColumns(!showPlanningColumns)}
+                            className={`flex items-center gap-1.5 px-3 py-1 rounded text-[10px] font-bold border transition-all duration-200 ${!showPlanningColumns ? 'bg-indigo-600 text-white border-indigo-700 shadow-md ring-2 ring-indigo-200' : 'bg-white text-indigo-600 border-indigo-200 hover:bg-indigo-50 hover:border-indigo-300'}`}
+                        >
+                            {showPlanningColumns ? (
+                                <><EyeOff className="w-3 h-3" /> Hide Planning Details</>
+                            ) : (
+                                <><Eye className="w-3 h-3" /> Show Planning Details</>
+                            )}
+                        </button>
                     </div>
                 </div>
             </div>
@@ -557,8 +572,12 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                                 <th colSpan={2} className="py-1 px-2 text-center border-r border-gray-300 bg-orange-50/50">Pending SO</th>
                                 <th colSpan={2} className="py-1 px-2 text-center border-r border-gray-300 bg-purple-50/50">Pending PO</th>
                                 <th colSpan={2} className="py-1 px-2 text-center border-r border-gray-300 bg-gray-200">Net Position</th>
-                                <th colSpan={3} className="py-1 px-2 text-center border-r border-gray-300 bg-yellow-50/50">Sales Performance</th>
-                                <th colSpan={6} className="py-1 px-2 text-center border-r border-gray-300 bg-teal-50/50">Stock Norms</th>
+                                {showPlanningColumns && (
+                                    <>
+                                        <th colSpan={3} className="py-1 px-2 text-center border-r border-gray-300 bg-yellow-50/50">Sales Performance</th>
+                                        <th colSpan={6} className="py-1 px-2 text-center border-r border-gray-300 bg-teal-50/50">Stock Norms</th>
+                                    </>
+                                )}
                                 <th colSpan={2} className="py-1 px-2 text-center border-r border-gray-300 bg-red-50 text-red-700">Excess Stock</th>
                                 <th colSpan={2} className="py-1 px-2 text-center border-r border-gray-300 bg-red-50 text-red-700">Excess PO</th>
                                 <th colSpan={2} className="py-1 px-2 text-center border-r border-gray-300 bg-green-50 text-green-700">PO Needed</th>
@@ -582,16 +601,20 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                                 <th onClick={() => handleHeaderSort('net.qty')} className="py-2 px-2 text-right bg-gray-100 font-extrabold hover:bg-gray-200 group"><div className="flex items-center justify-end gap-1">Qty {renderSortArrow('net.qty')}</div></th>
                                 <th onClick={() => handleHeaderSort('net.val')} className="py-2 px-2 text-right border-r bg-gray-100 font-extrabold hover:bg-gray-200 group"><div className="flex items-center justify-end gap-1">Val {renderSortArrow('net.val')}</div></th>
 
-                                <th onClick={() => handleHeaderSort('avg3m.qty')} className="py-2 px-2 text-right bg-yellow-50/30 hover:bg-yellow-100/50 group"><div className="flex items-center justify-end gap-1">3M Avg {renderSortArrow('avg3m.qty')}</div></th>
-                                <th onClick={() => handleHeaderSort('avg1y.qty')} className="py-2 px-2 text-right bg-yellow-50/30 hover:bg-yellow-100/50 group"><div className="flex items-center justify-end gap-1">1Y Avg {renderSortArrow('avg1y.qty')}</div></th>
-                                <th onClick={() => handleHeaderSort('growth.pct')} className="py-2 px-2 text-center border-r bg-yellow-50/30 hover:bg-yellow-100/50 group"><div className="flex items-center justify-center gap-1">Trend {renderSortArrow('growth.pct')}</div></th>
+                                {showPlanningColumns && (
+                                    <>
+                                        <th onClick={() => handleHeaderSort('avg3m.qty')} className="py-2 px-2 text-right bg-yellow-50/30 hover:bg-yellow-100/50 group"><div className="flex items-center justify-end gap-1">3M Avg {renderSortArrow('avg3m.qty')}</div></th>
+                                        <th onClick={() => handleHeaderSort('avg1y.qty')} className="py-2 px-2 text-right bg-yellow-50/30 hover:bg-yellow-100/50 group"><div className="flex items-center justify-end gap-1">1Y Avg {renderSortArrow('avg1y.qty')}</div></th>
+                                        <th onClick={() => handleHeaderSort('growth.pct')} className="py-2 px-2 text-center border-r bg-yellow-50/30 hover:bg-yellow-100/50 group"><div className="flex items-center justify-center gap-1">Trend {renderSortArrow('growth.pct')}</div></th>
 
-                                <th onClick={() => handleHeaderSort('levels.min.qty')} className="py-2 px-2 text-right bg-teal-50/30 hover:bg-teal-100/50 group"><div className="flex items-center justify-end gap-1">Min Q {renderSortArrow('levels.min.qty')}</div></th>
-                                <th onClick={() => handleHeaderSort('levels.min.val')} className="py-2 px-2 text-right border-r bg-teal-50/30 hover:bg-teal-100/50 group"><div className="flex items-center justify-end gap-1">Min V {renderSortArrow('levels.min.val')}</div></th>
-                                <th onClick={() => handleHeaderSort('levels.reorder.qty')} className="py-2 px-2 text-right bg-teal-50/30 hover:bg-teal-100/50 group"><div className="flex items-center justify-end gap-1">Re Q {renderSortArrow('levels.reorder.qty')}</div></th>
-                                <th onClick={() => handleHeaderSort('levels.reorder.val')} className="py-2 px-2 text-right border-r bg-teal-50/30 hover:bg-teal-100/50 group"><div className="flex items-center justify-end gap-1">Re V {renderSortArrow('levels.reorder.val')}</div></th>
-                                <th onClick={() => handleHeaderSort('levels.max.qty')} className="py-2 px-2 text-right bg-teal-50/30 hover:bg-teal-100/50 group"><div className="flex items-center justify-end gap-1">Max Q {renderSortArrow('levels.max.qty')}</div></th>
-                                <th onClick={() => handleHeaderSort('levels.max.val')} className="py-2 px-2 text-right border-r bg-teal-50/30 hover:bg-teal-100/50 group"><div className="flex items-center justify-end gap-1">Max V {renderSortArrow('levels.max.val')}</div></th>
+                                        <th onClick={() => handleHeaderSort('levels.min.qty')} className="py-2 px-2 text-right bg-teal-50/30 hover:bg-teal-100/50 group"><div className="flex items-center justify-end gap-1">Min Q {renderSortArrow('levels.min.qty')}</div></th>
+                                        <th onClick={() => handleHeaderSort('levels.min.val')} className="py-2 px-2 text-right border-r bg-teal-50/30 hover:bg-teal-100/50 group"><div className="flex items-center justify-end gap-1">Min V {renderSortArrow('levels.min.val')}</div></th>
+                                        <th onClick={() => handleHeaderSort('levels.reorder.qty')} className="py-2 px-2 text-right bg-teal-50/30 hover:bg-teal-100/50 group"><div className="flex items-center justify-end gap-1">Re Q {renderSortArrow('levels.reorder.qty')}</div></th>
+                                        <th onClick={() => handleHeaderSort('levels.reorder.val')} className="py-2 px-2 text-right border-r bg-teal-50/30 hover:bg-teal-100/50 group"><div className="flex items-center justify-end gap-1">Re V {renderSortArrow('levels.reorder.val')}</div></th>
+                                        <th onClick={() => handleHeaderSort('levels.max.qty')} className="py-2 px-2 text-right bg-teal-50/30 hover:bg-teal-100/50 group"><div className="flex items-center justify-end gap-1">Max Q {renderSortArrow('levels.max.qty')}</div></th>
+                                        <th onClick={() => handleHeaderSort('levels.max.val')} className="py-2 px-2 text-right border-r bg-teal-50/30 hover:bg-teal-100/50 group"><div className="flex items-center justify-end gap-1">Max V {renderSortArrow('levels.max.val')}</div></th>
+                                    </>
+                                )}
 
                                 <th onClick={() => handleHeaderSort('actions.excessStock.qty')} className="py-2 px-2 text-right bg-red-50/50 hover:bg-red-100/50 group"><div className="flex items-center justify-end gap-1">Qty {renderSortArrow('actions.excessStock.qty')}</div></th>
                                 <th onClick={() => handleHeaderSort('actions.excessStock.val')} className="py-2 px-2 text-right border-r bg-red-50/50 hover:bg-red-100/50 group"><div className="flex items-center justify-end gap-1">Val {renderSortArrow('actions.excessStock.val')}</div></th>
@@ -624,16 +647,20 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                                     <td className="py-2 px-2 text-right bg-gray-200">{formatLargeValue(totals.net.qty)}</td>
                                     <td className="py-2 px-2 text-right border-r bg-gray-200">{formatLargeValue(totals.net.val)}</td>
 
-                                    <td className="py-2 px-2 text-right bg-yellow-100/50">{formatDec(totals.avg3m.qty)}</td>
-                                    <td className="py-2 px-2 text-right bg-yellow-100/50">{formatDec(totals.avg1y.qty)}</td>
-                                    <td className="py-2 px-2 text-center border-r bg-yellow-100/50">-</td>
+                                    {showPlanningColumns && (
+                                        <>
+                                            <td className="py-2 px-2 text-right bg-yellow-100/50">{formatDec(totals.avg3m.qty)}</td>
+                                            <td className="py-2 px-2 text-right bg-yellow-100/50">{formatDec(totals.avg1y.qty)}</td>
+                                            <td className="py-2 px-2 text-center border-r bg-yellow-100/50">-</td>
 
-                                    <td className="py-2 px-2 text-right bg-teal-100/50">{formatLargeValue(totals.min.qty)}</td>
-                                    <td className="py-2 px-2 text-right border-r bg-teal-100/50">{formatLargeValue(totals.min.val)}</td>
-                                    <td className="py-2 px-2 text-right bg-teal-100/50">{formatLargeValue(totals.reorder.qty)}</td>
-                                    <td className="py-2 px-2 text-right border-r bg-teal-100/50">{formatLargeValue(totals.reorder.val)}</td>
-                                    <td className="py-2 px-2 text-right bg-teal-100/50">{formatLargeValue(totals.max.qty)}</td>
-                                    <td className="py-2 px-2 text-right border-r bg-teal-100/50">{formatLargeValue(totals.max.val)}</td>
+                                            <td className="py-2 px-2 text-right bg-teal-100/50">{formatLargeValue(totals.min.qty)}</td>
+                                            <td className="py-2 px-2 text-right border-r bg-teal-100/50">{formatLargeValue(totals.min.val)}</td>
+                                            <td className="py-2 px-2 text-right bg-teal-100/50">{formatLargeValue(totals.reorder.qty)}</td>
+                                            <td className="py-2 px-2 text-right border-r bg-teal-100/50">{formatLargeValue(totals.reorder.val)}</td>
+                                            <td className="py-2 px-2 text-right bg-teal-100/50">{formatLargeValue(totals.max.qty)}</td>
+                                            <td className="py-2 px-2 text-right border-r bg-teal-100/50">{formatLargeValue(totals.max.val)}</td>
+                                        </>
+                                    )}
 
                                     <td className="py-2 px-2 text-right bg-red-100/50 text-red-800">{formatLargeValue(totals.excessStock.qty)}</td>
                                     <td className="py-2 px-2 text-right border-r bg-red-100/50 text-red-800">{formatLargeValue(totals.excessStock.val)}</td>
@@ -650,7 +677,7 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                             )}
 
                             {filteredData.length === 0 ? (
-                                <tr><td colSpan={29} className="py-10 text-center text-gray-400">No active items match your filter.</td></tr>
+                                <tr><td colSpan={showPlanningColumns ? 29 : 20} className="py-10 text-center text-gray-400">No active items match your filter.</td></tr>
                             ) : (
                                 filteredData.map((row, idx) => (
                                     <tr key={row.id} className="hover:bg-gray-50 transition-colors group">
@@ -670,21 +697,25 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                                         <td className="py-1 px-2 text-right bg-gray-50 font-bold">{row.net.qty}</td>
                                         <td className="py-1 px-2 text-right border-r bg-gray-50 text-gray-600">{formatVal(row.net.val)}</td>
 
-                                        <td className="py-1 px-2 text-right bg-yellow-50/10">{formatDec(row.avg3m.qty)}</td>
-                                        <td className="py-1 px-2 text-right bg-yellow-50/10">{formatDec(row.avg1y.qty)}</td>
-                                        <td className="py-1 px-2 text-center border-r bg-yellow-50/10">
-                                            <div className="flex items-center justify-center gap-0.5">
-                                                {row.growth.diff > 0 ? <ArrowUp className="w-2.5 h-2.5 text-green-500" /> : row.growth.diff < 0 ? <ArrowDown className="w-2.5 h-2.5 text-red-500" /> : <Minus className="w-2.5 h-2.5 text-gray-300" />}
-                                                <span className={`${row.growth.diff > 0 ? 'text-green-600' : row.growth.diff < 0 ? 'text-red-600' : 'text-gray-400'}`}>{Math.round(Math.abs(row.growth.pct))}%</span>
-                                            </div>
-                                        </td>
+                                        {showPlanningColumns && (
+                                            <>
+                                                <td className="py-1 px-2 text-right bg-yellow-50/10">{formatDec(row.avg3m.qty)}</td>
+                                                <td className="py-1 px-2 text-right bg-yellow-50/10">{formatDec(row.avg1y.qty)}</td>
+                                                <td className="py-1 px-2 text-center border-r bg-yellow-50/10">
+                                                    <div className="flex items-center justify-center gap-0.5">
+                                                        {row.growth.diff > 0 ? <ArrowUp className="w-2.5 h-2.5 text-green-500" /> : row.growth.diff < 0 ? <ArrowDown className="w-2.5 h-2.5 text-red-500" /> : <Minus className="w-2.5 h-2.5 text-gray-300" />}
+                                                        <span className={`${row.growth.diff > 0 ? 'text-green-600' : row.growth.diff < 0 ? 'text-red-600' : 'text-gray-400'}`}>{Math.round(Math.abs(row.growth.pct))}%</span>
+                                                    </div>
+                                                </td>
 
-                                        <td className="py-1 px-2 text-right bg-teal-50/10 text-gray-500">{row.levels.min.qty}</td>
-                                        <td className="py-1 px-2 text-right border-r bg-teal-50/10 text-gray-400">{formatVal(row.levels.min.val)}</td>
-                                        <td className="py-1 px-2 text-right bg-teal-50/10 font-medium text-teal-700">{row.levels.reorder.qty}</td>
-                                        <td className="py-1 px-2 text-right border-r bg-teal-50/10 text-teal-600">{formatVal(row.levels.reorder.val)}</td>
-                                        <td className="py-1 px-2 text-right bg-teal-50/10 text-gray-500">{row.levels.max.qty}</td>
-                                        <td className="py-1 px-2 text-right border-r bg-teal-50/10 text-gray-400">{formatVal(row.levels.max.val)}</td>
+                                                <td className="py-1 px-2 text-right bg-teal-50/10 text-gray-500">{row.levels.min.qty}</td>
+                                                <td className="py-1 px-2 text-right border-r bg-teal-50/10 text-gray-400">{formatVal(row.levels.min.val)}</td>
+                                                <td className="py-1 px-2 text-right bg-teal-50/10 font-medium text-teal-700">{row.levels.reorder.qty}</td>
+                                                <td className="py-1 px-2 text-right border-r bg-teal-50/10 text-teal-600">{formatVal(row.levels.reorder.val)}</td>
+                                                <td className="py-1 px-2 text-right bg-teal-50/10 text-gray-500">{row.levels.max.qty}</td>
+                                                <td className="py-1 px-2 text-right border-r bg-teal-50/10 text-gray-400">{formatVal(row.levels.max.val)}</td>
+                                            </>
+                                        )}
 
                                         <td className="py-1 px-2 text-right bg-red-50/20 font-bold text-red-600">{row.actions.excessStock.qty || ''}</td>
                                         <td className="py-1 px-2 text-right border-r bg-red-50/20 text-red-400">{row.actions.excessStock.val ? formatVal(row.actions.excessStock.val) : ''}</td>
