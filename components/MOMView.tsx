@@ -633,13 +633,25 @@ const MOMView: React.FC<MOMViewProps> = ({
                         appearance: none;
                         -webkit-appearance: none;
                     }
-                    textarea { height: auto !important; overflow: visible !important; min-height: fit-content !important; display: block !important; }
+                    /* Clean up all scrolling containers for print */
+                    .overflow-auto, .overflow-y-auto, .overflow-x-auto { 
+                        overflow: visible !important; 
+                        max-height: none !important; 
+                        height: auto !important;
+                    }
+                    
+                    /* Hide scrollbars everywhere in print */
+                    * { -ms-overflow-style: none !important; scrollbar-width: none !important; }
+                    *::-webkit-scrollbar { display: none !important; }
+
+                    textarea { height: auto !important; overflow: visible !important; min-height: fit-content !important; display: block !important; white-space: pre-wrap !important; }
                     
                     /* Table styling */
                     table { 
                         width: 100% !important; 
                         border-collapse: collapse !important; 
                         table-layout: fixed !important;
+                        page-break-after: auto;
                     }
                     th { 
                         border-bottom: 2px solid #000 !important; 
@@ -652,19 +664,22 @@ const MOMView: React.FC<MOMViewProps> = ({
                         border-bottom: 1px solid #eee !important; 
                         padding: 15px 5px !important;
                         vertical-align: top !important;
+                        word-wrap: break-word !important;
                     }
-                    tr { page-break-inside: avoid !important; }
+                    tr { page-break-inside: avoid !important; page-break-after: auto !important; }
                     
                     .print-area { padding-bottom: 150px !important; }
                     
                     /* Signature Footer */
                     .print-footer {
+                        position: running(footer); /* Some browsers support this, but fixed is safer for basic printing */
                         position: fixed;
                         bottom: 0;
                         left: 0;
                         right: 0;
                         padding: 20px 0;
                         border-top: none !important;
+                        background: white !important;
                     }
                 }
                 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
