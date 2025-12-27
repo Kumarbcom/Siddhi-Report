@@ -609,29 +609,44 @@ const MOMView: React.FC<MOMViewProps> = ({
                 @media print {
                     @page { margin: 1cm; size: A4; }
                     
-                    /* Force everything else to disappear */
-                    body > *:not(.print-area), 
-                    header, nav, aside, footer, 
-                    #root > *:not(.print-area),
-                    .print\\:hidden, button { 
-                        display: none !important; 
-                        height: 0 !important;
-                        overflow: hidden !important;
+                    /* Reset body to prevent offset */
+                    html, body {
+                        margin: 0 !important;
+                        padding: 0 !important;
+                        background: white !important;
+                        width: 100% !important;
                     }
 
-                    /* Position the print area at the absolute top */
+                    /* Hide ALL items by default */
+                    body * {
+                        visibility: hidden !important;
+                    }
+
+                    /* Specifically show the MOM area and everything inside it */
+                    .print-area, .print-area * {
+                        visibility: visible !important;
+                    }
+
+                    /* Force the print area to the absolute top and left of the paper */
                     .print-area { 
-                        display: block !important;
                         position: absolute !important;
-                        top: 0 !important;
                         left: 0 !important;
+                        top: 0 !important;
                         width: 100% !important; 
                         margin: 0 !important;
                         padding: 0 !important;
                         background: white !important;
                         border: none !important;
                         box-shadow: none !important;
-                        visibility: visible !important;
+                        display: flex !important;
+                        flex-direction: column !important;
+                    }
+
+                    /* Ensure parent containers don't clip or offset */
+                    #root, footer, header, main {
+                        margin: 0 !important;
+                        padding: 0 !important;
+                        position: static !important;
                     }
 
                     .print-area * {
