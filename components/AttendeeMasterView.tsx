@@ -39,9 +39,13 @@ const AttendeeMasterView: React.FC = () => {
                 setAttendees(prev => [...prev, result]);
                 setFormData({ name: '', designation: '', imageUrl: '' });
                 setIsAdding(false);
+                alert('Attendee saved successfully!');
+            } else {
+                alert('Could not save attendee. Please check your connection or database. Local copy may be preserved.');
             }
-        } catch (e) {
-            alert('Error adding attendee');
+        } catch (e: any) {
+            console.error('Save Error:', e);
+            alert('Error adding attendee: ' + (e.message || 'Unknown error'));
         } finally {
             setIsLoading(false);
         }
