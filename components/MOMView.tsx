@@ -90,6 +90,13 @@ const MOMView: React.FC<MOMViewProps> = ({
         }
     }, [currentMom.date]);
 
+    // Auto-populate agenda items if empty
+    useEffect(() => {
+        if (currentMom.items && currentMom.items.length === 0 && autoPullData.ytdSales > 0) {
+            handleAutoPopulate();
+        }
+    }, [currentMom.items, autoPullData]);
+
     const autoPullData = useMemo(() => {
         const momDateStr = currentMom.date || new Date().toISOString().split('T')[0];
         const momDate = new Date(momDateStr);
@@ -385,9 +392,6 @@ const MOMView: React.FC<MOMViewProps> = ({
                     >
                         <HistoryIcon className="w-4 h-4" />
                         <span className="text-[10px] font-bold uppercase">{isHistoryVisible ? 'Hide History' : 'History'}</span>
-                    </button>
-                    <button onClick={handleAutoPopulate} className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 rounded-xl text-xs font-black border border-indigo-100 hover:bg-indigo-100 transition-all">
-                        <ArrowRight className="w-4 h-4" /> Pull Report Info
                     </button>
                     <button onClick={handleSave} disabled={isLoading} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-black shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all">
                         {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Save
