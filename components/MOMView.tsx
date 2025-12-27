@@ -492,14 +492,16 @@ const MOMView: React.FC<MOMViewProps> = ({
                             </div>
                             <div className="text-right print:text-center print:w-full">
                                 <label className="text-[9px] font-black text-gray-400 uppercase block print:hidden">Meeting Date</label>
-                                <input type="date" className="bg-transparent border-none text-right font-black text-sm p-0 print:text-center" value={currentMom.date} onChange={e => setCurrentMom(prev => ({ ...prev, date: e.target.value }))} />
+                                <input type="date" className="bg-transparent border-none text-right font-black text-sm p-0 print:hidden" value={currentMom.date} onChange={e => setCurrentMom(prev => ({ ...prev, date: e.target.value }))} />
+                                <div className="hidden print:block font-black text-sm">{currentMom.date}</div>
                             </div>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 print:grid-cols-1 print:mb-4">
                             <div className="print:text-center">
                                 <label className="text-[9px] font-black text-gray-400 uppercase mb-1 block print:hidden">Meeting Title</label>
-                                <input type="text" className="w-full bg-white border border-gray-100 rounded-lg px-3 py-1.5 text-sm font-bold shadow-sm outline-none print:border-none print:text-xl print:p-0 print:text-center" value={currentMom.title} onChange={e => setCurrentMom(prev => ({ ...prev, title: e.target.value }))} />
+                                <input type="text" className="w-full bg-white border border-gray-100 rounded-lg px-3 py-1.5 text-sm font-bold shadow-sm outline-none print:hidden" value={currentMom.title} onChange={e => setCurrentMom(prev => ({ ...prev, title: e.target.value }))} />
+                                <div className="hidden print:block font-black text-xl mb-4">{currentMom.title}</div>
                             </div>
                             <div className="relative">
                                 <label className="text-[9px] font-black text-gray-400 uppercase mb-1 block flex justify-between">
@@ -550,7 +552,8 @@ const MOMView: React.FC<MOMViewProps> = ({
                                     <tr key={item.id} className="group transition-colors snap-start scroll-mt-12">
                                         <td className="py-4 align-top text-xs font-black">{item.slNo}</td>
                                         <td className="py-4 px-2 align-top">
-                                            <input type="text" className="w-full bg-transparent font-black text-sm outline-none mb-1 print:border-none" value={item.agendaItem} onChange={e => updateItem(item.id, 'agendaItem', e.target.value)} placeholder="Topic..." />
+                                            <input type="text" className="w-full bg-transparent font-black text-sm outline-none mb-1 print:hidden" value={item.agendaItem} onChange={e => updateItem(item.id, 'agendaItem', e.target.value)} placeholder="Topic..." />
+                                            <div className="hidden print:block font-black text-sm mb-1">{item.agendaItem}</div>
                                             <textarea
                                                 className="w-full bg-transparent text-[11px] text-gray-600 outline-none resize-none leading-relaxed min-h-[100px] border-none focus:ring-0 p-0 print:hidden"
                                                 value={item.discussion}
@@ -579,7 +582,8 @@ const MOMView: React.FC<MOMViewProps> = ({
                                             </select>
                                         </td>
                                         <td className="py-4 align-top">
-                                            <input type="text" className="w-full text-[10px] border border-gray-100 rounded p-1 mb-1 shadow-inner print:border-none print:p-0 print:font-black" value={item.timeline} onChange={e => updateItem(item.id, 'timeline', e.target.value)} placeholder="Timeline..." />
+                                            <input type="text" className="w-full text-[10px] border border-gray-100 rounded p-1 mb-1 shadow-inner print:hidden" value={item.timeline} onChange={e => updateItem(item.id, 'timeline', e.target.value)} placeholder="Timeline..." />
+                                            <div className="hidden print:block text-[10px] font-black">{item.timeline}</div>
                                         </td>
                                         <td className="py-4 text-right align-top print:hidden">
                                             <button onClick={() => removeItem(item.id)} className="p-1 hover:text-red-500 transition-opacity opacity-0 group-hover:opacity-100"><Trash2 className="w-4 h-4" /></button>
@@ -604,18 +608,33 @@ const MOMView: React.FC<MOMViewProps> = ({
             <style>{`
                 @media print {
                     @page { margin: 1cm; size: A4; }
-                    body { background: white !important; font-family: 'Inter', sans-serif; -webkit-print-color-adjust: exact; }
-                    header, nav, .print\\:hidden, button, .lg\\:col-span-1 { display: none !important; }
                     
+                    /* Global Override to stop clipping */
+                    html, body, #root, [data-v-app], .flex, .flex-col, .overflow-hidden, .overflow-auto {
+                        overflow: visible !important;
+                        height: auto !important;
+                        width: auto !important;
+                        position: static !important;
+                        display: block !important;
+                    }
+
+                    /* Hide everything except the print-area */
+                    body > *:not(.print-area), 
+                    header, nav, sidebar, .print\\:hidden, button, 
+                    .lg\\:col-span-1, .bg-indigo-600, .bg-gray-50 { 
+                        display: none !important; 
+                    }
+                    
+                    /* Force Print Area to take full page */
                     .print-area { 
                         display: block !important;
-                        position: relative !important;
                         width: 100% !important; 
                         padding: 0 !important;
                         margin: 0 !important;
                         background: white !important;
-                        box-shadow: none !important;
                         border: none !important;
+                        box-shadow: none !important;
+                        color: black !important;
                     }
                     /* Re-enable backgrounds and borders for chips */
                     .print-area * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -673,7 +692,6 @@ const MOMView: React.FC<MOMViewProps> = ({
                     
                     /* Signature Footer */
                     .print-footer {
-                        position: running(footer); /* Some browsers support this, but fixed is safer for basic printing */
                         position: fixed;
                         bottom: 0;
                         left: 0;
@@ -681,7 +699,13 @@ const MOMView: React.FC<MOMViewProps> = ({
                         padding: 20px 0;
                         border-top: none !important;
                         background: white !important;
+                        z-index: 1000;
                     }
+                    
+                    /* Table adjustments */
+                    table { page-break-after: auto; }
+                    tr { page-break-inside: avoid !important; }
+                    td { word-break: break-word; }
                 }
                 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
                 .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
