@@ -68,66 +68,117 @@ const MOMView: React.FC<MOMViewProps> = ({
 
     // Enhanced Auto-Pull Logic matching the user's image structure
     const autoPullData = useMemo(() => {
-        const totalSales = salesReportItems.reduce((acc, i) => acc + (i.value || 0), 0);
-        const onlineSales = salesReportItems.filter(i => {
-            const cust = customers.find(c => c.customerName === i.customerName);
-            return cust?.customerGroup === 'Online' || cust?.group === 'Online';
-        }).reduce((acc, i) => acc + (i.value || 0), 0);
+        const momDateStr = currentMom.date || new Date().toISOString().split('T')[0];
+        const momDate = new Date(momDateStr);
 
-        const totalPendingSO = pendingSO.reduce((acc, i) => acc + (i.value || 0), 0);
-        const scheduledOrders = pendingSO.filter(i => {
-            const due = new Date(i.dueDate);
-            const today = new Date();
-            const diffTime = due.getTime() - today.getTime();
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            return diffDays <= 7 && diffDays >= 0;
-        }).reduce((acc, i) => acc + (i.value || 0), 0);
+        // --- POINT 1: Sales Review ---
+        const ytdSales = salesReportItems.reduce((acc, i) => acc + (i.value || 0), 0);
 
-        const totalStockValue = closingStock.reduce((acc, i) => acc + (i.value || 0), 0);
+        const lastWeekStart = new Date(momDate);
+        lastWeekStart.setDate(momDate.getDate() - 7);
+        const lastWeekSales = salesReportItems
+            .filter(i => {
+                const d = new Date(i.date);
+                return d >= lastWeekStart && d <= momDate;
+            })
+            .reduce((acc, i) => acc + (i.value || 0), 0);
 
-        // Stock Availability for Due Orders
+        const onlineSales = salesReportItems
+            .filter(i => {
+                const cust = customers.find(c => c.customerName === i.customerName);
+                return cust?.customerGroup === 'Online' || cust?.group === 'Online';
+            })
+            .reduce((acc, i) => acc + (i.value || 0), 0);
+
+        // --- POINT 2: Pending SO ---
+        const scheduledOrders = pendingSO
+            .filter(i => new Date(i.dueDate) > momDate)
+            .reduce((acc, i) => acc + (i.value || 0), 0);
+
+        const dueOrders = pendingSO.filter(i => new Date(i.dueDate) <= momDate);
+        const dueOrdersVal = dueOrders.reduce((acc, i) => acc + (i.value || 0), 0);
+
         const stockMap = new Map<string, number>();
-        closingStock.forEach(s => stockMap.set(s.description.toLowerCase(), s.quantity));
+        closingStock.forEach(s => {
+            const k = s.description.toLowerCase().trim();
+            stockMap.set(k, (stockMap.get(k) || 0) + s.quantity);
+        });
 
-        const dueOrders = pendingSO.filter(i => new Date(i.dueDate) <= new Date());
-        const stockAvailableVal = dueOrders.reduce((acc, i) => {
-            const qty = stockMap.get(i.itemName.toLowerCase()) || 0;
-            const availableQty = Math.min(qty, i.balanceQty);
-            return acc + (availableQty * i.rate);
-        }, 0);
+        let readyStockVal = 0;
+        dueOrders.forEach(i => {
+            const availableQty = stockMap.get(i.itemName.toLowerCase().trim()) || 0;
+            const utilized = Math.min(i.balanceQty, availableQty);
+            readyStockVal += (utilized * i.rate);
+            // Deduct from map to handle multiple orders for same item
+            stockMap.set(i.itemName.toLowerCase().trim(), availableQty - utilized);
+        });
+        const shortageVal = Math.max(0, dueOrdersVal - readyStockVal);
 
-        // Excess & Non-Moving
+        // --- POINT 3: Non-Moving ---
+        const soldItemKeys = new Set(salesReportItems.map(s => (s.particulars || s.itemName || '').toLowerCase().trim()));
+        const nonMovingItems = closingStock.filter(s => !soldItemKeys.has(s.description.toLowerCase().trim()));
+
+        const lappNonMoving = nonMovingItems
+            .filter(i => i.make?.toUpperCase().includes('LAPP'))
+            .reduce((acc, i) => acc + (i.value || 0), 0);
+        const eatonNonMoving = nonMovingItems
+            .filter(i => i.make?.toUpperCase().includes('EATON'))
+            .reduce((acc, i) => acc + (i.value || 0), 0);
+        const othersNonMoving = nonMovingItems
+            .filter(i => !i.make?.toUpperCase().includes('LAPP') && !i.make?.toUpperCase().includes('EATON'))
+            .reduce((acc, i) => acc + (i.value || 0), 0);
+
+        // --- POINT 4: Excess Stock ---
+        // Definition: Stock > SO for that item
         const soMap = new Map<string, number>();
         pendingSO.forEach(s => {
-            const k = String(s.itemName || '').toLowerCase().trim();
-            soMap.set(k, (soMap.get(k) || 0) + (s.balanceQty || 0));
+            const k = s.itemName.toLowerCase().trim();
+            soMap.set(k, (soMap.get(k) || 0) + s.balanceQty);
         });
-        const totalExcess = closingStock.reduce((acc, i) => {
-            const descLower = String(i.description || '').toLowerCase().trim();
-            const sQty = soMap.get(descLower) || 0;
-            const excessQty = Math.max(0, (i.quantity || 0) - sQty);
-            return acc + (excessQty * (i.rate || 0));
-        }, 0);
+
+        const excessItems = closingStock.map(s => {
+            const k = s.description.toLowerCase().trim();
+            const committed = soMap.get(k) || 0;
+            const excessQty = Math.max(0, s.quantity - committed);
+            const make = (s.make || 'UNSPECIFIED').toUpperCase();
+            return { make, value: excessQty * s.rate };
+        });
+
+        const excessByMake: Record<string, number> = {};
+        excessItems.forEach(i => {
+            excessByMake[i.make] = (excessByMake[i.make] || 0) + i.value;
+        });
+        const totalExcess = Object.values(excessByMake).reduce((a, b) => a + b, 0);
+
+        // --- POINT 5: Excess PO ---
+        // Simplified: POs for items that already have enough STOCK + PO for current SO
+        const excessPOVal = pendingPO.reduce((acc, p) => acc + (p.value || 0), 0); // Placeholder: user needs reference to PO values
 
         return {
-            totalSales,
+            ytdSales,
+            lastWeekSales,
             onlineSales,
-            totalPendingSO,
+            totalPendingSO: pendingSO.reduce((acc, i) => acc + (i.value || 0), 0),
             scheduledOrders,
-            dueOrdersVal: dueOrders.reduce((acc, i) => acc + i.value, 0),
-            stockAvailableVal,
-            totalStockValue,
-            totalExcess
+            dueOrdersVal,
+            readyStockVal,
+            shortageVal,
+            lappNonMoving,
+            eatonNonMoving,
+            othersNonMoving,
+            totalExcess,
+            excessByMake,
+            excessPOVal
         };
-    }, [pendingSO, closingStock, salesReportItems, customers]);
+    }, [pendingSO, closingStock, salesReportItems, customers, currentMom.date]);
 
     const handleAutoPopulate = () => {
         const agendaItems: MOMItem[] = [
             {
                 id: crypto.randomUUID(),
                 slNo: 1,
-                agendaItem: `Sales Review On ${currentMom.date} - ${toCr(autoPullData.totalSales)} (${toCr(autoPullData.onlineSales)} Online)`,
-                discussion: 'Review of sales achievement against weekly targets across all channels.',
+                agendaItem: `Sales Review: Present YTD vs Last Week`,
+                discussion: `• Present YTD Sales: ${toCr(autoPullData.ytdSales)}\n• Online Sales YTD: ${toCr(autoPullData.onlineSales)}\n• Last Week Sales Achievement: ${toCr(autoPullData.lastWeekSales)}`,
                 actionAccount: ['Kumar'],
                 timeline: currentMom.date || '',
                 isCompleted: false
@@ -135,26 +186,29 @@ const MOMView: React.FC<MOMViewProps> = ({
             {
                 id: crypto.randomUUID(),
                 slNo: 2,
-                agendaItem: `Pending SO Total Value - ${toCr(autoPullData.totalPendingSO)}`,
-                discussion: `Scheduled order: ${toCr(autoPullData.scheduledOrders)}\nDue order: ${toCr(autoPullData.dueOrdersVal)} (stock available: ${toCr(autoPullData.stockAvailableVal)}, need to arrange: ${toCr(autoPullData.dueOrdersVal - autoPullData.stockAvailableVal)})`,
-                actionAccount: [],
+                agendaItem: `Pending SO Deep Analysis - ${toCr(autoPullData.totalPendingSO)}`,
+                discussion: `• Scheduled Orders (Future): ${toCr(autoPullData.scheduledOrders)}\n• Due Orders (Past/Today): ${toCr(autoPullData.dueOrdersVal)}\n• Ready Stock (For Due Orders): ${toCr(autoPullData.readyStockVal)}\n• Shortage (Need to Arrange): ${toCr(autoPullData.shortageVal)}`,
+                actionAccount: ['Sales Team'],
                 timeline: 'Immediate',
                 isCompleted: false
             },
             {
                 id: crypto.randomUUID(),
                 slNo: 3,
-                agendaItem: `As Per system two months Stock - ${toCr(autoPullData.totalStockValue)}`,
-                discussion: `Physical Stock: ${toCr(autoPullData.totalStockValue)} (as per system nonmoving: ₹0.00 Cr)`,
-                actionAccount: [],
-                timeline: '',
+                agendaItem: `System Stock & Non-Moving Status`,
+                discussion: `• Lapp Non-Moving: ${toCr(autoPullData.lappNonMoving)}\n• Eaton Non-Moving: ${toCr(autoPullData.eatonNonMoving)}\n• Others Non-Moving: ${toCr(autoPullData.othersNonMoving)}\n• Total Physical Stock: ${toCr(closingStock.reduce((a, b) => a + (b.value || 0), 0))}`,
+                actionAccount: ['Logistic Team'],
+                timeline: 'Next Thursday',
                 isCompleted: false
             },
             {
                 id: crypto.randomUUID(),
                 slNo: 4,
-                agendaItem: `Excess Stock ${toCr(autoPullData.totalExcess)}`,
-                discussion: `Specific Customer Stock: ₹0.00 Cr\nGeneral Stock: ₹0.00 Cr\nMake-wise breakdown required.`,
+                agendaItem: `Excess Stock Make-wise Summary - ${toCr(autoPullData.totalExcess)}`,
+                discussion: Object.entries(autoPullData.excessByMake)
+                    .filter(([_, val]) => val > 1000) // Only show significant makes
+                    .map(([make, val]) => `• ${make}: ${toCr(val)}`)
+                    .join('\n'),
                 actionAccount: ['Mohan/Gurudatt'],
                 timeline: '',
                 isCompleted: false
@@ -162,8 +216,8 @@ const MOMView: React.FC<MOMViewProps> = ({
             {
                 id: crypto.randomUUID(),
                 slNo: 5,
-                agendaItem: 'Action Based on report - Excess Qty',
-                discussion: '• Hold the Existing PO on Supplier\n• Need to send back\n• If old physical Excess Need to liquidate.\n\n(Note : Infra cables need to regroup)',
+                agendaItem: 'Procurement Action Plan - Excess PO Analysis',
+                discussion: `• Excess PO Value (on Supplier): ${toCr(autoPullData.excessPOVal)}\n• Need to send back: [INPUT AMOUNT]\n• Old Physical Excess to Liquidate: [INPUT AMOUNT]`,
                 actionAccount: ['Mohan'],
                 timeline: 'Immediate',
                 isCompleted: false
@@ -171,17 +225,17 @@ const MOMView: React.FC<MOMViewProps> = ({
             {
                 id: crypto.randomUUID(),
                 slNo: 6,
-                agendaItem: 'Work Flow',
-                discussion: '• OFFER MANAGEMENT (Understanding Enquiry, Pricing, Sending Offer, Follow Up)\n• PO VERIFICATION, AMMENDMENT (Spec, Price, MOQ, Lead time)\n• CUSTOMER, SUPPLIER & MATERIAL MASTER\n• SALE-ORDER PROCESSING\n• PI & ADVANCE PAYMENT COLLECTION\n• DC MATERIAL IN & OUT\n• BILLING, E-WAY, E-INVOICE\n• DISPATCH, POD COLLECTION\n• DOCUMENT FILING',
-                actionAccount: ['KUMAR N/GEETHA/MOHAN/RACHANA/RANJAN/VANDITHA'],
+                agendaItem: 'Work Flow Management',
+                discussion: '• OFFER MANAGEMENT: Enquiry Match, Follow up & Conversion\n• PO VERIFICATION: Spec, Price, MOQ, Lead time checks\n• ORDER PROCESSING: SO/DC/Billing/E-Way sync\n• POD & DISPATCH: Documentation flow',
+                actionAccount: ['KUMAR/GEETHA/MOHAN/VANDITHA'],
                 timeline: 'Ongoing',
                 isCompleted: false
             },
             {
                 id: crypto.randomUUID(),
                 slNo: 7,
-                agendaItem: 'SOP for Individual - Approval Process',
-                discussion: 'Review and implementation of individual SOPs for team functions and approval hierarchies.',
+                agendaItem: 'SOP & Approval Process',
+                discussion: 'Review of individual performance SOPs and administrative approval hierarchies.',
                 actionAccount: [],
                 timeline: '',
                 isCompleted: false
@@ -190,7 +244,7 @@ const MOMView: React.FC<MOMViewProps> = ({
                 id: crypto.randomUUID(),
                 slNo: 8,
                 agendaItem: 'Review and Check Mechanism',
-                discussion: '• PO Verification protocols to be followed strictly.',
+                discussion: 'Implementation of PO verification protocols.',
                 actionAccount: [],
                 timeline: '',
                 isCompleted: false
@@ -199,7 +253,7 @@ const MOMView: React.FC<MOMViewProps> = ({
                 id: crypto.randomUUID(),
                 slNo: 9,
                 agendaItem: 'Rate Contract Review',
-                discussion: 'Periodic review of rate contracts with key vendors and customers.',
+                discussion: 'Customer and Vendor rate contract status review.',
                 actionAccount: ['Ranjan'],
                 timeline: 'Next Week',
                 isCompleted: false
@@ -476,16 +530,45 @@ const MOMView: React.FC<MOMViewProps> = ({
                                                 />
                                             </div>
                                         </td>
-                                        <td className="py-6 align-top pr-4">
-                                            <div className="flex flex-col gap-2">
-                                                <input
-                                                    type="text"
-                                                    className="w-full bg-white border border-gray-100 rounded-lg px-3 py-2 text-[11px] font-bold text-gray-700 outline-none focus:ring-1 focus:ring-indigo-500 shadow-sm print:border-none print:shadow-none print:font-black"
-                                                    value={item.actionAccount.join(', ')}
-                                                    onChange={e => updateItem(item.id, 'actionAccount', e.target.value.split(',').map(s => s.trim()))}
-                                                    placeholder="Assigned to..."
-                                                />
-                                                <div className="flex items-center gap-2 px-1 print:hidden">
+                                        <td className="py-6 align-top pr-4 w-64">
+                                            <div className="relative group/assoc">
+                                                <div className="flex flex-wrap gap-1 mb-2">
+                                                    {item.actionAccount.map(acc => (
+                                                        <span key={acc} className="flex items-center gap-1 bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded text-[10px] font-bold border border-gray-200">
+                                                            {acc}
+                                                            <button
+                                                                onClick={() => {
+                                                                    const next = item.actionAccount.filter(a => a !== acc);
+                                                                    updateItem(item.id, 'actionAccount', next);
+                                                                }}
+                                                                className="text-gray-400 hover:text-red-500 print:hidden"
+                                                            >
+                                                                <X className="w-2.5 h-2.5" />
+                                                            </button>
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                                <select
+                                                    className="w-full bg-white border border-gray-100 rounded-lg px-2 py-1.5 text-[10px] font-bold text-gray-700 outline-none focus:ring-1 focus:ring-indigo-500 shadow-sm print:hidden"
+                                                    value=""
+                                                    onChange={e => {
+                                                        if (e.target.value && !item.actionAccount.includes(e.target.value)) {
+                                                            updateItem(item.id, 'actionAccount', [...item.actionAccount, e.target.value]);
+                                                        }
+                                                    }}
+                                                >
+                                                    <option value="">Assign Person...</option>
+                                                    {attendeeMaster.map(a => (
+                                                        <option key={a.id} value={a.name}>{a.name}</option>
+                                                    ))}
+                                                    <option value="Sales Team">Sales Team</option>
+                                                    <option value="Logistic Team">Logistic Team</option>
+                                                    <option value="Warehouse">Warehouse</option>
+                                                </select>
+                                                <div className="hidden print:block text-[11px] font-black text-gray-800">
+                                                    {item.actionAccount.join(', ')}
+                                                </div>
+                                                <div className="mt-2 flex items-center gap-2 px-1 print:hidden">
                                                     <button
                                                         onClick={() => updateItem(item.id, 'isCompleted', !item.isCompleted)}
                                                         className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-[9px] font-black uppercase transition-all ${item.isCompleted ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}
