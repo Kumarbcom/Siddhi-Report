@@ -484,7 +484,7 @@ const MOMView: React.FC<MOMViewProps> = ({
                     <div className="p-4 border-b border-gray-100 bg-gray-50/30 print:bg-white print:p-0 print:border-none">
                         <div className="flex justify-between items-start mb-4 print:flex-col print:items-center print:gap-2">
                             <div className="print:text-center print:w-full">
-                                <h2 className="text-xl font-black text-gray-900 tracking-tighter mb-1 print:text-2xl print:uppercase">Minutes of Meeting (MOM)</h2>
+                                <h2 className="text-xl font-black text-gray-900 tracking-tighter mb-1 print:text-2xl print:uppercase print:mt-0">Minutes of Meeting (MOM)</h2>
                                 <div className="flex items-center gap-2 print:justify-center">
                                     <div className="w-8 h-1 bg-indigo-600 rounded-full"></div>
                                     <span className="text-[10px] font-black text-indigo-600 uppercase">OFFICIAL RECORD</span>
@@ -609,32 +609,35 @@ const MOMView: React.FC<MOMViewProps> = ({
                 @media print {
                     @page { margin: 1cm; size: A4; }
                     
-                    /* Global Override to stop clipping */
-                    html, body, #root, [data-v-app], .flex, .flex-col, .overflow-hidden, .overflow-auto {
-                        overflow: visible !important;
-                        height: auto !important;
-                        width: auto !important;
-                        position: static !important;
-                        display: block !important;
+                    /* Force everything else to disappear */
+                    body > *:not(.print-area), 
+                    header, nav, aside, footer, 
+                    #root > *:not(.print-area),
+                    .print\\:hidden, button { 
+                        display: none !important; 
+                        height: 0 !important;
+                        overflow: hidden !important;
                     }
 
-                    /* Hide everything except the print-area */
-                    body > *:not(.print-area), 
-                    header, nav, sidebar, .print\\:hidden, button, 
-                    .lg\\:col-span-1, .bg-indigo-600, .bg-gray-50 { 
-                        display: none !important; 
-                    }
-                    
-                    /* Force Print Area to take full page */
+                    /* Position the print area at the absolute top */
                     .print-area { 
                         display: block !important;
+                        position: absolute !important;
+                        top: 0 !important;
+                        left: 0 !important;
                         width: 100% !important; 
-                        padding: 0 !important;
                         margin: 0 !important;
+                        padding: 0 !important;
                         background: white !important;
                         border: none !important;
                         box-shadow: none !important;
-                        color: black !important;
+                        visibility: visible !important;
+                    }
+
+                    .print-area * {
+                        visibility: visible !important;
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
                     }
                     /* Re-enable backgrounds and borders for chips */
                     .print-area * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
