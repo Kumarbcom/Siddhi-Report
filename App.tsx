@@ -641,67 +641,69 @@ const App: React.FC = () => {
             <span className="text-[10px] font-bold text-gray-500 uppercase">{dbStatus === 'connected' ? 'Cloud' : 'Local'}</span>
           </div>
         </header>
-        <main className="flex-1 overflow-hidden p-4 relative">
-          {activeTab === 'dashboard' && <DashboardView materials={materials} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} salesReportItems={salesReportItems} customers={customerMasterItems} sales1Year={sales1Year} sales3Months={sales3Months} setActiveTab={setActiveTab} />}
-          {activeTab === 'pivotReport' && <PivotReportView materials={materials} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} salesReportItems={salesReportItems} />}
-          {activeTab === 'chat' && (
-            <div className="h-full w-full max-w-4xl mx-auto flex flex-col gap-4">
-              <ChatView materials={materials} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} salesReportItems={salesReportItems} customers={customerMasterItems} />
-            </div>
-          )}
-          {activeTab === 'master' && (
-            <div className="flex flex-col h-full gap-4">
-              <div className="bg-white border-b border-gray-200 p-4 rounded-xl shadow-sm flex flex-col md:flex-row justify-between items-center gap-4 flex-shrink-0">
-                <div className="flex items-center gap-3">
-                  <div className="bg-blue-600 p-2 rounded-lg text-white"><Factory className="w-5 h-5" /></div>
-                  <div>
-                    <h2 className="text-sm font-black text-gray-800 uppercase tracking-tight">Material Master Repository</h2>
-                    <p className="text-[10px] text-gray-500 font-medium">Central database for parts, items and industrial codes</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4 bg-gray-50 px-4 py-2 rounded-lg border border-gray-100">
-                  <div className="flex flex-col items-center">
-                    <span className="text-[9px] font-bold text-gray-400 uppercase">Total Items</span>
-                    <span className="text-sm font-black text-gray-900">{materials.length}</span>
-                  </div>
-                  <div className="w-px h-6 bg-gray-200"></div>
-                  <div className="flex flex-col items-center">
-                    <span className="text-[9px] font-bold text-gray-400 uppercase">Unique Makes</span>
-                    <span className="text-sm font-black text-blue-600">{makeStats.length}</span>
-                  </div>
-                </div>
+        <main className="flex-1 overflow-hidden p-4 relative bg-gray-50/50">
+          <div key={activeTab} className="h-full w-full animate-fade-in-up">
+            {activeTab === 'dashboard' && <DashboardView materials={materials} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} salesReportItems={salesReportItems} customers={customerMasterItems} sales1Year={sales1Year} sales3Months={sales3Months} setActiveTab={setActiveTab} />}
+            {activeTab === 'pivotReport' && <PivotReportView materials={materials} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} salesReportItems={salesReportItems} />}
+            {activeTab === 'chat' && (
+              <div className="h-full w-full max-w-4xl mx-auto flex flex-col gap-4">
+                <ChatView materials={materials} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} salesReportItems={salesReportItems} customers={customerMasterItems} />
               </div>
-
-              <div className="flex flex-col lg:flex-row gap-4 items-start flex-1 min-h-0 overflow-hidden">
-                <div className="w-full lg:w-64 flex-shrink-0 flex flex-col gap-3 h-full overflow-hidden">
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col flex-1 overflow-hidden min-h-0">
-                    <div className="p-3 border-b border-gray-100 bg-gray-50 flex-shrink-0"><h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Filter by Manufacturer</h3></div>
-                    <div className="overflow-y-auto custom-scrollbar p-1.5 space-y-1 flex-1">
-                      <button onClick={() => setSelectedMake('ALL')} className={`w-full text-left px-3 py-2 rounded-lg text-[11px] font-bold flex justify-between items-center transition-all ${selectedMake === 'ALL' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-100'}`}>
-                        All Brands
-                        {selectedMake === 'ALL' && <ChevronRight className="w-3 h-3" />}
-                      </button>
-                      {makeStats.map(([make, count]) => (
-                        <button key={make} onClick={() => setSelectedMake(make)} className={`w-full text-left px-3 py-2 rounded-lg text-[11px] font-bold flex justify-between items-center transition-all ${selectedMake === make ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-100'}`}>
-                          <span className="truncate w-3/4">{make === 'UNSPECIFIED' ? 'Other Brands' : make}</span>
-                          <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-black ${selectedMake === make ? 'bg-blue-500' : 'bg-gray-100 text-gray-500'}`}>{count}</span>
-                        </button>
-                      ))}
+            )}
+            {activeTab === 'master' && (
+              <div className="flex flex-col h-full gap-4">
+                <div className="bg-white border-b border-gray-200 p-4 rounded-xl shadow-sm flex flex-col md:flex-row justify-between items-center gap-4 flex-shrink-0">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-blue-600 p-2 rounded-lg text-white"><Factory className="w-5 h-5" /></div>
+                    <div>
+                      <h2 className="text-sm font-black text-gray-800 uppercase tracking-tight">Material Master Repository</h2>
+                      <p className="text-[10px] text-gray-500 font-medium">Central database for parts, items and industrial codes</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4 bg-gray-50 px-4 py-2 rounded-lg border border-gray-100">
+                    <div className="flex flex-col items-center">
+                      <span className="text-[9px] font-bold text-gray-400 uppercase">Total Items</span>
+                      <span className="text-sm font-black text-gray-900">{materials.length}</span>
+                    </div>
+                    <div className="w-px h-6 bg-gray-200"></div>
+                    <div className="flex flex-col items-center">
+                      <span className="text-[9px] font-bold text-gray-400 uppercase">Unique Makes</span>
+                      <span className="text-sm font-black text-blue-600">{makeStats.length}</span>
                     </div>
                   </div>
                 </div>
-                <div className="flex-1 w-full min-w-0 flex flex-col gap-3 h-full overflow-hidden">
-                  <AddMaterialForm materials={materials} onBulkAdd={handleBulkAddMaterial} onClear={handleClearMaterials} />
-                  <div className="flex-1 min-h-0"><MaterialTable materials={filteredMaterials} onUpdate={handleUpdateMaterial} onDelete={handleDeleteMaterial} /></div>
+
+                <div className="flex flex-col lg:flex-row gap-4 items-start flex-1 min-h-0 overflow-hidden">
+                  <div className="w-full lg:w-64 flex-shrink-0 flex flex-col gap-3 h-full overflow-hidden">
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col flex-1 overflow-hidden min-h-0">
+                      <div className="p-3 border-b border-gray-100 bg-gray-50 flex-shrink-0"><h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Filter by Manufacturer</h3></div>
+                      <div className="overflow-y-auto custom-scrollbar p-1.5 space-y-1 flex-1">
+                        <button onClick={() => setSelectedMake('ALL')} className={`w-full text-left px-3 py-2 rounded-lg text-[11px] font-bold flex justify-between items-center transition-all ${selectedMake === 'ALL' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-100'}`}>
+                          All Brands
+                          {selectedMake === 'ALL' && <ChevronRight className="w-3 h-3" />}
+                        </button>
+                        {makeStats.map(([make, count]) => (
+                          <button key={make} onClick={() => setSelectedMake(make)} className={`w-full text-left px-3 py-2 rounded-lg text-[11px] font-bold flex justify-between items-center transition-all ${selectedMake === make ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-100'}`}>
+                            <span className="truncate w-3/4">{make === 'UNSPECIFIED' ? 'Other Brands' : make}</span>
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-black ${selectedMake === make ? 'bg-blue-500' : 'bg-gray-100 text-gray-500'}`}>{count}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex-1 w-full min-w-0 flex flex-col gap-3 h-full overflow-hidden">
+                    <AddMaterialForm materials={materials} onBulkAdd={handleBulkAddMaterial} onClear={handleClearMaterials} />
+                    <div className="flex-1 min-h-0"><MaterialTable materials={filteredMaterials} onUpdate={handleUpdateMaterial} onDelete={handleDeleteMaterial} /></div>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
-          {activeTab === 'customerMaster' && <div className="h-full w-full"><CustomerMasterView items={customerMasterItems} onBulkAdd={handleBulkAddCustomer} onUpdate={handleUpdateCustomer} onDelete={handleDeleteCustomer} onClear={handleClearCustomers} /></div>}
-          {activeTab === 'closingStock' && <div className="h-full w-full"><ClosingStockView items={closingStockItems} materials={materials} onBulkAdd={handleBulkAddStock} onUpdate={handleUpdateStock} onDelete={handleDeleteStock} onClear={handleClearStock} /></div>}
-          {activeTab === 'pendingSO' && <div className="h-full w-full"><PendingSOView items={pendingSOItems} materials={materials} closingStockItems={closingStockItems} onBulkAdd={handleBulkAddSO} onUpdate={handleUpdateSO} onDelete={handleDeleteSO} onClear={handleClearSO} onAddMaterial={handleAddMaterial} /></div>}
-          {activeTab === 'pendingPO' && <div className="h-full w-full"><PendingPOView items={pendingPOItems} materials={materials} closingStockItems={closingStockItems} pendingSOItems={pendingSOItems} salesReportItems={salesReportItems} onBulkAdd={handleBulkAddPO} onUpdate={handleUpdatePO} onDelete={handleDeletePO} onClear={handleClearPO} onAddMaterial={handleAddMaterial} /></div>}
-          {activeTab === 'salesReport' && <div className="h-full w-full"><SalesReportView items={salesReportItems} materials={materials} customers={customerMasterItems} onBulkAdd={handleBulkAddSales} onUpdate={handleUpdateSales} onDelete={handleDeleteSales} onClear={handleClearSales} onAddMaterial={handleAddMaterial} onAddCustomer={handleAddCustomer} /></div>}
+            )}
+            {activeTab === 'customerMaster' && <div className="h-full w-full"><CustomerMasterView items={customerMasterItems} onBulkAdd={handleBulkAddCustomer} onUpdate={handleUpdateCustomer} onDelete={handleDeleteCustomer} onClear={handleClearCustomers} /></div>}
+            {activeTab === 'closingStock' && <div className="h-full w-full"><ClosingStockView items={closingStockItems} materials={materials} onBulkAdd={handleBulkAddStock} onUpdate={handleUpdateStock} onDelete={handleDeleteStock} onClear={handleClearStock} /></div>}
+            {activeTab === 'pendingSO' && <div className="h-full w-full"><PendingSOView items={pendingSOItems} materials={materials} closingStockItems={closingStockItems} onBulkAdd={handleBulkAddSO} onUpdate={handleUpdateSO} onDelete={handleDeleteSO} onClear={handleClearSO} onAddMaterial={handleAddMaterial} /></div>}
+            {activeTab === 'pendingPO' && <div className="h-full w-full"><PendingPOView items={pendingPOItems} materials={materials} closingStockItems={closingStockItems} pendingSOItems={pendingSOItems} salesReportItems={salesReportItems} onBulkAdd={handleBulkAddPO} onUpdate={handleUpdatePO} onDelete={handleDeletePO} onClear={handleClearPO} onAddMaterial={handleAddMaterial} /></div>}
+            {activeTab === 'salesReport' && <div className="h-full w-full"><SalesReportView items={salesReportItems} materials={materials} customers={customerMasterItems} onBulkAdd={handleBulkAddSales} onUpdate={handleUpdateSales} onDelete={handleDeleteSales} onClear={handleClearSales} onAddMaterial={handleAddMaterial} onAddCustomer={handleAddCustomer} /></div>}
+          </div>
         </main>
       </div>
 

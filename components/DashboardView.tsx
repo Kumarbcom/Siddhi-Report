@@ -1157,8 +1157,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="h-full w-full flex flex-col bg-gray-50/50 overflow-hidden relative">
             {/* SO Detail Modal */}
             {selectedSoItem && (
-                <div className="absolute inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-100">
+                <div className="fixed inset-0 z-[200] bg-black/40 backdrop-blur-md flex items-center justify-center p-4 transition-all duration-500">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-100 animate-scale-in">
                         <div className="bg-purple-600 px-6 py-4 flex justify-between items-center text-white">
                             <div className="flex items-center gap-2">
                                 <ClipboardList className="w-5 h-5" />
@@ -1202,12 +1202,12 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             )}
 
             <div className="bg-white border-b border-gray-200 px-4 py-3 flex flex-col xl:flex-row gap-4 items-start xl:items-center justify-between flex-shrink-0 shadow-sm z-10">
-                <div className="flex bg-gray-200/50 backdrop-blur-sm p-1.5 rounded-xl border border-gray-200 shadow-inner">
+                <div className="flex bg-gray-200/50 backdrop-blur-sm p-1.5 rounded-xl border border-gray-200 shadow-inner overflow-hidden">
                     {(['sales', 'inventory', 'so', 'po', 'weekly'] as const).map(tab => (
                         <button
                             key={tab}
                             onClick={() => setActiveSubTab(tab)}
-                            className={`px-5 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all duration-300 transform ${activeSubTab === tab ? 'bg-white text-indigo-700 shadow-[0_4px_12px_rgba(0,0,0,0.1)] scale-[1.02]' : 'text-gray-500 hover:text-indigo-600 hover:bg-white/50'}`}
+                            className={`px-5 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all duration-500 ease-out transform active:scale-95 ${activeSubTab === tab ? 'bg-white text-indigo-700 shadow-[0_8px_16px_rgba(0,0,0,0.12)] scale-[1.02] translate-y-0' : 'text-gray-500 hover:text-indigo-600 hover:bg-white/40 hover:-translate-y-0.5'}`}
                         >
                             {tab === 'so' ? 'Pending SO' : tab === 'po' ? 'Pending PO' : tab === 'weekly' ? 'Weekly Report' : tab}
                         </button>
@@ -1304,643 +1304,784 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                     </div>
                 )}
             </div>
-            <div className="flex-1 p-2 overflow-y-auto custom-scrollbar">
-                {activeSubTab === 'sales' ? (
-                    <div className="flex flex-col gap-2">
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
-                            {[
-                                { label: 'Current Sales', val: kpis.currVal, prev: kpis.prevVal, isCurr: true, grad: 'from-blue-600 via-indigo-600 to-indigo-800', icon: DollarSign },
-                                { label: 'Quantity', val: kpis.currQty, prev: kpis.prevQty, isCurr: false, grad: 'from-emerald-500 via-teal-600 to-teal-800', icon: Package },
-                                { label: 'Unique Customers', val: kpis.uniqueCusts, prev: kpis.prevCusts, isCurr: false, grad: 'from-purple-500 via-violet-600 to-indigo-700', icon: Users },
-                                { label: 'Avg. Order', val: kpis.avgOrder, prev: kpis.prevAvgOrder, isCurr: true, grad: 'from-orange-500 via-rose-500 to-rose-700', icon: Activity }
-                            ].map((k, i) => {
-                                const diff = k.val - k.prev;
-                                const pct = k.prev > 0 ? (diff / k.prev) * 100 : 0;
-                                return (
-                                    <div key={i} className={`relative overflow-hidden bg-gradient-to-br ${k.grad} p-5 rounded-2xl shadow-[0_10px_20px_-5px_rgba(0,0,0,0.3)] transition-all duration-300 hover:shadow-[0_20px_40px_-10px_rgba(0,0,0,0.4)] hover:-translate-y-1.5 group border border-white/10`}>
-                                        <div className="absolute top-0 right-0 p-4 opacity-15 transform translate-x-1 translate-y--1 group-hover:scale-125 group-hover:rotate-12 transition-all duration-700 ease-out">
-                                            <k.icon className="w-14 h-14 text-white drop-shadow-2xl" />
-                                        </div>
-                                        <div className="relative z-10">
-                                            <p className="text-[10px] font-black text-white/80 uppercase tracking-[0.2em] drop-shadow-sm mb-1">{k.label} <span className="text-white/40">({timeView})</span></p>
-                                            <div className="flex items-baseline gap-2">
-                                                <h3 className="text-3xl font-black text-white tracking-tighter drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)] tabular-nums">
-                                                    {k.isCurr ? formatLargeValue(k.val, true) : k.val.toLocaleString()}
-                                                </h3>
+            <div className="flex-1 p-2 overflow-y-auto custom-scrollbar bg-gray-50/50">
+                <div key={activeSubTab} className="h-full animate-fade-in-up">
+                    {activeSubTab === 'sales' ? (
+                        <div className="flex flex-col gap-2">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
+                                {[
+                                    { label: 'Current Sales', val: kpis.currVal, prev: kpis.prevVal, isCurr: true, grad: 'from-blue-600 via-indigo-600 to-indigo-800', icon: DollarSign },
+                                    { label: 'Quantity', val: kpis.currQty, prev: kpis.prevQty, isCurr: false, grad: 'from-emerald-500 via-teal-600 to-teal-800', icon: Package },
+                                    { label: 'Unique Customers', val: kpis.uniqueCusts, prev: kpis.prevCusts, isCurr: false, grad: 'from-purple-500 via-violet-600 to-indigo-700', icon: Users },
+                                    { label: 'Avg. Order', val: kpis.avgOrder, prev: kpis.prevAvgOrder, isCurr: true, grad: 'from-orange-500 via-rose-500 to-rose-700', icon: Activity }
+                                ].map((k, i) => {
+                                    const diff = k.val - k.prev;
+                                    const pct = k.prev > 0 ? (diff / k.prev) * 100 : 0;
+                                    return (
+                                        <div key={i} className={`relative overflow-hidden bg-gradient-to-br ${k.grad} p-5 rounded-2xl shadow-[0_10px_20px_-5px_rgba(0,0,0,0.3)] transition-all duration-300 hover:shadow-[0_20px_40px_-10px_rgba(0,0,0,0.4)] hover:-translate-y-1.5 group border border-white/10`}>
+                                            <div className="absolute top-0 right-0 p-4 opacity-15 transform translate-x-1 translate-y--1 group-hover:scale-125 group-hover:rotate-12 transition-all duration-700 ease-out">
+                                                <k.icon className="w-14 h-14 text-white drop-shadow-2xl" />
                                             </div>
-                                            <div className="mt-4 flex items-center gap-2.5">
-                                                <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black border shadow-inner backdrop-blur-lg ${diff >= 0 ? 'bg-emerald-400/30 text-emerald-50 border-emerald-400/40 shadow-emerald-900/20' : 'bg-rose-400/30 text-rose-50 border-rose-400/40 shadow-rose-900/20'}`}>
-                                                    {diff >= 0 ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />}
-                                                    {Math.abs(pct).toFixed(0)}%
+                                            <div className="relative z-10">
+                                                <p className="text-[10px] font-black text-white/80 uppercase tracking-[0.2em] drop-shadow-sm mb-1">{k.label} <span className="text-white/40">({timeView})</span></p>
+                                                <div className="flex items-baseline gap-2">
+                                                    <h3 className="text-3xl font-black text-white tracking-tighter drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)] tabular-nums">
+                                                        {k.isCurr ? formatLargeValue(k.val, true) : k.val.toLocaleString()}
+                                                    </h3>
                                                 </div>
-                                                <p className="text-[9px] font-extrabold uppercase text-white/50 tracking-wider">
-                                                    {timeView === 'WEEK' ? 'vs Prev Week' : timeView === 'MONTH' ? 'vs Prev Month' : 'vs Last Year'}
-                                                </p>
+                                                <div className="mt-4 flex items-center gap-2.5">
+                                                    <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black border shadow-inner backdrop-blur-lg ${diff >= 0 ? 'bg-emerald-400/30 text-emerald-50 border-emerald-400/40 shadow-emerald-900/20' : 'bg-rose-400/30 text-rose-50 border-rose-400/40 shadow-rose-900/20'}`}>
+                                                        {diff >= 0 ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />}
+                                                        {Math.abs(pct).toFixed(0)}%
+                                                    </div>
+                                                    <p className="text-[9px] font-extrabold uppercase text-white/50 tracking-wider">
+                                                        {timeView === 'WEEK' ? 'vs Prev Week' : timeView === 'MONTH' ? 'vs Prev Month' : 'vs Last Year'}
+                                                    </p>
+                                                </div>
                                             </div>
+                                            {/* Subtle Inner Glow */}
+                                            <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-white/10 pointer-events-none opacity-50"></div>
                                         </div>
-                                        {/* Subtle Inner Glow */}
-                                        <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-white/10 pointer-events-none opacity-50"></div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
-                            {/* Trend Chart (2/3 width) */}
-                            <div className="lg:col-span-2 bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col h-72 overflow-hidden transition-all hover:shadow-md">
-                                <h3 className="text-[11px] font-black text-gray-800 mb-3 flex items-center gap-2 uppercase tracking-widest border-b border-gray-50 pb-2">
-                                    <TrendingUp className="w-4 h-4 text-blue-600" />
-                                    3-Year Sales Trend
-                                </h3>
-                                <div className="flex flex-1 pt-1 overflow-hidden">
-                                    <div className="flex flex-col justify-between text-[9px] font-bold text-gray-400 pr-3 pb-8 text-right w-12 border-r border-gray-50">
-                                        <span>{formatAxisValue(chartMax)}</span>
-                                        <span>{formatAxisValue(chartMax * 0.5)}</span>
-                                        <span>0</span>
-                                    </div>
-                                    <div className="flex-1 pl-3 pb-1 relative min-h-0">
-                                        <SalesTrendChart data={lineChartData} maxVal={chartMax} />
-                                    </div>
-                                </div>
+                                    );
+                                })}
                             </div>
-
-                            {/* Revenue Mix (1/3 width) */}
-                            <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex flex-col h-72 overflow-hidden transition-all hover:shadow-md">
-                                <ModernDonutChartDashboard
-                                    data={groupedCustomerData.map(g => ({ label: g.group, value: g.total }))}
-                                    title={`Revenue by ${groupingMode === 'RAW' ? 'Customer Group' : 'Merged Group'}`}
-                                    isCurrency={true}
-                                    centerColorClass="text-blue-700"
-                                />
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
-                            <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm h-[380px] flex flex-col overflow-hidden transition-all hover:shadow-md">
-                                <HorizontalBarChart
-                                    data={topTenCustomers}
-                                    title="Universal Top 10 Customers"
-                                    color="emerald"
-                                    compareLabel={timeView === 'WEEK' ? 'PW' : timeView === 'MONTH' ? 'PM' : 'LY'}
-                                />
-                            </div>
-                            <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm h-[380px] flex flex-col overflow-hidden transition-all hover:shadow-md">
-                                <div className="flex items-center justify-between mb-2 border-b border-gray-100 pb-2">
-                                    <h3 className="text-[10px] font-black text-gray-800 uppercase tracking-tight flex items-center gap-2">
-                                        <Layers className="w-3.5 h-3.5 text-blue-600" />
-                                        Advanced {groupingMode === 'RAW' ? 'Customer Group' : 'Merged Group'} Analytics
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
+                                {/* Trend Chart (2/3 width) */}
+                                <div className="lg:col-span-2 bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col h-72 overflow-hidden transition-all hover:shadow-md">
+                                    <h3 className="text-[11px] font-black text-gray-800 mb-3 flex items-center gap-2 uppercase tracking-widest border-b border-gray-50 pb-2">
+                                        <TrendingUp className="w-4 h-4 text-blue-600" />
+                                        3-Year Sales Trend
                                     </h3>
-                                    <span className="text-[8px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full uppercase">All Groups</span>
+                                    <div className="flex flex-1 pt-1 overflow-hidden">
+                                        <div className="flex flex-col justify-between text-[9px] font-bold text-gray-400 pr-3 pb-8 text-right w-12 border-r border-gray-50">
+                                            <span>{formatAxisValue(chartMax)}</span>
+                                            <span>{formatAxisValue(chartMax * 0.5)}</span>
+                                            <span>0</span>
+                                        </div>
+                                        <div className="flex-1 pl-3 pb-1 relative min-h-0">
+                                            <SalesTrendChart data={lineChartData} maxVal={chartMax} />
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="flex-1 overflow-hidden">
-                                    <GroupedCustomerAnalysis
-                                        data={groupedCustomerData}
+
+                                {/* Revenue Mix (1/3 width) */}
+                                <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex flex-col h-72 overflow-hidden transition-all hover:shadow-md">
+                                    <ModernDonutChartDashboard
+                                        data={groupedCustomerData.map(g => ({ label: g.group, value: g.total }))}
+                                        title={`Revenue by ${groupingMode === 'RAW' ? 'Customer Group' : 'Merged Group'}`}
+                                        isCurrency={true}
+                                        centerColorClass="text-blue-700"
+                                    />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+                                <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm h-[380px] flex flex-col overflow-hidden transition-all hover:shadow-md">
+                                    <HorizontalBarChart
+                                        data={topTenCustomers}
+                                        title="Universal Top 10 Customers"
+                                        color="emerald"
                                         compareLabel={timeView === 'WEEK' ? 'PW' : timeView === 'MONTH' ? 'PM' : 'LY'}
                                     />
                                 </div>
-                            </div>
-                        </div>
-                    </div>
-                ) : activeSubTab === 'inventory' ? (
-                    <div className="flex flex-col gap-4">
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                            <div className="bg-gradient-to-br from-indigo-600 to-blue-700 p-4 rounded-xl shadow-[0_8px_20px_-4px_rgba(79,70,229,0.3)] border border-indigo-500/30 transform transition-all duration-300 hover:scale-[1.01]">
-                                <p className="text-[10px] text-indigo-100 font-black uppercase tracking-widest opacity-80">Total Stock Value</p>
-                                <h3 className="text-2xl font-black text-white mt-1 break-all">{formatLargeValue(inventoryStats.totalVal)}</h3>
-                                <div className="mt-2 h-1 w-12 bg-white/30 rounded-full"></div>
-                            </div>
-                            <div className="bg-gradient-to-br from-emerald-500 to-teal-600 p-4 rounded-xl shadow-[0_8_20px_-4px_rgba(16,185,129,0.3)] border border-emerald-400/30 transform transition-all duration-300 hover:scale-[1.01]">
-                                <p className="text-[10px] text-emerald-50 font-black uppercase tracking-widest opacity-80">Total Qty</p>
-                                <h3 className="text-2xl font-black text-white mt-1">{inventoryStats.totalQty.toLocaleString()}</h3>
-                                <div className="mt-2 h-1 w-12 bg-white/30 rounded-full"></div>
-                            </div>
-                            <div className="bg-gradient-to-br from-purple-500 to-indigo-600 p-4 rounded-xl shadow-[0_8px_20px_-4px_rgba(139,92,246,0.3)] border border-purple-400/30 transform transition-all duration-300 hover:scale-[1.01]">
-                                <p className="text-[10px] text-purple-50 font-black uppercase tracking-widest opacity-80">Total SKUs</p>
-                                <h3 className="text-2xl font-black text-white mt-1">{inventoryStats.count}</h3>
-                                <div className="mt-2 h-1 w-12 bg-white/30 rounded-full"></div>
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-                            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80 flex flex-col">
-                                <ModernDonutChartDashboard
-                                    data={inventoryStats.makeMix}
-                                    title={`Inventory by Make (${invGroupMetric === 'value' ? 'Val' : 'Qty'})`}
-                                    isCurrency={invGroupMetric === 'value'}
-                                    centerColorClass="text-emerald-600"
-                                />
-                            </div>
-                            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80 flex flex-col">
-                                <ModernDonutChartDashboard
-                                    data={inventoryStats.groupMix}
-                                    title={`Inventory by Group (${invGroupMetric === 'value' ? 'Val' : 'Qty'})`}
-                                    isCurrency={invGroupMetric === 'value'}
-                                    centerColorClass="text-blue-600"
-                                />
-                            </div>
-                            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80 flex flex-col">
-                                <HorizontalBarChart
-                                    data={inventoryStats.topStock}
-                                    title="Top 10 High Value Stock Items"
-                                    color="emerald"
-                                    totalForPercentage={inventoryStats.totalVal}
-                                />
-                            </div>
-                            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80 flex flex-col">
-                                <HorizontalBarChart
-                                    data={inventoryStats.topExcess}
-                                    title="Top 10 Excess Stock Items"
-                                    color="rose"
-                                    totalForPercentage={inventoryStats.totalExcessVal}
-                                />
-                            </div>
-                        </div>
-
-                        {/* Inventory Table Integration */}
-                        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
-                            <div className="p-3 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-gray-50/50 gap-3">
-                                <div className="flex items-center gap-4">
-                                    <h4 className="text-sm font-bold text-gray-800 flex items-center gap-2">
-                                        <Table className="w-4 h-4 text-emerald-600" />
-                                        Detailed Inventory Snapshot
-                                    </h4>
-                                    <span className="text-[10px] font-bold text-gray-400 uppercase bg-white px-2 py-0.5 rounded border border-gray-100">{processedInventoryItems.length} Records</span>
+                                <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm h-[380px] flex flex-col overflow-hidden transition-all hover:shadow-md">
+                                    <div className="flex items-center justify-between mb-2 border-b border-gray-100 pb-2">
+                                        <h3 className="text-[10px] font-black text-gray-800 uppercase tracking-tight flex items-center gap-2">
+                                            <Layers className="w-3.5 h-3.5 text-blue-600" />
+                                            Advanced {groupingMode === 'RAW' ? 'Customer Group' : 'Merged Group'} Analytics
+                                        </h3>
+                                        <span className="text-[8px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full uppercase">All Groups</span>
+                                    </div>
+                                    <div className="flex-1 overflow-hidden">
+                                        <GroupedCustomerAnalysis
+                                            data={groupedCustomerData}
+                                            compareLabel={timeView === 'WEEK' ? 'PW' : timeView === 'MONTH' ? 'PM' : 'LY'}
+                                        />
+                                    </div>
                                 </div>
-                                <div className="relative w-full sm:w-64">
-                                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-                                    <input
-                                        type="text"
-                                        placeholder="Search inventory..."
-                                        value={invSearchTerm}
-                                        onChange={(e) => setInvSearchTerm(e.target.value)}
-                                        className="w-full pl-8 pr-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all shadow-inner"
+                            </div>
+                        </div>
+                    ) : activeSubTab === 'inventory' ? (
+                        <div className="flex flex-col gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                <div className="bg-gradient-to-br from-indigo-600 to-blue-700 p-4 rounded-xl shadow-[0_8px_20px_-4px_rgba(79,70,229,0.3)] border border-indigo-500/30 transform transition-all duration-300 hover:scale-[1.01]">
+                                    <p className="text-[10px] text-indigo-100 font-black uppercase tracking-widest opacity-80">Total Stock Value</p>
+                                    <h3 className="text-2xl font-black text-white mt-1 break-all">{formatLargeValue(inventoryStats.totalVal)}</h3>
+                                    <div className="mt-2 h-1 w-12 bg-white/30 rounded-full"></div>
+                                </div>
+                                <div className="bg-gradient-to-br from-emerald-500 to-teal-600 p-4 rounded-xl shadow-[0_8_20px_-4px_rgba(16,185,129,0.3)] border border-emerald-400/30 transform transition-all duration-300 hover:scale-[1.01]">
+                                    <p className="text-[10px] text-emerald-50 font-black uppercase tracking-widest opacity-80">Total Qty</p>
+                                    <h3 className="text-2xl font-black text-white mt-1">{inventoryStats.totalQty.toLocaleString()}</h3>
+                                    <div className="mt-2 h-1 w-12 bg-white/30 rounded-full"></div>
+                                </div>
+                                <div className="bg-gradient-to-br from-purple-500 to-indigo-600 p-4 rounded-xl shadow-[0_8px_20px_-4px_rgba(139,92,246,0.3)] border border-purple-400/30 transform transition-all duration-300 hover:scale-[1.01]">
+                                    <p className="text-[10px] text-purple-50 font-black uppercase tracking-widest opacity-80">Total SKUs</p>
+                                    <h3 className="text-2xl font-black text-white mt-1">{inventoryStats.count}</h3>
+                                    <div className="mt-2 h-1 w-12 bg-white/30 rounded-full"></div>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+                                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80 flex flex-col">
+                                    <ModernDonutChartDashboard
+                                        data={inventoryStats.makeMix}
+                                        title={`Inventory by Make (${invGroupMetric === 'value' ? 'Val' : 'Qty'})`}
+                                        isCurrency={invGroupMetric === 'value'}
+                                        centerColorClass="text-emerald-600"
+                                    />
+                                </div>
+                                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80 flex flex-col">
+                                    <ModernDonutChartDashboard
+                                        data={inventoryStats.groupMix}
+                                        title={`Inventory by Group (${invGroupMetric === 'value' ? 'Val' : 'Qty'})`}
+                                        isCurrency={invGroupMetric === 'value'}
+                                        centerColorClass="text-blue-600"
+                                    />
+                                </div>
+                                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80 flex flex-col">
+                                    <HorizontalBarChart
+                                        data={inventoryStats.topStock}
+                                        title="Top 10 High Value Stock Items"
+                                        color="emerald"
+                                        totalForPercentage={inventoryStats.totalVal}
+                                    />
+                                </div>
+                                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80 flex flex-col">
+                                    <HorizontalBarChart
+                                        data={inventoryStats.topExcess}
+                                        title="Top 10 Excess Stock Items"
+                                        color="rose"
+                                        totalForPercentage={inventoryStats.totalExcessVal}
                                     />
                                 </div>
                             </div>
-                            <div className="overflow-x-auto max-h-96 custom-scrollbar">
-                                <table className="w-full text-left border-collapse min-w-[800px]">
-                                    <thead className="sticky top-0 z-10 bg-white/80 backdrop-blur-xl shadow-[0_1px_0_0_rgba(0,0,0,0.05)] border-b border-gray-200">
-                                        <tr className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
-                                            {[
-                                                { key: 'description', label: 'Description', align: 'left' },
-                                                { key: 'make', label: 'Make', align: 'left' },
-                                                { key: 'group', label: 'Group', align: 'left' },
-                                                { key: 'quantity', label: 'Quantity', align: 'right' },
-                                                { key: 'rate', label: 'Rate', align: 'right' },
-                                                { key: 'value', label: 'Value', align: 'right' }
-                                            ].map(col => (
-                                                <th
-                                                    key={col.key}
-                                                    className={`py-4 px-4 cursor-pointer hover:bg-gray-100/50 transition-colors ${col.align === 'right' ? 'text-right' : ''}`}
-                                                    onClick={() => handleInvSort(col.key)}
-                                                >
-                                                    <div className={`flex items-center gap-1.5 ${col.align === 'right' ? 'justify-end' : ''}`}>
-                                                        {col.label}
-                                                        <ArrowUpDown className={`w-3 h-3 ${invSortKey === col.key ? 'text-indigo-600' : 'text-gray-300'}`} />
-                                                    </div>
-                                                </th>
-                                            ))}
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-100 text-[11px] text-gray-700">
-                                        {processedInventoryItems.length === 0 ? (
-                                            <tr>
-                                                <td colSpan={6} className="py-20 text-center text-gray-400 bg-gray-50/10">
-                                                    <div className="flex flex-col items-center justify-center gap-3">
-                                                        <Package className="w-12 h-12 text-gray-200" />
-                                                        <p className="text-sm font-bold uppercase tracking-tight">No matching stock found</p>
-                                                        <p className="text-[10px] text-gray-400">Try adjusting your Brand/Group filters or search term</p>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ) : (
-                                            processedInventoryItems.map((item, idx) => (
-                                                <tr key={idx} className="hover:bg-emerald-50/30 transition-colors group">
-                                                    <td className="py-2.5 px-4 font-bold text-gray-900 max-w-xs truncate" title={item.description}>{item.description}</td>
-                                                    <td className="py-2.5 px-4">
-                                                        <span className="inline-block px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-gray-100 text-gray-600 border border-gray-200 group-hover:bg-white">{item.make}</span>
-                                                    </td>
-                                                    <td className="py-2.5 px-4 text-gray-500 font-medium">{item.group}</td>
-                                                    <td className="py-2.5 px-4 text-right font-mono font-bold text-blue-600">{item.quantity.toLocaleString()}</td>
-                                                    <td className="py-2.5 px-4 text-right font-mono text-gray-400">{item.rate.toFixed(1)}</td>
-                                                    <td className="py-2.5 px-4 text-right font-black text-emerald-700">{formatLargeValue(item.value, true)}</td>
-                                                </tr>
-                                            ))
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                ) : activeSubTab === 'so' ? (
-                    <div className="flex flex-col gap-4">
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                            {/* Total Pending SO */}
-                            <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-800 p-5 rounded-2xl shadow-[0_10px_30px_-5px_rgba(79,70,229,0.4)] border border-white/10 group h-full">
-                                <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/10 rounded-full blur-2xl group-hover:bg-white/20 transition-all duration-700"></div>
-                                <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:scale-110 transition-transform duration-500"><DollarSign className="w-16 h-16 text-white" /></div>
-                                <div className="relative z-10 flex flex-col h-full justify-between">
-                                    <div>
-                                        <p className="text-[10px] text-indigo-100/70 font-black uppercase tracking-widest mb-1">Total Pending SO</p>
-                                        <h3 className="text-3xl font-black text-white tracking-tighter leading-none">{formatLargeValue(soStats.totalVal)}</h3>
-                                        <p className="text-[11px] font-bold text-indigo-100/50 mt-2 flex items-center gap-1.5"><Package className="w-3 h-3" /> Qty: {soStats.totalQty.toLocaleString()}</p>
-                                    </div>
-                                    <div className="mt-auto pt-5">
-                                        <div className="flex justify-between items-center text-[10px] mb-2 font-black">
-                                            <span className="text-red-300 uppercase letter tracking-tighter">Due: {formatLargeValue(soStats.dueValue, true)}</span>
-                                            <span className="text-blue-300 uppercase tracking-tighter">Sch: {formatLargeValue(soStats.scheduledValue, true)}</span>
-                                        </div>
-                                        <div className="w-full bg-white/10 backdrop-blur-sm h-2 rounded-full overflow-hidden flex shadow-inner">
-                                            <div className="bg-gradient-to-r from-red-400 to-rose-500 h-full shadow-[0_0_12px_rgba(244,63,94,0.6)] transition-all duration-1000" style={{ width: `${(soStats.dueValue / (soStats.totalVal || 1)) * 100}%` }}></div>
-                                            <div className="bg-gradient-to-r from-blue-400 to-indigo-500 h-full shadow-[0_0_12px_rgba(59,130,246,0.6)] transition-all duration-1000" style={{ width: `${(soStats.scheduledValue / (soStats.totalVal || 1)) * 100}%` }}></div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
 
-                            <div className="flex flex-col gap-3 h-full">
-                                <div className="bg-white p-4 rounded-2xl shadow-lg border border-gray-100 transform transition-all duration-300 hover:scale-[1.02] hover:shadow-red-100/50 relative overflow-hidden group">
-                                    <div className="absolute -right-4 -top-4 w-16 h-16 bg-red-50 rounded-full transition-all group-hover:scale-150 duration-500"></div>
-                                    <div className="relative z-10">
-                                        <p className="text-[10px] text-red-500 font-black uppercase tracking-widest mb-1">Due order</p>
-                                        <h3 className="text-2xl font-black text-gray-900 leading-tight">{formatLargeValue(soStats.dueValue)}</h3>
+                            {/* Inventory Table Integration */}
+                            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
+                                <div className="p-3 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-gray-50/50 gap-3">
+                                    <div className="flex items-center gap-4">
+                                        <h4 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                                            <Table className="w-4 h-4 text-emerald-600" />
+                                            Detailed Inventory Snapshot
+                                        </h4>
+                                        <span className="text-[10px] font-bold text-gray-400 uppercase bg-white px-2 py-0.5 rounded border border-gray-100">{processedInventoryItems.length} Records</span>
                                     </div>
-                                    <div className="relative z-10 grid grid-cols-2 gap-4 mt-3 pt-3 border-t border-gray-50">
-                                        <div>
-                                            <p className="text-[9px] font-black text-emerald-600 uppercase tracking-tighter">Ready</p>
-                                            <p className="text-xs font-black text-gray-800">{formatLargeValue(soStats.readyDueValue, true)}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-[9px] font-black text-rose-500 uppercase tracking-tighter">Shortage</p>
-                                            <p className="text-xs font-black text-gray-800">{formatLargeValue(soStats.shortageDueValue, true)}</p>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="bg-white p-4 rounded-2xl shadow-lg border border-gray-100 transform transition-all duration-300 hover:scale-[1.02] hover:shadow-blue-100/50 relative overflow-hidden group">
-                                    <div className="absolute -right-4 -top-4 w-16 h-16 bg-blue-50 rounded-full transition-all group-hover:scale-150 duration-500"></div>
-                                    <div className="relative z-10">
-                                        <p className="text-[10px] text-indigo-500 font-black uppercase tracking-widest mb-1">Schedule Order</p>
-                                        <h3 className="text-2xl font-black text-gray-900 leading-tight">{formatLargeValue(soStats.scheduledValue)}</h3>
-                                    </div>
-                                    <div className="relative z-10 grid grid-cols-2 gap-4 mt-3 pt-3 border-t border-gray-50">
-                                        <div>
-                                            <p className="text-[9px] font-black text-emerald-600 uppercase tracking-tighter">Ready</p>
-                                            <p className="text-xs font-black text-gray-800">{formatLargeValue(soStats.readySchValue, true)}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-[9px] font-black text-rose-500 uppercase tracking-tighter">Shortage</p>
-                                            <p className="text-xs font-black text-gray-800">{formatLargeValue(soStats.shortageSchValue, true)}</p>
-                                        </div>
+                                    <div className="relative w-full sm:w-64">
+                                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                                        <input
+                                            type="text"
+                                            placeholder="Search inventory..."
+                                            value={invSearchTerm}
+                                            onChange={(e) => setInvSearchTerm(e.target.value)}
+                                            className="w-full pl-8 pr-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all shadow-inner"
+                                        />
                                     </div>
                                 </div>
-                            </div>
-
-                            {/* Summary Card */}
-                            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col gap-2">
-                                <p className="text-[10px] text-teal-600 font-bold uppercase tracking-wider">Order Summary</p>
-                                <div className="flex-1 flex flex-col gap-2">
-                                    <div className="flex justify-between items-center bg-teal-50/50 p-2 rounded-lg border border-teal-100/50">
-                                        <span className="text-[9px] font-bold text-teal-700 uppercase">Customers</span>
-                                        <span className="text-sm font-black text-teal-900">{soStats.custMix.length}</span>
-                                    </div>
-                                    <div className="bg-gray-50/80 p-2 rounded-lg border border-gray-100">
-                                        <div className="flex justify-between items-center mb-0.5">
-                                            <span className="text-[9px] font-bold text-gray-500 uppercase">SO Pending</span>
-                                            <span className="text-xs font-black text-gray-900">{formatLargeValue(soStats.totalVal, true)}</span>
-                                        </div>
-                                        <div className="flex justify-between items-center">
-                                            <p className="text-[9px] text-gray-400 font-bold">Qty: {soStats.totalQty.toLocaleString()}</p>
-                                            <span className="text-[10px] font-black text-gray-600">{soStats.uniqueSOCount} SOs</span>
-                                        </div>
-                                    </div>
-                                    <div className="bg-indigo-50/50 p-2 rounded-lg border border-indigo-100/50">
-                                        <div className="flex justify-between items-center mb-0.5">
-                                            <span className="text-[9px] font-bold text-indigo-700 uppercase">Unique Items Pending</span>
-                                            <span className="text-xs font-black text-indigo-900">{formatLargeValue(soStats.totalVal, true)}</span>
-                                        </div>
-                                        <div className="flex justify-between items-center">
-                                            <p className="text-[9px] text-indigo-400 font-bold">Qty: {soStats.totalQty.toLocaleString()}</p>
-                                            <span className="text-[10px] font-black text-indigo-600">{soStats.uniqueItemCount} Items</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80">
-                                <ModernDonutChartDashboard data={soStats.ageing} title="SO Ageing Analysis" isCurrency={true} centerColorClass="text-blue-600" />
-                            </div>
-                            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80">
-                                <ModernDonutChartDashboard data={soStats.groupMix} title="SO by Material Group" isCurrency={true} centerColorClass="text-emerald-600" />
-                            </div>
-                            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80">
-                                <ModernDonutChartDashboard data={soStats.custMix} title="Customer Concentration" isCurrency={true} centerColorClass="text-indigo-600" />
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                            <div className="bg-white rounded-xl border border-gray-200 shadow-sm min-h-96 flex flex-col">
-                                <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-                                    <h4 className="text-[11px] font-black text-gray-600 uppercase flex items-center gap-2"><ListOrdered className="w-4 h-4 text-purple-600" /> Top 10 High Value SOs</h4>
-                                    <span className="text-[9px] text-purple-600 font-bold bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100 animate-pulse">Click Value for Details</span>
-                                </div>
-                                <div className="flex-1 overflow-x-auto">
-                                    <table className="w-full text-[9px] text-left border-collapse">
-                                        <thead className="sticky top-0 z-10 bg-white/90 backdrop-blur-lg text-gray-400 uppercase font-black tracking-widest border-b border-gray-100">
-                                            <tr>
-                                                <th className="py-3 px-4">Date</th>
-                                                <th className="py-3 px-4">Customer Name</th>
-                                                <th className="py-3 px-4">SO No</th>
-                                                <th className="py-3 px-4 text-right">Value Analysis</th>
+                                <div className="overflow-x-auto max-h-96 custom-scrollbar">
+                                    <table className="w-full text-left border-collapse min-w-[800px]">
+                                        <thead className="sticky top-0 z-10 bg-white/80 backdrop-blur-xl shadow-[0_1px_0_0_rgba(0,0,0,0.05)] border-b border-gray-200">
+                                            <tr className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
+                                                {[
+                                                    { key: 'description', label: 'Description', align: 'left' },
+                                                    { key: 'make', label: 'Make', align: 'left' },
+                                                    { key: 'group', label: 'Group', align: 'left' },
+                                                    { key: 'quantity', label: 'Quantity', align: 'right' },
+                                                    { key: 'rate', label: 'Rate', align: 'right' },
+                                                    { key: 'value', label: 'Value', align: 'right' }
+                                                ].map(col => (
+                                                    <th
+                                                        key={col.key}
+                                                        className={`py-4 px-4 cursor-pointer hover:bg-gray-100/50 transition-colors ${col.align === 'right' ? 'text-right' : ''}`}
+                                                        onClick={() => handleInvSort(col.key)}
+                                                    >
+                                                        <div className={`flex items-center gap-1.5 ${col.align === 'right' ? 'justify-end' : ''}`}>
+                                                            {col.label}
+                                                            <ArrowUpDown className={`w-3 h-3 ${invSortKey === col.key ? 'text-indigo-600' : 'text-gray-300'}`} />
+                                                        </div>
+                                                    </th>
+                                                ))}
                                             </tr>
                                         </thead>
-                                        <tbody className="divide-y divide-gray-50">
-                                            {soStats.topItems.map((i: any) => (
-                                                <tr key={i.id} className="hover:bg-purple-50 group cursor-default">
-                                                    <td className="py-1.5 px-3 text-gray-400 font-medium">{i.date}</td>
-                                                    <td className="py-1.5 px-3 font-bold text-gray-800 truncate max-w-[120px]">{i.partyName}</td>
-                                                    <td className="py-1.5 px-3 font-mono text-gray-500">{i.orderNo}</td>
-                                                    <td className="py-1.5 px-3 text-right">
-                                                        <div className="flex flex-col items-end">
-                                                            <button
-                                                                onClick={() => setSelectedSoItem(i)}
-                                                                className="font-black text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-transparent hover:border-purple-300 hover:bg-white transition-all shadow-sm flex items-center gap-1"
-                                                            >
-                                                                {formatLargeValue(i.value, true)}
-                                                                <ArrowRight className="w-2 h-2 opacity-40 group-hover:opacity-100" />
-                                                            </button>
-                                                            <div className="flex gap-1.5 text-[7px] font-bold mt-0.5">
-                                                                <span className="text-emerald-600">R:{formatLargeValue(i.readyVal, true)}</span>
-                                                                <span className="text-rose-600">A:{formatLargeValue(i.shortageVal, true)}</span>
-                                                            </div>
+                                        <tbody className="divide-y divide-gray-100 text-[11px] text-gray-700">
+                                            {processedInventoryItems.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan={6} className="py-20 text-center text-gray-400 bg-gray-50/10">
+                                                        <div className="flex flex-col items-center justify-center gap-3">
+                                                            <Package className="w-12 h-12 text-gray-200" />
+                                                            <p className="text-sm font-bold uppercase tracking-tight">No matching stock found</p>
+                                                            <p className="text-[10px] text-gray-400">Try adjusting your Brand/Group filters or search term</p>
                                                         </div>
                                                     </td>
                                                 </tr>
-                                            ))}
+                                            ) : (
+                                                processedInventoryItems.map((item, idx) => (
+                                                    <tr key={idx} className="hover:bg-emerald-50/30 transition-colors group">
+                                                        <td className="py-2.5 px-4 font-bold text-gray-900 max-w-xs truncate" title={item.description}>{item.description}</td>
+                                                        <td className="py-2.5 px-4">
+                                                            <span className="inline-block px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-gray-100 text-gray-600 border border-gray-200 group-hover:bg-white">{item.make}</span>
+                                                        </td>
+                                                        <td className="py-2.5 px-4 text-gray-500 font-medium">{item.group}</td>
+                                                        <td className="py-2.5 px-4 text-right font-mono font-bold text-blue-600">{item.quantity.toLocaleString()}</td>
+                                                        <td className="py-2.5 px-4 text-right font-mono text-gray-400">{item.rate.toFixed(1)}</td>
+                                                        <td className="py-2.5 px-4 text-right font-black text-emerald-700">{formatLargeValue(item.value, true)}</td>
+                                                    </tr>
+                                                ))
+                                            )}
                                         </tbody>
                                     </table>
                                 </div>
                             </div>
-                            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm min-h-96">
-                                <HorizontalBarChart
-                                    data={soStats.custMix}
-                                    title="Pending SO by Customer"
-                                    color="blue"
-                                    isStacked={true}
-                                    secondaryLabel="Scheduled"
-                                />
-                            </div>
                         </div>
-                    </div>
-                ) : activeSubTab === 'po' ? (
-                    <div className="flex flex-col gap-4">
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                            <div className="bg-gradient-to-br from-orange-400 to-rose-500 p-4 rounded-xl shadow-[0_8px_20px_-4px_rgba(249,115,22,0.3)] border border-orange-400/30 transform transition-all duration-300 hover:scale-[1.01]">
-                                <p className="text-[10px] text-orange-50 font-black uppercase tracking-widest opacity-80">Total Pending PO</p>
-                                <h3 className="text-2xl font-black text-white mt-1">{formatLargeValue(poStats.totalVal)}</h3>
-                                <div className="mt-2 h-1 w-12 bg-white/30 rounded-full"></div>
-                            </div>
-                            <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-4 rounded-xl shadow-[0_8px_20px_-4px_rgba(59,130,246,0.3)] border border-blue-400/30 transform transition-all duration-300 hover:scale-[1.01]">
-                                <p className="text-[10px] text-blue-50 font-black uppercase tracking-widest opacity-80">Open POs</p>
-                                <h3 className="text-2xl font-black text-white mt-1">{poStats.count}</h3>
-                                <div className="mt-2 h-1 w-12 bg-white/30 rounded-full"></div>
-                            </div>
-                            <div className="bg-gradient-to-br from-red-500 to-rose-700 p-4 rounded-xl shadow-[0_8px_20px_-4px_rgba(239,68,68,0.3)] border border-red-400/30 transform transition-all duration-300 hover:scale-[1.01]">
-                                <p className="text-[10px] text-red-50 font-black uppercase tracking-widest opacity-80">Overdue Arrivals</p>
-                                <h3 className="text-2xl font-black text-white mt-1">{pendingPO.filter(i => i.overDueDays > 0).length}</h3>
-                                <div className="mt-2 h-1 w-12 bg-white/30 rounded-full"></div>
-                            </div>
-                            <div className="bg-gradient-to-br from-emerald-500 to-teal-600 p-4 rounded-xl shadow-[0_8px_20px_-4px_rgba(16,185,129,0.3)] border border-emerald-400/30 transform transition-all duration-300 hover:scale-[1.01]">
-                                <p className="text-[10px] text-emerald-50 font-black uppercase tracking-widest opacity-80">Active Vendors</p>
-                                <h3 className="text-2xl font-black text-white mt-1">{poStats.vendorMix.length}</h3>
-                                <div className="mt-2 h-1 w-12 bg-white/30 rounded-full"></div>
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80">
-                                <ModernDonutChartDashboard data={poStats.dueMix} title="PO Delivery Schedule" isCurrency={true} centerColorClass="text-emerald-600" />
-                            </div>
-                            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80">
-                                <ModernDonutChartDashboard data={poStats.groupMix} title="PO by Material Group" isCurrency={true} centerColorClass="text-blue-600" />
-                            </div>
-                            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80">
-                                <ModernDonutChartDashboard data={poStats.vendorMix} title="Vendor Concentration" isCurrency={true} centerColorClass="text-purple-600" />
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm min-h-96">
-                                <h4 className="text-[11px] font-bold text-gray-600 uppercase mb-4 flex items-center gap-2"><ShoppingCart className="w-4 h-4 text-orange-600" /> Top 10 High Value Open POs</h4>
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-[10px] text-left">
-                                        <thead className="bg-gray-50 text-gray-500 uppercase font-bold border-b border-gray-100">
-                                            <tr><th className="py-2 px-2">Vendor</th><th className="py-2 px-2">Item</th><th className="py-2 px-2 text-right">Qty</th><th className="py-2 px-2 text-right">Value</th></tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-gray-50">
-                                            {poStats.topItems.map(i => (
-                                                <tr key={i.id} className="hover:bg-gray-50"><td className="py-2 px-2 font-medium truncate max-w-[120px]">{i.partyName}</td><td className="py-2 px-2 truncate max-w-[150px]">{i.itemName}</td><td className="py-2 px-2 text-right">{i.balanceQty}</td><td className="py-2 px-2 text-right font-bold text-orange-700">{formatLargeValue(i.value, true)}</td></tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
+                    ) : activeSubTab === 'so' ? (
+                        <div className="flex flex-col gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                {/* Total Pending SO */}
+                                <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-800 p-5 rounded-2xl shadow-[0_10px_30px_-5px_rgba(79,70,229,0.4)] border border-white/10 group h-full">
+                                    <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/10 rounded-full blur-2xl group-hover:bg-white/20 transition-all duration-700"></div>
+                                    <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:scale-110 transition-transform duration-500"><DollarSign className="w-16 h-16 text-white" /></div>
+                                    <div className="relative z-10 flex flex-col h-full justify-between">
+                                        <div>
+                                            <p className="text-[10px] text-indigo-100/70 font-black uppercase tracking-widest mb-1">Total Pending SO</p>
+                                            <h3 className="text-3xl font-black text-white tracking-tighter leading-none">{formatLargeValue(soStats.totalVal)}</h3>
+                                            <p className="text-[11px] font-bold text-indigo-100/50 mt-2 flex items-center gap-1.5"><Package className="w-3 h-3" /> Qty: {soStats.totalQty.toLocaleString()}</p>
+                                        </div>
+                                        <div className="mt-auto pt-5">
+                                            <div className="flex justify-between items-center text-[10px] mb-2 font-black">
+                                                <span className="text-red-300 uppercase letter tracking-tighter">Due: {formatLargeValue(soStats.dueValue, true)}</span>
+                                                <span className="text-blue-300 uppercase tracking-tighter">Sch: {formatLargeValue(soStats.scheduledValue, true)}</span>
+                                            </div>
+                                            <div className="w-full bg-white/10 backdrop-blur-sm h-2 rounded-full overflow-hidden flex shadow-inner">
+                                                <div className="bg-gradient-to-r from-red-400 to-rose-500 h-full shadow-[0_0_12px_rgba(244,63,94,0.6)] transition-all duration-1000" style={{ width: `${(soStats.dueValue / (soStats.totalVal || 1)) * 100}%` }}></div>
+                                                <div className="bg-gradient-to-r from-blue-400 to-indigo-500 h-full shadow-[0_0_12px_rgba(59,130,246,0.6)] transition-all duration-1000" style={{ width: `${(soStats.scheduledValue / (soStats.totalVal || 1)) * 100}%` }}></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-col gap-3 h-full">
+                                    <div className="bg-white p-4 rounded-2xl shadow-lg border border-gray-100 transform transition-all duration-300 hover:scale-[1.02] hover:shadow-red-100/50 relative overflow-hidden group">
+                                        <div className="absolute -right-4 -top-4 w-16 h-16 bg-red-50 rounded-full transition-all group-hover:scale-150 duration-500"></div>
+                                        <div className="relative z-10">
+                                            <p className="text-[10px] text-red-500 font-black uppercase tracking-widest mb-1">Due order</p>
+                                            <h3 className="text-2xl font-black text-gray-900 leading-tight">{formatLargeValue(soStats.dueValue)}</h3>
+                                        </div>
+                                        <div className="relative z-10 grid grid-cols-2 gap-4 mt-3 pt-3 border-t border-gray-50">
+                                            <div>
+                                                <p className="text-[9px] font-black text-emerald-600 uppercase tracking-tighter">Ready</p>
+                                                <p className="text-xs font-black text-gray-800">{formatLargeValue(soStats.readyDueValue, true)}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-[9px] font-black text-rose-500 uppercase tracking-tighter">Shortage</p>
+                                                <p className="text-xs font-black text-gray-800">{formatLargeValue(soStats.shortageDueValue, true)}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="bg-white p-4 rounded-2xl shadow-lg border border-gray-100 transform transition-all duration-300 hover:scale-[1.02] hover:shadow-blue-100/50 relative overflow-hidden group">
+                                        <div className="absolute -right-4 -top-4 w-16 h-16 bg-blue-50 rounded-full transition-all group-hover:scale-150 duration-500"></div>
+                                        <div className="relative z-10">
+                                            <p className="text-[10px] text-indigo-500 font-black uppercase tracking-widest mb-1">Schedule Order</p>
+                                            <h3 className="text-2xl font-black text-gray-900 leading-tight">{formatLargeValue(soStats.scheduledValue)}</h3>
+                                        </div>
+                                        <div className="relative z-10 grid grid-cols-2 gap-4 mt-3 pt-3 border-t border-gray-50">
+                                            <div>
+                                                <p className="text-[9px] font-black text-emerald-600 uppercase tracking-tighter">Ready</p>
+                                                <p className="text-xs font-black text-gray-800">{formatLargeValue(soStats.readySchValue, true)}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-[9px] font-black text-rose-500 uppercase tracking-tighter">Shortage</p>
+                                                <p className="text-xs font-black text-gray-800">{formatLargeValue(soStats.shortageSchValue, true)}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Summary Card */}
+                                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col gap-2">
+                                    <p className="text-[10px] text-teal-600 font-bold uppercase tracking-wider">Order Summary</p>
+                                    <div className="flex-1 flex flex-col gap-2">
+                                        <div className="flex justify-between items-center bg-teal-50/50 p-2 rounded-lg border border-teal-100/50">
+                                            <span className="text-[9px] font-bold text-teal-700 uppercase">Customers</span>
+                                            <span className="text-sm font-black text-teal-900">{soStats.custMix.length}</span>
+                                        </div>
+                                        <div className="bg-gray-50/80 p-2 rounded-lg border border-gray-100">
+                                            <div className="flex justify-between items-center mb-0.5">
+                                                <span className="text-[9px] font-bold text-gray-500 uppercase">SO Pending</span>
+                                                <span className="text-xs font-black text-gray-900">{formatLargeValue(soStats.totalVal, true)}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                                <p className="text-[9px] text-gray-400 font-bold">Qty: {soStats.totalQty.toLocaleString()}</p>
+                                                <span className="text-[10px] font-black text-gray-600">{soStats.uniqueSOCount} SOs</span>
+                                            </div>
+                                        </div>
+                                        <div className="bg-indigo-50/50 p-2 rounded-lg border border-indigo-100/50">
+                                            <div className="flex justify-between items-center mb-0.5">
+                                                <span className="text-[9px] font-bold text-indigo-700 uppercase">Unique Items Pending</span>
+                                                <span className="text-xs font-black text-indigo-900">{formatLargeValue(soStats.totalVal, true)}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                                <p className="text-[9px] text-indigo-400 font-bold">Qty: {soStats.totalQty.toLocaleString()}</p>
+                                                <span className="text-[10px] font-black text-indigo-600">{soStats.uniqueItemCount} Items</span>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm min-h-96">
-                                <HorizontalBarChart data={poStats.vendorMix} title="Pending PO by Vendor" color="emerald" />
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80">
+                                    <ModernDonutChartDashboard data={soStats.ageing} title="SO Ageing Analysis" isCurrency={true} centerColorClass="text-blue-600" />
+                                </div>
+                                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80">
+                                    <ModernDonutChartDashboard data={soStats.groupMix} title="SO by Material Group" isCurrency={true} centerColorClass="text-emerald-600" />
+                                </div>
+                                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80">
+                                    <ModernDonutChartDashboard data={soStats.custMix} title="Customer Concentration" isCurrency={true} centerColorClass="text-indigo-600" />
+                                </div>
                             </div>
-                        </div>
-                    </div>
-                ) : activeSubTab === 'weekly' ? (
-                    <div className="flex flex-col gap-6 p-4 bg-gray-50 min-h-full">
-                        {/* Sales Report Section */}
-                        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-                            <div className="bg-indigo-600 px-6 py-4 flex items-center gap-3">
-                                <TrendingUp className="w-5 h-5 text-indigo-100" />
-                                <h3 className="text-lg font-bold text-white uppercase tracking-tight">Sales Comparison Analysis</h3>
-                            </div>
-                            <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-8">
-                                {/* MTD Performance */}
-                                <div className="space-y-4">
-                                    <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest border-l-4 border-indigo-500 pl-3">MTD Performance</h4>
-                                    <div className="overflow-hidden border border-gray-100 rounded-xl shadow-sm">
-                                        <table className="w-full text-sm text-left">
-                                            <thead className="bg-gray-50/80 text-gray-500 uppercase text-[10px] font-bold">
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                <div className="bg-white rounded-xl border border-gray-200 shadow-sm min-h-96 flex flex-col">
+                                    <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                                        <h4 className="text-[11px] font-black text-gray-600 uppercase flex items-center gap-2"><ListOrdered className="w-4 h-4 text-purple-600" /> Top 10 High Value SOs</h4>
+                                        <span className="text-[9px] text-purple-600 font-bold bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100 animate-pulse">Click Value for Details</span>
+                                    </div>
+                                    <div className="flex-1 overflow-x-auto">
+                                        <table className="w-full text-[9px] text-left border-collapse">
+                                            <thead className="sticky top-0 z-10 bg-white/90 backdrop-blur-lg text-gray-400 uppercase font-black tracking-widest border-b border-gray-100">
                                                 <tr>
-                                                    <th className="px-4 py-3 border-b">Category</th>
-                                                    <th className="px-4 py-3 border-b text-right">{weeklyStats.prevDate.toLocaleDateString('en-GB')} (PW)</th>
-                                                    <th className="px-4 py-3 border-b text-right">{weeklyStats.targetDate.toLocaleDateString('en-GB')} (CW)</th>
-                                                    <th className="px-4 py-3 border-b text-right">Diff</th>
-                                                    <th className="px-4 py-3 border-b text-right">% Chg</th>
+                                                    <th className="py-3 px-4">Date</th>
+                                                    <th className="py-3 px-4">Customer Name</th>
+                                                    <th className="py-3 px-4">SO No</th>
+                                                    <th className="py-3 px-4 text-right">Value Analysis</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-gray-50">
-                                                {/* Total Sales Row */}
-                                                <tr className="hover:bg-gray-50 transition-colors">
-                                                    <td className="px-4 py-3 font-semibold text-gray-600">Total Sales</td>
-                                                    <td className="px-4 py-3 text-right font-mono font-bold text-gray-700">{Math.round(weeklyStats.sales.mtdPrev).toLocaleString('en-IN')}</td>
-                                                    <td className="px-4 py-3 text-right font-mono font-black text-indigo-900">{Math.round(weeklyStats.sales.mtdCurr).toLocaleString('en-IN')}</td>
-                                                    <td className={`px-4 py-3 text-right font-bold ${weeklyStats.sales.mtdDiff >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                                                        {weeklyStats.sales.mtdDiff >= 0 ? '+' : ''}{Math.round(weeklyStats.sales.mtdDiff).toLocaleString('en-IN')}
-                                                    </td>
-                                                    <td className={`px-4 py-3 text-right font-black ${weeklyStats.sales.mtdDiff >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-                                                        {((weeklyStats.sales.mtdDiff / (weeklyStats.sales.mtdPrev || 1)) * 100).toFixed(2)}%
-                                                    </td>
-                                                </tr>
-                                                {/* Online Sales Row */}
-                                                <tr className="bg-emerald-50/20">
-                                                    <td className="px-4 py-3 font-bold text-emerald-700">Online Sales</td>
-                                                    <td className="px-4 py-3 text-right font-mono font-bold text-emerald-600">{Math.round(weeklyStats.sales.mtdPrevOnline).toLocaleString('en-IN')}</td>
-                                                    <td className="px-4 py-3 text-right font-mono font-black text-emerald-900">{Math.round(weeklyStats.sales.mtdCurrOnline).toLocaleString('en-IN')}</td>
-                                                    <td className={`px-4 py-3 text-right font-bold ${weeklyStats.sales.mtdDiffOnline >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                                                        {weeklyStats.sales.mtdDiffOnline >= 0 ? '+' : ''}{Math.round(weeklyStats.sales.mtdDiffOnline).toLocaleString('en-IN')}
-                                                    </td>
-                                                    <td className={`px-4 py-3 text-right font-black ${weeklyStats.sales.mtdDiffOnline >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-                                                        {((weeklyStats.sales.mtdDiffOnline / (weeklyStats.sales.mtdPrevOnline || 1)) * 100).toFixed(2)}%
-                                                    </td>
-                                                </tr>
+                                                {soStats.topItems.map((i: any) => (
+                                                    <tr key={i.id} className="hover:bg-purple-50 group cursor-default">
+                                                        <td className="py-1.5 px-3 text-gray-400 font-medium">{i.date}</td>
+                                                        <td className="py-1.5 px-3 font-bold text-gray-800 truncate max-w-[120px]">{i.partyName}</td>
+                                                        <td className="py-1.5 px-3 font-mono text-gray-500">{i.orderNo}</td>
+                                                        <td className="py-1.5 px-3 text-right">
+                                                            <div className="flex flex-col items-end">
+                                                                <button
+                                                                    onClick={() => setSelectedSoItem(i)}
+                                                                    className="font-black text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-transparent hover:border-purple-300 hover:bg-white transition-all shadow-sm flex items-center gap-1"
+                                                                >
+                                                                    {formatLargeValue(i.value, true)}
+                                                                    <ArrowRight className="w-2 h-2 opacity-40 group-hover:opacity-100" />
+                                                                </button>
+                                                                <div className="flex gap-1.5 text-[7px] font-bold mt-0.5">
+                                                                    <span className="text-emerald-600">R:{formatLargeValue(i.readyVal, true)}</span>
+                                                                    <span className="text-rose-600">A:{formatLargeValue(i.shortageVal, true)}</span>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))}
                                             </tbody>
                                         </table>
                                     </div>
                                 </div>
-
-                                {/* YTD Performance */}
-                                <div className="space-y-4">
-                                    <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest border-l-4 border-teal-500 pl-3">YTD Cumulative</h4>
-                                    <div className="overflow-hidden border border-gray-100 rounded-xl shadow-sm">
-                                        <table className="w-full text-sm text-left">
-                                            <thead className="bg-gray-50/80 text-gray-500 uppercase text-[10px] font-bold">
-                                                <tr>
-                                                    <th className="px-4 py-3 border-b">Category</th>
-                                                    <th className="px-4 py-3 border-b text-right">{weeklyStats.prevDate.toLocaleDateString('en-GB')} (PW)</th>
-                                                    <th className="px-4 py-3 border-b text-right">{weeklyStats.targetDate.toLocaleDateString('en-GB')} (CW)</th>
-                                                    <th className="px-4 py-3 border-b text-right">Diff</th>
-                                                    <th className="px-4 py-3 border-b text-right">% Chg</th>
-                                                </tr>
+                                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm min-h-96">
+                                    <HorizontalBarChart
+                                        data={soStats.custMix}
+                                        title="Pending SO by Customer"
+                                        color="blue"
+                                        isStacked={true}
+                                        secondaryLabel="Scheduled"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    ) : activeSubTab === 'po' ? (
+                        <div className="flex flex-col gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                <div className="bg-gradient-to-br from-orange-400 to-rose-500 p-4 rounded-xl shadow-[0_8px_20px_-4px_rgba(249,115,22,0.3)] border border-orange-400/30 transform transition-all duration-300 hover:scale-[1.01]">
+                                    <p className="text-[10px] text-orange-50 font-black uppercase tracking-widest opacity-80">Total Pending PO</p>
+                                    <h3 className="text-2xl font-black text-white mt-1">{formatLargeValue(poStats.totalVal)}</h3>
+                                    <div className="mt-2 h-1 w-12 bg-white/30 rounded-full"></div>
+                                </div>
+                                <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-4 rounded-xl shadow-[0_8px_20px_-4px_rgba(59,130,246,0.3)] border border-blue-400/30 transform transition-all duration-300 hover:scale-[1.01]">
+                                    <p className="text-[10px] text-blue-50 font-black uppercase tracking-widest opacity-80">Open POs</p>
+                                    <h3 className="text-2xl font-black text-white mt-1">{poStats.count}</h3>
+                                    <div className="mt-2 h-1 w-12 bg-white/30 rounded-full"></div>
+                                </div>
+                                <div className="bg-gradient-to-br from-red-500 to-rose-700 p-4 rounded-xl shadow-[0_8px_20px_-4px_rgba(239,68,68,0.3)] border border-red-400/30 transform transition-all duration-300 hover:scale-[1.01]">
+                                    <p className="text-[10px] text-red-50 font-black uppercase tracking-widest opacity-80">Overdue Arrivals</p>
+                                    <h3 className="text-2xl font-black text-white mt-1">{pendingPO.filter(i => i.overDueDays > 0).length}</h3>
+                                    <div className="mt-2 h-1 w-12 bg-white/30 rounded-full"></div>
+                                </div>
+                                <div className="bg-gradient-to-br from-emerald-500 to-teal-600 p-4 rounded-xl shadow-[0_8px_20px_-4px_rgba(16,185,129,0.3)] border border-emerald-400/30 transform transition-all duration-300 hover:scale-[1.01]">
+                                    <p className="text-[10px] text-emerald-50 font-black uppercase tracking-widest opacity-80">Active Vendors</p>
+                                    <h3 className="text-2xl font-black text-white mt-1">{poStats.vendorMix.length}</h3>
+                                    <div className="mt-2 h-1 w-12 bg-white/30 rounded-full"></div>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80">
+                                    <ModernDonutChartDashboard data={poStats.dueMix} title="PO Delivery Schedule" isCurrency={true} centerColorClass="text-emerald-600" />
+                                </div>
+                                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80">
+                                    <ModernDonutChartDashboard data={poStats.groupMix} title="PO by Material Group" isCurrency={true} centerColorClass="text-blue-600" />
+                                </div>
+                                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80">
+                                    <ModernDonutChartDashboard data={poStats.vendorMix} title="Vendor Concentration" isCurrency={true} centerColorClass="text-purple-600" />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm min-h-96">
+                                    <h4 className="text-[11px] font-bold text-gray-600 uppercase mb-4 flex items-center gap-2"><ShoppingCart className="w-4 h-4 text-orange-600" /> Top 10 High Value Open POs</h4>
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-[10px] text-left">
+                                            <thead className="bg-gray-50 text-gray-500 uppercase font-bold border-b border-gray-100">
+                                                <tr><th className="py-2 px-2">Vendor</th><th className="py-2 px-2">Item</th><th className="py-2 px-2 text-right">Qty</th><th className="py-2 px-2 text-right">Value</th></tr>
                                             </thead>
                                             <tbody className="divide-y divide-gray-50">
-                                                {/* Total Sales Row */}
-                                                <tr className="hover:bg-gray-50 transition-colors">
-                                                    <td className="px-4 py-3 font-semibold text-gray-600">Total Sales</td>
-                                                    <td className="px-4 py-3 text-right font-mono font-bold text-gray-700">{Math.round(weeklyStats.sales.ytdPrev).toLocaleString('en-IN')}</td>
-                                                    <td className="px-4 py-3 text-right font-mono font-black text-teal-900">{Math.round(weeklyStats.sales.ytdCurr).toLocaleString('en-IN')}</td>
-                                                    <td className={`px-4 py-3 text-right font-bold ${weeklyStats.sales.ytdDiff >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                                                        {weeklyStats.sales.ytdDiff >= 0 ? '+' : ''}{Math.round(weeklyStats.sales.ytdDiff).toLocaleString('en-IN')}
-                                                    </td>
-                                                    <td className={`px-4 py-3 text-right font-black ${weeklyStats.sales.ytdDiff >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-                                                        {((weeklyStats.sales.ytdDiff / (weeklyStats.sales.ytdPrev || 1)) * 100).toFixed(2)}%
-                                                    </td>
-                                                </tr>
-                                                {/* Online Sales Row */}
-                                                <tr className="bg-teal-50/20">
-                                                    <td className="px-4 py-3 font-bold text-teal-700">Online Sales</td>
-                                                    <td className="px-4 py-3 text-right font-mono font-bold text-teal-600">{Math.round(weeklyStats.sales.ytdPrevOnline).toLocaleString('en-IN')}</td>
-                                                    <td className="px-4 py-3 text-right font-mono font-black text-teal-900">{Math.round(weeklyStats.sales.ytdCurrOnline).toLocaleString('en-IN')}</td>
-                                                    <td className={`px-4 py-3 text-right font-bold ${weeklyStats.sales.ytdDiffOnline >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                                                        {weeklyStats.sales.ytdDiffOnline >= 0 ? '+' : ''}{Math.round(weeklyStats.sales.ytdDiffOnline).toLocaleString('en-IN')}
-                                                    </td>
-                                                    <td className={`px-4 py-3 text-right font-black ${weeklyStats.sales.ytdDiffOnline >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-                                                        {((weeklyStats.sales.ytdDiffOnline / (weeklyStats.sales.ytdPrevOnline || 1)) * 100).toFixed(2)}%
-                                                    </td>
-                                                </tr>
+                                                {poStats.topItems.map(i => (
+                                                    <tr key={i.id} className="hover:bg-gray-50"><td className="py-2 px-2 font-medium truncate max-w-[120px]">{i.partyName}</td><td className="py-2 px-2 truncate max-w-[150px]">{i.itemName}</td><td className="py-2 px-2 text-right">{i.balanceQty}</td><td className="py-2 px-2 text-right font-bold text-orange-700">{formatLargeValue(i.value, true)}</td></tr>
+                                                ))}
                                             </tbody>
                                         </table>
                                     </div>
                                 </div>
+                                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm min-h-96">
+                                    <HorizontalBarChart data={poStats.vendorMix} title="Pending PO by Vendor" color="emerald" />
+                                </div>
                             </div>
                         </div>
+                    ) : activeSubTab === 'weekly' ? (
+                        <div className="flex flex-col gap-6 p-4 bg-gray-50 min-h-full">
+                            {/* Sales Report Section */}
+                            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                                <div className="bg-indigo-600 px-6 py-4 flex items-center gap-3">
+                                    <TrendingUp className="w-5 h-5 text-indigo-100" />
+                                    <h3 className="text-lg font-bold text-white uppercase tracking-tight">Sales Comparison Analysis</h3>
+                                </div>
+                                <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                    {/* MTD Performance */}
+                                    <div className="space-y-4">
+                                        <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest border-l-4 border-indigo-500 pl-3">MTD Performance</h4>
+                                        <div className="overflow-hidden border border-gray-100 rounded-xl shadow-sm">
+                                            <table className="w-full text-sm text-left">
+                                                <thead className="bg-gray-50/80 text-gray-500 uppercase text-[10px] font-bold">
+                                                    <tr>
+                                                        <th className="px-4 py-3 border-b">Category</th>
+                                                        <th className="px-4 py-3 border-b text-right">{weeklyStats.prevDate.toLocaleDateString('en-GB')} (PW)</th>
+                                                        <th className="px-4 py-3 border-b text-right">{weeklyStats.targetDate.toLocaleDateString('en-GB')} (CW)</th>
+                                                        <th className="px-4 py-3 border-b text-right">Diff</th>
+                                                        <th className="px-4 py-3 border-b text-right">% Chg</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-gray-50">
+                                                    {/* Total Sales Row */}
+                                                    <tr className="hover:bg-gray-50 transition-colors">
+                                                        <td className="px-4 py-3 font-semibold text-gray-600">Total Sales</td>
+                                                        <td className="px-4 py-3 text-right font-mono font-bold text-gray-700">{Math.round(weeklyStats.sales.mtdPrev).toLocaleString('en-IN')}</td>
+                                                        <td className="px-4 py-3 text-right font-mono font-black text-indigo-900">{Math.round(weeklyStats.sales.mtdCurr).toLocaleString('en-IN')}</td>
+                                                        <td className={`px-4 py-3 text-right font-bold ${weeklyStats.sales.mtdDiff >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                            {weeklyStats.sales.mtdDiff >= 0 ? '+' : ''}{Math.round(weeklyStats.sales.mtdDiff).toLocaleString('en-IN')}
+                                                        </td>
+                                                        <td className={`px-4 py-3 text-right font-black ${weeklyStats.sales.mtdDiff >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                                                            {((weeklyStats.sales.mtdDiff / (weeklyStats.sales.mtdPrev || 1)) * 100).toFixed(2)}%
+                                                        </td>
+                                                    </tr>
+                                                    {/* Online Sales Row */}
+                                                    <tr className="bg-emerald-50/20">
+                                                        <td className="px-4 py-3 font-bold text-emerald-700">Online Sales</td>
+                                                        <td className="px-4 py-3 text-right font-mono font-bold text-emerald-600">{Math.round(weeklyStats.sales.mtdPrevOnline).toLocaleString('en-IN')}</td>
+                                                        <td className="px-4 py-3 text-right font-mono font-black text-emerald-900">{Math.round(weeklyStats.sales.mtdCurrOnline).toLocaleString('en-IN')}</td>
+                                                        <td className={`px-4 py-3 text-right font-bold ${weeklyStats.sales.mtdDiffOnline >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                            {weeklyStats.sales.mtdDiffOnline >= 0 ? '+' : ''}{Math.round(weeklyStats.sales.mtdDiffOnline).toLocaleString('en-IN')}
+                                                        </td>
+                                                        <td className={`px-4 py-3 text-right font-black ${weeklyStats.sales.mtdDiffOnline >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                                                            {((weeklyStats.sales.mtdDiffOnline / (weeklyStats.sales.mtdPrevOnline || 1)) * 100).toFixed(2)}%
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
 
-                        {/* Pending Orders Section */}
-                        <div className="space-y-6">
-                            {[
-                                { title: 'DUE Orders Analysis (by Make)', data: weeklyStats.due, id: 'DUE' },
-                                { title: 'Scheduled Orders Analysis (by Make)', data: weeklyStats.sched, id: 'SCH' },
-                                { title: 'Total Pending Orders Analysis (by Make)', data: weeklyStats.total, id: 'TOT' }
-                            ].map((table) => (
-                                <div key={table.id} className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-                                    <div className={`px-6 py-4 flex items-center gap-3 ${table.id === 'DUE' ? 'bg-rose-600' : table.id === 'SCH' ? 'bg-blue-600' : 'bg-gray-800'}`}>
-                                        <Package className="w-5 h-5 text-white/70" />
-                                        <h3 className="text-lg font-bold text-white uppercase tracking-tight">{table.title}</h3>
+                                    {/* YTD Performance */}
+                                    <div className="space-y-4">
+                                        <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest border-l-4 border-teal-500 pl-3">YTD Cumulative</h4>
+                                        <div className="overflow-hidden border border-gray-100 rounded-xl shadow-sm">
+                                            <table className="w-full text-sm text-left">
+                                                <thead className="bg-gray-50/80 text-gray-500 uppercase text-[10px] font-bold">
+                                                    <tr>
+                                                        <th className="px-4 py-3 border-b">Category</th>
+                                                        <th className="px-4 py-3 border-b text-right">{weeklyStats.prevDate.toLocaleDateString('en-GB')} (PW)</th>
+                                                        <th className="px-4 py-3 border-b text-right">{weeklyStats.targetDate.toLocaleDateString('en-GB')} (CW)</th>
+                                                        <th className="px-4 py-3 border-b text-right">Diff</th>
+                                                        <th className="px-4 py-3 border-b text-right">% Chg</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-gray-50">
+                                                    {/* Total Sales Row */}
+                                                    <tr className="hover:bg-gray-50 transition-colors">
+                                                        <td className="px-4 py-3 font-semibold text-gray-600">Total Sales</td>
+                                                        <td className="px-4 py-3 text-right font-mono font-bold text-gray-700">{Math.round(weeklyStats.sales.ytdPrev).toLocaleString('en-IN')}</td>
+                                                        <td className="px-4 py-3 text-right font-mono font-black text-teal-900">{Math.round(weeklyStats.sales.ytdCurr).toLocaleString('en-IN')}</td>
+                                                        <td className={`px-4 py-3 text-right font-bold ${weeklyStats.sales.ytdDiff >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                            {weeklyStats.sales.ytdDiff >= 0 ? '+' : ''}{Math.round(weeklyStats.sales.ytdDiff).toLocaleString('en-IN')}
+                                                        </td>
+                                                        <td className={`px-4 py-3 text-right font-black ${weeklyStats.sales.ytdDiff >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                                                            {((weeklyStats.sales.ytdDiff / (weeklyStats.sales.ytdPrev || 1)) * 100).toFixed(2)}%
+                                                        </td>
+                                                    </tr>
+                                                    {/* Online Sales Row */}
+                                                    <tr className="bg-teal-50/20">
+                                                        <td className="px-4 py-3 font-bold text-teal-700">Online Sales</td>
+                                                        <td className="px-4 py-3 text-right font-mono font-bold text-teal-600">{Math.round(weeklyStats.sales.ytdPrevOnline).toLocaleString('en-IN')}</td>
+                                                        <td className="px-4 py-3 text-right font-mono font-black text-teal-900">{Math.round(weeklyStats.sales.ytdCurrOnline).toLocaleString('en-IN')}</td>
+                                                        <td className={`px-4 py-3 text-right font-bold ${weeklyStats.sales.ytdDiffOnline >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                            {weeklyStats.sales.ytdDiffOnline >= 0 ? '+' : ''}{Math.round(weeklyStats.sales.ytdDiffOnline).toLocaleString('en-IN')}
+                                                        </td>
+                                                        <td className={`px-4 py-3 text-right font-black ${weeklyStats.sales.ytdDiffOnline >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                                                            {((weeklyStats.sales.ytdDiffOnline / (weeklyStats.sales.ytdPrevOnline || 1)) * 100).toFixed(2)}%
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Pending Orders Section */}
+                            <div className="space-y-6">
+                                {[
+                                    { title: 'DUE Orders Analysis (by Make)', data: weeklyStats.due, id: 'DUE' },
+                                    { title: 'Scheduled Orders Analysis (by Make)', data: weeklyStats.sched, id: 'SCH' },
+                                    { title: 'Total Pending Orders Analysis (by Make)', data: weeklyStats.total, id: 'TOT' }
+                                ].map((table) => (
+                                    <div key={table.id} className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                                        <div className={`px-6 py-4 flex items-center gap-3 ${table.id === 'DUE' ? 'bg-rose-600' : table.id === 'SCH' ? 'bg-blue-600' : 'bg-gray-800'}`}>
+                                            <Package className="w-5 h-5 text-white/70" />
+                                            <h3 className="text-lg font-bold text-white uppercase tracking-tight">{table.title}</h3>
+                                        </div>
+                                        <div className="overflow-x-auto p-4">
+                                            <table className="w-full text-xs text-left border-collapse">
+                                                <thead>
+                                                    <tr className="bg-gray-50 text-[10px] font-black text-gray-400 uppercase">
+                                                        <th className="p-3 border">Make</th>
+                                                        <th className="p-3 border text-center bg-blue-50/50" colSpan={3}>Previous Week (Manual)</th>
+                                                        <th className="p-3 border text-center bg-indigo-50/50" colSpan={3}>Current Week (Automated)</th>
+                                                        <th className="p-3 border text-center bg-gray-50" colSpan={3}>Difference</th>
+                                                    </tr>
+                                                    <tr className="bg-gray-50 text-[9px] font-bold text-gray-500 uppercase">
+                                                        <th className="p-2 border">Manufacturer</th>
+                                                        <th className="p-2 border text-right bg-blue-50/30">Ready</th>
+                                                        <th className="p-2 border text-right bg-blue-50/30">Shortage</th>
+                                                        <th className="p-2 border text-right bg-blue-50/30">Total</th>
+                                                        <th className="p-2 border text-right bg-indigo-50/30">Ready</th>
+                                                        <th className="p-2 border text-right bg-indigo-50/30">Shortage</th>
+                                                        <th className="p-2 border text-right bg-indigo-50/30">Total</th>
+                                                        <th className="p-2 border text-right">Ready</th>
+                                                        <th className="p-2 border text-right">Shortage</th>
+                                                        <th className="p-2 border text-right">% Chg</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {Object.keys(table.data).map(make => {
+                                                        const curr = table.data[make];
+                                                        const prevReady = parseFloat(weeklyBenchmarks[`${table.id}_${make}_Ready`] || 0);
+                                                        const prevShortage = parseFloat(weeklyBenchmarks[`${table.id}_${make}_Shortage`] || 0);
+                                                        const prevTotal = prevReady + prevShortage;
+                                                        const diffReady = curr.ready - prevReady;
+                                                        const diffShortage = curr.shortage - prevShortage;
+                                                        const diffTotal = curr.total - prevTotal;
+                                                        const pctChange = prevTotal > 0 ? (diffTotal / prevTotal) * 100 : 0;
+                                                        return (
+                                                            <tr key={make} className="hover:bg-gray-50 transition-colors">
+                                                                <td className="p-2 border font-bold text-gray-700">{make}</td>
+                                                                <td className="p-2 border bg-blue-50/10">
+                                                                    <input
+                                                                        type="number"
+                                                                        className="w-full bg-transparent text-right outline-none focus:ring-1 focus:ring-blue-300 rounded px-1 text-[10px]"
+                                                                        value={weeklyBenchmarks[`${table.id}_${make}_Ready`] || ""}
+                                                                        placeholder="0"
+                                                                        onChange={(e) => setWeeklyBenchmarks(prev => ({ ...prev, [`${table.id}_${make}_Ready`]: e.target.value }))}
+                                                                    />
+                                                                </td>
+                                                                <td className="p-2 border bg-blue-50/10">
+                                                                    <input
+                                                                        type="number"
+                                                                        className="w-full bg-transparent text-right outline-none focus:ring-1 focus:ring-blue-300 rounded px-1 text-[10px]"
+                                                                        value={weeklyBenchmarks[`${table.id}_${make}_Shortage`] || ""}
+                                                                        placeholder="0"
+                                                                        onChange={(e) => setWeeklyBenchmarks(prev => ({ ...prev, [`${table.id}_${make}_Shortage`]: e.target.value }))}
+                                                                    />
+                                                                </td>
+                                                                <td className="p-2 border bg-blue-50/20 text-right font-bold text-gray-500">{Math.round(prevTotal).toLocaleString("en-IN")}</td>
+                                                                <td className="p-2 border text-right font-mono font-bold text-emerald-600 bg-indigo-50/5">{Math.round(curr.ready).toLocaleString("en-IN")}</td>
+                                                                <td className="p-2 border text-right font-mono font-bold text-rose-600 bg-indigo-50/5">{Math.round(curr.shortage).toLocaleString("en-IN")}</td>
+                                                                <td className="p-2 border text-right font-mono font-black text-indigo-900 bg-indigo-50/10">{Math.round(curr.total).toLocaleString("en-IN")}</td>
+                                                                <td className={`p-2 border text-right font-bold ${diffReady >= 0 ? "text-emerald-500" : "text-rose-500"}`}>{diffReady !== 0 ? Math.round(diffReady).toLocaleString("en-IN") : "-"}</td>
+                                                                <td className={`p-2 border text-right font-bold ${diffShortage >= 0 ? "text-rose-500" : "text-emerald-500"}`}>{diffShortage !== 0 ? Math.round(diffShortage).toLocaleString("en-IN") : "-"}</td>
+                                                                <td className={`p-2 border text-right font-black ${pctChange >= 0 ? "text-emerald-700" : "text-rose-700"}`}>{pctChange !== 0 ? `${pctChange.toFixed(1)}%` : "-"}</td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                    <tr className="bg-gray-100 font-black text-gray-900">
+                                                        <td className="p-2 border uppercase text-[9px]">Grand Total</td>
+                                                        {(() => {
+                                                            const totPrevReady = Object.keys(table.data).reduce((acc, m) => acc + parseFloat(weeklyBenchmarks[`${table.id}_${m}_Ready`] || 0), 0);
+                                                            const totPrevShort = Object.keys(table.data).reduce((acc, m) => acc + parseFloat(weeklyBenchmarks[`${table.id}_${m}_Shortage`] || 0), 0);
+                                                            const totPrevTotal = totPrevReady + totPrevShort;
+                                                            const totCurrReady = Object.keys(table.data).reduce((acc, m) => acc + table.data[m].ready, 0);
+                                                            const totCurrShort = Object.keys(table.data).reduce((acc, m) => acc + table.data[m].shortage, 0);
+                                                            const totCurrTotal = totCurrReady + totCurrShort;
+                                                            const diffR = totCurrReady - totPrevReady;
+                                                            const diffS = totCurrShort - totPrevShort;
+                                                            const pctT = totPrevTotal > 0 ? ((totCurrTotal - totPrevTotal) / totPrevTotal) * 100 : 0;
+                                                            return (
+                                                                <>
+                                                                    <td className="p-2 border text-right bg-blue-100/30">{Math.round(totPrevReady).toLocaleString('en-IN')}</td>
+                                                                    <td className="p-2 border text-right bg-blue-100/30">{Math.round(totPrevShort).toLocaleString('en-IN')}</td>
+                                                                    <td className="p-2 border text-right bg-blue-200/40">{Math.round(totPrevTotal).toLocaleString('en-IN')}</td>
+                                                                    <td className="p-2 border text-right bg-emerald-100/30">{Math.round(totCurrReady).toLocaleString('en-IN')}</td>
+                                                                    <td className="p-2 border text-right bg-emerald-100/30">{Math.round(totCurrShort).toLocaleString('en-IN')}</td>
+                                                                    <td className="p-2 border text-right bg-emerald-200/40 text-indigo-900">{Math.round(totCurrTotal).toLocaleString('en-IN')}</td>
+                                                                    <td className={`p-2 border text-right ${diffR >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>{Math.round(diffR).toLocaleString('en-IN')}</td>
+                                                                    <td className={`p-2 border text-right ${diffS >= 0 ? 'text-rose-700' : 'text-emerald-700'}`}>{Math.round(diffS).toLocaleString('en-IN')}</td>
+                                                                    <td className={`p-2 border text-right ${pctT >= 0 ? 'text-emerald-800' : 'text-rose-800'}`}>{pctT.toFixed(1)}%</td>
+                                                                </>
+                                                            );
+                                                        })()}
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                ))}
+
+                                {/* Siddhi Stock Report Pivot Section */}
+                                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                                    <div className="px-6 py-4 bg-emerald-600 flex items-center gap-3">
+                                        <Table className="w-5 h-5 text-white/70" />
+                                        <h3 className="text-lg font-bold text-white uppercase tracking-tight">Siddhi Stock Report Pivot (Make & Group)</h3>
                                     </div>
                                     <div className="overflow-x-auto p-4">
                                         <table className="w-full text-xs text-left border-collapse">
                                             <thead>
                                                 <tr className="bg-gray-50 text-[10px] font-black text-gray-400 uppercase">
-                                                    <th className="p-3 border">Make</th>
-                                                    <th className="p-3 border text-center bg-blue-50/50" colSpan={3}>Previous Week (Manual)</th>
-                                                    <th className="p-3 border text-center bg-indigo-50/50" colSpan={3}>Current Week (Automated)</th>
-                                                    <th className="p-3 border text-center bg-gray-50" colSpan={3}>Difference</th>
+                                                    <th className="p-3 border">Make / Group</th>
+                                                    <th className="p-3 border text-center bg-blue-50/50" colSpan={2}>Previous Weeks (Manual)</th>
+                                                    <th className="p-3 border text-center bg-indigo-50/50" colSpan={2}>Present Weeks (Actual)</th>
+                                                    <th className="p-3 border text-center bg-gray-50" colSpan={3}>Difference Analysis</th>
                                                 </tr>
                                                 <tr className="bg-gray-50 text-[9px] font-bold text-gray-500 uppercase">
-                                                    <th className="p-2 border">Manufacturer</th>
-                                                    <th className="p-2 border text-right bg-blue-50/30">Ready</th>
-                                                    <th className="p-2 border text-right bg-blue-50/30">Shortage</th>
-                                                    <th className="p-2 border text-right bg-blue-50/30">Total</th>
-                                                    <th className="p-2 border text-right bg-indigo-50/30">Ready</th>
-                                                    <th className="p-2 border text-right bg-indigo-50/30">Shortage</th>
-                                                    <th className="p-2 border text-right bg-indigo-50/30">Total</th>
-                                                    <th className="p-2 border text-right">Ready</th>
-                                                    <th className="p-2 border text-right">Shortage</th>
-                                                    <th className="p-2 border text-right">% Chg</th>
+                                                    <th className="p-2 border">Hierarchy</th>
+                                                    <th className="p-2 border text-right bg-blue-50/30">Qty</th>
+                                                    <th className="p-2 border text-right bg-blue-50/30">Value (₹)</th>
+                                                    <th className="p-2 border text-right bg-indigo-50/30">Qty</th>
+                                                    <th className="p-2 border text-right bg-indigo-50/30">Value (₹)</th>
+                                                    <th className="p-2 border text-right">Qty Diff</th>
+                                                    <th className="p-2 border text-right">Val Diff</th>
+                                                    <th className="p-2 border text-right">% Val Chg</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {Object.keys(table.data).map(make => {
-                                                    const curr = table.data[make];
-                                                    const prevReady = parseFloat(weeklyBenchmarks[`${table.id}_${make}_Ready`] || 0);
-                                                    const prevShortage = parseFloat(weeklyBenchmarks[`${table.id}_${make}_Shortage`] || 0);
-                                                    const prevTotal = prevReady + prevShortage;
-                                                    const diffReady = curr.ready - prevReady;
-                                                    const diffShortage = curr.shortage - prevShortage;
-                                                    const diffTotal = curr.total - prevTotal;
-                                                    const pctChange = prevTotal > 0 ? (diffTotal / prevTotal) * 100 : 0;
+                                                {weeklyStats.stock.map(makeGroup => {
+                                                    const makeTotal = makeGroup.groups.reduce((acc, g) => ({ qty: acc.qty + g.qty, value: acc.value + g.value }), { qty: 0, value: 0 });
+                                                    const prevMakeQty = parseFloat(weeklyBenchmarks[`STOCK_${makeGroup.make}_Qty`] || 0);
+                                                    const prevMakeVal = parseFloat(weeklyBenchmarks[`STOCK_${makeGroup.make}_Value`] || 0);
+
+                                                    const diffMakeQty = makeTotal.qty - prevMakeQty;
+                                                    const diffMakeVal = makeTotal.value - prevMakeVal;
+                                                    const pctMakeVal = prevMakeVal > 0 ? (diffMakeVal / prevMakeVal) * 100 : 0;
+
                                                     return (
-                                                        <tr key={make} className="hover:bg-gray-50 transition-colors">
-                                                            <td className="p-2 border font-bold text-gray-700">{make}</td>
-                                                            <td className="p-2 border bg-blue-50/10">
-                                                                <input
-                                                                    type="number"
-                                                                    className="w-full bg-transparent text-right outline-none focus:ring-1 focus:ring-blue-300 rounded px-1 text-[10px]"
-                                                                    value={weeklyBenchmarks[`${table.id}_${make}_Ready`] || ""}
-                                                                    placeholder="0"
-                                                                    onChange={(e) => setWeeklyBenchmarks(prev => ({ ...prev, [`${table.id}_${make}_Ready`]: e.target.value }))}
-                                                                />
-                                                            </td>
-                                                            <td className="p-2 border bg-blue-50/10">
-                                                                <input
-                                                                    type="number"
-                                                                    className="w-full bg-transparent text-right outline-none focus:ring-1 focus:ring-blue-300 rounded px-1 text-[10px]"
-                                                                    value={weeklyBenchmarks[`${table.id}_${make}_Shortage`] || ""}
-                                                                    placeholder="0"
-                                                                    onChange={(e) => setWeeklyBenchmarks(prev => ({ ...prev, [`${table.id}_${make}_Shortage`]: e.target.value }))}
-                                                                />
-                                                            </td>
-                                                            <td className="p-2 border bg-blue-50/20 text-right font-bold text-gray-500">{Math.round(prevTotal).toLocaleString("en-IN")}</td>
-                                                            <td className="p-2 border text-right font-mono font-bold text-emerald-600 bg-indigo-50/5">{Math.round(curr.ready).toLocaleString("en-IN")}</td>
-                                                            <td className="p-2 border text-right font-mono font-bold text-rose-600 bg-indigo-50/5">{Math.round(curr.shortage).toLocaleString("en-IN")}</td>
-                                                            <td className="p-2 border text-right font-mono font-black text-indigo-900 bg-indigo-50/10">{Math.round(curr.total).toLocaleString("en-IN")}</td>
-                                                            <td className={`p-2 border text-right font-bold ${diffReady >= 0 ? "text-emerald-500" : "text-rose-500"}`}>{diffReady !== 0 ? Math.round(diffReady).toLocaleString("en-IN") : "-"}</td>
-                                                            <td className={`p-2 border text-right font-bold ${diffShortage >= 0 ? "text-rose-500" : "text-emerald-500"}`}>{diffShortage !== 0 ? Math.round(diffShortage).toLocaleString("en-IN") : "-"}</td>
-                                                            <td className={`p-2 border text-right font-black ${pctChange >= 0 ? "text-emerald-700" : "text-rose-700"}`}>{pctChange !== 0 ? `${pctChange.toFixed(1)}%` : "-"}</td>
-                                                        </tr>
+                                                        <React.Fragment key={makeGroup.make}>
+                                                            <tr className="bg-gray-50/50">
+                                                                <td className="p-2 border font-black text-gray-900 uppercase bg-gray-100/50">{makeGroup.make}</td>
+                                                                <td className="p-2 border bg-blue-50/5">
+                                                                    <input
+                                                                        type="number"
+                                                                        className="w-full bg-transparent text-right font-bold outline-none border-b border-transparent focus:border-blue-300"
+                                                                        value={weeklyBenchmarks[`STOCK_${makeGroup.make}_Qty`] || ''}
+                                                                        onChange={(e) => setWeeklyBenchmarks(prev => ({ ...prev, [`STOCK_${makeGroup.make}_Qty`]: e.target.value }))}
+                                                                        placeholder="0"
+                                                                    />
+                                                                </td>
+                                                                <td className="p-2 border bg-blue-50/5">
+                                                                    <input
+                                                                        type="number"
+                                                                        className="w-full bg-transparent text-right font-bold outline-none border-b border-transparent focus:border-blue-300"
+                                                                        value={weeklyBenchmarks[`STOCK_${makeGroup.make}_Value`] || ''}
+                                                                        onChange={(e) => setWeeklyBenchmarks(prev => ({ ...prev, [`STOCK_${makeGroup.make}_Value`]: e.target.value }))}
+                                                                        placeholder="0"
+                                                                    />
+                                                                </td>
+                                                                <td className="p-2 border text-right font-black text-indigo-700 bg-indigo-50/5">{Math.round(makeTotal.qty).toLocaleString('en-IN')}</td>
+                                                                <td className="p-2 border text-right font-black text-indigo-900 bg-indigo-50/10">{Math.round(makeTotal.value).toLocaleString('en-IN')}</td>
+                                                                <td className={`p-2 border text-right font-black ${diffMakeQty >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{Math.round(diffMakeQty).toLocaleString('en-IN')}</td>
+                                                                <td className={`p-2 border text-right font-black ${diffMakeVal >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>{Math.round(diffMakeVal).toLocaleString('en-IN')}</td>
+                                                                <td className={`p-2 border text-right font-black ${pctMakeVal >= 0 ? 'text-emerald-800' : 'text-rose-800'}`}>{pctMakeVal !== 0 ? `${pctMakeVal.toFixed(1)}%` : '-'}</td>
+                                                            </tr>
+                                                            {makeGroup.groups.map(grp => {
+                                                                const prevGrpQty = parseFloat(weeklyBenchmarks[`STOCK_${makeGroup.make}_${grp.group}_Qty`] || 0);
+                                                                const prevGrpVal = parseFloat(weeklyBenchmarks[`STOCK_${makeGroup.make}_${grp.group}_Value`] || 0);
+                                                                const diffGrpQty = grp.qty - prevGrpQty;
+                                                                const diffGrpVal = grp.value - prevGrpVal;
+                                                                const pctGrpVal = prevGrpVal > 0 ? (diffGrpVal / prevGrpVal) * 100 : 0;
+
+                                                                return (
+                                                                    <tr key={grp.group} className="text-[10px] text-gray-500 hover:bg-emerald-50/30 transition-colors">
+                                                                        <td className="p-2 border pl-6 italic">{grp.group}</td>
+                                                                        <td className="p-2 border bg-blue-50/5">
+                                                                            <input
+                                                                                type="number"
+                                                                                className="w-full bg-transparent text-right outline-none text-[9px]"
+                                                                                value={weeklyBenchmarks[`STOCK_${makeGroup.make}_${grp.group}_Qty`] || ''}
+                                                                                onChange={(e) => setWeeklyBenchmarks(prev => ({ ...prev, [`STOCK_${makeGroup.make}_${grp.group}_Qty`]: e.target.value }))}
+                                                                                placeholder="0"
+                                                                            />
+                                                                        </td>
+                                                                        <td className="p-2 border bg-blue-50/5">
+                                                                            <input
+                                                                                type="number"
+                                                                                className="w-full bg-transparent text-right outline-none text-[9px]"
+                                                                                value={weeklyBenchmarks[`STOCK_${makeGroup.make}_${grp.group}_Value`] || ''}
+                                                                                onChange={(e) => setWeeklyBenchmarks(prev => ({ ...prev, [`STOCK_${makeGroup.make}_${grp.group}_Value`]: e.target.value }))}
+                                                                                placeholder="0"
+                                                                            />
+                                                                        </td>
+                                                                        <td className="p-2 border text-right">{Math.round(grp.qty).toLocaleString('en-IN')}</td>
+                                                                        <td className="p-2 border text-right font-bold text-gray-700">{Math.round(grp.value).toLocaleString('en-IN')}</td>
+                                                                        <td className={`p-2 border text-right ${diffGrpQty >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{Math.round(diffGrpQty).toLocaleString('en-IN')}</td>
+                                                                        <td className={`p-2 border text-right ${diffGrpVal >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{Math.round(diffGrpVal).toLocaleString('en-IN')}</td>
+                                                                        <td className={`p-2 border text-right font-medium ${pctGrpVal >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{pctGrpVal !== 0 ? `${pctGrpVal.toFixed(1)}%` : '-'}</td>
+                                                                    </tr>
+                                                                );
+                                                            })}
+                                                        </React.Fragment>
                                                     );
                                                 })}
-                                                <tr className="bg-gray-100 font-black text-gray-900">
-                                                    <td className="p-2 border uppercase text-[9px]">Grand Total</td>
+                                                <tr className="bg-emerald-800 text-white font-black text-xs">
+                                                    <td className="p-3 border uppercase tracking-widest text-[10px]">Grand Total Stock</td>
+                                                    <td className="p-3 border text-right bg-blue-900/10 font-mono">
+                                                        {Math.round(weeklyStats.stock.reduce((acc, m) => acc + parseFloat(weeklyBenchmarks[`STOCK_${m.make}_Qty`] || 0), 0)).toLocaleString('en-IN')}
+                                                    </td>
+                                                    <td className="p-3 border text-right bg-blue-900/10 font-mono">
+                                                        {Math.round(weeklyStats.stock.reduce((acc, m) => acc + parseFloat(weeklyBenchmarks[`STOCK_${m.make}_Value`] || 0), 0)).toLocaleString('en-IN')}
+                                                    </td>
+                                                    <td className="p-3 border text-right font-mono">
+                                                        {Math.round(weeklyStats.stock.reduce((acc, m) => acc + m.groups.reduce((a, g) => a + g.qty, 0), 0)).toLocaleString('en-IN')}
+                                                    </td>
+                                                    <td className="p-3 border text-right bg-emerald-600 font-mono">
+                                                        {Math.round(weeklyStats.stock.reduce((acc, m) => acc + m.groups.reduce((a, g) => a + g.value, 0), 0)).toLocaleString('en-IN')}
+                                                    </td>
                                                     {(() => {
-                                                        const totPrevReady = Object.keys(table.data).reduce((acc, m) => acc + parseFloat(weeklyBenchmarks[`${table.id}_${m}_Ready`] || 0), 0);
-                                                        const totPrevShort = Object.keys(table.data).reduce((acc, m) => acc + parseFloat(weeklyBenchmarks[`${table.id}_${m}_Shortage`] || 0), 0);
-                                                        const totPrevTotal = totPrevReady + totPrevShort;
-                                                        const totCurrReady = Object.keys(table.data).reduce((acc, m) => acc + table.data[m].ready, 0);
-                                                        const totCurrShort = Object.keys(table.data).reduce((acc, m) => acc + table.data[m].shortage, 0);
-                                                        const totCurrTotal = totCurrReady + totCurrShort;
-                                                        const diffR = totCurrReady - totPrevReady;
-                                                        const diffS = totCurrShort - totPrevShort;
-                                                        const pctT = totPrevTotal > 0 ? ((totCurrTotal - totPrevTotal) / totPrevTotal) * 100 : 0;
+                                                        const totPrevQty = weeklyStats.stock.reduce((acc, m) => acc + parseFloat(weeklyBenchmarks[`STOCK_${m.make}_Qty`] || 0), 0);
+                                                        const totPrevVal = weeklyStats.stock.reduce((acc, m) => acc + parseFloat(weeklyBenchmarks[`STOCK_${m.make}_Value`] || 0), 0);
+                                                        const totCurrQty = weeklyStats.stock.reduce((acc, m) => acc + m.groups.reduce((a, g) => a + g.qty, 0), 0);
+                                                        const totCurrVal = weeklyStats.stock.reduce((acc, m) => acc + m.groups.reduce((a, g) => a + g.value, 0), 0);
+                                                        const diffQty = totCurrQty - totPrevQty;
+                                                        const diffVal = totCurrVal - totPrevVal;
+                                                        const pctVal = totPrevVal > 0 ? (diffVal / totPrevVal) * 100 : 0;
                                                         return (
                                                             <>
-                                                                <td className="p-2 border text-right bg-blue-100/30">{Math.round(totPrevReady).toLocaleString('en-IN')}</td>
-                                                                <td className="p-2 border text-right bg-blue-100/30">{Math.round(totPrevShort).toLocaleString('en-IN')}</td>
-                                                                <td className="p-2 border text-right bg-blue-200/40">{Math.round(totPrevTotal).toLocaleString('en-IN')}</td>
-                                                                <td className="p-2 border text-right bg-emerald-100/30">{Math.round(totCurrReady).toLocaleString('en-IN')}</td>
-                                                                <td className="p-2 border text-right bg-emerald-100/30">{Math.round(totCurrShort).toLocaleString('en-IN')}</td>
-                                                                <td className="p-2 border text-right bg-emerald-200/40 text-indigo-900">{Math.round(totCurrTotal).toLocaleString('en-IN')}</td>
-                                                                <td className={`p-2 border text-right ${diffR >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>{Math.round(diffR).toLocaleString('en-IN')}</td>
-                                                                <td className={`p-2 border text-right ${diffS >= 0 ? 'text-rose-700' : 'text-emerald-700'}`}>{Math.round(diffS).toLocaleString('en-IN')}</td>
-                                                                <td className={`p-2 border text-right ${pctT >= 0 ? 'text-emerald-800' : 'text-rose-800'}`}>{pctT.toFixed(1)}%</td>
+                                                                <td className={`p-3 border text-right font-mono ${diffQty >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{Math.round(diffQty).toLocaleString('en-IN')}</td>
+                                                                <td className={`p-3 border text-right font-mono ${diffVal >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{Math.round(diffVal).toLocaleString('en-IN')}</td>
+                                                                <td className={`p-3 border text-right font-black ${pctVal >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{pctVal !== 0 ? `${pctVal.toFixed(1)}%` : '-'}</td>
                                                             </>
                                                         );
                                                     })()}
@@ -1949,149 +2090,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                         </table>
                                     </div>
                                 </div>
-                            ))}
-
-                            {/* Siddhi Stock Report Pivot Section */}
-                            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-                                <div className="px-6 py-4 bg-emerald-600 flex items-center gap-3">
-                                    <Table className="w-5 h-5 text-white/70" />
-                                    <h3 className="text-lg font-bold text-white uppercase tracking-tight">Siddhi Stock Report Pivot (Make & Group)</h3>
-                                </div>
-                                <div className="overflow-x-auto p-4">
-                                    <table className="w-full text-xs text-left border-collapse">
-                                        <thead>
-                                            <tr className="bg-gray-50 text-[10px] font-black text-gray-400 uppercase">
-                                                <th className="p-3 border">Make / Group</th>
-                                                <th className="p-3 border text-center bg-blue-50/50" colSpan={2}>Previous Weeks (Manual)</th>
-                                                <th className="p-3 border text-center bg-indigo-50/50" colSpan={2}>Present Weeks (Actual)</th>
-                                                <th className="p-3 border text-center bg-gray-50" colSpan={3}>Difference Analysis</th>
-                                            </tr>
-                                            <tr className="bg-gray-50 text-[9px] font-bold text-gray-500 uppercase">
-                                                <th className="p-2 border">Hierarchy</th>
-                                                <th className="p-2 border text-right bg-blue-50/30">Qty</th>
-                                                <th className="p-2 border text-right bg-blue-50/30">Value (₹)</th>
-                                                <th className="p-2 border text-right bg-indigo-50/30">Qty</th>
-                                                <th className="p-2 border text-right bg-indigo-50/30">Value (₹)</th>
-                                                <th className="p-2 border text-right">Qty Diff</th>
-                                                <th className="p-2 border text-right">Val Diff</th>
-                                                <th className="p-2 border text-right">% Val Chg</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {weeklyStats.stock.map(makeGroup => {
-                                                const makeTotal = makeGroup.groups.reduce((acc, g) => ({ qty: acc.qty + g.qty, value: acc.value + g.value }), { qty: 0, value: 0 });
-                                                const prevMakeQty = parseFloat(weeklyBenchmarks[`STOCK_${makeGroup.make}_Qty`] || 0);
-                                                const prevMakeVal = parseFloat(weeklyBenchmarks[`STOCK_${makeGroup.make}_Value`] || 0);
-
-                                                const diffMakeQty = makeTotal.qty - prevMakeQty;
-                                                const diffMakeVal = makeTotal.value - prevMakeVal;
-                                                const pctMakeVal = prevMakeVal > 0 ? (diffMakeVal / prevMakeVal) * 100 : 0;
-
-                                                return (
-                                                    <React.Fragment key={makeGroup.make}>
-                                                        <tr className="bg-gray-50/50">
-                                                            <td className="p-2 border font-black text-gray-900 uppercase bg-gray-100/50">{makeGroup.make}</td>
-                                                            <td className="p-2 border bg-blue-50/5">
-                                                                <input
-                                                                    type="number"
-                                                                    className="w-full bg-transparent text-right font-bold outline-none border-b border-transparent focus:border-blue-300"
-                                                                    value={weeklyBenchmarks[`STOCK_${makeGroup.make}_Qty`] || ''}
-                                                                    onChange={(e) => setWeeklyBenchmarks(prev => ({ ...prev, [`STOCK_${makeGroup.make}_Qty`]: e.target.value }))}
-                                                                    placeholder="0"
-                                                                />
-                                                            </td>
-                                                            <td className="p-2 border bg-blue-50/5">
-                                                                <input
-                                                                    type="number"
-                                                                    className="w-full bg-transparent text-right font-bold outline-none border-b border-transparent focus:border-blue-300"
-                                                                    value={weeklyBenchmarks[`STOCK_${makeGroup.make}_Value`] || ''}
-                                                                    onChange={(e) => setWeeklyBenchmarks(prev => ({ ...prev, [`STOCK_${makeGroup.make}_Value`]: e.target.value }))}
-                                                                    placeholder="0"
-                                                                />
-                                                            </td>
-                                                            <td className="p-2 border text-right font-black text-indigo-700 bg-indigo-50/5">{Math.round(makeTotal.qty).toLocaleString('en-IN')}</td>
-                                                            <td className="p-2 border text-right font-black text-indigo-900 bg-indigo-50/10">{Math.round(makeTotal.value).toLocaleString('en-IN')}</td>
-                                                            <td className={`p-2 border text-right font-black ${diffMakeQty >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{Math.round(diffMakeQty).toLocaleString('en-IN')}</td>
-                                                            <td className={`p-2 border text-right font-black ${diffMakeVal >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>{Math.round(diffMakeVal).toLocaleString('en-IN')}</td>
-                                                            <td className={`p-2 border text-right font-black ${pctMakeVal >= 0 ? 'text-emerald-800' : 'text-rose-800'}`}>{pctMakeVal !== 0 ? `${pctMakeVal.toFixed(1)}%` : '-'}</td>
-                                                        </tr>
-                                                        {makeGroup.groups.map(grp => {
-                                                            const prevGrpQty = parseFloat(weeklyBenchmarks[`STOCK_${makeGroup.make}_${grp.group}_Qty`] || 0);
-                                                            const prevGrpVal = parseFloat(weeklyBenchmarks[`STOCK_${makeGroup.make}_${grp.group}_Value`] || 0);
-                                                            const diffGrpQty = grp.qty - prevGrpQty;
-                                                            const diffGrpVal = grp.value - prevGrpVal;
-                                                            const pctGrpVal = prevGrpVal > 0 ? (diffGrpVal / prevGrpVal) * 100 : 0;
-
-                                                            return (
-                                                                <tr key={grp.group} className="text-[10px] text-gray-500 hover:bg-emerald-50/30 transition-colors">
-                                                                    <td className="p-2 border pl-6 italic">{grp.group}</td>
-                                                                    <td className="p-2 border bg-blue-50/5">
-                                                                        <input
-                                                                            type="number"
-                                                                            className="w-full bg-transparent text-right outline-none text-[9px]"
-                                                                            value={weeklyBenchmarks[`STOCK_${makeGroup.make}_${grp.group}_Qty`] || ''}
-                                                                            onChange={(e) => setWeeklyBenchmarks(prev => ({ ...prev, [`STOCK_${makeGroup.make}_${grp.group}_Qty`]: e.target.value }))}
-                                                                            placeholder="0"
-                                                                        />
-                                                                    </td>
-                                                                    <td className="p-2 border bg-blue-50/5">
-                                                                        <input
-                                                                            type="number"
-                                                                            className="w-full bg-transparent text-right outline-none text-[9px]"
-                                                                            value={weeklyBenchmarks[`STOCK_${makeGroup.make}_${grp.group}_Value`] || ''}
-                                                                            onChange={(e) => setWeeklyBenchmarks(prev => ({ ...prev, [`STOCK_${makeGroup.make}_${grp.group}_Value`]: e.target.value }))}
-                                                                            placeholder="0"
-                                                                        />
-                                                                    </td>
-                                                                    <td className="p-2 border text-right">{Math.round(grp.qty).toLocaleString('en-IN')}</td>
-                                                                    <td className="p-2 border text-right font-bold text-gray-700">{Math.round(grp.value).toLocaleString('en-IN')}</td>
-                                                                    <td className={`p-2 border text-right ${diffGrpQty >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{Math.round(diffGrpQty).toLocaleString('en-IN')}</td>
-                                                                    <td className={`p-2 border text-right ${diffGrpVal >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{Math.round(diffGrpVal).toLocaleString('en-IN')}</td>
-                                                                    <td className={`p-2 border text-right font-medium ${pctGrpVal >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{pctGrpVal !== 0 ? `${pctGrpVal.toFixed(1)}%` : '-'}</td>
-                                                                </tr>
-                                                            );
-                                                        })}
-                                                    </React.Fragment>
-                                                );
-                                            })}
-                                            <tr className="bg-emerald-800 text-white font-black text-xs">
-                                                <td className="p-3 border uppercase tracking-widest text-[10px]">Grand Total Stock</td>
-                                                <td className="p-3 border text-right bg-blue-900/10 font-mono">
-                                                    {Math.round(weeklyStats.stock.reduce((acc, m) => acc + parseFloat(weeklyBenchmarks[`STOCK_${m.make}_Qty`] || 0), 0)).toLocaleString('en-IN')}
-                                                </td>
-                                                <td className="p-3 border text-right bg-blue-900/10 font-mono">
-                                                    {Math.round(weeklyStats.stock.reduce((acc, m) => acc + parseFloat(weeklyBenchmarks[`STOCK_${m.make}_Value`] || 0), 0)).toLocaleString('en-IN')}
-                                                </td>
-                                                <td className="p-3 border text-right font-mono">
-                                                    {Math.round(weeklyStats.stock.reduce((acc, m) => acc + m.groups.reduce((a, g) => a + g.qty, 0), 0)).toLocaleString('en-IN')}
-                                                </td>
-                                                <td className="p-3 border text-right bg-emerald-600 font-mono">
-                                                    {Math.round(weeklyStats.stock.reduce((acc, m) => acc + m.groups.reduce((a, g) => a + g.value, 0), 0)).toLocaleString('en-IN')}
-                                                </td>
-                                                {(() => {
-                                                    const totPrevQty = weeklyStats.stock.reduce((acc, m) => acc + parseFloat(weeklyBenchmarks[`STOCK_${m.make}_Qty`] || 0), 0);
-                                                    const totPrevVal = weeklyStats.stock.reduce((acc, m) => acc + parseFloat(weeklyBenchmarks[`STOCK_${m.make}_Value`] || 0), 0);
-                                                    const totCurrQty = weeklyStats.stock.reduce((acc, m) => acc + m.groups.reduce((a, g) => a + g.qty, 0), 0);
-                                                    const totCurrVal = weeklyStats.stock.reduce((acc, m) => acc + m.groups.reduce((a, g) => a + g.value, 0), 0);
-                                                    const diffQty = totCurrQty - totPrevQty;
-                                                    const diffVal = totCurrVal - totPrevVal;
-                                                    const pctVal = totPrevVal > 0 ? (diffVal / totPrevVal) * 100 : 0;
-                                                    return (
-                                                        <>
-                                                            <td className={`p-3 border text-right font-mono ${diffQty >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{Math.round(diffQty).toLocaleString('en-IN')}</td>
-                                                            <td className={`p-3 border text-right font-mono ${diffVal >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{Math.round(diffVal).toLocaleString('en-IN')}</td>
-                                                            <td className={`p-3 border text-right font-black ${pctVal >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{pctVal !== 0 ? `${pctVal.toFixed(1)}%` : '-'}</td>
-                                                        </>
-                                                    );
-                                                })()}
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
                             </div>
                         </div>
-                    </div>
-                ) : null}
+                    ) : null}
+                </div>
             </div>
         </div>
     );
