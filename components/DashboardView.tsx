@@ -1339,10 +1339,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                         <div className="flex flex-col gap-2">
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
                                 {[
-                                    { label: 'Current Sales', val: kpis.currVal, prev: kpis.prevVal, yoy: kpis.yoyVal, isCurr: true, grad: 'from-indigo-600 via-blue-600 to-blue-700', icon: DollarSign },
-                                    { label: 'Quantity', val: kpis.currQty, prev: kpis.prevQty, yoy: kpis.yoyQty, isCurr: false, grad: 'from-emerald-600 via-teal-600 to-teal-700', icon: Package },
-                                    { label: 'Unique Customers', val: kpis.uniqueCusts, prev: kpis.prevCusts, yoy: kpis.yoyCusts, isCurr: false, grad: 'from-violet-600 via-purple-600 to-purple-700', icon: Users },
-                                    { label: 'Avg. Order', val: kpis.avgOrder, prev: kpis.prevAvgOrder, yoy: kpis.yoyAvgOrder, isCurr: true, grad: 'from-rose-600 via-orange-600 to-orange-700', icon: Activity }
+                                    { label: 'Current Sales', val: kpis.currVal, prev: kpis.prevVal, yoy: kpis.yoyVal, isCurr: true, text: 'text-blue-700', bg: 'bg-blue-50', border: 'border-blue-100', icon: DollarSign },
+                                    { label: 'Quantity', val: kpis.currQty, prev: kpis.prevQty, yoy: kpis.yoyQty, isCurr: false, text: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-100', icon: Package },
+                                    { label: 'Unique Customers', val: kpis.uniqueCusts, prev: kpis.prevCusts, yoy: kpis.yoyCusts, isCurr: false, text: 'text-violet-700', bg: 'bg-violet-50', border: 'border-violet-100', icon: Users },
+                                    { label: 'Avg. Order', val: kpis.avgOrder, prev: kpis.prevAvgOrder, yoy: kpis.yoyAvgOrder, isCurr: true, text: 'text-rose-700', bg: 'bg-rose-50', border: 'border-rose-100', icon: Activity }
                                 ].map((k, i) => {
                                     const diff = k.val - k.prev;
                                     const pct = k.prev > 0 ? (diff / k.prev) * 100 : 0;
@@ -1351,24 +1351,24 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                     const yoyPct = (k.yoy || 0) > 0 ? (yoyDiff / k.yoy!) * 100 : 0;
 
                                     return (
-                                        <div key={i} className={`relative overflow-hidden bg-gradient-to-br ${k.grad} p-4 rounded-2xl shadow-[0_15px_30px_-10px_rgba(0,0,0,0.3)] transition-all duration-500 hover:shadow-[0_25px_50px_-10px_rgba(0,0,0,0.4)] hover:-translate-y-1.5 group border border-white/20 active:scale-[0.98]`}>
-                                            {/* Decorative Background Icon - More Subtle */}
-                                            <div className="absolute -top-2 -right-2 p-2 opacity-5 transform scale-125 group-hover:rotate-12 group-hover:scale-150 transition-all duration-1000 ease-in-out">
-                                                <k.icon className="w-20 h-20 text-white" />
+                                        <div key={i} className={`relative overflow-hidden bg-white ${k.border} p-4 rounded-2xl shadow-[0_10px_25px_-10px_rgba(0,0,0,0.1)] transition-all duration-500 hover:shadow-[0_20px_40px_-10px_rgba(0,0,0,0.15)] hover:-translate-y-1 group border-2 active:scale-[0.98]`}>
+                                            {/* Decorative Background Icon - Soft Tinted */}
+                                            <div className="absolute -top-2 -right-2 p-2 opacity-[0.08] transform scale-125 group-hover:rotate-12 group-hover:scale-150 transition-all duration-1000 ease-in-out">
+                                                <k.icon className={`w-20 h-20 ${k.text}`} />
                                             </div>
 
                                             <div className="relative z-10 flex flex-col h-full justify-between gap-3">
                                                 <div>
                                                     <div className="flex items-center gap-2 mb-1">
-                                                        <div className="p-1 bg-white/20 backdrop-blur-md rounded border border-white/30 text-white">
-                                                            <k.icon className="w-3 h-3" />
+                                                        <div className={`p-1 ${k.bg} rounded border ${k.border} transition-colors duration-300`}>
+                                                            <k.icon className={`w-3 h-3 ${k.text}`} />
                                                         </div>
-                                                        <p className="text-[10px] font-bold text-white uppercase tracking-[0.1em] drop-shadow-sm">
+                                                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
                                                             {k.label}
-                                                            <span className="ml-1 text-white/50 font-normal">({timeView})</span>
+                                                            <span className="ml-1 text-gray-400 font-normal italic">({timeView})</span>
                                                         </p>
                                                     </div>
-                                                    <h3 className="text-3xl font-black text-white tracking-tighter drop-shadow-lg tabular-nums leading-none">
+                                                    <h3 className={`text-3xl font-black ${k.text} tracking-tighter tabular-nums leading-none`}>
                                                         {k.isCurr ? formatLargeValue(k.val, true) : k.val.toLocaleString()}
                                                     </h3>
                                                 </div>
@@ -1376,30 +1376,27 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                 <div className="grid grid-cols-2 gap-2 mt-1">
                                                     {/* Sequential Comparison Badge */}
                                                     <div className="flex flex-col gap-1">
-                                                        <div className={`flex items-center justify-between px-2 py-1 rounded-lg border backdrop-blur-xl shadow-md transition-transform group-hover:scale-[1.03] duration-300 ${diff >= 0 ? 'bg-emerald-500/30 text-emerald-50 border-emerald-400/40' : 'bg-rose-500/30 text-rose-50 border-rose-400/40'}`}>
-                                                            <span className="text-[11px] font-black">{Math.abs(pct).toFixed(0)}%</span>
+                                                        <div className={`flex items-center justify-between px-2 py-1 rounded-lg border shadow-sm transition-all group-hover:shadow duration-300 ${diff >= 0 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>
+                                                            <span className="text-[11px] font-extrabold">{Math.abs(pct).toFixed(0)}%</span>
                                                             {diff >= 0 ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
                                                         </div>
-                                                        <p className="text-[8px] font-bold uppercase text-white/60 tracking-tighter pl-1">
+                                                        <p className="text-[8px] font-bold uppercase text-gray-400 tracking-tighter pl-1">
                                                             {timeView === 'WEEK' ? 'vs Prev Wk' : timeView === 'MONTH' ? 'vs Prev Mo' : 'vs Prev FY'}
                                                         </p>
                                                     </div>
 
                                                     {/* YoY Comparison Badge */}
                                                     <div className="flex flex-col gap-1">
-                                                        <div className={`flex items-center justify-between px-2 py-1 rounded-lg border backdrop-blur-xl shadow-md transition-transform group-hover:scale-[1.03] duration-300 ${yoyDiff >= 0 ? 'bg-sky-500/30 text-sky-50 border-sky-400/40' : 'bg-orange-500/30 text-orange-50 border-orange-400/40'}`}>
-                                                            <span className="text-[11px] font-black">{Math.abs(yoyPct).toFixed(0)}%</span>
+                                                        <div className={`flex items-center justify-between px-2 py-1 rounded-lg border shadow-sm transition-all group-hover:shadow duration-300 ${yoyDiff >= 0 ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-orange-50 text-orange-700 border-orange-200'}`}>
+                                                            <span className="text-[11px] font-extrabold">{Math.abs(yoyPct).toFixed(0)}%</span>
                                                             {yoyDiff >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
                                                         </div>
-                                                        <p className="text-[8px] font-bold uppercase text-white/60 tracking-tighter pl-1">
+                                                        <p className="text-[8px] font-bold uppercase text-gray-400 tracking-tighter pl-1">
                                                             {timeView === 'FY' ? 'YTD Comp' : 'YoY Comp'}
                                                         </p>
                                                     </div>
                                                 </div>
                                             </div>
-
-                                            {/* Premium Lighting Effects */}
-                                            <div className="absolute inset-0 bg-gradient-to-tr from-white/5 via-transparent to-black/10 pointer-events-none opacity-30"></div>
                                         </div>
                                     );
                                 })}
