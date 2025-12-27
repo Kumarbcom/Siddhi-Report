@@ -119,6 +119,10 @@ const SalesTrendChart = ({ data, maxVal }: { data: { labels: string[], series: a
                 {/* SVG Chart */}
                 <svg className="w-full h-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
                     <defs>
+                        <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                            <feGaussianBlur stdDeviation="1.5" result="blur" />
+                            <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                        </filter>
                         {data.series.map((s: any, i: number) => (
                             <linearGradient key={i} id={`grad-${chartId}-${i}`} x1="0" y1="0" x2="0" y2="1">
                                 <stop offset="0%" stopColor={s.color} stopOpacity="0.4" />
@@ -137,8 +141,8 @@ const SalesTrendChart = ({ data, maxVal }: { data: { labels: string[], series: a
                         const pathD = getSmoothPath(points) || `M ${points.map(p => p.join(',')).join(' L ')}`;
                         return (
                             <g key={i}>
-                                <path d={`${pathD} L 100 100 L 0 100 Z`} fill={`url(#grad-${chartId}-${i})`} style={{ opacity: hoverIndex !== null ? 0.8 : 0.6 }} />
-                                <path d={pathD} fill="none" stroke={s.color} strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" />
+                                <path d={`${pathD} L 100 100 L 0 100 Z`} fill={`url(#grad-${chartId}-${i})`} className="transition-opacity duration-500" style={{ opacity: hoverIndex !== null ? 0.8 : 0.6 }} />
+                                <path d={pathD} fill="none" stroke={s.color} strokeWidth="2.5" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" filter="url(#glow)" className="transition-all duration-300" />
                                 {points.length === 1 && (
                                     <circle cx={points[0][0]} cy={points[0][1]} r="2" fill="white" stroke={s.color} strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
                                 )}
@@ -210,8 +214,9 @@ const ModernDonutChartDashboard: React.FC<{
                 {title}
             </h4>
             <div className="flex flex-col items-center gap-4 flex-1 min-h-0">
-                <div className="relative w-32 h-32 flex-shrink-0">
-                    <svg viewBox="-1 -1 2 2" style={{ transform: 'rotate(-90deg)' }} className="w-full h-full drop-shadow-sm">
+                <div className="relative w-36 h-36 flex-shrink-0 group">
+                    <div className="absolute inset-0 bg-gray-100 rounded-full scale-95 opacity-50"></div>
+                    <svg viewBox="-1 -1 2 2" style={{ transform: 'rotate(-90deg)' }} className="w-full h-full drop-shadow-[0_8px_16px_rgba(0,0,0,0.1)] relative z-10">
                         {slices.map((slice, i) => {
                             if (slice.percent >= 0.999) return <circle key={i} cx="0" cy="0" r="0.85" fill="none" stroke={slice.color} strokeWidth="0.3" onMouseEnter={() => setHoveredIndex(i)} onMouseLeave={() => setHoveredIndex(null)} className="transition-all cursor-pointer hover:opacity-80" />;
                             const [startX, startY] = getCoordinatesForPercent(slice.startPercent);
@@ -220,18 +225,18 @@ const ModernDonutChartDashboard: React.FC<{
                             return (
                                 <path
                                     key={i}
-                                    d={`M ${startX} ${startY} A 1 1 0 ${largeArcFlag} 1 ${endX} ${endY} L ${endX * 0.7} ${endY * 0.7} A 0.7 0.7 0 ${largeArcFlag} 0 ${startX * 0.7} ${startY * 0.7} Z`}
+                                    d={`M ${startX} ${startY} A 1 1 0 ${largeArcFlag} 1 ${endX} ${endY} L ${endX * 0.72} ${endY * 0.72} A 0.72 0.72 0 ${largeArcFlag} 0 ${startX * 0.72} ${startY * 0.72} Z`}
                                     fill={slice.color}
-                                    className={`transition-all duration-300 cursor-pointer ${hoveredIndex === i ? 'opacity-100 scale-105 stroke-2 stroke-white' : 'opacity-85 hover:opacity-100 hover:scale-[1.02]'}`}
+                                    className={`transition-all duration-400 cursor-pointer ${hoveredIndex === i ? 'opacity-100 scale-[1.05] stroke-[0.03] stroke-white shadow-2xl' : 'opacity-90 hover:opacity-100 hover:scale-[1.03]'}`}
                                     onMouseEnter={() => setHoveredIndex(i)}
                                     onMouseLeave={() => setHoveredIndex(null)}
                                 />
                             );
                         })}
                     </svg>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none px-2 text-center">
-                        <span className="text-[9px] text-gray-400 uppercase font-black truncate w-full">{centerLabel}</span>
-                        <span className={`text-[11px] font-black leading-none ${centerColorClass || 'text-gray-900'}`}>{centerValue}</span>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none px-4 text-center z-20">
+                        <span className="text-[10px] text-gray-400 uppercase font-black tracking-widest truncate w-full mb-0.5">{centerLabel}</span>
+                        <span className={`text-[12px] font-black leading-tight drop-shadow-sm transition-all duration-300 ${hoveredIndex !== null ? 'scale-110' : ''} ${centerColorClass || 'text-gray-900'}`}>{centerValue}</span>
                     </div>
                 </div>
 
@@ -1197,7 +1202,17 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             )}
 
             <div className="bg-white border-b border-gray-200 px-4 py-3 flex flex-col xl:flex-row gap-4 items-start xl:items-center justify-between flex-shrink-0 shadow-sm z-10">
-                <div className="flex bg-gray-100 p-1 rounded-lg">{(['sales', 'inventory', 'so', 'po', 'weekly'] as const).map(tab => (<button key={tab} onClick={() => setActiveSubTab(tab)} className={`px-3 py-1.5 rounded-md text-xs font-bold uppercase transition-all ${activeSubTab === tab ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>{tab === 'so' ? 'Pending SO' : tab === 'po' ? 'Pending PO' : tab === 'weekly' ? 'Weekly Report' : tab}</button>))}</div>
+                <div className="flex bg-gray-200/50 backdrop-blur-sm p-1.5 rounded-xl border border-gray-200 shadow-inner">
+                    {(['sales', 'inventory', 'so', 'po', 'weekly'] as const).map(tab => (
+                        <button
+                            key={tab}
+                            onClick={() => setActiveSubTab(tab)}
+                            className={`px-5 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all duration-300 transform ${activeSubTab === tab ? 'bg-white text-indigo-700 shadow-[0_4px_12px_rgba(0,0,0,0.1)] scale-[1.02]' : 'text-gray-500 hover:text-indigo-600 hover:bg-white/50'}`}
+                        >
+                            {tab === 'so' ? 'Pending SO' : tab === 'po' ? 'Pending PO' : tab === 'weekly' ? 'Weekly Report' : tab}
+                        </button>
+                    ))}
+                </div>
                 {activeSubTab === 'sales' && (
                     <div className="flex flex-wrap items-center gap-3">
                         <select value={selectedMake} onChange={e => setSelectedMake(e.target.value)} title="Make Slicer" className="bg-white border border-blue-300 text-[10px] rounded-md px-2 py-1.5 font-bold text-blue-700 shadow-sm outline-none focus:ring-2 focus:ring-blue-500 max-w-[100px]">
@@ -1294,29 +1309,32 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                     <div className="flex flex-col gap-2">
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
                             {[
-                                { label: 'Current Sales', val: kpis.currVal, prev: kpis.prevVal, isCurr: true },
-                                { label: 'Quantity', val: kpis.currQty, prev: kpis.prevQty, isCurr: false },
-                                { label: 'Unique Customers', val: kpis.uniqueCusts, prev: kpis.prevCusts, isCurr: false },
-                                { label: 'Avg. Order', val: kpis.avgOrder, prev: kpis.prevAvgOrder, isCurr: true }
+                                { label: 'Current Sales', val: kpis.currVal, prev: kpis.prevVal, isCurr: true, grad: 'from-blue-600 to-indigo-700', icon: DollarSign },
+                                { label: 'Quantity', val: kpis.currQty, prev: kpis.prevQty, isCurr: false, grad: 'from-emerald-500 to-teal-700', icon: Package },
+                                { label: 'Unique Customers', val: kpis.uniqueCusts, prev: kpis.prevCusts, isCurr: false, grad: 'from-purple-500 to-indigo-600', icon: Users },
+                                { label: 'Avg. Order', val: kpis.avgOrder, prev: kpis.prevAvgOrder, isCurr: true, grad: 'from-orange-400 to-rose-600', icon: Activity }
                             ].map((k, i) => {
                                 const diff = k.val - k.prev;
                                 const pct = k.prev > 0 ? (diff / k.prev) * 100 : 0;
                                 return (
-                                    <div key={i} className="bg-white p-2.5 rounded-xl border border-gray-200 shadow-sm transition-all hover:shadow-md group">
-                                        <div className="flex justify-between items-start">
-                                            <div>
-                                                <p className="text-[9px] font-bold text-gray-500 uppercase tracking-tight">{k.label} <span className="text-blue-500 font-black">({timeView})</span></p>
-                                                <h3 className="text-lg font-black text-gray-900 mt-0.5">
-                                                    {k.isCurr ? formatLargeValue(k.val) : k.val.toLocaleString()}
+                                    <div key={i} className={`relative overflow-hidden bg-gradient-to-br ${k.grad} p-4 rounded-2xl shadow-lg transition-all duration-300 hover:shadow-xl hover:-translate-y-1 group`}>
+                                        <div className="absolute top-0 right-0 p-3 opacity-20 group-hover:scale-110 transition-transform duration-500">
+                                            <k.icon className="w-10 h-10 text-white" />
+                                        </div>
+                                        <div className="relative z-10">
+                                            <p className="text-[10px] font-black text-white/70 uppercase tracking-widest">{k.label} <span className="text-white/40">({timeView})</span></p>
+                                            <div className="flex items-baseline gap-2 mt-1">
+                                                <h3 className="text-2xl font-black text-white">
+                                                    {k.isCurr ? formatLargeValue(k.val, true) : k.val.toLocaleString()}
                                                 </h3>
                                             </div>
-                                            <div className={`flex flex-col items-end ${diff >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                                                <div className="flex items-center gap-0.5 font-black text-[10px]">
+                                            <div className="mt-3 flex items-center gap-2">
+                                                <div className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-black border backdrop-blur-md ${diff >= 0 ? 'bg-emerald-500/20 text-emerald-100 border-emerald-400/30' : 'bg-rose-500/20 text-rose-100 border-rose-400/30'}`}>
                                                     {diff >= 0 ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />}
                                                     {Math.abs(pct).toFixed(0)}%
                                                 </div>
-                                                <p className="text-[7px] font-bold uppercase opacity-60">
-                                                    {timeView === 'WEEK' ? 'vs PW' : timeView === 'MONTH' ? 'vs PM' : 'vs LY'}
+                                                <p className="text-[8px] font-bold uppercase text-white/50 tracking-tighter">
+                                                    {timeView === 'WEEK' ? 'vs Prev Week' : timeView === 'MONTH' ? 'vs Prev Month' : 'vs Last Year'}
                                                 </p>
                                             </div>
                                         </div>
@@ -1382,17 +1400,20 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 ) : activeSubTab === 'inventory' ? (
                     <div className="flex flex-col gap-4">
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                                <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider">Total Stock Value</p>
-                                <h3 className="text-xl font-extrabold text-gray-900 mt-1">{formatLargeValue(inventoryStats.totalVal)}</h3>
+                            <div className="bg-gradient-to-br from-indigo-600 to-blue-700 p-4 rounded-xl shadow-[0_8px_20px_-4px_rgba(79,70,229,0.3)] border border-indigo-500/30 transform transition-all duration-300 hover:scale-[1.01]">
+                                <p className="text-[10px] text-indigo-100 font-black uppercase tracking-widest opacity-80">Total Stock Value</p>
+                                <h3 className="text-2xl font-black text-white mt-1 break-all">{formatLargeValue(inventoryStats.totalVal)}</h3>
+                                <div className="mt-2 h-1 w-12 bg-white/30 rounded-full"></div>
                             </div>
-                            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                                <p className="text-[10px] text-blue-600 font-bold uppercase tracking-wider">Total Qty</p>
-                                <h3 className="text-xl font-extrabold text-gray-900 mt-1">{inventoryStats.totalQty.toLocaleString()}</h3>
+                            <div className="bg-gradient-to-br from-emerald-500 to-teal-600 p-4 rounded-xl shadow-[0_8_20px_-4px_rgba(16,185,129,0.3)] border border-emerald-400/30 transform transition-all duration-300 hover:scale-[1.01]">
+                                <p className="text-[10px] text-emerald-50 font-black uppercase tracking-widest opacity-80">Total Qty</p>
+                                <h3 className="text-2xl font-black text-white mt-1">{inventoryStats.totalQty.toLocaleString()}</h3>
+                                <div className="mt-2 h-1 w-12 bg-white/30 rounded-full"></div>
                             </div>
-                            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                                <p className="text-[10px] text-purple-600 font-bold uppercase tracking-wider">Total SKUs</p>
-                                <h3 className="text-xl font-extrabold text-gray-900 mt-1">{inventoryStats.count}</h3>
+                            <div className="bg-gradient-to-br from-purple-500 to-indigo-600 p-4 rounded-xl shadow-[0_8px_20px_-4px_rgba(139,92,246,0.3)] border border-purple-400/30 transform transition-all duration-300 hover:scale-[1.01]">
+                                <p className="text-[10px] text-purple-50 font-black uppercase tracking-widest opacity-80">Total SKUs</p>
+                                <h3 className="text-2xl font-black text-white mt-1">{inventoryStats.count}</h3>
+                                <div className="mt-2 h-1 w-12 bg-white/30 rounded-full"></div>
                             </div>
                         </div>
                         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
@@ -1453,8 +1474,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                             </div>
                             <div className="overflow-x-auto max-h-96 custom-scrollbar">
                                 <table className="w-full text-left border-collapse min-w-[800px]">
-                                    <thead className="sticky top-0 z-10 bg-gray-100/95 backdrop-blur-md shadow-sm border-b border-gray-200">
-                                        <tr className="text-[10px] font-black text-gray-500 uppercase tracking-tight">
+                                    <thead className="sticky top-0 z-10 bg-white/80 backdrop-blur-xl shadow-[0_1px_0_0_rgba(0,0,0,0.05)] border-b border-gray-200">
+                                        <tr className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
                                             {[
                                                 { key: 'description', label: 'Description', align: 'left' },
                                                 { key: 'make', label: 'Make', align: 'left' },
@@ -1465,12 +1486,12 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                             ].map(col => (
                                                 <th
                                                     key={col.key}
-                                                    className={`py-3 px-4 cursor-pointer hover:bg-gray-200 transition-colors ${col.align === 'right' ? 'text-right' : ''}`}
+                                                    className={`py-4 px-4 cursor-pointer hover:bg-gray-100/50 transition-colors ${col.align === 'right' ? 'text-right' : ''}`}
                                                     onClick={() => handleInvSort(col.key)}
                                                 >
                                                     <div className={`flex items-center gap-1.5 ${col.align === 'right' ? 'justify-end' : ''}`}>
                                                         {col.label}
-                                                        <ArrowUpDown className={`w-3 h-3 ${invSortKey === col.key ? 'text-emerald-600' : 'text-gray-300'}`} />
+                                                        <ArrowUpDown className={`w-3 h-3 ${invSortKey === col.key ? 'text-indigo-600' : 'text-gray-300'}`} />
                                                     </div>
                                                 </th>
                                             ))}
@@ -1510,61 +1531,61 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                     <div className="flex flex-col gap-4">
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                             {/* Total Pending SO */}
-                            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm relative overflow-hidden group">
-                                <div className="absolute top-0 right-0 p-2 opacity-5 group-hover:opacity-10 transition-opacity"><DollarSign className="w-12 h-12" /></div>
-                                <p className="text-[10px] text-purple-600 font-bold uppercase tracking-wider mb-1">Total Pending SO</p>
-                                <h3 className="text-2xl font-black text-gray-900 leading-none">{formatLargeValue(soStats.totalVal)}</h3>
-                                <p className="text-xs font-bold text-gray-500 mt-2">Total Qty: {soStats.totalQty.toLocaleString()}</p>
-                                <div className="mt-3 pt-3 border-t border-gray-50 flex flex-col gap-2">
-                                    <div className="flex justify-between items-center text-[9px]">
-                                        <span className="text-red-600 font-bold uppercase">Due: {formatLargeValue(soStats.dueValue, true)}</span>
-                                        <span className="text-blue-600 font-bold uppercase">Sch: {formatLargeValue(soStats.scheduledValue, true)}</span>
+                            <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-800 p-5 rounded-2xl shadow-[0_10px_30px_-5px_rgba(79,70,229,0.4)] border border-white/10 group h-full">
+                                <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/10 rounded-full blur-2xl group-hover:bg-white/20 transition-all duration-700"></div>
+                                <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:scale-110 transition-transform duration-500"><DollarSign className="w-16 h-16 text-white" /></div>
+                                <div className="relative z-10 flex flex-col h-full justify-between">
+                                    <div>
+                                        <p className="text-[10px] text-indigo-100/70 font-black uppercase tracking-widest mb-1">Total Pending SO</p>
+                                        <h3 className="text-3xl font-black text-white tracking-tighter leading-none">{formatLargeValue(soStats.totalVal)}</h3>
+                                        <p className="text-[11px] font-bold text-indigo-100/50 mt-2 flex items-center gap-1.5"><Package className="w-3 h-3" /> Qty: {soStats.totalQty.toLocaleString()}</p>
                                     </div>
-                                    <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden flex shadow-inner">
-                                        <div className="bg-red-500 h-full shadow-[0_0_8px_rgba(239,68,68,0.5)]" style={{ width: `${(soStats.dueValue / (soStats.totalVal || 1)) * 100}%` }}></div>
-                                        <div className="bg-blue-500 h-full shadow-[0_0_8px_rgba(59,130,246,0.5)]" style={{ width: `${(soStats.scheduledValue / (soStats.totalVal || 1)) * 100}%` }}></div>
+                                    <div className="mt-auto pt-5">
+                                        <div className="flex justify-between items-center text-[10px] mb-2 font-black">
+                                            <span className="text-red-300 uppercase letter tracking-tighter">Due: {formatLargeValue(soStats.dueValue, true)}</span>
+                                            <span className="text-blue-300 uppercase tracking-tighter">Sch: {formatLargeValue(soStats.scheduledValue, true)}</span>
+                                        </div>
+                                        <div className="w-full bg-white/10 backdrop-blur-sm h-2 rounded-full overflow-hidden flex shadow-inner">
+                                            <div className="bg-gradient-to-r from-red-400 to-rose-500 h-full shadow-[0_0_12px_rgba(244,63,94,0.6)] transition-all duration-1000" style={{ width: `${(soStats.dueValue / (soStats.totalVal || 1)) * 100}%` }}></div>
+                                            <div className="bg-gradient-to-r from-blue-400 to-indigo-500 h-full shadow-[0_0_12px_rgba(59,130,246,0.6)] transition-all duration-1000" style={{ width: `${(soStats.scheduledValue / (soStats.totalVal || 1)) * 100}%` }}></div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Due Order Card */}
-                            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col gap-2">
-                                <p className="text-[10px] text-blue-600 font-bold uppercase tracking-wider">Due order</p>
-                                <div>
-                                    <h3 className="text-2xl font-black text-gray-900 leading-none">{formatLargeValue(soStats.dueValue)}</h3>
-                                    <p className="text-xs font-bold text-gray-500 mt-2">Qty: {soStats.dueQty.toLocaleString()}</p>
-                                </div>
-                                <div className="grid grid-cols-2 gap-3 mt-2 pt-3 border-t border-gray-50">
-                                    <div>
-                                        <p className="text-[9px] font-bold text-emerald-600 uppercase mb-1">Ready Stock</p>
-                                        <p className="text-[11px] font-black text-gray-800">{formatLargeValue(soStats.readyDueValue, true)}</p>
-                                        <p className="text-[9px] text-gray-500 font-bold">Qty: {soStats.readyDueQty.toLocaleString()}</p>
+                            <div className="flex flex-col gap-3 h-full">
+                                <div className="bg-white p-4 rounded-2xl shadow-lg border border-gray-100 transform transition-all duration-300 hover:scale-[1.02] hover:shadow-red-100/50 relative overflow-hidden group">
+                                    <div className="absolute -right-4 -top-4 w-16 h-16 bg-red-50 rounded-full transition-all group-hover:scale-150 duration-500"></div>
+                                    <div className="relative z-10">
+                                        <p className="text-[10px] text-red-500 font-black uppercase tracking-widest mb-1">Due order</p>
+                                        <h3 className="text-2xl font-black text-gray-900 leading-tight">{formatLargeValue(soStats.dueValue)}</h3>
                                     </div>
-                                    <div>
-                                        <p className="text-[9px] font-bold text-rose-600 uppercase mb-1">Shortage</p>
-                                        <p className="text-[11px] font-black text-gray-800">{formatLargeValue(soStats.shortageDueValue, true)}</p>
-                                        <p className="text-[9px] text-gray-500 font-bold">Qty: {soStats.shortageDueQty.toLocaleString()}</p>
+                                    <div className="relative z-10 grid grid-cols-2 gap-4 mt-3 pt-3 border-t border-gray-50">
+                                        <div>
+                                            <p className="text-[9px] font-black text-emerald-600 uppercase tracking-tighter">Ready</p>
+                                            <p className="text-xs font-black text-gray-800">{formatLargeValue(soStats.readyDueValue, true)}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[9px] font-black text-rose-500 uppercase tracking-tighter">Shortage</p>
+                                            <p className="text-xs font-black text-gray-800">{formatLargeValue(soStats.shortageDueValue, true)}</p>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-
-                            {/* Scheduled Order Card */}
-                            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col gap-2">
-                                <p className="text-[10px] text-indigo-600 font-bold uppercase tracking-wider">Shedule Order</p>
-                                <div>
-                                    <h3 className="text-2xl font-black text-gray-900 leading-none">{formatLargeValue(soStats.scheduledValue)}</h3>
-                                    <p className="text-xs font-bold text-gray-500 mt-2">Qty: {soStats.scheduledQty.toLocaleString()}</p>
-                                </div>
-                                <div className="grid grid-cols-2 gap-3 mt-2 pt-3 border-t border-gray-50">
-                                    <div>
-                                        <p className="text-[9px] font-bold text-emerald-600 uppercase mb-1">Ready Stock</p>
-                                        <p className="text-[11px] font-black text-gray-800">{formatLargeValue(soStats.readySchValue, true)}</p>
-                                        <p className="text-[9px] text-gray-500 font-bold">Qty: {soStats.readySchQty.toLocaleString()}</p>
+                                <div className="bg-white p-4 rounded-2xl shadow-lg border border-gray-100 transform transition-all duration-300 hover:scale-[1.02] hover:shadow-blue-100/50 relative overflow-hidden group">
+                                    <div className="absolute -right-4 -top-4 w-16 h-16 bg-blue-50 rounded-full transition-all group-hover:scale-150 duration-500"></div>
+                                    <div className="relative z-10">
+                                        <p className="text-[10px] text-indigo-500 font-black uppercase tracking-widest mb-1">Schedule Order</p>
+                                        <h3 className="text-2xl font-black text-gray-900 leading-tight">{formatLargeValue(soStats.scheduledValue)}</h3>
                                     </div>
-                                    <div>
-                                        <p className="text-[9px] font-bold text-rose-600 uppercase mb-1">Shortage</p>
-                                        <p className="text-[11px] font-black text-gray-800">{formatLargeValue(soStats.shortageSchValue, true)}</p>
-                                        <p className="text-[9px] text-gray-500 font-bold">Qty: {soStats.shortageSchQty.toLocaleString()}</p>
+                                    <div className="relative z-10 grid grid-cols-2 gap-4 mt-3 pt-3 border-t border-gray-50">
+                                        <div>
+                                            <p className="text-[9px] font-black text-emerald-600 uppercase tracking-tighter">Ready</p>
+                                            <p className="text-xs font-black text-gray-800">{formatLargeValue(soStats.readySchValue, true)}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[9px] font-black text-rose-500 uppercase tracking-tighter">Shortage</p>
+                                            <p className="text-xs font-black text-gray-800">{formatLargeValue(soStats.shortageSchValue, true)}</p>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -1618,13 +1639,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                     <span className="text-[9px] text-purple-600 font-bold bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100 animate-pulse">Click Value for Details</span>
                                 </div>
                                 <div className="flex-1 overflow-x-auto">
-                                    <table className="w-full text-[9px] text-left">
-                                        <thead className="bg-gray-50 text-gray-500 uppercase font-bold border-b border-gray-100">
+                                    <table className="w-full text-[9px] text-left border-collapse">
+                                        <thead className="sticky top-0 z-10 bg-white/90 backdrop-blur-lg text-gray-400 uppercase font-black tracking-widest border-b border-gray-100">
                                             <tr>
-                                                <th className="py-2 px-3">Date</th>
-                                                <th className="py-2 px-3">Customer Name</th>
-                                                <th className="py-2 px-3">SO No</th>
-                                                <th className="py-2 px-3 text-right">Value (R+A)</th>
+                                                <th className="py-3 px-4">Date</th>
+                                                <th className="py-3 px-4">Customer Name</th>
+                                                <th className="py-3 px-4">SO No</th>
+                                                <th className="py-3 px-4 text-right">Value Analysis</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-50">
@@ -1668,10 +1689,26 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 ) : activeSubTab === 'po' ? (
                     <div className="flex flex-col gap-4">
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-orange-600 font-bold uppercase">Total Pending PO</p><h3 className="text-xl font-extrabold text-gray-900 mt-1">{formatLargeValue(poStats.totalVal)}</h3></div>
-                            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-blue-600 font-bold uppercase">Open POs</p><h3 className="text-xl font-extrabold text-gray-900 mt-1">{poStats.count}</h3></div>
-                            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-red-600 font-bold uppercase">Overdue Arrivals</p><h3 className="text-xl font-extrabold text-gray-900 mt-1">{pendingPO.filter(i => i.overDueDays > 0).length}</h3></div>
-                            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-[10px] text-emerald-600 font-bold uppercase">Active Vendors</p><h3 className="text-xl font-extrabold text-gray-900 mt-1">{poStats.vendorMix.length}</h3></div>
+                            <div className="bg-gradient-to-br from-orange-400 to-rose-500 p-4 rounded-xl shadow-[0_8px_20px_-4px_rgba(249,115,22,0.3)] border border-orange-400/30 transform transition-all duration-300 hover:scale-[1.01]">
+                                <p className="text-[10px] text-orange-50 font-black uppercase tracking-widest opacity-80">Total Pending PO</p>
+                                <h3 className="text-2xl font-black text-white mt-1">{formatLargeValue(poStats.totalVal)}</h3>
+                                <div className="mt-2 h-1 w-12 bg-white/30 rounded-full"></div>
+                            </div>
+                            <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-4 rounded-xl shadow-[0_8px_20px_-4px_rgba(59,130,246,0.3)] border border-blue-400/30 transform transition-all duration-300 hover:scale-[1.01]">
+                                <p className="text-[10px] text-blue-50 font-black uppercase tracking-widest opacity-80">Open POs</p>
+                                <h3 className="text-2xl font-black text-white mt-1">{poStats.count}</h3>
+                                <div className="mt-2 h-1 w-12 bg-white/30 rounded-full"></div>
+                            </div>
+                            <div className="bg-gradient-to-br from-red-500 to-rose-700 p-4 rounded-xl shadow-[0_8px_20px_-4px_rgba(239,68,68,0.3)] border border-red-400/30 transform transition-all duration-300 hover:scale-[1.01]">
+                                <p className="text-[10px] text-red-50 font-black uppercase tracking-widest opacity-80">Overdue Arrivals</p>
+                                <h3 className="text-2xl font-black text-white mt-1">{pendingPO.filter(i => i.overDueDays > 0).length}</h3>
+                                <div className="mt-2 h-1 w-12 bg-white/30 rounded-full"></div>
+                            </div>
+                            <div className="bg-gradient-to-br from-emerald-500 to-teal-600 p-4 rounded-xl shadow-[0_8px_20px_-4px_rgba(16,185,129,0.3)] border border-emerald-400/30 transform transition-all duration-300 hover:scale-[1.01]">
+                                <p className="text-[10px] text-emerald-50 font-black uppercase tracking-widest opacity-80">Active Vendors</p>
+                                <h3 className="text-2xl font-black text-white mt-1">{poStats.vendorMix.length}</h3>
+                                <div className="mt-2 h-1 w-12 bg-white/30 rounded-full"></div>
+                            </div>
                         </div>
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                             <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80">
