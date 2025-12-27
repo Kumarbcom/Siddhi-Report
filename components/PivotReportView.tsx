@@ -628,53 +628,54 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                                 <th onClick={() => handleHeaderSort('actions.expedite.qty')} className="py-2 px-2 text-right bg-blue-50/50 hover:bg-blue-100/50 group"><div className="flex items-center justify-end gap-1">Qty {renderSortArrow('actions.expedite.qty')}</div></th>
                                 <th onClick={() => handleHeaderSort('actions.expedite.val')} className="py-2 px-2 text-right bg-blue-50/50 hover:bg-blue-100/50 group"><div className="flex items-center justify-end gap-1">Val {renderSortArrow('actions.expedite.val')}</div></th>
                             </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100 text-[10px] text-gray-700">
-                            {/* TOTALS ROW - Sticky under header + Sticky Columns */}
+
+                            {/* TOTALS ROW - Inside THEAD so it stays sticky with header correctly */}
                             {filteredData.length > 0 && (
-                                <tr className="bg-yellow-50 font-bold border-b-2 border-yellow-200 text-gray-900 sticky top-[62px] z-40 shadow-sm">
+                                <tr className="bg-yellow-50 font-bold border-b-2 border-yellow-200 text-gray-900 shadow-sm whitespace-nowrap">
                                     <td colSpan={3} className="sticky left-0 z-40 py-2 px-2 text-right border-r uppercase text-[9px] tracking-wide text-gray-500 bg-yellow-50 border-b-2 border-yellow-200">Filtered Totals:</td>
 
-                                    <td className="py-2 px-2 text-right bg-blue-100/50">{formatLargeValue(totals.stock.qty)}</td>
-                                    <td className="py-2 px-2 text-right border-r bg-blue-100/50">{formatLargeValue(totals.stock.val)}</td>
+                                    <td className="py-2 px-2 text-right bg-blue-100/50 whitespace-nowrap">{formatLargeValue(totals.stock.qty)}</td>
+                                    <td className="py-2 px-2 text-right border-r bg-blue-100/50 whitespace-nowrap">{formatLargeValue(totals.stock.val)}</td>
 
-                                    <td className="py-2 px-2 text-right bg-orange-100/50">{formatLargeValue(totals.so.qty)}</td>
-                                    <td className="py-2 px-2 text-right border-r bg-orange-100/50">{formatLargeValue(totals.so.val)}</td>
+                                    <td className="py-2 px-2 text-right bg-orange-100/50 whitespace-nowrap">{formatLargeValue(totals.so.qty)}</td>
+                                    <td className="py-2 px-2 text-right border-r bg-orange-100/50 whitespace-nowrap">{formatLargeValue(totals.so.val)}</td>
 
-                                    <td className="py-2 px-2 text-right bg-purple-100/50">{formatLargeValue(totals.po.qty)}</td>
-                                    <td className="py-2 px-2 text-right border-r bg-purple-100/50">{formatLargeValue(totals.po.val)}</td>
+                                    <td className="py-2 px-2 text-right bg-purple-100/50 whitespace-nowrap">{formatLargeValue(totals.po.qty)}</td>
+                                    <td className="py-2 px-2 text-right border-r bg-purple-100/50 whitespace-nowrap">{formatLargeValue(totals.po.val)}</td>
 
-                                    <td className="py-2 px-2 text-right bg-gray-200">{formatLargeValue(totals.net.qty)}</td>
-                                    <td className="py-2 px-2 text-right border-r bg-gray-200">{formatLargeValue(totals.net.val)}</td>
+                                    <td className="py-2 px-2 text-right bg-gray-200 whitespace-nowrap">{formatLargeValue(totals.net.qty)}</td>
+                                    <td className="py-2 px-2 text-right border-r bg-gray-200 whitespace-nowrap">{formatLargeValue(totals.net.val)}</td>
 
                                     {showPlanningColumns && (
                                         <>
-                                            <td className="py-2 px-2 text-right bg-yellow-100/50">{formatDec(totals.avg3m.qty)}</td>
-                                            <td className="py-2 px-2 text-right bg-yellow-100/50">{formatDec(totals.avg1y.qty)}</td>
-                                            <td className="py-2 px-2 text-center border-r bg-yellow-100/50">-</td>
+                                            <td className="py-2 px-2 text-right bg-yellow-100/50 whitespace-nowrap">{formatDec(totals.avg3m.qty)}</td>
+                                            <td className="py-2 px-2 text-right bg-yellow-100/50 whitespace-nowrap">{formatDec(totals.avg1y.qty)}</td>
+                                            <td className="py-2 px-2 text-center border-r bg-yellow-100/50 whitespace-nowrap">-</td>
 
-                                            <td className="py-2 px-2 text-right bg-teal-100/50">{formatLargeValue(totals.min.qty)}</td>
-                                            <td className="py-2 px-2 text-right border-r bg-teal-100/50">{formatLargeValue(totals.min.val)}</td>
-                                            <td className="py-2 px-2 text-right bg-teal-100/50">{formatLargeValue(totals.reorder.qty)}</td>
-                                            <td className="py-2 px-2 text-right border-r bg-teal-100/50">{formatLargeValue(totals.reorder.val)}</td>
-                                            <td className="py-2 px-2 text-right bg-teal-100/50">{formatLargeValue(totals.max.qty)}</td>
-                                            <td className="py-2 px-2 text-right border-r bg-teal-100/50">{formatLargeValue(totals.max.val)}</td>
+                                            <td className="py-2 px-2 text-right bg-teal-100/50 whitespace-nowrap">{formatLargeValue(totals.min.qty)}</td>
+                                            <td className="py-2 px-2 text-right border-r bg-teal-100/50 whitespace-nowrap">{formatLargeValue(totals.min.val)}</td>
+                                            <td className="py-2 px-2 text-right bg-teal-100/50 whitespace-nowrap">{formatLargeValue(totals.reorder.qty)}</td>
+                                            <td className="py-2 px-2 text-right border-r bg-teal-100/50 whitespace-nowrap">{formatLargeValue(totals.reorder.val)}</td>
+                                            <td className="py-2 px-2 text-right bg-teal-100/50 whitespace-nowrap">{formatLargeValue(totals.max.qty)}</td>
+                                            <td className="py-2 px-2 text-right border-r bg-teal-100/50 whitespace-nowrap">{formatLargeValue(totals.max.val)}</td>
                                         </>
                                     )}
 
-                                    <td className="py-2 px-2 text-right bg-red-100/50 text-red-800">{formatLargeValue(totals.excessStock.qty)}</td>
-                                    <td className="py-2 px-2 text-right border-r bg-red-100/50 text-red-800">{formatLargeValue(totals.excessStock.val)}</td>
+                                    <td className="py-2 px-2 text-right bg-red-100/50 text-red-800 whitespace-nowrap">{formatLargeValue(totals.excessStock.qty)}</td>
+                                    <td className="py-2 px-2 text-right border-r bg-red-100/50 text-red-800 whitespace-nowrap">{formatLargeValue(totals.excessStock.val)}</td>
 
-                                    <td className="py-2 px-2 text-right bg-red-100/50 text-red-800">{formatLargeValue(totals.excessPO.qty)}</td>
-                                    <td className="py-2 px-2 text-right border-r bg-red-100/50 text-red-800">{formatLargeValue(totals.excessPO.val)}</td>
+                                    <td className="py-2 px-2 text-right bg-red-100/50 text-red-800 whitespace-nowrap">{formatLargeValue(totals.excessPO.qty)}</td>
+                                    <td className="py-2 px-2 text-right border-r bg-red-100/50 text-red-800 whitespace-nowrap">{formatLargeValue(totals.excessPO.val)}</td>
 
-                                    <td className="py-2 px-2 text-right bg-green-100/50 text-green-800">{formatLargeValue(totals.poNeed.qty)}</td>
-                                    <td className="py-2 px-2 text-right border-r bg-green-100/50 text-green-800">{formatLargeValue(totals.poNeed.val)}</td>
+                                    <td className="py-2 px-2 text-right bg-green-100/50 text-green-800 whitespace-nowrap">{formatLargeValue(totals.poNeed.qty)}</td>
+                                    <td className="py-2 px-2 text-right border-r bg-green-100/50 text-green-800 whitespace-nowrap">{formatLargeValue(totals.poNeed.val)}</td>
 
-                                    <td className="py-2 px-2 text-right bg-blue-100/50 text-blue-800">{formatLargeValue(totals.expedite.qty)}</td>
-                                    <td className="py-2 px-2 text-right bg-blue-100/50 text-blue-800">{formatLargeValue(totals.expedite.val)}</td>
+                                    <td className="py-2 px-2 text-right bg-blue-100/50 text-blue-800 whitespace-nowrap">{formatLargeValue(totals.expedite.qty)}</td>
+                                    <td className="py-2 px-2 text-right bg-blue-100/50 text-blue-800 whitespace-nowrap">{formatLargeValue(totals.expedite.val)}</td>
                                 </tr>
                             )}
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 text-[10px] text-gray-700">
 
                             {filteredData.length === 0 ? (
                                 <tr><td colSpan={showPlanningColumns ? 29 : 20} className="py-10 text-center text-gray-400">No active items match your filter.</td></tr>
