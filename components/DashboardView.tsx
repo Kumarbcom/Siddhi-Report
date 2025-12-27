@@ -1556,45 +1556,43 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                     </div>
                                 </div>
 
-                                <div className="flex flex-col gap-3 h-full">
-                                    <div className="bg-white p-4 rounded-2xl shadow-lg border border-gray-100 transform transition-all duration-300 hover:scale-[1.02] hover:shadow-red-100/50 relative overflow-hidden group">
-                                        <div className="absolute -right-4 -top-4 w-16 h-16 bg-red-50 rounded-full transition-all group-hover:scale-150 duration-500"></div>
-                                        <div className="relative z-10">
-                                            <p className="text-[10px] text-red-500 font-black uppercase tracking-widest mb-1">Due order</p>
-                                            <h3 className="text-2xl font-black text-gray-900 leading-tight">{formatLargeValue(soStats.dueValue)}</h3>
+                                <div className="bg-white p-4 rounded-2xl shadow-lg border border-gray-100 transform transition-all duration-300 hover:scale-[1.02] hover:shadow-red-100/50 relative overflow-hidden group h-full">
+                                    <div className="absolute -right-4 -top-4 w-16 h-16 bg-red-50 rounded-full transition-all group-hover:scale-150 duration-500"></div>
+                                    <div className="relative z-10">
+                                        <p className="text-[10px] text-red-500 font-black uppercase tracking-widest mb-1">Due order</p>
+                                        <h3 className="text-2xl font-black text-gray-900 leading-tight">{formatLargeValue(soStats.dueValue)}</h3>
+                                    </div>
+                                    <div className="relative z-10 grid grid-cols-2 gap-4 mt-3 pt-3 border-t border-gray-50">
+                                        <div>
+                                            <p className="text-[9px] font-black text-emerald-600 uppercase tracking-tighter">Ready</p>
+                                            <p className="text-xs font-black text-gray-800">{formatLargeValue(soStats.readyDueValue, true)}</p>
                                         </div>
-                                        <div className="relative z-10 grid grid-cols-2 gap-4 mt-3 pt-3 border-t border-gray-50">
-                                            <div>
-                                                <p className="text-[9px] font-black text-emerald-600 uppercase tracking-tighter">Ready</p>
-                                                <p className="text-xs font-black text-gray-800">{formatLargeValue(soStats.readyDueValue, true)}</p>
-                                            </div>
-                                            <div>
-                                                <p className="text-[9px] font-black text-rose-500 uppercase tracking-tighter">Shortage</p>
-                                                <p className="text-xs font-black text-gray-800">{formatLargeValue(soStats.shortageDueValue, true)}</p>
-                                            </div>
+                                        <div>
+                                            <p className="text-[9px] font-black text-rose-500 uppercase tracking-tighter">Shortage</p>
+                                            <p className="text-xs font-black text-gray-800">{formatLargeValue(soStats.shortageDueValue, true)}</p>
                                         </div>
                                     </div>
-                                    <div className="bg-white p-4 rounded-2xl shadow-lg border border-gray-100 transform transition-all duration-300 hover:scale-[1.02] hover:shadow-blue-100/50 relative overflow-hidden group">
-                                        <div className="absolute -right-4 -top-4 w-16 h-16 bg-blue-50 rounded-full transition-all group-hover:scale-150 duration-500"></div>
-                                        <div className="relative z-10">
-                                            <p className="text-[10px] text-indigo-500 font-black uppercase tracking-widest mb-1">Schedule Order</p>
-                                            <h3 className="text-2xl font-black text-gray-900 leading-tight">{formatLargeValue(soStats.scheduledValue)}</h3>
+                                </div>
+                                <div className="bg-white p-4 rounded-2xl shadow-lg border border-gray-100 transform transition-all duration-300 hover:scale-[1.02] hover:shadow-blue-100/50 relative overflow-hidden group h-full">
+                                    <div className="absolute -right-4 -top-4 w-16 h-16 bg-blue-50 rounded-full transition-all group-hover:scale-150 duration-500"></div>
+                                    <div className="relative z-10">
+                                        <p className="text-[10px] text-indigo-500 font-black uppercase tracking-widest mb-1">Schedule Order</p>
+                                        <h3 className="text-2xl font-black text-gray-900 leading-tight">{formatLargeValue(soStats.scheduledValue)}</h3>
+                                    </div>
+                                    <div className="relative z-10 grid grid-cols-2 gap-4 mt-3 pt-3 border-t border-gray-50">
+                                        <div>
+                                            <p className="text-[9px] font-black text-emerald-600 uppercase tracking-tighter">Ready</p>
+                                            <p className="text-xs font-black text-gray-800">{formatLargeValue(soStats.readySchValue, true)}</p>
                                         </div>
-                                        <div className="relative z-10 grid grid-cols-2 gap-4 mt-3 pt-3 border-t border-gray-50">
-                                            <div>
-                                                <p className="text-[9px] font-black text-emerald-600 uppercase tracking-tighter">Ready</p>
-                                                <p className="text-xs font-black text-gray-800">{formatLargeValue(soStats.readySchValue, true)}</p>
-                                            </div>
-                                            <div>
-                                                <p className="text-[9px] font-black text-rose-500 uppercase tracking-tighter">Shortage</p>
-                                                <p className="text-xs font-black text-gray-800">{formatLargeValue(soStats.shortageSchValue, true)}</p>
-                                            </div>
+                                        <div>
+                                            <p className="text-[9px] font-black text-rose-500 uppercase tracking-tighter">Shortage</p>
+                                            <p className="text-xs font-black text-gray-800">{formatLargeValue(soStats.shortageSchValue, true)}</p>
                                         </div>
                                     </div>
                                 </div>
 
                                 {/* Summary Card */}
-                                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col gap-2">
+                                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col gap-2 h-full">
                                     <p className="text-[10px] text-teal-600 font-bold uppercase tracking-wider">Order Summary</p>
                                     <div className="flex-1 flex flex-col gap-2">
                                         <div className="flex justify-between items-center bg-teal-50/50 p-2 rounded-lg border border-teal-100/50">
