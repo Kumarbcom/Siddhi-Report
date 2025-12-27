@@ -129,46 +129,31 @@ const MOMView: React.FC<MOMViewProps> = ({
             .reduce((acc, i) => acc + (i.value || 0), 0);
 
         // --- POINT 4: Excess Stock ---
-        // Definition: Stock > SO for that item
         const soMap = new Map<string, number>();
         pendingSO.forEach(s => {
             const k = s.itemName.toLowerCase().trim();
             soMap.set(k, (soMap.get(k) || 0) + s.balanceQty);
         });
 
-        const excessItems = closingStock.map(s => {
+        const excessByMake: Record<string, number> = {};
+        closingStock.forEach(s => {
             const k = s.description.toLowerCase().trim();
             const committed = soMap.get(k) || 0;
             const excessQty = Math.max(0, s.quantity - committed);
             const make = (s.make || 'UNSPECIFIED').toUpperCase();
-            return { make, value: excessQty * s.rate };
-        });
-
-        const excessByMake: Record<string, number> = {};
-        excessItems.forEach(i => {
-            excessByMake[i.make] = (excessByMake[i.make] || 0) + i.value;
+            excessByMake[make] = (excessByMake[make] || 0) + (excessQty * s.rate);
         });
         const totalExcess = Object.values(excessByMake).reduce((a, b) => a + b, 0);
 
         // --- POINT 5: Excess PO ---
-        // Simplified: POs for items that already have enough STOCK + PO for current SO
-        const excessPOVal = pendingPO.reduce((acc, p) => acc + (p.value || 0), 0); // Placeholder: user needs reference to PO values
+        const excessPOVal = pendingPO.reduce((acc, p) => acc + (p.value || 0), 0);
 
         return {
-            ytdSales,
-            lastWeekSales,
-            onlineSales,
+            ytdSales, lastWeekSales, onlineSales,
             totalPendingSO: pendingSO.reduce((acc, i) => acc + (i.value || 0), 0),
-            scheduledOrders,
-            dueOrdersVal,
-            readyStockVal,
-            shortageVal,
-            lappNonMoving,
-            eatonNonMoving,
-            othersNonMoving,
-            totalExcess,
-            excessByMake,
-            excessPOVal
+            scheduledOrders, dueOrdersVal, readyStockVal, shortageVal,
+            lappNonMoving, eatonNonMoving, othersNonMoving,
+            totalExcess, excessByMake, excessPOVal
         };
     }, [pendingSO, closingStock, salesReportItems, customers, currentMom.date]);
 
@@ -206,10 +191,10 @@ const MOMView: React.FC<MOMViewProps> = ({
                 slNo: 4,
                 agendaItem: `Excess Stock Make-wise Summary - ${toCr(autoPullData.totalExcess)}`,
                 discussion: Object.entries(autoPullData.excessByMake)
-                    .filter(([_, val]) => val > 1000) // Only show significant makes
+                    .filter(([_, val]) => val > 1000)
                     .map(([make, val]) => `• ${make}: ${toCr(val)}`)
                     .join('\n'),
-                actionAccount: ['Mohan/Gurudatt'],
+                actionAccount: ['Mohan', 'Gurudatt'],
                 timeline: '',
                 isCompleted: false
             },
@@ -226,8 +211,8 @@ const MOMView: React.FC<MOMViewProps> = ({
                 id: crypto.randomUUID(),
                 slNo: 6,
                 agendaItem: 'Work Flow Management',
-                discussion: '• OFFER MANAGEMENT: Enquiry Match, Follow up & Conversion\n• PO VERIFICATION: Spec, Price, MOQ, Lead time checks\n• ORDER PROCESSING: SO/DC/Billing/E-Way sync\n• POD & DISPATCH: Documentation flow',
-                actionAccount: ['KUMAR/GEETHA/MOHAN/VANDITHA'],
+                discussion: '• OFFER MANAGEMENT\n• PO VERIFICATION\n• SALE-ORDER PROCESSING\n• BILLING & DISPATCH',
+                actionAccount: ['KUMAR', 'GEETHA', 'MOHAN', 'VANDITHA'],
                 timeline: 'Ongoing',
                 isCompleted: false
             },
@@ -235,7 +220,7 @@ const MOMView: React.FC<MOMViewProps> = ({
                 id: crypto.randomUUID(),
                 slNo: 7,
                 agendaItem: 'SOP & Approval Process',
-                discussion: 'Review of individual performance SOPs and administrative approval hierarchies.',
+                discussion: 'Review of team performance and approval mechanisms.',
                 actionAccount: [],
                 timeline: '',
                 isCompleted: false
@@ -244,7 +229,7 @@ const MOMView: React.FC<MOMViewProps> = ({
                 id: crypto.randomUUID(),
                 slNo: 8,
                 agendaItem: 'Review and Check Mechanism',
-                discussion: 'Implementation of PO verification protocols.',
+                discussion: 'Final quality control and verification checks.',
                 actionAccount: [],
                 timeline: '',
                 isCompleted: false
@@ -253,7 +238,7 @@ const MOMView: React.FC<MOMViewProps> = ({
                 id: crypto.randomUUID(),
                 slNo: 9,
                 agendaItem: 'Rate Contract Review',
-                discussion: 'Customer and Vendor rate contract status review.',
+                discussion: 'Review of long-term rate contracts.',
                 actionAccount: ['Ranjan'],
                 timeline: 'Next Week',
                 isCompleted: false
@@ -490,6 +475,12 @@ const MOMView: React.FC<MOMViewProps> = ({
                                                     <button className="text-[10px] font-black text-indigo-600 mt-2">Go to Attendee Master</button>
                                                 </div>
                                             )}
+                                            <button
+                                                onClick={() => setShowAttendeeDropdown(false)}
+                                                className="w-full mt-2 py-2 bg-gray-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all"
+                                            >
+                                                Close Menu
+                                            </button>
                                         </div>
                                     </div>
                                 )}
@@ -558,12 +549,15 @@ const MOMView: React.FC<MOMViewProps> = ({
                                                     }}
                                                 >
                                                     <option value="">Assign Person...</option>
-                                                    {attendeeMaster.map(a => (
-                                                        <option key={a.id} value={a.name}>{a.name}</option>
+                                                    {attendeeMaster
+                                                        .filter(a => !item.actionAccount.includes(a.name))
+                                                        .map(a => (
+                                                            <option key={a.id} value={a.name}>{a.name}</option>
+                                                        ))
+                                                    }
+                                                    {['Sales Team', 'Logistic Team', 'Warehouse'].filter(t => !item.actionAccount.includes(t)).map(t => (
+                                                        <option key={t} value={t}>{t}</option>
                                                     ))}
-                                                    <option value="Sales Team">Sales Team</option>
-                                                    <option value="Logistic Team">Logistic Team</option>
-                                                    <option value="Warehouse">Warehouse</option>
                                                 </select>
                                                 <div className="hidden print:block text-[11px] font-black text-gray-800">
                                                     {item.actionAccount.join(', ')}
