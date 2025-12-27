@@ -89,6 +89,25 @@ export interface CustomerMasterItem {
   createdAt: number;
 }
 
+
+export interface MOMItem {
+  id: string;
+  slNo: number;
+  agendaItem: string;
+  discussion: string;
+  actionAccount: string[];
+  timeline: string;
+}
+
+export interface MOM {
+  id: string;
+  title: string;
+  date: string;
+  attendees: string[];
+  items: MOMItem[];
+  createdAt: number;
+}
+
 // Support for Vite env variables in TypeScript
 declare global {
   interface ImportMetaEnv {
