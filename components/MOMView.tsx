@@ -90,13 +90,6 @@ const MOMView: React.FC<MOMViewProps> = ({
         }
     }, [currentMom.date]);
 
-    // Auto-populate agenda items if empty
-    useEffect(() => {
-        if (currentMom.items && currentMom.items.length === 0 && autoPullData.ytdSales > 0) {
-            handleAutoPopulate();
-        }
-    }, [currentMom.items, autoPullData]);
-
     const autoPullData = useMemo(() => {
         const momDateStr = currentMom.date || new Date().toISOString().split('T')[0];
         const momDate = new Date(momDateStr);
@@ -266,6 +259,7 @@ const MOMView: React.FC<MOMViewProps> = ({
             }
             return acc;
         }, 0);
+        let totalExcessPOVal = 0;
 
         poAggMap.forEach((p, k) => {
             const m = matLookup.get(k);
@@ -294,6 +288,63 @@ const MOMView: React.FC<MOMViewProps> = ({
             }
         });
 
+        // Benchmarks for Dashboard
+        const reportMakes = ['LAPP', 'Eaton', 'Hager', 'Mennekes', 'Havells', 'Luker'];
+        const benchmarks: Record<string, any> = {};
+
+        const calculateTableBenchmarks = (items: any[], prefix: string) => {
+            const tempStockMap = new Map<string, number>();
+            closingStock.forEach(s => {
+                const k = (s.description || '').toLowerCase().trim();
+                tempStockMap.set(k, (tempStockMap.get(k) || 0) + (s.quantity || 0));
+            });
+
+            reportMakes.forEach(m => {
+                benchmarks[`${prefix}_${m}_Ready`] = 0;
+                benchmarks[`${prefix}_${m}_Shortage`] = 0;
+            });
+            benchmarks[`${prefix}_Others_Ready`] = 0;
+            benchmarks[`${prefix}_Others_Shortage`] = 0;
+
+            items.forEach(i => {
+                const mat = matLookup.get((i.itemName || '').toLowerCase().trim());
+                const rawMake = mat ? (mat.make || 'Unspecified') : 'Unspecified';
+                const mergedMake = getMergedMakeName(rawMake);
+                const targetKey = reportMakes.includes(mergedMake) ? mergedMake : 'Others';
+
+                const available = tempStockMap.get((i.itemName || '').toLowerCase().trim()) || 0;
+                const utilized = Math.min(i.balanceQty || 0, available);
+                const short = Math.max(0, (i.balanceQty || 0) - utilized);
+
+                benchmarks[`${prefix}_${targetKey}_Ready`] += (utilized * (i.rate || 0));
+                benchmarks[`${prefix}_${targetKey}_Shortage`] += (short * (i.rate || 0));
+
+                tempStockMap.set((i.itemName || '').toLowerCase().trim(), available - utilized);
+            });
+        };
+
+        calculateTableBenchmarks(dueOrders, 'DUE');
+        const schedItems = pendingSO.filter(i => new Date(i.dueDate) > momDate);
+        calculateTableBenchmarks(schedItems, 'SCH');
+        calculateTableBenchmarks(pendingSO, 'TOT');
+
+        // Stock Benchmarks
+        closingStock.forEach(s => {
+            const m = matLookup.get((s.description || '').toLowerCase().trim());
+            const make = getMergedMakeName(m?.make || 'Unspecified');
+            const group = m?.materialGroup || 'Unspecified';
+
+            const makeQtyKey = `STOCK_${make}_Qty`;
+            const makeValKey = `STOCK_${make}_Value`;
+            const grpQtyKey = `STOCK_${make}_${group}_Qty`;
+            const grpValKey = `STOCK_${make}_${group}_Value`;
+
+            benchmarks[makeQtyKey] = (benchmarks[makeQtyKey] || 0) + (s.quantity || 0);
+            benchmarks[makeValKey] = (benchmarks[makeValKey] || 0) + (s.value || 0);
+            benchmarks[grpQtyKey] = (benchmarks[grpQtyKey] || 0) + (s.quantity || 0);
+            benchmarks[grpValKey] = (benchmarks[grpValKey] || 0) + (s.value || 0);
+        });
+
         const weeklyGrowthVal = lastWeekSales > 0 ? ((thisWeekSales - lastWeekSales) / lastWeekSales) * 100 : 0;
         const weeklyGrowthText = lastWeekSales > 0 ? `${weeklyGrowthVal >= 0 ? '+' : ''}${weeklyGrowthVal.toFixed(1)}% vs LW` : 'N/A';
 
@@ -302,9 +353,17 @@ const MOMView: React.FC<MOMViewProps> = ({
             weeklyGrowthText,
             totalPendingSO: totalPendingSOVal, scheduledOrders: scheduledOrdersVal, dueOrdersVal, readyStockVal, shortageVal,
             lappNonMoving, eatonNonMoving, hagerNonMoving, othersNonMoving,
-            totalExcess: totalExcessStockVal, excessByMake: excessStockByMake, excessPOVal: totalExcessPOVal
+            totalExcess: totalExcessStockVal, excessByMake: excessStockByMake, excessPOVal: totalExcessPOVal,
+            benchmarks
         };
     }, [pendingSO, closingStock, salesReportItems, customers, currentMom.date, materials, pendingPO]);
+
+    // Auto-populate agenda items if empty
+    useEffect(() => {
+        if (currentMom.items && currentMom.items.length === 0 && autoPullData.ytdSales > 0) {
+            handleAutoPopulate();
+        }
+    }, [currentMom.items, autoPullData]);
 
     const handleAutoPopulate = () => {
         const agendaItems: MOMItem[] = [

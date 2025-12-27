@@ -3,6 +3,7 @@ import { Material, ClosingStockItem, PendingSOItem, PendingPOItem, SalesReportIt
 import { TrendingUp, TrendingDown, Package, ClipboardList, ShoppingCart, Calendar, Filter, PieChart as PieIcon, BarChart3, Users, ArrowRight, Activity, DollarSign, ArrowUpRight, ArrowDownRight, RefreshCw, UserCircle, Minus, Plus, ChevronDown, ChevronUp, Link2Off, AlertTriangle, Layers, Clock, CheckCircle2, AlertCircle, User, Factory, Tag, ArrowLeft, BarChart4, Hourglass, History, AlertOctagon, ChevronRight, ListOrdered, Table, X, ArrowUp, ArrowDown, Search, ArrowUpDown, FileText, UserPlus } from 'lucide-react';
 import MOMView from './MOMView';
 import AttendeeMasterView from './AttendeeMasterView';
+import { momService } from '../services/momService';
 
 const COLORS = ['#10B981', '#3B82F6', '#6366F1', '#8B5CF6', '#EC4899', '#F59E0B', '#EF4444', '#6B7280', '#059669', '#2563EB'];
 
@@ -435,6 +436,29 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     useEffect(() => {
         localStorage.setItem('weeklyBenchmarks', JSON.stringify(weeklyBenchmarks));
     }, [weeklyBenchmarks]);
+
+    useEffect(() => {
+        const loadBenchmarksFromMOM = async () => {
+            if (activeSubTab === 'weekly') {
+                const moms = await momService.getAll();
+                if (moms && moms.length > 0) {
+                    // Find the most recent MOM before targetDate
+                    const target = new Date(2025, 11, 24); // Matching hardcoded targetDate
+                    const pastMoms = moms
+                        .filter(m => new Date(m.date) < target && m.benchmarks)
+                        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+                    if (pastMoms.length > 0 && pastMoms[0].benchmarks) {
+                        setWeeklyBenchmarks(prev => ({
+                            ...prev,
+                            ...pastMoms[0].benchmarks
+                        }));
+                    }
+                }
+            }
+        };
+        loadBenchmarksFromMOM();
+    }, [activeSubTab]);
     const [timeView, setTimeView] = useState<'FY' | 'MONTH' | 'WEEK'>('FY');
     const [selectedFY, setSelectedFY] = useState<string>('');
     const [invGroupMetric, setInvGroupMetric] = useState<Metric>('value');

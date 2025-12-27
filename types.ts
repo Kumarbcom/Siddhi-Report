@@ -116,6 +116,7 @@ export interface MOM {
   attendees: string[]; // IDs of attendees
   items: MOMItem[];
   createdAt: number;
+  benchmarks?: Record<string, any>;
 }
 
 // Support for Vite env variables in TypeScript
