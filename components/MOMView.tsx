@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { MOM, MOMItem, Material, ClosingStockItem, PendingSOItem, PendingPOItem, SalesReportItem, CustomerMasterItem, Attendee } from '../types';
-import { Plus, Trash2, Save, FileSpreadsheet, FileText, Calendar, Search, ArrowRight, Printer, Loader2, User, Bell, CheckCircle, Clock, X } from 'lucide-react';
+import { Plus, Trash2, Save, FileSpreadsheet, FileText, Calendar, Search, ArrowRight, Printer, Loader2, User, Bell, CheckCircle, Clock, X, History as HistoryIcon } from 'lucide-react';
 import { utils, writeFile } from 'xlsx';
 import { momService } from '../services/momService';
 import { attendeeService } from '../services/attendeeService';
@@ -42,6 +42,15 @@ const MOMView: React.FC<MOMViewProps> = ({
     });
     const [isLoading, setIsLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+
+    useEffect(() => {
+        // Auto-expand textareas in the agenda table
+        const textareas = document.querySelectorAll('textarea');
+        textareas.forEach(ta => {
+            ta.style.height = 'auto';
+            ta.style.height = ta.scrollHeight + 'px';
+        });
+    }, [currentMom.items]);
     const [showAttendeeDropdown, setShowAttendeeDropdown] = useState(false);
     const [isHistoryVisible, setIsHistoryVisible] = useState(true);
 
@@ -140,6 +149,7 @@ const MOMView: React.FC<MOMViewProps> = ({
         const matLookup = new Map<string, Material>();
         materials.forEach(m => {
             if (m.description) matLookup.set(m.description.toLowerCase().trim(), m);
+            if (m.partNo) matLookup.set(m.partNo.toLowerCase().trim(), m);
         });
 
         let readyStockVal = 0;
@@ -153,8 +163,10 @@ const MOMView: React.FC<MOMViewProps> = ({
         const shortageVal = Math.max(0, dueOrdersVal - readyStockVal);
 
         const nonMovingItems = closingStock.filter(s => {
-            const m = matLookup.get((s.description || '').toLowerCase().trim());
-            return (m?.materialGroup || '').toLowerCase().includes('non-moving');
+            const desc = (s.description || '').toLowerCase().trim();
+            const m = matLookup.get(desc);
+            const g = (m?.materialGroup || '').toLowerCase();
+            return g.includes('non-moving') || g.includes('non moving') || g.includes('nonmoving');
         });
 
         const lappNonMoving = nonMovingItems
@@ -262,8 +274,12 @@ const MOMView: React.FC<MOMViewProps> = ({
             }
         });
 
+        const weeklyGrowthVal = lastWeekSales > 0 ? ((thisWeekSales - lastWeekSales) / lastWeekSales) * 100 : 0;
+        const weeklyGrowthText = lastWeekSales > 0 ? `${weeklyGrowthVal >= 0 ? '+' : ''}${weeklyGrowthVal.toFixed(1)}% vs LW` : 'N/A';
+
         return {
             ytdSales, thisWeekSales, lastWeekSales, onlineSales,
+            weeklyGrowthText,
             totalPendingSO: totalPendingSOVal, scheduledOrders: scheduledOrdersVal, dueOrdersVal, readyStockVal, shortageVal,
             lappNonMoving, eatonNonMoving, hagerNonMoving, othersNonMoving,
             totalExcess: totalExcessStockVal, excessByMake: excessStockByMake, excessPOVal: totalExcessPOVal
@@ -274,7 +290,7 @@ const MOMView: React.FC<MOMViewProps> = ({
         const agendaItems: MOMItem[] = [
             {
                 id: crypto.randomUUID(), slNo: 1, agendaItem: 'Sales Review: Present YTD vs Weekly Momentum',
-                discussion: `• Present YTD Sales (FY): ${toCr(autoPullData.ytdSales)}\n• Online Sales YTD: ${toCr(autoPullData.onlineSales)}\n• Current Week Sales: ${toCr(autoPullData.thisWeekSales)}\n• Last Week Sales Performance: ${toCr(autoPullData.lastWeekSales)}`,
+                discussion: `• Present YTD Sales (FY): ${toCr(autoPullData.ytdSales)}\n• Online Sales YTD: ${toCr(autoPullData.onlineSales)}\n• Current Week Sales: ${toCr(autoPullData.thisWeekSales)} (${autoPullData.weeklyGrowthText})\n• Last Week Sales Performance: ${toCr(autoPullData.lastWeekSales)}`,
                 actionAccount: ['Kumar'], timeline: currentMom.date || '', isCompleted: false
             },
             {
@@ -351,10 +367,11 @@ const MOMView: React.FC<MOMViewProps> = ({
                 <div className="flex gap-2">
                     <button
                         onClick={() => setIsHistoryVisible(!isHistoryVisible)}
-                        className={`p-2 rounded-xl border transition-all ${isHistoryVisible ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-all ${isHistoryVisible ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
                         title={isHistoryVisible ? "Hide History" : "Show History"}
                     >
-                        <Search className="w-5 h-5" />
+                        <HistoryIcon className="w-4 h-4" />
+                        <span className="text-[10px] font-bold uppercase">{isHistoryVisible ? 'Hide History' : 'History'}</span>
                     </button>
                     <button onClick={handleAutoPopulate} className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 rounded-xl text-xs font-black border border-indigo-100 hover:bg-indigo-100 transition-all">
                         <ArrowRight className="w-4 h-4" /> Pull Report Info
@@ -386,7 +403,7 @@ const MOMView: React.FC<MOMViewProps> = ({
                     </div>
                 )}
 
-                <div className={`${isHistoryVisible ? 'lg:col-span-3' : 'lg:col-span-1'} bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col print:border-none print:shadow-none transition-all duration-300`}>
+                <div className={`${isHistoryVisible ? 'lg:col-span-3' : 'lg:col-span-1'} bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col print:border-none print:shadow-none transition-all duration-300 print-area`}>
                     {/* Compact Header */}
                     <div className="p-4 border-b border-gray-100 bg-gray-50/30 print:bg-white print:p-2">
                         <div className="flex justify-between items-start mb-4">
@@ -458,7 +475,17 @@ const MOMView: React.FC<MOMViewProps> = ({
                                         <td className="py-4 align-top text-xs font-black">{item.slNo}</td>
                                         <td className="py-4 px-2 align-top">
                                             <input type="text" className="w-full bg-transparent font-black text-sm outline-none mb-1" value={item.agendaItem} onChange={e => updateItem(item.id, 'agendaItem', e.target.value)} placeholder="Topic..." />
-                                            <textarea className="w-full bg-transparent text-[11px] text-gray-600 outline-none resize-none leading-relaxed h-16" value={item.discussion} onChange={e => updateItem(item.id, 'discussion', e.target.value)} placeholder="Details..." />
+                                            <textarea
+                                                className="w-full bg-transparent text-[11px] text-gray-600 outline-none resize-none leading-relaxed min-h-[100px] border-none focus:ring-0 p-0"
+                                                value={item.discussion}
+                                                onChange={e => updateItem(item.id, 'discussion', e.target.value)}
+                                                onInput={(e) => {
+                                                    const target = e.target as HTMLTextAreaElement;
+                                                    target.style.height = 'auto';
+                                                    target.style.height = target.scrollHeight + 'px';
+                                                }}
+                                                placeholder="Details..."
+                                            />
                                         </td>
                                         <td className="py-4 align-top pr-2">
                                             <div className="flex flex-wrap gap-1 mb-1">
@@ -500,11 +527,24 @@ const MOMView: React.FC<MOMViewProps> = ({
 
             <style>{`
                 @media print {
-                    @page { margin: 1cm; size: A4; }
-                    body { background: white !important; }
+                    @page { margin: 0.5cm; size: A4; }
+                    body * { visibility: hidden; }
+                    .print-area, .print-area * { visibility: visible; }
+                    .print-area { 
+                        position: absolute; 
+                        left: 0; 
+                        top: 0; 
+                        width: 100%; 
+                        height: auto;
+                        padding: 0 !important;
+                        margin: 0 !important;
+                        background: white !important;
+                    }
                     .print\\:hidden { display: none !important; }
-                    .lg\\:col-span-1 { display: none !important; }
-                    .lg\\:col-span-3 { width: 100% !important; }
+                    .no-print { display: none !important; }
+                    textarea { height: auto !important; overflow: visible !important; border: none !important; }
+                    table { page-break-inside: auto; }
+                    tr { page-break-inside: avoid; page-break-after: auto; }
                 }
                 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
                 .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
