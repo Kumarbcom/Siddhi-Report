@@ -67,7 +67,7 @@ const AttendeeMasterView: React.FC = () => {
     );
 
     return (
-        <div className="flex flex-col h-full gap-4 max-w-4xl mx-auto p-4">
+        <div className="flex flex-col h-full gap-4 w-full p-4">
             <div className="flex items-center justify-between bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
                 <div className="flex items-center gap-4">
                     <div className="p-3 bg-violet-50 text-violet-600 rounded-xl">
@@ -158,8 +158,34 @@ const AttendeeMasterView: React.FC = () => {
                                             const file = e.target.files?.[0];
                                             if (file) {
                                                 const reader = new FileReader();
-                                                reader.onloadend = () => {
-                                                    setFormData({ ...formData, imageUrl: reader.result as string });
+                                                reader.onload = (event) => {
+                                                    const img = new Image();
+                                                    img.onload = () => {
+                                                        const canvas = document.createElement('canvas');
+                                                        const MAX_WIDTH = 200;
+                                                        const MAX_HEIGHT = 200;
+                                                        let width = img.width;
+                                                        let height = img.height;
+
+                                                        if (width > height) {
+                                                            if (width > MAX_WIDTH) {
+                                                                height *= MAX_WIDTH / width;
+                                                                width = MAX_WIDTH;
+                                                            }
+                                                        } else {
+                                                            if (height > MAX_HEIGHT) {
+                                                                width *= MAX_HEIGHT / height;
+                                                                height = MAX_HEIGHT;
+                                                            }
+                                                        }
+                                                        canvas.width = width;
+                                                        canvas.height = height;
+                                                        const ctx = canvas.getContext('2d');
+                                                        ctx?.drawImage(img, 0, 0, width, height);
+                                                        const compressed = canvas.toDataURL('image/jpeg', 0.7);
+                                                        setFormData({ ...formData, imageUrl: compressed });
+                                                    };
+                                                    img.src = event.target?.result as string;
                                                 };
                                                 reader.readAsDataURL(file);
                                             }
