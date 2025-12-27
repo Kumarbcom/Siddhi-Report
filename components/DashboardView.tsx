@@ -641,14 +641,33 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             data = enrichedSales.filter(i => i.fiscalYear === pyString);
         }
 
-        if (selectedMake !== 'ALL') {
-            data = data.filter(i => i.make === selectedMake);
-        }
-        if (selectedMatGroup !== 'ALL') {
-            data = data.filter(i => i.matGroup === selectedMatGroup);
-        }
+        if (selectedMake !== 'ALL') data = data.filter(i => i.make === selectedMake);
+        if (selectedMatGroup !== 'ALL') data = data.filter(i => i.matGroup === selectedMatGroup);
         return data;
     }, [selectedFY, timeView, selectedMonth, selectedWeek, enrichedSales, selectedMake, selectedMatGroup]);
+
+    const yoyData = useMemo(() => {
+        if (!selectedFY) return [];
+        const parts = selectedFY.split('-');
+        const pyStart = parseInt(parts[0]) - 1;
+        const pyString = `${pyStart}-${pyStart + 1}`;
+
+        let data = enrichedSales.filter(i => i.fiscalYear === pyString);
+
+        if (timeView === 'MONTH') {
+            data = data.filter(i => i.fiscalMonthIndex === selectedMonth);
+        } else if (timeView === 'WEEK') {
+            data = data.filter(i => i.weekNumber === selectedWeek);
+        } else {
+            // FY view: Filter previous year to only include months present in currentData (YTD comparison)
+            const currentMonths = new Set(currentData.map(i => i.fiscalMonthIndex));
+            data = data.filter(i => currentMonths.has(i.fiscalMonthIndex));
+        }
+
+        if (selectedMake !== 'ALL') data = data.filter(i => i.make === selectedMake);
+        if (selectedMatGroup !== 'ALL') data = data.filter(i => i.matGroup === selectedMatGroup);
+        return data;
+    }, [selectedFY, currentData, timeView, selectedMonth, selectedWeek, enrichedSales, selectedMake, selectedMatGroup]);
 
     const kpis = useMemo(() => {
         const currVal = currentData.reduce((acc, i) => acc + (i.value || 0), 0);
@@ -663,11 +682,18 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         const prevVouchers = new Set(previousDataForComparison.map(i => String(i.voucherNo || ''))).size;
         const prevAvgOrder = prevVouchers ? prevVal / prevVouchers : 0;
 
+        const yoyVal = yoyData.reduce((acc, i) => acc + (i.value || 0), 0);
+        const yoyQty = yoyData.reduce((acc, i) => acc + (i.quantity || 0), 0);
+        const yoyCusts = new Set(yoyData.map(i => String(i.customerName || ''))).size;
+        const yoyVouchers = new Set(yoyData.map(i => String(i.voucherNo || ''))).size;
+        const yoyAvgOrder = yoyVouchers ? yoyVal / yoyVouchers : 0;
+
         return {
             currVal, currQty, uniqueCusts, avgOrder,
-            prevVal, prevQty, prevCusts, prevAvgOrder
+            prevVal, prevQty, prevCusts, prevAvgOrder,
+            yoyVal, yoyQty, yoyCusts, yoyAvgOrder
         };
-    }, [currentData, previousDataForComparison]);
+    }, [currentData, previousDataForComparison, yoyData]);
 
     const groupedCustomerData = useMemo(() => {
         const groupMap = new Map<string, { total: number, totalPrevious: number, customers: Map<string, { current: number, previous: number }> }>();
@@ -682,7 +708,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             groupObj.customers.get(name)!.current += (i.value || 0);
         });
 
-        previousDataForComparison.forEach(i => {
+        const compData = timeView === 'FY' ? yoyData : previousDataForComparison;
+
+        compData.forEach(i => {
             const group = i.custGroup;
             const name = String(i.customerName || 'Unknown');
             if (!groupMap.has(group)) groupMap.set(group, { total: 0, totalPrevious: 0, customers: new Map() });
@@ -703,7 +731,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 diff: vals.current - vals.previous
             })).sort((a, b) => b.current - a.current).slice(0, 10)
         })).sort((a, b) => b.total - a.total);
-    }, [currentData, previousDataForComparison]);
+    }, [currentData, previousDataForComparison, yoyData, timeView]);
 
     const topTenCustomers = useMemo(() => {
         const custMap = new Map<string, { current: number, previous: number }>();
@@ -712,7 +740,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             if (!custMap.has(name)) custMap.set(name, { current: 0, previous: 0 });
             custMap.get(name)!.current += (i.value || 0);
         });
-        previousDataForComparison.forEach(i => {
+        const compData = timeView === 'FY' ? yoyData : previousDataForComparison;
+        compData.forEach(i => {
             const name = String(i.customerName || 'Unknown');
             if (!custMap.has(name)) custMap.set(name, { current: 0, previous: 0 });
             custMap.get(name)!.previous += (i.value || 0);
@@ -721,7 +750,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             .map(([label, v]) => ({ label, value: v.current, previous: v.previous }))
             .sort((a, b) => b.value - a.value)
             .slice(0, 10);
-    }, [currentData, previousDataForComparison]);
+    }, [currentData, previousDataForComparison, yoyData, timeView]);
 
     const inventoryStats = useMemo(() => {
         // Build maps for O(1) matching
@@ -1310,36 +1339,54 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                         <div className="flex flex-col gap-2">
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
                                 {[
-                                    { label: 'Current Sales', val: kpis.currVal, prev: kpis.prevVal, isCurr: true, grad: 'from-blue-600 via-indigo-600 to-indigo-800', icon: DollarSign },
-                                    { label: 'Quantity', val: kpis.currQty, prev: kpis.prevQty, isCurr: false, grad: 'from-emerald-500 via-teal-600 to-teal-800', icon: Package },
-                                    { label: 'Unique Customers', val: kpis.uniqueCusts, prev: kpis.prevCusts, isCurr: false, grad: 'from-purple-500 via-violet-600 to-indigo-700', icon: Users },
-                                    { label: 'Avg. Order', val: kpis.avgOrder, prev: kpis.prevAvgOrder, isCurr: true, grad: 'from-orange-500 via-rose-500 to-rose-700', icon: Activity }
+                                    { label: 'Current Sales', val: kpis.currVal, prev: kpis.prevVal, yoy: kpis.yoyVal, isCurr: true, grad: 'from-blue-600 via-indigo-600 to-indigo-800', icon: DollarSign },
+                                    { label: 'Quantity', val: kpis.currQty, prev: kpis.prevQty, yoy: kpis.yoyQty, isCurr: false, grad: 'from-emerald-500 via-teal-600 to-teal-800', icon: Package },
+                                    { label: 'Unique Customers', val: kpis.uniqueCusts, prev: kpis.prevCusts, yoy: kpis.yoyCusts, isCurr: false, grad: 'from-purple-500 via-violet-600 to-indigo-700', icon: Users },
+                                    { label: 'Avg. Order', val: kpis.avgOrder, prev: kpis.prevAvgOrder, yoy: kpis.yoyAvgOrder, isCurr: true, grad: 'from-orange-500 via-rose-500 to-rose-700', icon: Activity }
                                 ].map((k, i) => {
                                     const diff = k.val - k.prev;
                                     const pct = k.prev > 0 ? (diff / k.prev) * 100 : 0;
+
+                                    const yoyDiff = k.val - (k.yoy || 0);
+                                    const yoyPct = (k.yoy || 0) > 0 ? (yoyDiff / k.yoy!) * 100 : 0;
+
                                     return (
                                         <div key={i} className={`relative overflow-hidden bg-gradient-to-br ${k.grad} p-5 rounded-2xl shadow-[0_10px_20px_-5px_rgba(0,0,0,0.3)] transition-all duration-300 hover:shadow-[0_20px_40px_-10px_rgba(0,0,0,0.4)] hover:-translate-y-1.5 group border border-white/10`}>
                                             <div className="absolute top-0 right-0 p-4 opacity-15 transform translate-x-1 translate-y--1 group-hover:scale-125 group-hover:rotate-12 transition-all duration-700 ease-out">
                                                 <k.icon className="w-14 h-14 text-white drop-shadow-2xl" />
                                             </div>
-                                            <div className="relative z-10">
-                                                <p className="text-[10px] font-black text-white/80 uppercase tracking-[0.2em] drop-shadow-sm mb-1">{k.label} <span className="text-white/40">({timeView})</span></p>
-                                                <div className="flex items-baseline gap-2">
+                                            <div className="relative z-10 space-y-3">
+                                                <div>
+                                                    <p className="text-[10px] font-black text-white/80 uppercase tracking-[0.2em] drop-shadow-sm mb-1">{k.label} <span className="text-white/40">({timeView})</span></p>
                                                     <h3 className="text-3xl font-black text-white tracking-tighter drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)] tabular-nums">
                                                         {k.isCurr ? formatLargeValue(k.val, true) : k.val.toLocaleString()}
                                                     </h3>
                                                 </div>
-                                                <div className="mt-4 flex items-center gap-2.5">
-                                                    <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black border shadow-inner backdrop-blur-lg ${diff >= 0 ? 'bg-emerald-400/30 text-emerald-50 border-emerald-400/40 shadow-emerald-900/20' : 'bg-rose-400/30 text-rose-50 border-rose-400/40 shadow-rose-900/20'}`}>
-                                                        {diff >= 0 ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />}
-                                                        {Math.abs(pct).toFixed(0)}%
+
+                                                <div className="flex flex-col gap-2">
+                                                    {/* Sequential Comparison */}
+                                                    <div className="flex items-center gap-2">
+                                                        <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-black border shadow-inner backdrop-blur-lg ${diff >= 0 ? 'bg-emerald-400/30 text-emerald-50 border-emerald-400/40' : 'bg-rose-400/30 text-rose-50 border-rose-400/40'}`}>
+                                                            {diff >= 0 ? <ArrowUp className="w-2 h-2" /> : <ArrowDown className="w-2 h-2" />}
+                                                            {Math.abs(pct).toFixed(0)}%
+                                                        </div>
+                                                        <p className="text-[8px] font-extrabold uppercase text-white/50 tracking-wider">
+                                                            {timeView === 'WEEK' ? 'vs Prev Week' : timeView === 'MONTH' ? 'vs Prev Month' : 'vs Full Prev Year'}
+                                                        </p>
                                                     </div>
-                                                    <p className="text-[9px] font-extrabold uppercase text-white/50 tracking-wider">
-                                                        {timeView === 'WEEK' ? 'vs Prev Week' : timeView === 'MONTH' ? 'vs Prev Month' : 'vs Last Year'}
-                                                    </p>
+
+                                                    {/* YoY / Period Comparison */}
+                                                    <div className="flex items-center gap-2">
+                                                        <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-black border shadow-inner backdrop-blur-lg ${yoyDiff >= 0 ? 'bg-cyan-400/30 text-cyan-50 border-cyan-400/40' : 'bg-orange-400/30 text-orange-50 border-orange-400/40'}`}>
+                                                            {yoyDiff >= 0 ? <TrendingUp className="w-2 h-2" /> : <TrendingDown className="w-2 h-2" />}
+                                                            {Math.abs(yoyPct).toFixed(0)}%
+                                                        </div>
+                                                        <p className="text-[8px] font-black uppercase text-white/70 tracking-tight">
+                                                            {timeView === 'FY' ? 'vs LY (Same Period)' : 'vs LY (YoY)'}
+                                                        </p>
+                                                    </div>
                                                 </div>
                                             </div>
-                                            {/* Subtle Inner Glow */}
                                             <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-white/10 pointer-events-none opacity-50"></div>
                                         </div>
                                     );
@@ -1380,7 +1427,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                         data={topTenCustomers}
                                         title="Universal Top 10 Customers"
                                         color="emerald"
-                                        compareLabel={timeView === 'WEEK' ? 'PW' : timeView === 'MONTH' ? 'PM' : 'LY'}
+                                        compareLabel={timeView === 'WEEK' ? 'PW' : timeView === 'MONTH' ? 'PM' : 'LY (YTD)'}
                                     />
                                 </div>
                                 <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm h-[380px] flex flex-col overflow-hidden transition-all hover:shadow-md">
@@ -1394,7 +1441,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                     <div className="flex-1 overflow-hidden">
                                         <GroupedCustomerAnalysis
                                             data={groupedCustomerData}
-                                            compareLabel={timeView === 'WEEK' ? 'PW' : timeView === 'MONTH' ? 'PM' : 'LY'}
+                                            compareLabel={timeView === 'WEEK' ? 'PW' : timeView === 'MONTH' ? 'PM' : 'LY (YTD)'}
                                         />
                                     </div>
                                 </div>
