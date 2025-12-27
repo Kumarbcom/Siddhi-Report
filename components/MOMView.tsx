@@ -591,7 +591,7 @@ const MOMView: React.FC<MOMViewProps> = ({
                         <button onClick={addItem} className="mt-4 w-full py-2 border-2 border-dashed border-gray-100 rounded-xl text-xs font-black text-gray-400 hover:bg-gray-50 print:hidden">+ Add Agenda Point</button>
                     </div>
 
-                    <div className="p-4 bg-gray-50/50 border-t border-gray-100 flex justify-between items-center print:bg-white print:fixed print:bottom-0 print:left-0 print:right-0 print:p-0 print:border-none">
+                    <div className="p-4 bg-gray-50/50 border-t border-gray-100 flex justify-between items-center print:bg-white print-footer print:bottom-0 print:left-0 print:right-0 print:p-0 print:border-none">
                         <div className="flex gap-16 print:w-full print:justify-around print:mt-12">
                             <div className="w-48 border-t border-gray-900 pt-2 text-center"><p className="text-[10px] font-black uppercase">Prepared By</p></div>
                             <div className="w-48 border-t border-gray-900 pt-2 text-center"><p className="text-[10px] font-black uppercase">Approved By</p></div>
@@ -603,7 +603,8 @@ const MOMView: React.FC<MOMViewProps> = ({
 
             <style>{`
                 @media print {
-                    @page { margin: 0.5cm; size: A4; }
+                    @page { margin: 1.5cm; size: A4; }
+                    body { background: white !important; font-family: 'Inter', sans-serif; -webkit-print-color-adjust: exact; }
                     body * { visibility: hidden; }
                     .print-area, .print-area * { visibility: visible; }
                     .print-area { 
@@ -611,21 +612,64 @@ const MOMView: React.FC<MOMViewProps> = ({
                         left: 0; 
                         top: 0; 
                         width: 100%; 
-                        height: auto;
                         padding: 0 !important;
                         margin: 0 !important;
                         background: white !important;
+                        box-shadow: none !important;
+                        border: none !important;
                     }
                     .print\\:hidden { display: none !important; }
                     .no-print { display: none !important; }
-                    textarea { height: auto !important; overflow: visible !important; border: none !important; padding: 0 !important; margin: 0 !important; }
-                    table { page-break-inside: auto; margin-bottom: 50px; }
-                    tr { page-break-inside: avoid; page-break-after: auto; }
-                    .print-area { padding-bottom: 100px !important; }
+                    
+                    /* Textarea & Input flattening */
+                    textarea, input { 
+                        background: transparent !important; 
+                        border: none !important; 
+                        padding: 0 !important; 
+                        margin: 0 !important; 
+                        outline: none !important;
+                        box-shadow: none !important;
+                        color: black !important;
+                        appearance: none;
+                        -webkit-appearance: none;
+                    }
+                    textarea { height: auto !important; overflow: visible !important; min-height: fit-content !important; display: block !important; }
+                    
+                    /* Table styling */
+                    table { 
+                        width: 100% !important; 
+                        border-collapse: collapse !important; 
+                        table-layout: fixed !important;
+                    }
+                    th { 
+                        border-bottom: 2px solid #000 !important; 
+                        color: #000 !important; 
+                        font-weight: 900 !important;
+                        text-transform: uppercase !important;
+                        padding: 10px 5px !important;
+                    }
+                    td { 
+                        border-bottom: 1px solid #eee !important; 
+                        padding: 15px 5px !important;
+                        vertical-align: top !important;
+                    }
+                    tr { page-break-inside: avoid !important; }
+                    
+                    .print-area { padding-bottom: 150px !important; }
+                    
+                    /* Signature Footer */
+                    .print-footer {
+                        position: fixed;
+                        bottom: 0;
+                        left: 0;
+                        right: 0;
+                        padding: 20px 0;
+                        border-top: none !important;
+                    }
                 }
                 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
                 .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
-            `}</style>
+`}</style>
         </div>
     );
 };
