@@ -664,26 +664,25 @@ const MOMView: React.FC<MOMViewProps> = ({
                         visibility: visible !important;
                     }
 
-                    /* Force the print area to the absolute top and left of the paper */
+                    /* Allow natural browser pagination by using relative/static positioning */
                     .print-area { 
-                        position: absolute !important;
-                        left: 0 !important;
-                        top: 0 !important;
+                        display: block !important;
+                        position: relative !important;
                         width: 100% !important; 
                         margin: 0 !important;
                         padding: 0 !important;
                         background: white !important;
                         border: none !important;
                         box-shadow: none !important;
-                        display: flex !important;
-                        flex-direction: column !important;
                     }
 
-                    /* Ensure parent containers don't clip or offset */
-                    #root, footer, header, main {
+                    /* Ensure all parent containers are invisible but allow content to flow naturally */
+                    html, body, #root, [data-v-app], main, .flex {
+                        overflow: visible !important;
+                        height: auto !important;
                         margin: 0 !important;
                         padding: 0 !important;
-                        position: static !important;
+                        display: block !important;
                     }
 
                     .print-area * {
@@ -741,7 +740,11 @@ const MOMView: React.FC<MOMViewProps> = ({
                         vertical-align: top !important;
                         word-wrap: break-word !important;
                     }
-                    tr { page-break-inside: avoid !important; page-break-after: auto !important; }
+                    tr { 
+                        page-break-inside: avoid !important; 
+                        break-inside: avoid !important;
+                        page-break-after: auto !important; 
+                    }
                     
                     .print-area { padding-bottom: 150px !important; }
                     
@@ -759,8 +762,6 @@ const MOMView: React.FC<MOMViewProps> = ({
                     
                     /* Table adjustments */
                     table { page-break-after: auto; }
-                    tr { page-break-inside: avoid !important; }
-                    td { word-break: break-word; }
                 }
                 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
                 .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
