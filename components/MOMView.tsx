@@ -317,12 +317,12 @@ const MOMView: React.FC<MOMViewProps> = ({
             },
             {
                 id: crypto.randomUUID(), slNo: 4, agendaItem: `Excess Stock Make-wise Summary (Strategy Report) - ${toCr(autoPullData.totalExcess)}`,
-                discussion: Object.entries(autoPullData.excessByMake).sort(([, a], [, b]) => b - a).filter(([_, v]) => v > 1000).map(([m, v]) => `• ${m}: ${toCr(v)}`).join('\n'),
+                discussion: Object.entries(autoPullData.excessByMake).sort(([, a], [, b]) => b - a).filter(([_, v]) => v > 1000).map(([m, v]) => `• ${m}: ${toCr(v)}`).join('\n') + `\n• Need Liquadate: ₹ _________ Cr.`,
                 actionAccount: ['Mohan', 'Gurudatt'], timeline: '', isCompleted: false
             },
             {
                 id: crypto.randomUUID(), slNo: 5, agendaItem: 'Procurement Action Plan - Excess PO Analysis',
-                discussion: `• Excess PO Value (Strategy Report): ${toCr(autoPullData.excessPOVal)}\n• Pending Payment Outstanding: ₹ _________ Cr.\n• Overdue (>30 days): ₹ _________ Cr.`,
+                discussion: `• Excess PO Value (Strategy Report): ${toCr(autoPullData.excessPOVal)}\n• PO need to cancel: ₹ _________ Cr.\n• Need to Hold: ₹ _________ Cr.`,
                 actionAccount: ['Mohan'], timeline: 'Immediate', isCompleted: false
             }
         ];
