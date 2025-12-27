@@ -128,7 +128,7 @@ const MOMView: React.FC<MOMViewProps> = ({
                 slNo: 1,
                 agendaItem: `Sales Review On ${currentMom.date} - ${toCr(autoPullData.totalSales)} (${toCr(autoPullData.onlineSales)} Online)`,
                 discussion: 'Review of sales achievement against weekly targets across all channels.',
-                actionAccount: ['Sales Hub'],
+                actionAccount: ['Kumar'],
                 timeline: currentMom.date || '',
                 isCompleted: false
             },
@@ -136,41 +136,84 @@ const MOMView: React.FC<MOMViewProps> = ({
                 id: crypto.randomUUID(),
                 slNo: 2,
                 agendaItem: `Pending SO Total Value - ${toCr(autoPullData.totalPendingSO)}`,
-                discussion: `Scheduled orders: ${toCr(autoPullData.scheduledOrders)}\nDue orders: ${toCr(autoPullData.dueOrdersVal)} (stock available: ${toCr(autoPullData.stockAvailableVal)}, need to arrange: ${toCr(autoPullData.dueOrdersVal - autoPullData.stockAvailableVal)})`,
-                actionAccount: ['Sales Team'],
+                discussion: `Scheduled order: ${toCr(autoPullData.scheduledOrders)}\nDue order: ${toCr(autoPullData.dueOrdersVal)} (stock available: ${toCr(autoPullData.stockAvailableVal)}, need to arrange: ${toCr(autoPullData.dueOrdersVal - autoPullData.stockAvailableVal)})`,
+                actionAccount: [],
                 timeline: 'Immediate',
                 isCompleted: false
             },
             {
                 id: crypto.randomUUID(),
                 slNo: 3,
-                agendaItem: `System Stock vs Physical Stock - ${toCr(autoPullData.totalStockValue)}`,
-                discussion: 'Verification of physical stock against system numbers. Action required for discrepancies.',
-                actionAccount: ['Logistic Team'],
-                timeline: 'Next Thursday',
+                agendaItem: `As Per system two months Stock - ${toCr(autoPullData.totalStockValue)}`,
+                discussion: `Physical Stock: ${toCr(autoPullData.totalStockValue)} (as per system nonmoving: ₹0.00 Cr)`,
+                actionAccount: [],
+                timeline: '',
                 isCompleted: false
             },
             {
                 id: crypto.randomUUID(),
                 slNo: 4,
-                agendaItem: `Excess Stock Review - ${toCr(autoPullData.totalExcess)}`,
-                discussion: 'Breakdown of excess inventory by brand and customer specific stock. Strategy for liquidation.',
-                actionAccount: ['Sales Hub', 'Warehouse'],
-                timeline: 'Next Week',
+                agendaItem: `Excess Stock ${toCr(autoPullData.totalExcess)}`,
+                discussion: `Specific Customer Stock: ₹0.00 Cr\nGeneral Stock: ₹0.00 Cr\nMake-wise breakdown required.`,
+                actionAccount: ['Mohan/Gurudatt'],
+                timeline: '',
                 isCompleted: false
             },
             {
                 id: crypto.randomUUID(),
                 slNo: 5,
-                agendaItem: 'Work Flow Review',
-                discussion: '• OFFER MANAGEMENT\n• PO VERIFICATION\n• SALE ORDER PROCESSING\n• DC MATERIAL IN & OUT\n• BILLING & E-INVOICE\n• DISPATCH & POD COLLECTION',
-                actionAccount: ['Management Team'],
+                agendaItem: 'Action Based on report - Excess Qty',
+                discussion: '• Hold the Existing PO on Supplier\n• Need to send back\n• If old physical Excess Need to liquidate.\n\n(Note : Infra cables need to regroup)',
+                actionAccount: ['Mohan'],
+                timeline: 'Immediate',
+                isCompleted: false
+            },
+            {
+                id: crypto.randomUUID(),
+                slNo: 6,
+                agendaItem: 'Work Flow',
+                discussion: '• OFFER MANAGEMENT (Understanding Enquiry, Pricing, Sending Offer, Follow Up)\n• PO VERIFICATION, AMMENDMENT (Spec, Price, MOQ, Lead time)\n• CUSTOMER, SUPPLIER & MATERIAL MASTER\n• SALE-ORDER PROCESSING\n• PI & ADVANCE PAYMENT COLLECTION\n• DC MATERIAL IN & OUT\n• BILLING, E-WAY, E-INVOICE\n• DISPATCH, POD COLLECTION\n• DOCUMENT FILING',
+                actionAccount: ['KUMAR N/GEETHA/MOHAN/RACHANA/RANJAN/VANDITHA'],
                 timeline: 'Ongoing',
+                isCompleted: false
+            },
+            {
+                id: crypto.randomUUID(),
+                slNo: 7,
+                agendaItem: 'SOP for Individual - Approval Process',
+                discussion: 'Review and implementation of individual SOPs for team functions and approval hierarchies.',
+                actionAccount: [],
+                timeline: '',
+                isCompleted: false
+            },
+            {
+                id: crypto.randomUUID(),
+                slNo: 8,
+                agendaItem: 'Review and Check Mechanism',
+                discussion: '• PO Verification protocols to be followed strictly.',
+                actionAccount: [],
+                timeline: '',
+                isCompleted: false
+            },
+            {
+                id: crypto.randomUUID(),
+                slNo: 9,
+                agendaItem: 'Rate Contract Review',
+                discussion: 'Periodic review of rate contracts with key vendors and customers.',
+                actionAccount: ['Ranjan'],
+                timeline: 'Next Week',
                 isCompleted: false
             }
         ];
         setCurrentMom(prev => ({ ...prev, items: agendaItems }));
     };
+
+    // Auto-populate for new MOMs
+    useEffect(() => {
+        if (!currentMom.id && (!currentMom.items || currentMom.items.length === 0) && autoPullData.totalSales > 0) {
+            handleAutoPopulate();
+        }
+    }, [autoPullData, currentMom.id]);
 
     const addItem = () => {
         const newItem: MOMItem = {
