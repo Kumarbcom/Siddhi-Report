@@ -392,63 +392,61 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
 
     return (
         <div className="flex flex-col h-full gap-4">
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 flex-shrink-0">
-                <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200">
-                    <p className="text-[10px] text-gray-500 font-bold uppercase mb-1">Total Pending</p>
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-2.5 flex-shrink-0">
+                <div className="bg-white p-2.5 rounded-lg shadow-[0_4px_12px_-2px_rgba(0,0,0,0.12),0_2px_4px_-1px_rgba(0,0,0,0.07)] border border-gray-100/50">
+                    <p className="text-[9px] text-gray-400 font-extrabold uppercase mb-0.5 tracking-wider">Total Pending</p>
                     <div className="flex flex-col">
-                        <span className="text-xl font-black text-indigo-700 leading-tight tracking-tight">{formatCurrency(totals.value)}</span>
-                        <div className="mt-1 space-y-0.5 border-t border-gray-50 pt-1">
-                            <span className="text-[10px] font-bold text-gray-600 block">Qty: {totals.balance.toLocaleString()}</span>
-                            <span className="text-[10px] font-bold text-gray-400 block uppercase">{totals.uniqueOrderCount} Unique SO</span>
+                        <span className="text-lg font-black text-indigo-700 leading-tight tracking-tightest">{formatCurrency(totals.value)}</span>
+                        <div className="mt-1 flex items-center justify-between border-t border-gray-50 pt-1">
+                            <span className="text-[9px] font-bold text-gray-500 whitespace-nowrap">Qty: {totals.balance.toLocaleString()}</span>
+                            <span className="text-[9px] font-bold text-indigo-400/80 uppercase">{totals.uniqueOrderCount} SOs</span>
                         </div>
                     </div>
                 </div>
-                <div className="bg-red-50 p-3 rounded-xl shadow-sm border border-red-100 flex flex-col justify-between">
+                <div className="bg-gradient-to-br from-white to-red-50/30 p-2.5 rounded-lg shadow-[0_4px_12px_-2px_rgba(220,38,38,0.15),0_2px_4px_-1px_rgba(220,38,38,0.08)] border border-red-100/50 flex flex-col justify-between">
                     <div>
-                        <div className="flex items-center justify-between mb-0.5"><p className="text-[10px] text-red-700 font-bold uppercase">Due Orders</p><CalendarCheck className="w-3.5 h-3.5 text-red-500" /></div>
-                        <p className="text-lg font-black text-red-800">{formatCurrency(totals.dueValue)}</p>
+                        <div className="flex items-center justify-between mb-0.5"><p className="text-[9px] text-red-600 font-extrabold uppercase tracking-wider">Due Orders</p><CalendarCheck className="w-3 h-3 text-red-500" /></div>
+                        <p className="text-lg font-black text-red-700 tracking-tightest">{formatCurrency(totals.dueValue)}</p>
                     </div>
-                    <div className="mt-1 flex items-center justify-between border-t border-red-100/50 pt-1">
-                        <div className="flex flex-col">
-                            <span className="text-[9px] font-bold text-red-600 uppercase">Qty: {totals.dueQty.toLocaleString()}</span>
-                            <span className="text-[9px] font-bold text-red-400 uppercase italic">{totals.dueOrderCount} SOs</span>
-                        </div>
-                        <span className="text-[9px] text-red-600 font-medium italic">Action Req</span>
+                    <div className="mt-1 flex items-center justify-between border-t border-red-100/30 pt-1">
+                        <span className="text-[9px] font-bold text-red-600/80">Qty: {totals.dueQty.toLocaleString()}</span>
+                        <span className="text-[9px] font-extrabold text-red-400 uppercase italic tracking-tighter">{totals.dueOrderCount} SOs</span>
                     </div>
                 </div>
-                <div className="bg-blue-50 p-3 rounded-xl shadow-sm border border-blue-100 flex flex-col justify-between">
+                <div className="bg-gradient-to-br from-white to-blue-50/30 p-2.5 rounded-lg shadow-[0_4px_12px_-2px_rgba(37,99,235,0.15),0_2px_4px_-1px_rgba(37,99,235,0.08)] border border-blue-100/50 flex flex-col justify-between">
                     <div>
-                        <div className="flex items-center justify-between mb-0.5"><p className="text-[10px] text-blue-700 font-bold uppercase">Scheduled</p><CalendarDays className="w-3.5 h-3.5 text-blue-500" /></div>
-                        <p className="text-lg font-black text-blue-800">{formatCurrency(totals.scheduledValue)}</p>
+                        <div className="flex items-center justify-between mb-0.5"><p className="text-[9px] text-blue-600 font-extrabold uppercase tracking-wider">Scheduled</p><CalendarDays className="w-3 h-3 text-blue-500" /></div>
+                        <p className="text-lg font-black text-blue-700 tracking-tightest">{formatCurrency(totals.scheduledValue)}</p>
                     </div>
-                    <div className="mt-1 flex items-center justify-between border-t border-blue-100/50 pt-1">
-                        <div className="flex flex-col">
-                            <span className="text-[9px] font-bold text-blue-600 uppercase">Qty: {totals.scheduledQty.toLocaleString()}</span>
-                            <span className="text-[9px] font-bold text-blue-400 uppercase italic">{totals.scheduledOrderCount} SOs</span>
-                        </div>
-                        <span className="text-[9px] text-blue-600 font-medium italic">Future</span>
+                    <div className="mt-1 flex items-center justify-between border-t border-blue-100/30 pt-1">
+                        <span className="text-[9px] font-bold text-blue-600/80">Qty: {totals.scheduledQty.toLocaleString()}</span>
+                        <span className="text-[9px] font-extrabold text-blue-400 uppercase italic tracking-tighter">{totals.scheduledOrderCount} SOs</span>
                     </div>
                 </div>
-                <div className="bg-white p-3 rounded-xl shadow-sm border border-emerald-100 flex flex-col justify-between">
+                <div className="bg-gradient-to-br from-white to-emerald-50/30 p-2.5 rounded-lg shadow-[0_4px_12px_-2px_rgba(16,185,129,0.15),0_2px_4px_-1px_rgba(16,185,129,0.08)] border border-emerald-100/50 flex flex-col justify-between">
                     <div>
-                        <div className="flex items-center justify-between mb-0.5"><p className="text-[10px] text-emerald-700 font-bold uppercase">Ready to Dispatch</p><Package className="w-3.5 h-3.5 text-emerald-500" /></div>
-                        <p className="text-lg font-black text-emerald-700 leading-tight">{formatCurrency(totals.readyToDispatchValue)}</p>
+                        <div className="flex items-center justify-between mb-0.5"><p className="text-[9px] text-emerald-600 font-extrabold uppercase tracking-wider">Ready / Reserved</p><Package className="w-3 h-3 text-emerald-500" /></div>
+                        <p className="text-lg font-black text-emerald-700 tracking-tightest">{formatCurrency(totals.readyToDispatchValue)}</p>
                     </div>
-                    <div className="mt-1 flex flex-col border-t border-emerald-50/50 pt-1">
-                        <span className="text-[9px] font-bold text-emerald-600 uppercase">Qty: {totals.readyToDispatchQty.toLocaleString()}</span>
-                        <span className="text-[8px] text-gray-400 font-medium">Future Reserve: {formatCurrency(totals.futureAllocatedValue)}</span>
+                    <div className="mt-1 flex flex-col border-t border-emerald-100/30 pt-1">
+                        <div className="flex justify-between items-center">
+                            <span className="text-[9px] font-bold text-emerald-600/80">Qty: {totals.readyToDispatchQty.toLocaleString()}</span>
+                            <span className="text-[8px] text-gray-400 font-medium">Reserve: {formatCurrency(totals.futureAllocatedValue)}</span>
+                        </div>
                     </div>
                 </div>
                 {totals.toArrange > 0 ? (
-                    <div className="bg-orange-50 p-3 rounded-xl shadow-sm border border-orange-200">
-                        <p className="text-[10px] text-orange-700 font-medium uppercase mb-0.5">Shortage To Arrange</p>
-                        <p className="text-base font-bold text-orange-700 truncate" title={formatCurrency(totals.toArrangeValue)}>{formatCurrency(totals.toArrangeValue)}</p>
-                        <div className="flex justify-between items-center"><span className="text-[9px] text-orange-600 font-medium italic">Qty: {totals.toArrange.toLocaleString()}</span></div>
+                    <div className="bg-gradient-to-br from-white to-orange-50/40 p-2.5 rounded-lg shadow-[0_4px_12px_-2px_rgba(245,158,11,0.15),0_2px_4px_-1px_rgba(245,158,11,0.08)] border border-orange-200/50">
+                        <p className="text-[9px] text-orange-600 font-extrabold uppercase mb-0.5 tracking-wider">Shortage</p>
+                        <p className="text-lg font-black text-orange-700 truncate tracking-tightest" title={formatCurrency(totals.toArrangeValue)}>{formatCurrency(totals.toArrangeValue)}</p>
+                        <div className="flex justify-between items-center mt-1 border-t border-orange-100/30 pt-1">
+                            <span className="text-[9px] text-orange-600/80 font-bold italic">Qty: {totals.toArrange.toLocaleString()}</span>
+                        </div>
                     </div>
                 ) : (
-                    <div className="bg-green-50 p-3 rounded-xl shadow-sm border border-green-200">
-                        <p className="text-[10px] text-green-700 font-medium uppercase mb-0.5">Stock Status</p>
-                        <p className="text-xs font-bold text-green-700 flex items-center gap-1 mt-1"><CheckCircle2 className="w-3.5 h-3.5" /> Sufficient</p>
+                    <div className="bg-gradient-to-br from-white to-green-50/40 p-2.5 rounded-lg shadow-[0_4px_12px_-2px_rgba(34,197,94,0.15),0_2px_4px_-1px_rgba(34,197,94,0.08)] border border-green-200/50">
+                        <p className="text-[9px] text-green-600 font-extrabold uppercase mb-0.5 tracking-wider">Stock Status</p>
+                        <p className="text-xs font-black text-green-700 flex items-center gap-1 mt-1.5"><CheckCircle2 className="w-3 h-3" /> SUFFICIENT</p>
                     </div>
                 )}
             </div>
