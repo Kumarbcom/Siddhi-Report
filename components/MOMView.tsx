@@ -422,25 +422,25 @@ const MOMView: React.FC<MOMViewProps> = ({
 
                 <div className={`${isHistoryVisible ? 'lg:col-span-3' : 'lg:col-span-1'} bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col print:border-none print:shadow-none transition-all duration-300 print-area`}>
                     {/* Compact Header */}
-                    <div className="p-4 border-b border-gray-100 bg-gray-50/30 print:bg-white print:p-2">
-                        <div className="flex justify-between items-start mb-4">
-                            <div>
-                                <h2 className="text-xl font-black text-gray-900 tracking-tighter mb-1">Minutes of Meeting (MOM)</h2>
-                                <div className="flex items-center gap-2">
+                    <div className="p-4 border-b border-gray-100 bg-gray-50/30 print:bg-white print:p-0 print:border-none">
+                        <div className="flex justify-between items-start mb-4 print:flex-col print:items-center print:gap-2">
+                            <div className="print:text-center print:w-full">
+                                <h2 className="text-xl font-black text-gray-900 tracking-tighter mb-1 print:text-2xl print:uppercase">Minutes of Meeting (MOM)</h2>
+                                <div className="flex items-center gap-2 print:justify-center">
                                     <div className="w-8 h-1 bg-indigo-600 rounded-full"></div>
                                     <span className="text-[10px] font-black text-indigo-600 uppercase">OFFICIAL RECORD</span>
                                 </div>
                             </div>
-                            <div className="text-right">
-                                <label className="text-[9px] font-black text-gray-400 uppercase block">Meeting Date</label>
-                                <input type="date" className="bg-transparent border-none text-right font-black text-sm p-0" value={currentMom.date} onChange={e => setCurrentMom(prev => ({ ...prev, date: e.target.value }))} />
+                            <div className="text-right print:text-center print:w-full">
+                                <label className="text-[9px] font-black text-gray-400 uppercase block print:hidden">Meeting Date</label>
+                                <input type="date" className="bg-transparent border-none text-right font-black text-sm p-0 print:text-center print:text-[12px]" value={currentMom.date} onChange={e => setCurrentMom(prev => ({ ...prev, date: e.target.value }))} />
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label className="text-[9px] font-black text-gray-400 uppercase mb-1 block">Meeting Title</label>
-                                <input type="text" className="w-full bg-white border border-gray-100 rounded-lg px-3 py-1.5 text-sm font-bold shadow-sm outline-none" value={currentMom.title} onChange={e => setCurrentMom(prev => ({ ...prev, title: e.target.value }))} />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 print:grid-cols-1 print:mb-4">
+                            <div className="print:text-center">
+                                <label className="text-[9px] font-black text-gray-400 uppercase mb-1 block print:hidden">Meeting Title</label>
+                                <input type="text" className="w-full bg-white border border-gray-100 rounded-lg px-3 py-1.5 text-sm font-bold shadow-sm outline-none print:border-none print:text-xl print:p-0 print:text-center" value={currentMom.title} onChange={e => setCurrentMom(prev => ({ ...prev, title: e.target.value }))} />
                             </div>
                             <div className="relative">
                                 <label className="text-[9px] font-black text-gray-400 uppercase mb-1 block flex justify-between">
@@ -532,12 +532,12 @@ const MOMView: React.FC<MOMViewProps> = ({
                         <button onClick={addItem} className="mt-4 w-full py-2 border-2 border-dashed border-gray-100 rounded-xl text-xs font-black text-gray-400 hover:bg-gray-50 print:hidden">+ Add Agenda Point</button>
                     </div>
 
-                    <div className="p-4 bg-gray-50/50 border-t border-gray-100 flex justify-between items-center print:bg-white">
-                        <div className="flex gap-8">
-                            <div className="w-32 border-t border-gray-900 pt-1"><p className="text-[8px] font-black uppercase">Prepared By</p></div>
-                            <div className="w-32 border-t border-gray-900 pt-1"><p className="text-[8px] font-black uppercase">Approved By</p></div>
+                    <div className="p-4 bg-gray-50/50 border-t border-gray-100 flex justify-between items-center print:bg-white print:fixed print:bottom-0 print:left-0 print:right-0 print:p-0 print:border-none">
+                        <div className="flex gap-16 print:w-full print:justify-around print:mt-12">
+                            <div className="w-48 border-t border-gray-900 pt-2 text-center"><p className="text-[10px] font-black uppercase">Prepared By</p></div>
+                            <div className="w-48 border-t border-gray-900 pt-2 text-center"><p className="text-[10px] font-black uppercase">Approved By</p></div>
                         </div>
-                        <div className="text-[8px] text-gray-400 font-bold italic">Siddhi Reports - Document ID: {currentMom.id?.slice(0, 8) || 'NEW'}</div>
+                        <div className="text-[8px] text-gray-400 font-bold italic print:hidden">Siddhi Reports - Document ID: {currentMom.id?.slice(0, 8) || 'NEW'}</div>
                     </div>
                 </div>
             </div>
@@ -559,9 +559,10 @@ const MOMView: React.FC<MOMViewProps> = ({
                     }
                     .print\\:hidden { display: none !important; }
                     .no-print { display: none !important; }
-                    textarea { height: auto !important; overflow: visible !important; border: none !important; }
-                    table { page-break-inside: auto; }
+                    textarea { height: auto !important; overflow: visible !important; border: none !important; padding: 0 !important; margin: 0 !important; }
+                    table { page-break-inside: auto; margin-bottom: 50px; }
                     tr { page-break-inside: avoid; page-break-after: auto; }
+                    .print-area { padding-bottom: 100px !important; }
                 }
                 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
                 .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
