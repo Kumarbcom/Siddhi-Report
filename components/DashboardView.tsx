@@ -1309,35 +1309,37 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                     <div className="flex flex-col gap-2">
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
                             {[
-                                { label: 'Current Sales', val: kpis.currVal, prev: kpis.prevVal, isCurr: true, grad: 'from-blue-600 to-indigo-700', icon: DollarSign },
-                                { label: 'Quantity', val: kpis.currQty, prev: kpis.prevQty, isCurr: false, grad: 'from-emerald-500 to-teal-700', icon: Package },
-                                { label: 'Unique Customers', val: kpis.uniqueCusts, prev: kpis.prevCusts, isCurr: false, grad: 'from-purple-500 to-indigo-600', icon: Users },
-                                { label: 'Avg. Order', val: kpis.avgOrder, prev: kpis.prevAvgOrder, isCurr: true, grad: 'from-orange-400 to-rose-600', icon: Activity }
+                                { label: 'Current Sales', val: kpis.currVal, prev: kpis.prevVal, isCurr: true, grad: 'from-blue-600 via-indigo-600 to-indigo-800', icon: DollarSign },
+                                { label: 'Quantity', val: kpis.currQty, prev: kpis.prevQty, isCurr: false, grad: 'from-emerald-500 via-teal-600 to-teal-800', icon: Package },
+                                { label: 'Unique Customers', val: kpis.uniqueCusts, prev: kpis.prevCusts, isCurr: false, grad: 'from-purple-500 via-violet-600 to-indigo-700', icon: Users },
+                                { label: 'Avg. Order', val: kpis.avgOrder, prev: kpis.prevAvgOrder, isCurr: true, grad: 'from-orange-500 via-rose-500 to-rose-700', icon: Activity }
                             ].map((k, i) => {
                                 const diff = k.val - k.prev;
                                 const pct = k.prev > 0 ? (diff / k.prev) * 100 : 0;
                                 return (
-                                    <div key={i} className={`relative overflow-hidden bg-gradient-to-br ${k.grad} p-4 rounded-2xl shadow-lg transition-all duration-300 hover:shadow-xl hover:-translate-y-1 group`}>
-                                        <div className="absolute top-0 right-0 p-3 opacity-20 group-hover:scale-110 transition-transform duration-500">
-                                            <k.icon className="w-10 h-10 text-white" />
+                                    <div key={i} className={`relative overflow-hidden bg-gradient-to-br ${k.grad} p-5 rounded-2xl shadow-[0_10px_20px_-5px_rgba(0,0,0,0.3)] transition-all duration-300 hover:shadow-[0_20px_40px_-10px_rgba(0,0,0,0.4)] hover:-translate-y-1.5 group border border-white/10`}>
+                                        <div className="absolute top-0 right-0 p-4 opacity-15 transform translate-x-1 translate-y--1 group-hover:scale-125 group-hover:rotate-12 transition-all duration-700 ease-out">
+                                            <k.icon className="w-14 h-14 text-white drop-shadow-2xl" />
                                         </div>
                                         <div className="relative z-10">
-                                            <p className="text-[10px] font-black text-white/70 uppercase tracking-widest">{k.label} <span className="text-white/40">({timeView})</span></p>
-                                            <div className="flex items-baseline gap-2 mt-1">
-                                                <h3 className="text-2xl font-black text-white">
+                                            <p className="text-[10px] font-black text-white/80 uppercase tracking-[0.2em] drop-shadow-sm mb-1">{k.label} <span className="text-white/40">({timeView})</span></p>
+                                            <div className="flex items-baseline gap-2">
+                                                <h3 className="text-3xl font-black text-white tracking-tighter drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)] tabular-nums">
                                                     {k.isCurr ? formatLargeValue(k.val, true) : k.val.toLocaleString()}
                                                 </h3>
                                             </div>
-                                            <div className="mt-3 flex items-center gap-2">
-                                                <div className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-black border backdrop-blur-md ${diff >= 0 ? 'bg-emerald-500/20 text-emerald-100 border-emerald-400/30' : 'bg-rose-500/20 text-rose-100 border-rose-400/30'}`}>
+                                            <div className="mt-4 flex items-center gap-2.5">
+                                                <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black border shadow-inner backdrop-blur-lg ${diff >= 0 ? 'bg-emerald-400/30 text-emerald-50 border-emerald-400/40 shadow-emerald-900/20' : 'bg-rose-400/30 text-rose-50 border-rose-400/40 shadow-rose-900/20'}`}>
                                                     {diff >= 0 ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />}
                                                     {Math.abs(pct).toFixed(0)}%
                                                 </div>
-                                                <p className="text-[8px] font-bold uppercase text-white/50 tracking-tighter">
+                                                <p className="text-[9px] font-extrabold uppercase text-white/50 tracking-wider">
                                                     {timeView === 'WEEK' ? 'vs Prev Week' : timeView === 'MONTH' ? 'vs Prev Month' : 'vs Last Year'}
                                                 </p>
                                             </div>
                                         </div>
+                                        {/* Subtle Inner Glow */}
+                                        <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-white/10 pointer-events-none opacity-50"></div>
                                     </div>
                                 );
                             })}
