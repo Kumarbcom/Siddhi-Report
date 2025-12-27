@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Material, ClosingStockItem, PendingSOItem, PendingPOItem, SalesReportItem, CustomerMasterItem, SalesRecord } from '../types';
-import { TrendingUp, TrendingDown, Package, ClipboardList, ShoppingCart, Calendar, Filter, PieChart as PieIcon, BarChart3, Users, ArrowRight, Activity, DollarSign, ArrowUpRight, ArrowDownRight, RefreshCw, UserCircle, Minus, Plus, ChevronDown, ChevronUp, Link2Off, AlertTriangle, Layers, Clock, CheckCircle2, AlertCircle, User, Factory, Tag, ArrowLeft, BarChart4, Hourglass, History, AlertOctagon, ChevronRight, ListOrdered, Table, X, ArrowUp, ArrowDown, Search, ArrowUpDown, FileText } from 'lucide-react';
+import { TrendingUp, TrendingDown, Package, ClipboardList, ShoppingCart, Calendar, Filter, PieChart as PieIcon, BarChart3, Users, ArrowRight, Activity, DollarSign, ArrowUpRight, ArrowDownRight, RefreshCw, UserCircle, Minus, Plus, ChevronDown, ChevronUp, Link2Off, AlertTriangle, Layers, Clock, CheckCircle2, AlertCircle, User, Factory, Tag, ArrowLeft, BarChart4, Hourglass, History, AlertOctagon, ChevronRight, ListOrdered, Table, X, ArrowUp, ArrowDown, Search, ArrowUpDown, FileText, UserPlus } from 'lucide-react';
 import MOMView from './MOMView';
+import AttendeeMasterView from './AttendeeMasterView';
 
 const COLORS = ['#10B981', '#3B82F6', '#6366F1', '#8B5CF6', '#EC4899', '#F59E0B', '#EF4444', '#6B7280', '#059669', '#2563EB'];
 
@@ -425,7 +426,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     customers = [],
     setActiveTab
 }) => {
-    const [activeSubTab, setActiveSubTab] = useState<'sales' | 'inventory' | 'so' | 'po' | 'weekly' | 'mom'>('sales');
+    const [activeSubTab, setActiveSubTab] = useState<'sales' | 'inventory' | 'so' | 'po' | 'weekly' | 'mom' | 'attendees'>('sales');
     const [weeklyBenchmarks, setWeeklyBenchmarks] = useState<{ [key: string]: any }>(() => {
         const saved = localStorage.getItem('weeklyBenchmarks');
         return saved ? JSON.parse(saved) : {};
@@ -1233,13 +1234,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
             <div className="bg-white border-b border-gray-200 px-4 py-3 flex flex-col xl:flex-row gap-4 items-start xl:items-center justify-between flex-shrink-0 shadow-sm z-10">
                 <div className="flex bg-gray-200/50 backdrop-blur-sm p-1.5 rounded-xl border border-gray-200 shadow-inner overflow-hidden">
-                    {(['sales', 'inventory', 'so', 'po', 'weekly', 'mom'] as const).map(tab => (
+                    {(['sales', 'inventory', 'so', 'po', 'weekly', 'mom', 'attendees'] as const).map(tab => (
                         <button
                             key={tab}
                             onClick={() => setActiveSubTab(tab)}
                             className={`px-5 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all duration-500 ease-out transform active:scale-95 ${activeSubTab === tab ? 'bg-white text-indigo-700 shadow-[0_8px_16px_rgba(0,0,0,0.12)] scale-[1.02] translate-y-0' : 'text-gray-500 hover:text-indigo-600 hover:bg-white/40 hover:-translate-y-0.5'}`}
                         >
-                            {tab === 'so' ? 'Pending SO' : tab === 'po' ? 'Pending PO' : tab === 'weekly' ? 'Weekly Report' : tab === 'mom' ? 'Meeting MOM' : tab}
+                            {tab === 'so' ? 'Pending SO' : tab === 'po' ? 'Pending PO' : tab === 'weekly' ? 'Weekly Report' : tab === 'mom' ? 'Meeting MOM' : tab === 'attendees' ? 'Attendee Master' : tab}
                         </button>
                     ))}
                 </div>
@@ -1466,6 +1467,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                             salesReportItems={salesReportItems}
                             customers={customers}
                         />
+                    ) : activeSubTab === 'attendees' ? (
+                        <AttendeeMasterView />
                     ) : activeSubTab === 'inventory' ? (
                         <div className="flex flex-col gap-4">
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

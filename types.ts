@@ -90,6 +90,14 @@ export interface CustomerMasterItem {
 }
 
 
+export interface Attendee {
+  id: string;
+  name: string;
+  designation: string;
+  imageUrl?: string;
+  createdAt: number;
+}
+
 export interface MOMItem {
   id: string;
   slNo: number;
@@ -97,13 +105,15 @@ export interface MOMItem {
   discussion: string;
   actionAccount: string[];
   timeline: string;
+  reminderDate?: string;
+  isCompleted?: boolean;
 }
 
 export interface MOM {
   id: string;
   title: string;
   date: string;
-  attendees: string[];
+  attendees: string[]; // IDs of attendees
   items: MOMItem[];
   createdAt: number;
 }

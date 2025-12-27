@@ -1,9 +1,10 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
-import { MOM, MOMItem, Material, ClosingStockItem, PendingSOItem, PendingPOItem, SalesReportItem, CustomerMasterItem } from '../types';
-import { Plus, Trash2, Save, Download, FileSpreadsheet, FileText, Calendar, Users, ListFilter, Search, ArrowRight, Printer, Loader2 } from 'lucide-react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { MOM, MOMItem, Material, ClosingStockItem, PendingSOItem, PendingPOItem, SalesReportItem, CustomerMasterItem, Attendee } from '../types';
+import { Plus, Trash2, Save, Download, FileSpreadsheet, FileText, Calendar, Users, ListFilter, Search, ArrowRight, Printer, Loader2, User, Bell, CheckCircle, Clock, X, ChevronDown, Check } from 'lucide-react';
 import { utils, writeFile } from 'xlsx';
 import { momService } from '../services/momService';
+import { attendeeService } from '../services/attendeeService';
 
 interface MOMViewProps {
     materials: Material[];
@@ -23,6 +24,7 @@ const MOMView: React.FC<MOMViewProps> = ({
     customers
 }) => {
     const [moms, setMoms] = useState<MOM[]>([]);
+    const [attendeeMaster, setAttendeeMaster] = useState<Attendee[]>([]);
     const [currentMom, setCurrentMom] = useState<Partial<MOM>>({
         title: 'Weekly Review Meeting',
         date: '',
@@ -31,22 +33,30 @@ const MOMView: React.FC<MOMViewProps> = ({
     });
     const [isLoading, setIsLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const [showAttendeeDropdown, setShowAttendeeDropdown] = useState(false);
 
-    // Load MOms
+    // Format numbers to Cr
+    const toCr = (val: number) => (val / 10000000).toFixed(2) + ' Cr';
+
+    // Load Data
     useEffect(() => {
-        const loadMoms = async () => {
+        const loadInitialData = async () => {
             setIsLoading(true);
-            const data = await momService.getAll();
-            setMoms(data);
+            const [momsData, attendeesData] = await Promise.all([
+                momService.getAll(),
+                attendeeService.getAll()
+            ]);
+            setMoms(momsData);
+            setAttendeeMaster(attendeesData);
             setIsLoading(false);
         };
-        loadMoms();
+        loadInitialData();
     }, []);
 
     // Thursday Logic
     const getThursdayOfWeek = (date: Date) => {
         const day = date.getDay();
-        const diff = date.getDate() - day + (day === 0 ? -6 : 1) + 3; // Thursday is 4th day (Mon is 1)
+        const diff = date.getDate() - day + (day === 0 ? -6 : 1) + 3;
         return new Date(date.setDate(diff)).toISOString().split('T')[0];
     };
 
@@ -54,10 +64,16 @@ const MOMView: React.FC<MOMViewProps> = ({
         if (!currentMom.date) {
             setCurrentMom(prev => ({ ...prev, date: getThursdayOfWeek(new Date()) }));
         }
-    }, []);
+    }, [currentMom.date]);
 
-    // Auto-Pull Data Logic
+    // Enhanced Auto-Pull Logic matching the user's image structure
     const autoPullData = useMemo(() => {
+        const totalSales = salesReportItems.reduce((acc, i) => acc + (i.value || 0), 0);
+        const onlineSales = salesReportItems.filter(i => {
+            const cust = customers.find(c => c.customerName === i.customerName);
+            return cust?.customerGroup === 'Online' || cust?.group === 'Online';
+        }).reduce((acc, i) => acc + (i.value || 0), 0);
+
         const totalPendingSO = pendingSO.reduce((acc, i) => acc + (i.value || 0), 0);
         const scheduledOrders = pendingSO.filter(i => {
             const due = new Date(i.dueDate);
@@ -69,77 +85,88 @@ const MOMView: React.FC<MOMViewProps> = ({
 
         const totalStockValue = closingStock.reduce((acc, i) => acc + (i.value || 0), 0);
 
-        // Excess Stock Logic (simplified from Dashboard)
+        // Stock Availability for Due Orders
+        const stockMap = new Map<string, number>();
+        closingStock.forEach(s => stockMap.set(s.description.toLowerCase(), s.quantity));
+
+        const dueOrders = pendingSO.filter(i => new Date(i.dueDate) <= new Date());
+        const stockAvailableVal = dueOrders.reduce((acc, i) => {
+            const qty = stockMap.get(i.itemName.toLowerCase()) || 0;
+            const availableQty = Math.min(qty, i.balanceQty);
+            return acc + (availableQty * i.rate);
+        }, 0);
+
+        // Excess & Non-Moving
         const soMap = new Map<string, number>();
         pendingSO.forEach(s => {
             const k = String(s.itemName || '').toLowerCase().trim();
             soMap.set(k, (soMap.get(k) || 0) + (s.balanceQty || 0));
         });
-        const excessStockVal = closingStock.reduce((acc, i) => {
+        const totalExcess = closingStock.reduce((acc, i) => {
             const descLower = String(i.description || '').toLowerCase().trim();
             const sQty = soMap.get(descLower) || 0;
             const excessQty = Math.max(0, (i.quantity || 0) - sQty);
             return acc + (excessQty * (i.rate || 0));
         }, 0);
 
-        // Weekly Sales (last 7 days)
-        const last7DaysSales = salesReportItems.filter(i => {
-            const d = new Date(i.date);
-            const today = new Date();
-            const diff = today.getTime() - d.getTime();
-            return diff <= 7 * 24 * 60 * 60 * 1000;
-        }).reduce((acc, i) => acc + (i.value || 0), 0);
-
         return {
+            totalSales,
+            onlineSales,
             totalPendingSO,
             scheduledOrders,
+            dueOrdersVal: dueOrders.reduce((acc, i) => acc + i.value, 0),
+            stockAvailableVal,
             totalStockValue,
-            excessStockVal,
-            last7DaysSales
+            totalExcess
         };
-    }, [pendingSO, closingStock, salesReportItems]);
+    }, [pendingSO, closingStock, salesReportItems, customers]);
 
     const handleAutoPopulate = () => {
         const agendaItems: MOMItem[] = [
             {
                 id: crypto.randomUUID(),
                 slNo: 1,
-                agendaItem: `Inventory Management Review - Current Total Stock Value: ₹${autoPullData.totalStockValue.toLocaleString('en-IN')}`,
-                discussion: 'Review of current stock levels vs physical verification status.',
-                actionAccount: ['Logistic Team'],
-                timeline: 'Next Thursday'
+                agendaItem: `Sales Review On ${currentMom.date} - ${toCr(autoPullData.totalSales)} (${toCr(autoPullData.onlineSales)} Online)`,
+                discussion: 'Review of sales achievement against weekly targets across all channels.',
+                actionAccount: ['Sales Hub'],
+                timeline: currentMom.date || '',
+                isCompleted: false
             },
             {
                 id: crypto.randomUUID(),
                 slNo: 2,
-                agendaItem: `Pending Sales Order Review - Total Value: ₹${autoPullData.totalPendingSO.toLocaleString('en-IN')}`,
-                discussion: 'Review of all open SOs and execution plan.',
+                agendaItem: `Pending SO Total Value - ${toCr(autoPullData.totalPendingSO)}`,
+                discussion: `Scheduled orders: ${toCr(autoPullData.scheduledOrders)}\nDue orders: ${toCr(autoPullData.dueOrdersVal)} (stock available: ${toCr(autoPullData.stockAvailableVal)}, need to arrange: ${toCr(autoPullData.dueOrdersVal - autoPullData.stockAvailableVal)})`,
                 actionAccount: ['Sales Team'],
-                timeline: 'Immediate'
+                timeline: 'Immediate',
+                isCompleted: false
             },
             {
                 id: crypto.randomUUID(),
                 slNo: 3,
-                agendaItem: `Excess & Non-Moving Stock Review - Estimated Excess: ₹${autoPullData.excessStockVal.toLocaleString('en-IN')}`,
-                discussion: 'Strategy to liquidate excess inventory.',
-                actionAccount: ['Sales Hub'],
-                timeline: 'Next Week'
+                agendaItem: `System Stock vs Physical Stock - ${toCr(autoPullData.totalStockValue)}`,
+                discussion: 'Verification of physical stock against system numbers. Action required for discrepancies.',
+                actionAccount: ['Logistic Team'],
+                timeline: 'Next Thursday',
+                isCompleted: false
             },
             {
                 id: crypto.randomUUID(),
                 slNo: 4,
-                agendaItem: `Scheduled Orders Analysis - Orders due this week: ₹${autoPullData.scheduledOrders.toLocaleString('en-IN')}`,
-                discussion: 'Allocation of stock for high priority scheduled orders.',
-                actionAccount: ['Warehouse'],
-                timeline: 'Next 3 Days'
+                agendaItem: `Excess Stock Review - ${toCr(autoPullData.totalExcess)}`,
+                discussion: 'Breakdown of excess inventory by brand and customer specific stock. Strategy for liquidation.',
+                actionAccount: ['Sales Hub', 'Warehouse'],
+                timeline: 'Next Week',
+                isCompleted: false
             },
             {
                 id: crypto.randomUUID(),
                 slNo: 5,
-                agendaItem: `Weekly Sales Review - Sales Value (L7D): ₹${autoPullData.last7DaysSales.toLocaleString('en-IN')}`,
-                discussion: 'Review of sales achievement against weekly targets.',
-                actionAccount: ['Sales Manager'],
-                timeline: 'Next Week'
+                agendaItem: 'Work Flow Review',
+                discussion: '• OFFER MANAGEMENT\n• PO VERIFICATION\n• SALE ORDER PROCESSING\n• DC MATERIAL IN & OUT\n• BILLING & E-INVOICE\n• DISPATCH & POD COLLECTION',
+                actionAccount: ['Management Team'],
+                timeline: 'Ongoing',
+                isCompleted: false
             }
         ];
         setCurrentMom(prev => ({ ...prev, items: agendaItems }));
@@ -152,7 +179,8 @@ const MOMView: React.FC<MOMViewProps> = ({
             agendaItem: '',
             discussion: '',
             actionAccount: [],
-            timeline: ''
+            timeline: '',
+            isCompleted: false
         };
         setCurrentMom(prev => ({ ...prev, items: [...(prev.items || []), newItem] }));
     };
@@ -169,6 +197,16 @@ const MOMView: React.FC<MOMViewProps> = ({
             ...prev,
             items: prev.items?.map(i => i.id === id ? { ...i, [field]: value } : i)
         }));
+    };
+
+    const toggleAttendee = (id: string) => {
+        setCurrentMom(prev => {
+            const current = prev.attendees || [];
+            if (current.includes(id)) {
+                return { ...prev, attendees: current.filter(a => a !== id) };
+            }
+            return { ...prev, attendees: [...current, id] };
+        });
     };
 
     const handleSave = async () => {
@@ -194,9 +232,11 @@ const MOMView: React.FC<MOMViewProps> = ({
     const exportToExcel = () => {
         const data = currentMom.items?.map(i => ({
             'SL No': i.slNo,
-            'Agenda Item & Discussion': i.agendaItem + '\n' + i.discussion,
+            'Agenda Item': i.agendaItem,
+            'Discussion': i.discussion,
             'Action Account': i.actionAccount.join(', '),
-            'Timeline': i.timeline
+            'Timeline': i.timeline,
+            'Status': i.isCompleted ? 'Completed' : 'Pending'
         }));
         const ws = utils.json_to_sheet(data || []);
         const wb = utils.book_new();
@@ -210,30 +250,28 @@ const MOMView: React.FC<MOMViewProps> = ({
     );
 
     return (
-        <div className="flex flex-col h-full gap-4 max-w-6xl mx-auto p-4 animate-fade-in">
+        <div className="flex flex-col h-full gap-4 max-w-6xl mx-auto p-4 animate-fade-in print:p-0">
             {/* Action Bar */}
-            <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+            <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-2xl shadow-sm border border-gray-100 print:hidden">
                 <div className="flex items-center gap-4">
-                    <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
+                    <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
                         <FileText className="w-6 h-6" />
                     </div>
                     <div>
-                        <h1 className="text-xl font-black text-gray-800 tracking-tight">Minutes of Meeting</h1>
-                        <p className="text-xs text-gray-500 font-bold uppercase tracking-widest">Weekly Review - Thursday</p>
+                        <h1 className="text-xl font-black text-gray-800 tracking-tight">Weekly Review MOM</h1>
+                        <p className="text-xs text-gray-500 font-bold uppercase tracking-widest">Powered by Siddhi Reports</p>
                     </div>
                 </div>
                 <div className="flex gap-2">
                     <button onClick={handleAutoPopulate} className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 rounded-xl text-xs font-black border border-indigo-100 hover:bg-indigo-100 transition-all">
-                        <ArrowRight className="w-4 h-4" /> Auto-Pull Data
+                        <ArrowRight className="w-4 h-4" /> Pull Report Info
                     </button>
-                    <button onClick={handleSave} disabled={isLoading} className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-black shadow-lg shadow-emerald-200 hover:bg-emerald-700 transition-all">
-                        {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Save MOM
+                    <button onClick={handleSave} disabled={isLoading} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-black shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all">
+                        {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Save Document
                     </button>
-                    <div className="relative">
-                        <button onClick={() => window.print()} className="p-2 bg-gray-50 text-gray-600 rounded-xl border border-gray-200 hover:bg-gray-100">
-                            <Printer className="w-5 h-5" />
-                        </button>
-                    </div>
+                    <button onClick={() => window.print()} className="p-2 bg-gray-50 text-gray-600 rounded-xl border border-gray-200 hover:bg-gray-100">
+                        <Printer className="w-5 h-5" />
+                    </button>
                     <button onClick={exportToExcel} className="p-2 bg-green-50 text-green-600 rounded-xl border border-green-200 hover:bg-green-100">
                         <FileSpreadsheet className="w-5 h-5" />
                     </button>
@@ -241,157 +279,276 @@ const MOMView: React.FC<MOMViewProps> = ({
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1 min-h-0">
-                {/* Left Panel: History & Search */}
-                <div className="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex flex-col gap-4 overflow-hidden">
+                {/* Left Panel: History */}
+                <div className="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex flex-col gap-4 overflow-hidden print:hidden">
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                         <input
                             type="text"
-                            placeholder="Search by date/title..."
-                            className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Search history..."
+                            className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500"
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
                         />
                     </div>
                     <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-2">
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2">History</p>
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2">Recent Records</p>
                         {filteredMoms.map(mom => (
                             <button
                                 key={mom.id}
                                 onClick={() => setCurrentMom(mom)}
-                                className={`flex flex-col gap-1 p-3 rounded-xl border text-left transition-all ${currentMom.id === mom.id ? 'bg-blue-50 border-blue-200' : 'bg-white border-gray-100 hover:border-gray-300'}`}
+                                className={`flex flex-col gap-1 p-3 rounded-xl border text-left transition-all ${currentMom.id === mom.id ? 'bg-indigo-50 border-indigo-200' : 'bg-white border-gray-100 hover:border-gray-300'}`}
                             >
                                 <span className="text-sm font-bold text-gray-800">{mom.title}</span>
                                 <div className="flex items-center gap-2 text-[10px] text-gray-500 font-bold">
-                                    <Calendar className="w-3 h-3" /> {mom.date}
+                                    <Clock className="w-3 h-3" /> {mom.date}
                                 </div>
                             </button>
                         ))}
                     </div>
                 </div>
 
-                {/* Main Content: Document Editor */}
-                <div className="lg:col-span-3 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col print:border-none print:shadow-none">
-                    <div className="p-6 border-b border-gray-50 bg-gray-50/30">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Meeting Title</label>
-                                    <input
-                                        type="text"
-                                        className="w-full bg-transparent border-b-2 border-gray-200 py-2 text-lg font-black text-gray-800 focus:border-blue-500 outline-none transition-colors"
-                                        value={currentMom.title}
-                                        onChange={e => setCurrentMom(prev => ({ ...prev, title: e.target.value }))}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Meeting Date</label>
-                                    <div className="flex items-center gap-3 mt-1">
-                                        <Calendar className="w-5 h-5 text-blue-500" />
-                                        <input
-                                            type="date"
-                                            className="bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm font-bold text-gray-700 outline-none focus:ring-2 focus:ring-blue-500"
-                                            value={currentMom.date}
-                                            onChange={e => setCurrentMom(prev => ({ ...prev, date: e.target.value }))}
-                                        />
-                                    </div>
+                {/* Main Content */}
+                <div className="lg:col-span-3 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col print:border-none print:shadow-none print:bg-white">
+                    {/* Document Header */}
+                    <div className="p-8 border-b border-gray-100 bg-gray-50/30 print:bg-white print:p-4">
+                        <div className="flex justify-between items-start mb-8">
+                            <div>
+                                <h2 className="text-2xl font-black text-gray-900 tracking-tighter mb-1 print:text-xl">Minutes of Meeting (MOM)</h2>
+                                <div className="flex items-center gap-2">
+                                    <div className="w-12 h-1 bg-indigo-600 rounded-full"></div>
+                                    <span className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em]">Official Record</span>
                                 </div>
                             </div>
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1 flex items-center gap-2">
-                                    <Users className="w-3 h-3" /> Attendees
-                                </label>
-                                <textarea
-                                    placeholder="Enter attendee names (comma separated)..."
-                                    className="w-full bg-white border border-gray-200 rounded-xl p-3 text-sm min-h-[100px] outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                                    value={currentMom.attendees?.join(', ')}
-                                    onChange={e => setCurrentMom(prev => ({ ...prev, attendees: e.target.value.split(',').map(s => s.trim()) }))}
+                            <div className="text-right">
+                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block">Meeting Date</label>
+                                <input
+                                    type="date"
+                                    className="bg-transparent border-none text-right font-black text-gray-800 focus:ring-0 p-0 text-sm"
+                                    value={currentMom.date}
+                                    onChange={e => setCurrentMom(prev => ({ ...prev, date: e.target.value }))}
                                 />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div>
+                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">Meeting Title</label>
+                                <input
+                                    type="text"
+                                    className="w-full bg-white border border-gray-100 rounded-xl px-4 py-2.5 text-sm font-bold text-gray-800 shadow-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all print:border-none print:font-black"
+                                    value={currentMom.title}
+                                    onChange={e => setCurrentMom(prev => ({ ...prev, title: e.target.value }))}
+                                />
+                            </div>
+                            <div className="relative">
+                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block flex justify-between items-center">
+                                    Attendees ({currentMom.attendees?.length || 0})
+                                    <button
+                                        onClick={() => setShowAttendeeDropdown(!showAttendeeDropdown)}
+                                        className="text-indigo-600 hover:text-indigo-700 text-[10px] font-black flex items-center gap-1 print:hidden"
+                                    >
+                                        <Plus className="w-3 h-3" /> Select Participants
+                                    </button>
+                                </label>
+                                <div className="flex flex-wrap gap-2 min-h-[44px] p-2 bg-white border border-gray-100 rounded-xl shadow-sm print:border-none">
+                                    {currentMom.attendees?.length ? (
+                                        currentMom.attendees.map(id => {
+                                            const attendee = attendeeMaster.find(a => a.id === id);
+                                            return attendee ? (
+                                                <div key={id} className="flex items-center gap-1.5 bg-indigo-50 text-indigo-700 px-2 py-1 rounded-lg border border-indigo-100 animate-fade-in group print:bg-white print:border-none print:p-0">
+                                                    {attendee.imageUrl && <img src={attendee.imageUrl} className="w-4 h-4 rounded-full object-cover print:hidden" alt="" />}
+                                                    <span className="text-[11px] font-bold">{attendee.name}</span>
+                                                    <button onClick={() => toggleAttendee(id)} className="text-indigo-300 hover:text-indigo-600 print:hidden"><X className="w-3 h-3" /></button>
+                                                </div>
+                                            ) : null;
+                                        })
+                                    ) : <span className="text-xs text-gray-300 italic p-1">No attendees selected...</span>}
+                                </div>
+
+                                {showAttendeeDropdown && (
+                                    <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 p-3 max-h-64 overflow-y-auto scale-in-center print:hidden">
+                                        <div className="grid grid-cols-1 gap-1">
+                                            {attendeeMaster.map(a => (
+                                                <button
+                                                    key={a.id}
+                                                    onClick={() => toggleAttendee(a.id)}
+                                                    className={`flex items-center justify-between w-full p-2.5 rounded-xl text-left transition-all ${currentMom.attendees?.includes(a.id) ? 'bg-indigo-50 text-indigo-700' : 'hover:bg-gray-50'}`}
+                                                >
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center overflow-hidden">
+                                                            {a.imageUrl ? <img src={a.imageUrl} className="w-full h-full object-cover" alt="" /> : <User className="w-4 h-4 text-indigo-600" />}
+                                                        </div>
+                                                        <div>
+                                                            <div className="text-xs font-black">{a.name}</div>
+                                                            <div className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">{a.designation}</div>
+                                                        </div>
+                                                    </div>
+                                                    {currentMom.attendees?.includes(a.id) && <Check className="w-4 h-4" />}
+                                                </button>
+                                            ))}
+                                            {attendeeMaster.length === 0 && (
+                                                <div className="text-center py-4">
+                                                    <p className="text-xs text-gray-400">No attendees found in master.</p>
+                                                    <button className="text-[10px] font-black text-indigo-600 mt-2">Go to Attendee Master</button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
 
-                    <div className="flex-1 overflow-auto p-6 scroll-smooth">
+                    {/* MOM Table */}
+                    <div className="flex-1 overflow-auto bg-white p-8 print:p-4">
                         <table className="w-full border-collapse">
                             <thead>
-                                <tr className="text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100">
-                                    <th className="pb-4 text-left w-12">#</th>
-                                    <th className="pb-4 text-left">Agenda Item & Discussion</th>
-                                    <th className="pb-4 text-left w-48">Action Account</th>
-                                    <th className="pb-4 text-left w-40">Timeline</th>
-                                    <th className="pb-4 text-right w-12 print:hidden"></th>
+                                <tr className="border-b-2 border-gray-900 print:border-b-4">
+                                    <th className="py-4 text-left w-12 text-[10px] font-black uppercase tracking-widest text-gray-400 print:text-black">S.No</th>
+                                    <th className="py-4 text-left text-[10px] font-black uppercase tracking-widest text-gray-400 print:text-black">Agenda Item & Discussion</th>
+                                    <th className="py-4 text-left w-48 text-[10px] font-black uppercase tracking-widest text-gray-400 print:text-black">Action Account</th>
+                                    <th className="py-4 text-left w-40 text-[10px] font-black uppercase tracking-widest text-gray-400 print:text-black">Timeline</th>
+                                    <th className="py-4 text-right w-12 print:hidden"></th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-50">
+                            <tbody className="divide-y divide-gray-100">
                                 {currentMom.items?.map((item) => (
-                                    <tr key={item.id} className="group hover:bg-blue-50/30 transition-colors">
-                                        <td className="py-4 align-top text-xs font-black text-gray-400">{item.slNo}</td>
-                                        <td className="py-2 pr-4 align-top">
-                                            <div className="flex flex-col gap-1">
+                                    <tr key={item.id} className="group hover:bg-gray-50/50 transition-colors">
+                                        <td className="py-6 align-top text-xs font-black text-gray-800">{item.slNo}</td>
+                                        <td className="py-6 px-4 align-top">
+                                            <div className="flex flex-col gap-2">
                                                 <input
                                                     type="text"
-                                                    placeholder="Agenda Item"
-                                                    className="w-full bg-transparent font-bold text-gray-800 outline-none text-sm placeholder:text-gray-300"
+                                                    className="w-full bg-transparent font-black text-gray-900 outline-none text-sm placeholder:text-gray-200 print:text-[13px]"
                                                     value={item.agendaItem}
                                                     onChange={e => updateItem(item.id, 'agendaItem', e.target.value)}
+                                                    placeholder="Enter Agenda Item..."
                                                 />
                                                 <textarea
-                                                    placeholder="Discussion points..."
-                                                    className="w-full bg-transparent text-xs text-gray-500 outline-none resize-none min-h-[60px] placeholder:text-gray-300"
+                                                    className="w-full bg-transparent text-xs text-gray-600 outline-none resize-none min-h-[80px] leading-relaxed placeholder:text-gray-200 print:text-[11px] print:text-black"
                                                     value={item.discussion}
                                                     onChange={e => updateItem(item.id, 'discussion', e.target.value)}
+                                                    placeholder="Discussion details..."
                                                 />
                                             </div>
                                         </td>
-                                        <td className="py-4 align-top pr-4">
-                                            <input
-                                                type="text"
-                                                placeholder="Assign to..."
-                                                className="w-full bg-white/50 border border-gray-100 rounded-lg px-2 py-1.5 text-[11px] font-bold text-gray-600 outline-none focus:bg-white focus:border-blue-200"
-                                                value={item.actionAccount.join(', ')}
-                                                onChange={e => updateItem(item.id, 'actionAccount', e.target.value.split(',').map(s => s.trim()))}
-                                            />
+                                        <td className="py-6 align-top pr-4">
+                                            <div className="flex flex-col gap-2">
+                                                <input
+                                                    type="text"
+                                                    className="w-full bg-white border border-gray-100 rounded-lg px-3 py-2 text-[11px] font-bold text-gray-700 outline-none focus:ring-1 focus:ring-indigo-500 shadow-sm print:border-none print:shadow-none print:font-black"
+                                                    value={item.actionAccount.join(', ')}
+                                                    onChange={e => updateItem(item.id, 'actionAccount', e.target.value.split(',').map(s => s.trim()))}
+                                                    placeholder="Assigned to..."
+                                                />
+                                                <div className="flex items-center gap-2 px-1 print:hidden">
+                                                    <button
+                                                        onClick={() => updateItem(item.id, 'isCompleted', !item.isCompleted)}
+                                                        className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-[9px] font-black uppercase transition-all ${item.isCompleted ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}
+                                                    >
+                                                        {item.isCompleted ? <CheckCircle className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
+                                                        {item.isCompleted ? 'Completed' : 'Pending'}
+                                                    </button>
+                                                </div>
+                                            </div>
                                         </td>
-                                        <td className="py-4 align-top">
-                                            <input
-                                                type="text"
-                                                placeholder="e.g. Next Week"
-                                                className="w-full bg-white/50 border border-gray-100 rounded-lg px-2 py-1.5 text-[11px] font-bold text-gray-600 outline-none focus:bg-white focus:border-blue-200"
-                                                value={item.timeline}
-                                                onChange={e => updateItem(item.id, 'timeline', e.target.value)}
-                                            />
+                                        <td className="py-6 align-top">
+                                            <div className="space-y-2">
+                                                <div className="relative group/cal">
+                                                    <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-indigo-400 pointer-events-none" />
+                                                    <input
+                                                        type="text"
+                                                        className="w-full bg-white border border-gray-100 rounded-lg pl-8 pr-3 py-2 text-[11px] font-bold text-gray-700 outline-none focus:ring-1 focus:ring-indigo-500 shadow-sm print:border-none print:shadow-none print:font-black"
+                                                        value={item.timeline}
+                                                        onChange={e => updateItem(item.id, 'timeline', e.target.value)}
+                                                        placeholder="Next Thursday"
+                                                    />
+                                                </div>
+                                                <div className="relative print:hidden">
+                                                    <Bell className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-rose-400 pointer-events-none" />
+                                                    <input
+                                                        type="date"
+                                                        className="w-full bg-rose-50/30 border border-rose-100 rounded-lg pl-8 pr-3 py-1.5 text-[10px] font-bold text-rose-600 outline-none focus:ring-1 focus:ring-rose-500"
+                                                        value={item.reminderDate || ''}
+                                                        onChange={e => updateItem(item.id, 'reminderDate', e.target.value)}
+                                                        title="Set Reminder"
+                                                    />
+                                                </div>
+                                            </div>
                                         </td>
-                                        <td className="py-4 text-right align-top print:hidden">
+                                        <td className="py-6 text-right align-top print:hidden">
                                             <button
                                                 onClick={() => removeItem(item.id)}
-                                                className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                                                className="p-1.5 text-gray-200 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
                                             >
-                                                <Trash2 className="w-3.5 h-3.5" />
+                                                <Trash2 className="w-4 h-4" />
                                             </button>
                                         </td>
                                     </tr>
                                 ))}
+                                {(!currentMom.items || currentMom.items.length === 0) && (
+                                    <tr>
+                                        <td colSpan={5} className="py-12 text-center">
+                                            <div className="flex flex-col items-center gap-3">
+                                                <FileText className="w-12 h-12 text-gray-100" />
+                                                <p className="text-gray-400 text-sm font-bold">No items found. Click 'Pull Report Info' or 'Add Item' to start.</p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                )}
                             </tbody>
                         </table>
                         <button
                             onClick={addItem}
-                            className="mt-4 flex items-center gap-2 px-4 py-2 border-2 border-dashed border-gray-100 rounded-xl text-gray-400 hover:border-blue-200 hover:text-blue-500 hover:bg-blue-50/50 transition-all text-xs font-bold w-full justify-center print:hidden"
+                            className="mt-6 flex items-center gap-2 px-4 py-3 border-2 border-dashed border-gray-100 rounded-2xl text-gray-400 hover:border-indigo-200 hover:text-indigo-500 hover:bg-indigo-50/50 transition-all text-xs font-black w-full justify-center print:hidden"
                         >
-                            <Plus className="w-4 h-4" /> Add Agenda Item
+                            <Plus className="w-4 h-4" /> Add New Agenda Point
                         </button>
+                    </div>
+
+                    {/* Document Footer */}
+                    <div className="p-8 bg-gray-50/50 border-t border-gray-100 print:bg-white print:p-4">
+                        <div className="flex justify-between items-end">
+                            <div className="space-y-4">
+                                <div className="flex gap-12">
+                                    <div className="w-48 border-t border-gray-900 pt-2 print:border-black">
+                                        <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 print:text-black">Prepared By</p>
+                                    </div>
+                                    <div className="w-48 border-t border-gray-900 pt-2 print:border-black">
+                                        <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 print:text-black">Approved By</p>
+                                    </div>
+                                </div>
+                                <p className="text-[10px] text-gray-400 font-bold italic print:text-black">This is a system generated document from Siddhi Reports.</p>
+                            </div>
+                            <div className="text-right flex flex-col items-end gap-2">
+                                <div className="p-3 bg-white rounded-xl shadow-sm border border-gray-100 print:border-black">
+                                    <p className="text-[10px] font-black text-gray-400 uppercase print:text-black">Document ID</p>
+                                    <p className="text-xs font-black text-gray-800 print:text-black">{currentMom.id?.slice(0, 8).toUpperCase() || 'NEW'}</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            {/* Print Styles */}
             <style>{`
                 @media print {
-                    body * { visibility: hidden; }
+                    @page { margin: 1cm; size: A4; }
+                    body { background: white !important; }
                     .print\\:hidden { display: none !important; }
                     .max-w-6xl { max-width: 100% !important; margin: 0 !important; padding: 0 !important; }
-                    .lg\\:col-span-3 { width: 100% !important; border: none !important; }
-                    .document-to-print, .document-to-print * { visibility: visible; }
-                    .document-to-print { position: absolute; left: 0; top: 0; width: 100%; }
+                    .lg\\:col-span-1 { display: none !important; }
+                    .lg\\:col-span-3 { width: 100% !important; }
+                    table { page-break-inside: auto; }
+                    tr { page-break-inside: avoid; page-break-after: auto; }
+                    thead { display: table-header-group; }
+                    tfoot { display: table-footer-group; }
+                }
+                .scale-in-center { animation: scale-in-center 0.2s cubic-bezier(0.250, 0.460, 0.450, 0.940) both; }
+                @keyframes scale-in-center {
+                    0% { transform: scale(0.95); opacity: 0; }
+                    100% { transform: scale(1); opacity: 1; }
                 }
             `}</style>
         </div>
