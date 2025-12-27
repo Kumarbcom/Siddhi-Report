@@ -1351,56 +1351,55 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                     const yoyPct = (k.yoy || 0) > 0 ? (yoyDiff / k.yoy!) * 100 : 0;
 
                                     return (
-                                        <div key={i} className={`relative overflow-hidden bg-gradient-to-br ${k.grad} p-6 rounded-3xl shadow-[0_20px_40px_-15px_rgba(0,0,0,0.3)] transition-all duration-500 hover:shadow-[0_30px_60px_-15px_rgba(0,0,0,0.4)] hover:-translate-y-2 group border border-white/20 active:scale-95`}>
-                                            {/* Decorative Background Icon */}
-                                            <div className="absolute -top-4 -right-4 p-4 opacity-10 transform scale-150 group-hover:rotate-12 group-hover:scale-[1.8] transition-all duration-1000 ease-in-out">
-                                                <k.icon className="w-24 h-24 text-white" />
+                                        <div key={i} className={`relative overflow-hidden bg-gradient-to-br ${k.grad} p-4 rounded-2xl shadow-[0_15px_30px_-10px_rgba(0,0,0,0.3)] transition-all duration-500 hover:shadow-[0_25px_50px_-10px_rgba(0,0,0,0.4)] hover:-translate-y-1.5 group border border-white/20 active:scale-[0.98]`}>
+                                            {/* Decorative Background Icon - More Subtle */}
+                                            <div className="absolute -top-2 -right-2 p-2 opacity-5 transform scale-125 group-hover:rotate-12 group-hover:scale-150 transition-all duration-1000 ease-in-out">
+                                                <k.icon className="w-20 h-20 text-white" />
                                             </div>
 
-                                            <div className="relative z-10 flex flex-col h-full justify-between gap-6">
+                                            <div className="relative z-10 flex flex-col h-full justify-between gap-3">
                                                 <div>
-                                                    <div className="flex items-center gap-2 mb-2">
-                                                        <div className="p-1.5 bg-white/20 backdrop-blur-md rounded-lg border border-white/30">
-                                                            <k.icon className="w-4 h-4 text-white" />
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <div className="p-1 bg-white/20 backdrop-blur-md rounded border border-white/30 text-white">
+                                                            <k.icon className="w-3 h-3" />
                                                         </div>
-                                                        <p className="text-[11px] font-black text-white uppercase tracking-[0.15em] drop-shadow-md">
+                                                        <p className="text-[10px] font-bold text-white uppercase tracking-[0.1em] drop-shadow-sm">
                                                             {k.label}
-                                                            <span className="ml-2 text-white/60 font-medium">({timeView})</span>
+                                                            <span className="ml-1 text-white/50 font-normal">({timeView})</span>
                                                         </p>
                                                     </div>
-                                                    <h3 className="text-4xl font-black text-white tracking-tighter drop-shadow-xl tabular-nums leading-none">
+                                                    <h3 className="text-3xl font-black text-white tracking-tighter drop-shadow-lg tabular-nums leading-none">
                                                         {k.isCurr ? formatLargeValue(k.val, true) : k.val.toLocaleString()}
                                                     </h3>
                                                 </div>
 
-                                                <div className="grid grid-cols-2 gap-3 mt-2">
+                                                <div className="grid grid-cols-2 gap-2 mt-1">
                                                     {/* Sequential Comparison Badge */}
-                                                    <div className="flex flex-col gap-1.5">
-                                                        <div className={`flex items-center justify-between px-2.5 py-1.5 rounded-xl border-2 backdrop-blur-xl shadow-lg transition-transform group-hover:scale-105 duration-300 ${diff >= 0 ? 'bg-emerald-500/40 text-white border-emerald-400/50 shadow-emerald-500/20' : 'bg-rose-500/40 text-white border-rose-400/50 shadow-rose-500/20'}`}>
-                                                            <span className="text-[12px] font-black">{Math.abs(pct).toFixed(0)}%</span>
-                                                            {diff >= 0 ? <ArrowUp className="w-3.5 h-3.5" /> : <ArrowDown className="w-3.5 h-3.5" />}
+                                                    <div className="flex flex-col gap-1">
+                                                        <div className={`flex items-center justify-between px-2 py-1 rounded-lg border backdrop-blur-xl shadow-md transition-transform group-hover:scale-[1.03] duration-300 ${diff >= 0 ? 'bg-emerald-500/30 text-emerald-50 border-emerald-400/40' : 'bg-rose-500/30 text-rose-50 border-rose-400/40'}`}>
+                                                            <span className="text-[11px] font-black">{Math.abs(pct).toFixed(0)}%</span>
+                                                            {diff >= 0 ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
                                                         </div>
-                                                        <p className="text-[9px] font-bold uppercase text-white/70 tracking-tighter ml-1">
+                                                        <p className="text-[8px] font-bold uppercase text-white/60 tracking-tighter pl-1">
                                                             {timeView === 'WEEK' ? 'vs Prev Wk' : timeView === 'MONTH' ? 'vs Prev Mo' : 'vs Prev FY'}
                                                         </p>
                                                     </div>
 
                                                     {/* YoY Comparison Badge */}
-                                                    <div className="flex flex-col gap-1.5">
-                                                        <div className={`flex items-center justify-between px-2.5 py-1.5 rounded-xl border-2 backdrop-blur-xl shadow-lg transition-transform group-hover:scale-105 duration-300 ${yoyDiff >= 0 ? 'bg-sky-500/40 text-white border-sky-400/50 shadow-sky-500/20' : 'bg-orange-500/40 text-white border-orange-400/50 shadow-orange-500/20'}`}>
-                                                            <span className="text-[12px] font-black">{Math.abs(yoyPct).toFixed(0)}%</span>
-                                                            {yoyDiff >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                                                    <div className="flex flex-col gap-1">
+                                                        <div className={`flex items-center justify-between px-2 py-1 rounded-lg border backdrop-blur-xl shadow-md transition-transform group-hover:scale-[1.03] duration-300 ${yoyDiff >= 0 ? 'bg-sky-500/30 text-sky-50 border-sky-400/40' : 'bg-orange-500/30 text-orange-50 border-orange-400/40'}`}>
+                                                            <span className="text-[11px] font-black">{Math.abs(yoyPct).toFixed(0)}%</span>
+                                                            {yoyDiff >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
                                                         </div>
-                                                        <p className="text-[9px] font-bold uppercase text-white/70 tracking-tighter ml-1">
-                                                            {timeView === 'FY' ? 'vs LY YTD' : 'vs LY YoY'}
+                                                        <p className="text-[8px] font-bold uppercase text-white/60 tracking-tighter pl-1">
+                                                            {timeView === 'FY' ? 'YTD Comp' : 'YoY Comp'}
                                                         </p>
                                                     </div>
                                                 </div>
                                             </div>
 
                                             {/* Premium Lighting Effects */}
-                                            <div className="absolute inset-0 bg-gradient-to-tr from-white/10 via-transparent to-black/20 pointer-events-none opacity-40"></div>
-                                            <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-white/20 rounded-full blur-[80px] pointer-events-none group-hover:bg-white/30 transition-all duration-700"></div>
+                                            <div className="absolute inset-0 bg-gradient-to-tr from-white/5 via-transparent to-black/10 pointer-events-none opacity-30"></div>
                                         </div>
                                     );
                                 })}
