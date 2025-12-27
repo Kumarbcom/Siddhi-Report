@@ -470,7 +470,7 @@ const MOMView: React.FC<MOMViewProps> = ({
                         </div>
                     </div>
 
-                    <div className="flex-1 overflow-auto p-4">
+                    <div className="flex-1 overflow-auto p-4 snap-y snap-mandatory scroll-smooth">
                         <table className="w-full border-collapse">
                             <thead className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm border-b-2 border-gray-900 print:static">
                                 <tr>
@@ -483,7 +483,7 @@ const MOMView: React.FC<MOMViewProps> = ({
                             </thead>
                             <tbody className="divide-y divide-gray-100">
                                 {currentMom.items?.map((item) => (
-                                    <tr key={item.id} className="group transition-colors">
+                                    <tr key={item.id} className="group transition-colors snap-start scroll-mt-12">
                                         <td className="py-4 align-top text-xs font-black">{item.slNo}</td>
                                         <td className="py-4 px-2 align-top">
                                             <input type="text" className="w-full bg-transparent font-black text-sm outline-none mb-1" value={item.agendaItem} onChange={e => updateItem(item.id, 'agendaItem', e.target.value)} placeholder="Topic..." />
