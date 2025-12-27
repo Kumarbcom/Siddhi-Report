@@ -492,7 +492,7 @@ const MOMView: React.FC<MOMViewProps> = ({
                             </div>
                             <div className="text-right print:text-center print:w-full">
                                 <label className="text-[9px] font-black text-gray-400 uppercase block print:hidden">Meeting Date</label>
-                                <input type="date" className="bg-transparent border-none text-right font-black text-sm p-0 print:text-center print:text-[12px]" value={currentMom.date} onChange={e => setCurrentMom(prev => ({ ...prev, date: e.target.value }))} />
+                                <input type="date" className="bg-transparent border-none text-right font-black text-sm p-0 print:text-center" value={currentMom.date} onChange={e => setCurrentMom(prev => ({ ...prev, date: e.target.value }))} />
                             </div>
                         </div>
 
@@ -506,7 +506,7 @@ const MOMView: React.FC<MOMViewProps> = ({
                                     Attendees ({currentMom.attendees?.length || 0})
                                     <button onClick={() => setShowAttendeeDropdown(!showAttendeeDropdown)} className="text-indigo-600 font-black text-[10px] print:hidden">Select Participants</button>
                                 </label>
-                                <div className="flex flex-wrap gap-1.5 min-h-[38px] p-1.5 bg-white border border-gray-100 rounded-lg print:border-none">
+                                <div className="flex flex-wrap gap-1.5 min-h-[38px] p-1.5 bg-white border border-gray-100 rounded-lg print:border-none print:p-0">
                                     {currentMom.attendees?.map(id => {
                                         const a = attendeeMaster.find(at => at.id === id);
                                         return a ? (
@@ -550,9 +550,9 @@ const MOMView: React.FC<MOMViewProps> = ({
                                     <tr key={item.id} className="group transition-colors snap-start scroll-mt-12">
                                         <td className="py-4 align-top text-xs font-black">{item.slNo}</td>
                                         <td className="py-4 px-2 align-top">
-                                            <input type="text" className="w-full bg-transparent font-black text-sm outline-none mb-1" value={item.agendaItem} onChange={e => updateItem(item.id, 'agendaItem', e.target.value)} placeholder="Topic..." />
+                                            <input type="text" className="w-full bg-transparent font-black text-sm outline-none mb-1 print:border-none" value={item.agendaItem} onChange={e => updateItem(item.id, 'agendaItem', e.target.value)} placeholder="Topic..." />
                                             <textarea
-                                                className="w-full bg-transparent text-[11px] text-gray-600 outline-none resize-none leading-relaxed min-h-[100px] border-none focus:ring-0 p-0"
+                                                className="w-full bg-transparent text-[11px] text-gray-600 outline-none resize-none leading-relaxed min-h-[100px] border-none focus:ring-0 p-0 print:hidden"
                                                 value={item.discussion}
                                                 onChange={e => updateItem(item.id, 'discussion', e.target.value)}
                                                 onInput={(e) => {
@@ -562,11 +562,12 @@ const MOMView: React.FC<MOMViewProps> = ({
                                                 }}
                                                 placeholder="Details..."
                                             />
+                                            <div className="hidden print:block text-[11px] text-gray-800 whitespace-pre-wrap leading-relaxed">{item.discussion}</div>
                                         </td>
                                         <td className="py-4 align-top pr-2">
                                             <div className="flex flex-wrap gap-1 mb-1">
                                                 {item.actionAccount.map(acc => (
-                                                    <span key={acc} className="bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded text-[9px] font-bold flex items-center gap-1">
+                                                    <span key={acc} className="bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded text-[9px] font-bold flex items-center gap-1 print:border print:border-gray-200">
                                                         {acc} <X className="w-2 h-2 cursor-pointer print:hidden" onClick={() => updateItem(item.id, 'actionAccount', item.actionAccount.filter(a => a !== acc))} />
                                                     </span>
                                                 ))}
@@ -576,10 +577,9 @@ const MOMView: React.FC<MOMViewProps> = ({
                                                 {attendeeMaster.map(a => <option key={a.id} value={a.name}>{a.name}</option>)}
                                                 {['Sales Team', 'Logistic Team', 'Warehouse'].map(t => <option key={t} value={t}>{t}</option>)}
                                             </select>
-                                            <div className="hidden print:block text-[10px] font-black">{item.actionAccount.join(', ')}</div>
                                         </td>
                                         <td className="py-4 align-top">
-                                            <input type="text" className="w-full text-[10px] border border-gray-100 rounded p-1 mb-1 shadow-inner print:border-none" value={item.timeline} onChange={e => updateItem(item.id, 'timeline', e.target.value)} placeholder="Timeline..." />
+                                            <input type="text" className="w-full text-[10px] border border-gray-100 rounded p-1 mb-1 shadow-inner print:border-none print:p-0 print:font-black" value={item.timeline} onChange={e => updateItem(item.id, 'timeline', e.target.value)} placeholder="Timeline..." />
                                         </td>
                                         <td className="py-4 text-right align-top print:hidden">
                                             <button onClick={() => removeItem(item.id)} className="p-1 hover:text-red-500 transition-opacity opacity-0 group-hover:opacity-100"><Trash2 className="w-4 h-4" /></button>
@@ -603,21 +603,22 @@ const MOMView: React.FC<MOMViewProps> = ({
 
             <style>{`
                 @media print {
-                    @page { margin: 1.5cm; size: A4; }
+                    @page { margin: 1cm; size: A4; }
                     body { background: white !important; font-family: 'Inter', sans-serif; -webkit-print-color-adjust: exact; }
-                    body * { visibility: hidden; }
-                    .print-area, .print-area * { visibility: visible; }
+                    header, nav, .print\\:hidden, button, .lg\\:col-span-1 { display: none !important; }
+                    
                     .print-area { 
-                        position: absolute; 
-                        left: 0; 
-                        top: 0; 
-                        width: 100%; 
+                        display: block !important;
+                        position: relative !important;
+                        width: 100% !important; 
                         padding: 0 !important;
                         margin: 0 !important;
                         background: white !important;
                         box-shadow: none !important;
                         border: none !important;
                     }
+                    /* Re-enable backgrounds and borders for chips */
+                    .print-area * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                     .print\\:hidden { display: none !important; }
                     .no-print { display: none !important; }
                     
