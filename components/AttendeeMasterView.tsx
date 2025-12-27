@@ -134,21 +134,44 @@ const AttendeeMasterView: React.FC = () => {
                         </div>
                         <div className="space-y-4">
                             <div className="flex justify-center mb-6">
-                                <div className="relative group">
-                                    <div className="w-24 h-24 rounded-full bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden">
+                                <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                                    <div className="w-24 h-24 rounded-full bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden transition-all group-hover:border-violet-400 group-hover:bg-violet-50">
                                         {formData.imageUrl ? (
                                             <img src={formData.imageUrl} alt="Preview" className="w-full h-full object-cover" />
                                         ) : (
-                                            <Camera className="w-8 h-8 text-gray-300" />
+                                            <div className="flex flex-col items-center gap-1">
+                                                <Camera className="w-8 h-8 text-gray-400 group-hover:text-violet-500 transition-colors" />
+                                                <span className="text-[8px] font-black text-gray-400 uppercase group-hover:text-violet-500">Upload</span>
+                                            </div>
                                         )}
                                     </div>
                                     <input
-                                        type="text"
-                                        placeholder="Image URL"
-                                        className="mt-2 text-[10px] w-full border-gray-200 rounded p-1"
-                                        value={formData.imageUrl}
-                                        onChange={e => setFormData({ ...formData, imageUrl: e.target.value })}
+                                        type="file"
+                                        ref={fileInputRef}
+                                        className="hidden"
+                                        accept="image/*"
+                                        onChange={(e) => {
+                                            const file = e.target.files?.[0];
+                                            if (file) {
+                                                const reader = new FileReader();
+                                                reader.onloadend = () => {
+                                                    setFormData({ ...formData, imageUrl: reader.result as string });
+                                                };
+                                                reader.readAsDataURL(file);
+                                            }
+                                        }}
                                     />
+                                    {formData.imageUrl && (
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setFormData({ ...formData, imageUrl: '' });
+                                            }}
+                                            className="absolute -top-1 -right-1 bg-red-500 text-white p-1 rounded-full shadow-lg hover:bg-red-600 transition-all"
+                                        >
+                                            <X className="w-3 h-3" />
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                             <div>
