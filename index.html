@@ -6,13 +6,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Siddhi Kabel Corporation Reports</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
       html {
-        font-size: 13px; /* Reduced base size to scale down all rem units */
+        font-size: 13px;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        text-rendering: optimizeLegibility;
       }
       body {
-        font-family: Cambria, 'Cochin', 'Georgia', 'Times', 'Times New Roman', serif;
-        background-color: #f3f4f6;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background-color: #f8fafc;
+        color: #1e293b;
+        line-height: 1.5;
       }
       /* Custom Scrollbar for better UX in tables */
       .custom-scrollbar::-webkit-scrollbar {
@@ -20,14 +28,17 @@
         height: 6px;
       }
       .custom-scrollbar::-webkit-scrollbar-track {
-        background: #f1f1f1;
+        background: transparent;
       }
       .custom-scrollbar::-webkit-scrollbar-thumb {
         background: #cbd5e1;
-        border-radius: 3px;
+        border-radius: 10px;
+        border: 2px solid transparent;
+        background-clip: content-box;
       }
       .custom-scrollbar::-webkit-scrollbar-thumb:hover {
         background: #94a3b8;
+        background-clip: content-box;
       }
     </style>
   <script type="importmap">
