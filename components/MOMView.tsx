@@ -654,86 +654,92 @@ const MOMView: React.FC<MOMViewProps> = ({
                         size: A4; 
                     }
                     
-                    /* Hide sidebar and chrome */
+                    /* Step 1: Hide ONLY the sidebar */
                     aside {
                         display: none !important;
                     }
                     
-                    header, nav, footer, button, .print\\:hidden {
+                    /* Step 2: Hide UI chrome but NOT content */
+                    header, nav, button {
                         display: none !important;
                     }
-
-                    /* Reset containers */
-                    html, body {
+                    
+                    /* Step 3: Force all containers to be visible and expandable */
+                    html, body, #root, main, div {
+                        display: block !important;
+                        overflow: visible !important;
+                        height: auto !important;
+                        max-height: none !important;
                         margin: 0 !important;
                         padding: 0 !important;
                         background: white !important;
-                        overflow: visible !important;
                     }
-
-                    #root, main {
-                        display: block !important;
-                        width: 100% !important;
-                        height: auto !important;
-                        overflow: visible !important;
-                        margin: 0 !important;
-                        padding: 0 !important;
-                    }
-
-                    /* Fix scrolling container */
-                    .overflow-auto, .overflow-y-auto {
-                        overflow: visible !important;
-                        max-height: none !important;
-                        height: auto !important;
-                    }
-
-                    /* Print area */
+                    
+                    /* Step 4: Explicitly show print-area and all its children */
                     .print-area {
                         display: block !important;
+                        visibility: visible !important;
+                        opacity: 1 !important;
                         width: 100% !important;
                         background: white !important;
                     }
-
-                    /* Table */
+                    
+                    .print-area * {
+                        visibility: visible !important;
+                        opacity: 1 !important;
+                    }
+                    
+                    /* Step 5: Show elements marked for print */
+                    .print\\:block {
+                        display: block !important;
+                    }
+                    
+                    /* Step 6: Hide elements marked to hide in print */
+                    .print\\:hidden {
+                        display: none !important;
+                    }
+                    
+                    /* Step 7: Table structure */
                     table {
                         width: 100% !important;
                         border-collapse: collapse !important;
+                        display: table !important;
                     }
-
+                    
                     thead {
                         display: table-header-group !important;
                     }
-
+                    
+                    tbody {
+                        display: table-row-group !important;
+                    }
+                    
                     tr {
+                        display: table-row !important;
                         page-break-inside: avoid !important;
                     }
-
+                    
                     td, th {
+                        display: table-cell !important;
                         padding: 8px 4px !important;
+                        color: black !important;
                     }
-
-                    /* Flatten inputs */
+                    
+                    /* Step 8: Flatten form inputs */
                     input, textarea, select {
                         border: none !important;
                         background: transparent !important;
                         box-shadow: none !important;
-                        padding: 0 !important; 
-                        margin: 0 !important; 
-                        outline: none !important;
                         color: black !important;
-                        appearance: none;
-                        -webkit-appearance: none;
                     }
-
+                    
                     textarea {
                         height: auto !important;
                         overflow: visible !important;
                         white-space: pre-wrap !important;
-                        min-height: fit-content !important; 
-                        display: block !important;
                     }
-
-                    /* Footer */
+                    
+                    /* Step 9: Footer */
                     .print-footer {
                         margin-top: 40px !important;
                         padding-top: 20px !important;
