@@ -49,24 +49,19 @@ export const MOMPrintView: React.FC<MOMPrintViewProps> = ({ mom, onClose }) => {
             <div className="min-h-screen overflow-y-auto pt-14 print:min-h-0 print:h-auto print:overflow-visible print:pt-0">
                 <div className="max-w-4xl mx-auto p-8 print:p-0 print:max-w-none print:w-full">
                     {/* Header */}
-                    <div className="text-center mb-8">
-                        <h1 className="text-3xl font-black uppercase mb-2">Minutes of Meeting (MOM)</h1>
-                        <div className="flex items-center justify-center gap-2 mb-4">
-                            <div className="w-12 h-1 bg-indigo-600"></div>
-                            <span className="text-xs font-black text-indigo-600 uppercase">Official Record</span>
-                            <div className="w-12 h-1 bg-indigo-600"></div>
-                        </div>
-                        <div className="font-black text-lg mb-2">{mom.title}</div>
-                        <div className="text-sm font-bold text-gray-600">Date: {mom.date}</div>
+                    <div className="text-center mb-6 pb-4 border-b-2 border-gray-900">
+                        <h1 className="text-2xl font-bold uppercase mb-3 tracking-wide">Minutes of Meeting</h1>
+                        <div className="text-base font-semibold mb-1">{mom.title}</div>
+                        <div className="text-sm text-gray-600">Date: {mom.date}</div>
                     </div>
 
                     {/* Attendees */}
                     {mom.attendees && mom.attendees.length > 0 && (
-                        <div className="mb-6">
-                            <h3 className="text-xs font-black uppercase text-gray-400 mb-2">Attendees ({mom.attendees.length})</h3>
-                            <div className="flex flex-wrap gap-2">
+                        <div className="mb-5">
+                            <h3 className="text-xs font-semibold uppercase text-gray-600 mb-2">Attendees ({mom.attendees.length})</h3>
+                            <div className="flex flex-wrap gap-1.5">
                                 {mom.attendees.map((attendee, idx) => (
-                                    <span key={idx} className="bg-gray-100 px-3 py-1 rounded text-sm font-bold border border-gray-200">
+                                    <span key={idx} className="bg-gray-50 px-2.5 py-1 rounded text-xs font-medium border border-gray-200">
                                         {attendee}
                                     </span>
                                 ))}
@@ -75,36 +70,36 @@ export const MOMPrintView: React.FC<MOMPrintViewProps> = ({ mom, onClose }) => {
                     )}
 
                     {/* Agenda Items */}
-                    <table className="w-full border-collapse mb-12">
+                    <table className="w-full border-collapse mb-10">
                         <thead>
-                            <tr className="border-b-2 border-gray-900">
-                                <th className="py-3 text-left w-12 text-xs font-black uppercase text-gray-400">#</th>
-                                <th className="py-3 text-left text-xs font-black uppercase text-gray-400">Agenda & Discussion</th>
-                                <th className="py-3 text-left w-48 text-xs font-black uppercase text-gray-400">Action Account</th>
-                                <th className="py-3 text-left w-32 text-xs font-black uppercase text-gray-400">Timeline</th>
+                            <tr className="border-b-2 border-gray-800">
+                                <th className="py-2 text-left w-10 text-xs font-semibold uppercase text-gray-600">#</th>
+                                <th className="py-2 text-left text-xs font-semibold uppercase text-gray-600">Agenda & Discussion</th>
+                                <th className="py-2 text-left w-40 text-xs font-semibold uppercase text-gray-600">Action</th>
+                                <th className="py-2 text-left w-28 text-xs font-semibold uppercase text-gray-600">Timeline</th>
                             </tr>
                         </thead>
                         <tbody>
                             {mom.items?.map((item, index) => (
-                                <tr key={item.id} className="border-b border-gray-100" style={{ pageBreakBefore: index > 0 ? 'auto' : 'avoid', pageBreakAfter: 'auto' }}>
-                                    <td className="py-4 align-top text-sm font-black">{item.slNo}</td>
-                                    <td className="py-4 px-2 align-top">
-                                        <div className="font-black text-sm mb-1">{item.agendaItem}</div>
-                                        <div className="text-xs text-gray-800 whitespace-pre-wrap leading-relaxed">
+                                <tr key={item.id} className="border-b border-gray-200" style={{ pageBreakBefore: index > 0 ? 'auto' : 'avoid', pageBreakAfter: 'auto' }}>
+                                    <td className="py-3 align-top text-sm font-semibold">{item.slNo}</td>
+                                    <td className="py-3 px-2 align-top">
+                                        <div className="font-semibold text-sm mb-1">{item.agendaItem}</div>
+                                        <div className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed">
                                             {item.discussion}
                                         </div>
                                     </td>
-                                    <td className="py-4 align-top pr-2">
+                                    <td className="py-3 align-top pr-2">
                                         <div className="flex flex-wrap gap-1">
                                             {item.actionAccount.map(acc => (
-                                                <span key={acc} className="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs font-bold border border-gray-200">
+                                                <span key={acc} className="bg-gray-50 text-gray-700 px-2 py-0.5 rounded text-xs font-medium border border-gray-200">
                                                     {acc}
                                                 </span>
                                             ))}
                                         </div>
                                     </td>
-                                    <td className="py-4 align-top">
-                                        <div className="text-xs font-black">{item.timeline}</div>
+                                    <td className="py-3 align-top">
+                                        <div className="text-xs font-medium">{item.timeline}</div>
                                     </td>
                                 </tr>
                             ))}
@@ -112,15 +107,15 @@ export const MOMPrintView: React.FC<MOMPrintViewProps> = ({ mom, onClose }) => {
                     </table>
 
                     {/* Signatures */}
-                    <div className="flex justify-around mt-16 pt-8 border-t border-gray-900" style={{ pageBreakInside: 'avoid' }}>
+                    <div className="flex justify-around mt-12 pt-6 border-t-2 border-gray-800" style={{ pageBreakInside: 'avoid' }}>
                         <div className="text-center">
-                            <div className="w-48 border-t border-gray-900 pt-2">
-                                <p className="text-xs font-black uppercase">Prepared By</p>
+                            <div className="w-40 border-t border-gray-400 pt-2">
+                                <p className="text-xs font-semibold uppercase text-gray-600">Prepared By</p>
                             </div>
                         </div>
                         <div className="text-center">
-                            <div className="w-48 border-t border-gray-900 pt-2">
-                                <p className="text-xs font-black uppercase">Approved By</p>
+                            <div className="w-40 border-t border-gray-400 pt-2">
+                                <p className="text-xs font-semibold uppercase text-gray-600">Approved By</p>
                             </div>
                         </div>
                     </div>
