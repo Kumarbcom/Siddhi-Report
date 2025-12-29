@@ -669,7 +669,20 @@ const MOMView: React.FC<MOMViewProps> = ({
                         visibility: visible !important;
                     }
 
-                    /* Allow natural browser pagination by using relative/static positioning */
+                    /* Super-Aggressive Reset for all parent containers */
+                    html, body, #root, [data-v-app], main, .flex, .flex-1, .h-full, .h-screen, .overflow-hidden, .overflow-auto {
+                        overflow: visible !important;
+                        height: auto !important;
+                        min-height: 0 !important;
+                        max-height: none !important;
+                        position: static !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                        display: block !important;
+                        width: auto !important;
+                    }
+
+                    /* Allow the print area to expand naturally */
                     .print-area { 
                         display: block !important;
                         position: relative !important;
@@ -679,15 +692,7 @@ const MOMView: React.FC<MOMViewProps> = ({
                         background: white !important;
                         border: none !important;
                         box-shadow: none !important;
-                    }
-
-                    /* Ensure all parent containers are invisible but allow content to flow naturally */
-                    html, body, #root, [data-v-app], main, .flex {
-                        overflow: visible !important;
-                        height: auto !important;
-                        margin: 0 !important;
-                        padding: 0 !important;
-                        display: block !important;
+                        visibility: visible !important;
                     }
 
                     .print-area * {
@@ -748,21 +753,22 @@ const MOMView: React.FC<MOMViewProps> = ({
                     tr { 
                         page-break-inside: avoid !important; 
                         break-inside: avoid !important;
-                        page-break-after: auto !important; 
                     }
                     
-                    .print-area { padding-bottom: 150px !important; }
+                    /* Final Page Margin to ensure footer space */
+                    .print-area { padding-bottom: 2cm !important; }
                     
-                    /* Signature Footer */
+                    /* Signature Footer - Static at end of document if fixed fails pagination */
                     .print-footer {
-                        position: fixed;
-                        bottom: 0;
-                        left: 0;
-                        right: 0;
+                        position: relative !important;
+                        margin-top: 50px !important;
+                        bottom: auto !important;
+                        left: auto !important;
+                        right: auto !important;
                         padding: 20px 0;
                         border-top: none !important;
                         background: white !important;
-                        z-index: 1000;
+                        page-break-inside: avoid !important;
                     }
                     
                     /* Table adjustments */
