@@ -46,8 +46,8 @@ export const MOMPrintView: React.FC<MOMPrintViewProps> = ({ mom, onClose }) => {
             </div>
 
             {/* Print content */}
-            <div className="h-full overflow-y-auto pt-14 print:h-auto print:overflow-visible print:pt-0">
-                <div className="max-w-4xl mx-auto p-8 print:p-0 print:max-w-none">
+            <div className="min-h-screen overflow-y-auto pt-14 print:min-h-0 print:h-auto print:overflow-visible print:pt-0">
+                <div className="max-w-4xl mx-auto p-8 print:p-0 print:max-w-none print:w-full">
                     {/* Header */}
                     <div className="text-center mb-8">
                         <h1 className="text-3xl font-black uppercase mb-2">Minutes of Meeting (MOM)</h1>
@@ -137,6 +137,17 @@ export const MOMPrintView: React.FC<MOMPrintViewProps> = ({ mom, onClose }) => {
                     body {
                         margin: 0;
                         padding: 0;
+                        overflow: visible;
+                    }
+                    
+                    /* Force all containers to expand */
+                    .print-only-content,
+                    .print-only-content > div,
+                    .print-only-content div {
+                        height: auto !important;
+                        max-height: none !important;
+                        min-height: 0 !important;
+                        overflow: visible !important;
                     }
                     
                     table {
