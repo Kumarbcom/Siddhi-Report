@@ -46,7 +46,7 @@ export const MOMPrintView: React.FC<MOMPrintViewProps> = ({ mom, onClose }) => {
             </div>
 
             {/* Print content */}
-            <div className="h-screen overflow-y-auto pt-14 print:h-auto print:overflow-visible print:pt-0">
+            <div className="min-h-screen overflow-y-auto pt-14 print:h-auto print:overflow-visible print:pt-0">
                 <div className="max-w-4xl mx-auto p-8 print:p-0 print:max-w-none">
                     {/* Header */}
                     <div className="text-center mb-6 pb-4 border-b-2 border-gray-900">
