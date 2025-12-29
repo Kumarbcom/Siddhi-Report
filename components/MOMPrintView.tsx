@@ -405,15 +405,15 @@ export const MOMPrintView: React.FC<MOMPrintViewProps> = ({ mom, onClose }) => {
                         display: table-header-group;
                     }
 
-                    /* Rows can break but prefer not to */
+                    /* Rows can break across pages */
                     .agenda-row {
-                        page-break-inside: avoid;
+                        page-break-inside: auto;
                         page-break-after: auto;
                     }
 
-                    /* Prevent orphaned cells */
+                    /* Cells can break if needed */
                     .agenda-table td {
-                        page-break-inside: avoid;
+                        page-break-inside: auto;
                     }
 
                     /* Footer stays together on last page */

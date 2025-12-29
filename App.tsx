@@ -618,7 +618,7 @@ const App: React.FC = () => {
           </div>
         )}
         {dbStatus === 'error' && (
-          <div className="bg-red-600 text-white px-4 py-2 flex items-center justify-between text-xs font-bold shadow-md z-20">
+          <div className="print:hidden bg-red-600 text-white px-4 py-2 flex items-center justify-between text-xs font-bold shadow-md z-20">
             <div className="flex items-center gap-2">
               <AlertTriangle className="w-4 h-4" />
               <span>Sync Error: Connection to cloud failed. Reverting to local storage.</span>
@@ -627,7 +627,7 @@ const App: React.FC = () => {
           </div>
         )}
         {dbStatus === 'connected' && (
-          <div className={`bg-emerald-600 text-white px-4 py-1.5 flex items-center justify-between text-[10px] font-black uppercase tracking-widest shadow-sm z-20 transition-all duration-500`}>
+          <div className={`print:hidden bg-emerald-600 text-white px-4 py-1.5 flex items-center justify-between text-[10px] font-black uppercase tracking-widest shadow-sm z-20 transition-all duration-500`}>
             <div className="flex items-center gap-2">
               <Cloud className="w-3.5 h-3.5" />
               <span>Secure Cloud Link Active</span>
@@ -641,7 +641,7 @@ const App: React.FC = () => {
           </div>
         )}
 
-        <header className="bg-white border-b border-gray-200 h-14 flex items-center justify-between px-4 flex-shrink-0 md:hidden z-30">
+        <header className="print:hidden bg-white border-b border-gray-200 h-14 flex items-center justify-between px-4 flex-shrink-0 md:hidden z-30">
           <div className="flex items-center gap-2">
             <button onClick={() => setIsSidebarOpen(true)} className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-lg">
               <Menu className="w-5 h-5" />
