@@ -651,46 +651,40 @@ const MOMView: React.FC<MOMViewProps> = ({
                 @media print {
                     @page { margin: 1cm; size: A4; }
                     
-                    /* Global Environment Reset */
-                    html, body {
+                    /* Total Isolation: Hide everything inside root by default */
+                    #root > * { display: none !important; }
+                    
+                    /* Force the main container and MOM area to show */
+                    #root, html, body, main, .print-area { 
+                        display: block !important; 
+                        visibility: visible !important;
                         margin: 0 !important;
                         padding: 0 !important;
-                        background: white !important;
-                        width: 100% !important;
                         height: auto !important;
                         overflow: visible !important;
-                        -webkit-print-color-adjust: exact !important;
-                        print-color-adjust: exact !important;
                     }
 
-                    /* Kill headers, sidebars, and the Emerald Cloud bars that create top gaps */
-                    header, aside, nav, footer, .bg-emerald-600, .bg-indigo-600, .bg-red-600, .bg-emerald-700, button, .print\\:hidden { 
-                        display: none !important; 
-                        height: 0 !important;
-                    }
-                    
-                    /* Force parents to disappear as layout blocks but show their children */
-                    #root, [data-v-app], main, .flex, .flex-col, .flex-1, .h-full, .h-screen {
-                        display: contents !important;
-                        margin: 0 !important;
-                        padding: 0 !important;
-                    }
+                    /* Ensure the print-area is the ONLY thing visible in the main flow */
+                    body > *:not(#root) { display: none !important; }
 
-                    /* The Main Document Container */
                     .print-area { 
-                        display: block !important;
-                        position: relative !important;
                         width: 100% !important; 
-                        margin: 0 !important;
-                        padding: 0 !important;
-                        padding-bottom: 3.5cm !important; /* Safety room for fixed footer */
+                        padding-bottom: 4cm !important;
                         background: white !important;
-                        visibility: visible !important;
                     }
 
-                    .print-area * {
-                        visibility: visible !important;
-                        color: black !important;
+                    /* Restoration of layout for elements inside print-area */
+                    .print-area * { visibility: visible !important; }
+                    .print-area table { display: table !important; width: 100% !important; border-collapse: collapse !important; }
+                    .print-area thead { display: table-header-group !important; }
+                    .print-area tbody { display: table-row-group !important; }
+                    .print-area tr { display: table-row !important; page-break-inside: avoid !important; }
+                    .print-area td, .print-area th { display: table-cell !important; }
+                    .print-area .flex { display: flex !important; }
+
+                    /* Safety: Kill any stray bars or buttons */
+                    header, aside, nav, footer, button, .print\\:hidden, [role="banner"], [role="navigation"] {
+                        display: none !important;
                     }
 
                     .print-area * {
