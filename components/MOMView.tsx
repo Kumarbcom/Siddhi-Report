@@ -651,55 +651,61 @@ const MOMView: React.FC<MOMViewProps> = ({
                 @media print {
                     @page { margin: 1cm; size: A4; }
                     
-                    /* Force ALL elements to be visible and non-animated */
+                    /* 1. Force Full Visibility & Kill Animations (Fixes Blank Page Bug) */
                     * {
                         animation: none !important;
                         transition: none !important;
                         opacity: 1 !important;
-                        visibility: visible;
+                        visibility: visible !important;
                         transform: none !important;
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
                     }
 
-                    /* Hide specific app UI that "leaks" into print */
+                    /* 2. Hide specific App UI that creates Gaps */
                     aside, header, nav, footer, button, .print\\:hidden, 
-                    [role="banner"], [role="navigation"],
-                    .bg-emerald-600, .bg-indigo-600, .bg-red-600 { 
+                    .bg-emerald-600, .bg-indigo-600, .bg-red-600, .bg-emerald-700 { 
                         display: none !important; 
                         height: 0 !important;
-                        overflow: hidden !important;
+                        visibility: hidden !important;
                     }
 
-                    /* Reset the entire app layout structure to be print-friendly nodes */
-                    html, body, #root, [data-v-app], main, 
-                    .flex, .flex-1, .flex-col, .animate-fade-in-up {
-                        display: block !important;
-                        position: static !important;
-                        overflow: visible !important;
-                        height: auto !important;
-                        padding: 0 !important;
+                    /* 3. Transparent Parent Strategy (Fixes Top Gap) */
+                    /* This makes the app containers pass-through, so MOM starts at top */
+                    html, body, #root, #root > .flex, .flex-1, main, main > div {
+                        display: contents !important;
+                    }
+                    
+                    /* Reset body to prevent default browser margins interfering */
+                    body {
                         margin: 0 !important;
+                        padding: 0 !important;
                         background: white !important;
-                        box-shadow: none !important;
-                        border: none !important;
+                        display: block !important; /* Restore block for the body specifically */
                     }
 
-                    /* The Document Area */
+                    /* 4. The Official MOM Document Area */
                     .print-area { 
                         display: block !important;
                         position: relative !important;
                         width: 100% !important; 
                         margin: 0 !important;
                         padding: 0 !important;
-                        padding-bottom: 4cm !important;
                         background: white !important;
+                        border: none !important;
+                        box-shadow: none !important;
+                        padding-bottom: 5cm !important; /* Safety space for signatures */
                     }
 
-                    /* Precision restoration for layout elements we DO want */
-                    .print-area table { display: table !important; width: 100% !important; }
+                    /* Ensure all text is 100% black for high-legibility */
+                    .print-area, .print-area * { color: black !important; }
+
+                    /* Restore required multi-page layouts */
+                    .print-area table { display: table !important; width: 100% !important; border-collapse: collapse !important; }
                     .print-area thead { display: table-header-group !important; }
                     .print-area tbody { display: table-row-group !important; }
                     .print-area tr { display: table-row !important; page-break-inside: avoid !important; }
-                    .print-area td, .print-area th { display: table-cell !important; color: black !important; }
+                    .print-area td, .print-area th { display: table-cell !important; padding: 8px 4px !important; }
                     .print-area .flex { display: flex !important; }
                     .print-area .grid { display: grid !important; }
 
@@ -777,8 +783,9 @@ const MOMView: React.FC<MOMViewProps> = ({
                         bottom: 0 !important;
                         left: 0 !important;
                         right: 0 !important;
-                        padding: 10mm 15mm !important;
-                        border-top: 1px solid #eee !important;
+                        width: 100% !important;
+                        padding: 15mm !important;
+                        border-top: 1px solid #000 !important;
                         background: white !important;
                         z-index: 1000 !important;
                         visibility: visible !important;
@@ -786,7 +793,7 @@ const MOMView: React.FC<MOMViewProps> = ({
                         justify-content: space-around !important;
                     }
                     
-                    .print-footer * { visibility: visible !important; }
+                    .print-footer * { visibility: visible !important; color: black !important; font-weight: bold !important; }
                     
                     /* Table adjustments */
                     table { page-break-after: auto; }
