@@ -33,7 +33,7 @@ export const MOMPrintView: React.FC<MOMPrintViewProps> = ({ mom, onClose }) => {
     }, []);
 
     return (
-        <div className="fixed inset-0 bg-white z-50 overflow-auto print:relative">
+        <div className="fixed inset-0 bg-white z-[9999] overflow-auto print:relative">
             {/* Close button - only visible on screen */}
             <button
                 onClick={onClose}
