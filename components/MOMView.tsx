@@ -654,7 +654,7 @@ const MOMView: React.FC<MOMViewProps> = ({
                         size: A4; 
                     }
                     
-                    /* Hide only the sidebar and chrome */
+                    /* Hide sidebar and chrome */
                     aside {
                         display: none !important;
                     }
@@ -663,7 +663,7 @@ const MOMView: React.FC<MOMViewProps> = ({
                         display: none !important;
                     }
 
-                    /* Clean reset for main containers */
+                    /* Reset containers */
                     html, body {
                         margin: 0 !important;
                         padding: 0 !important;
@@ -680,7 +680,7 @@ const MOMView: React.FC<MOMViewProps> = ({
                         padding: 0 !important;
                     }
 
-                    /* Fix the scrolling container */
+                    /* Fix scrolling container */
                     .overflow-auto, .overflow-y-auto {
                         overflow: visible !important;
                         max-height: none !important;
@@ -717,12 +717,20 @@ const MOMView: React.FC<MOMViewProps> = ({
                         border: none !important;
                         background: transparent !important;
                         box-shadow: none !important;
+                        padding: 0 !important; 
+                        margin: 0 !important; 
+                        outline: none !important;
+                        color: black !important;
+                        appearance: none;
+                        -webkit-appearance: none;
                     }
 
                     textarea {
                         height: auto !important;
                         overflow: visible !important;
                         white-space: pre-wrap !important;
+                        min-height: fit-content !important; 
+                        display: block !important;
                     }
 
                     /* Footer */
@@ -731,96 +739,6 @@ const MOMView: React.FC<MOMViewProps> = ({
                         padding-top: 20px !important;
                         border-top: 1px solid #000 !important;
                     }
-                }
-
-                    /* Safety: Kill any stray bars or buttons */
-                    header, aside, nav, footer, button, .print\\:hidden, [role="banner"], [role="navigation"] {
-                        display: none !important;
-                    }
-
-                    .print-area * {
-                        visibility: visible !important;
-                        -webkit-print-color-adjust: exact !important;
-                        print-color-adjust: exact !important;
-                    }
-                    /* Re-enable backgrounds and borders for chips */
-                    .print-area * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-                    .print\\:hidden { display: none !important; }
-                    .no-print { display: none !important; }
-                    
-                    /* Textarea & Input flattening */
-                    textarea, input { 
-                        background: transparent !important; 
-                        border: none !important; 
-                        padding: 0 !important; 
-                        margin: 0 !important; 
-                        outline: none !important;
-                        box-shadow: none !important;
-                        color: black !important;
-                        appearance: none;
-                        -webkit-appearance: none;
-                    }
-                    /* Clean up all scrolling containers for print */
-                    .overflow-auto, .overflow-y-auto, .overflow-x-auto { 
-                        overflow: visible !important; 
-                        max-height: none !important; 
-                        height: auto !important;
-                    }
-                    
-                    /* Hide scrollbars everywhere in print */
-                    * { -ms-overflow-style: none !important; scrollbar-width: none !important; }
-                    *::-webkit-scrollbar { display: none !important; }
-
-                    textarea { height: auto !important; overflow: visible !important; min-height: fit-content !important; display: block !important; white-space: pre-wrap !important; }
-                    
-                    /* Table styling */
-                    table { 
-                        width: 100% !important; 
-                        border-collapse: collapse !important; 
-                        table-layout: fixed !important;
-                        page-break-after: auto;
-                    }
-                    th { 
-                        border-bottom: 2px solid #000 !important; 
-                        color: #000 !important; 
-                        font-weight: 900 !important;
-                        text-transform: uppercase !important;
-                        padding: 10px 5px !important;
-                    }
-                    td { 
-                        border-bottom: 1px solid #eee !important; 
-                        padding: 15px 5px !important;
-                        vertical-align: top !important;
-                        word-wrap: break-word !important;
-                    }
-                    tr { 
-                        page-break-inside: avoid !important; 
-                        break-inside: avoid !important;
-                    }
-                    
-                    /* Final Page Margin to ensure footer space */
-                    .print-area { padding-bottom: 2cm !important; }
-                    
-                    /* Signature Footer - Fixed at bottom of every sheet */
-                    .print-footer {
-                        position: fixed !important;
-                        bottom: 0 !important;
-                        left: 0 !important;
-                        right: 0 !important;
-                        width: 100% !important;
-                        padding: 15mm !important;
-                        border-top: 1px solid #000 !important;
-                        background: white !important;
-                        z-index: 1000 !important;
-                        visibility: visible !important;
-                        display: flex !important;
-                        justify-content: space-around !important;
-                    }
-                    
-                    .print-footer * { visibility: visible !important; color: black !important; font-weight: bold !important; }
-                    
-                    /* Table adjustments */
-                    table { page-break-after: auto; }
                 }
                 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
                 .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
