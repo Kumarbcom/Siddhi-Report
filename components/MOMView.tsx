@@ -651,30 +651,44 @@ const MOMView: React.FC<MOMViewProps> = ({
                 @media print {
                     @page { margin: 1cm; size: A4; }
                     
-                    /* Total Isolation: Hide everything inside root by default */
-                    #root > * { display: none !important; }
-                    
-                    /* Force the main container and MOM area to show */
-                    #root, html, body, main, .print-area { 
-                        display: block !important; 
-                        visibility: visible !important;
+                    /* Hide Sidebar, Header, and Cloud Status Banners specifically */
+                    aside, header, nav, footer, button, .print\\:hidden, 
+                    .bg-emerald-600, .bg-indigo-600, .bg-red-600, .bg-gray-50 { 
+                        display: none !important; 
+                        height: 0 !important;
                         margin: 0 !important;
                         padding: 0 !important;
-                        height: auto !important;
+                    }
+
+                    /* Remove constraints from all parent containers to allow natural pagination */
+                    html, body, #root, [data-v-app], .flex, .flex-col, .flex-1, main, .animate-fade-in-up {
+                        display: block !important;
                         overflow: visible !important;
-                    }
-
-                    /* Ensure the print-area is the ONLY thing visible in the main flow */
-                    body > *:not(#root) { display: none !important; }
-
-                    .print-area { 
-                        width: 100% !important; 
-                        padding-bottom: 4cm !important;
+                        height: auto !important;
+                        min-height: 0 !important;
+                        max-height: none !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                        position: static !important;
                         background: white !important;
+                        box-shadow: none !important;
+                        border: none !important;
                     }
 
-                    /* Restoration of layout for elements inside print-area */
-                    .print-area * { visibility: visible !important; }
+                    /* The Main MOM Document */
+                    .print-area { 
+                        display: block !important;
+                        position: relative !important;
+                        width: 100% !important; 
+                        margin: 0 !important;
+                        padding: 0 !important;
+                        padding-bottom: 4cm !important; /* Space for signatures */
+                        background: white !important;
+                        visibility: visible !important;
+                    }
+
+                    /* Layout Restoration for internal elements */
+                    .print-area * { visibility: visible !important; color: black !important; }
                     .print-area table { display: table !important; width: 100% !important; border-collapse: collapse !important; }
                     .print-area thead { display: table-header-group !important; }
                     .print-area tbody { display: table-row-group !important; }
