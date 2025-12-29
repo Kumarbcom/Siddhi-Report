@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>MOM Print Test</title>
+    <style>
+        @media print {
+            @page {
+                size: A4 portrait;
+                margin: 15mm;
+            }
+
+            body {
+                margin: 0;
+                padding: 0;
+            }
+
+            .test-item {
+                border: 1px solid black;
+                padding: 20px;
+                margin-bottom: 10px;
+                page-break-inside: avoid;
+            }
+        }
+
+        @media screen {
+            body {
+                max-width: 800px;
+                margin: 0 auto;
+                padding: 20px;
+            }
+
+            .test-item {
+                border: 1px solid #ccc;
+                padding: 20px;
+                margin-bottom: 10px;
+                background: #f9f9f9;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <h1>MOM Print Test - 10 Items</h1>
+    <p>This page tests if your browser can print multiple pages. If all 10 items fit on one page, your browser is
+        scaling content.</p>
+
+    <div class="test-item">
+        <h2>Item 1</h2>
+        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore
+            magna aliqua.</p>
+        <p>Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+        </p>
+    </div>
+
+    <div class="test-item">
+        <h2>Item 2</h2>
+        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore
+            magna aliqua.</p>
+        <p>Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+        </p>
+    </div>
+
+    <div class="test-item">
+        <h2>Item 3</h2>
+        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore
+            magna aliqua.</p>
+        <p>Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+        </p>
+    </div>
+
+    <div class="test-item">
+        <h2>Item 4</h2>
+        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore
+            magna aliqua.</p>
+        <p>Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+        </p>
+    </div>
+
+    <div class="test-item">
+        <h2>Item 5</h2>
+        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore
+            magna aliqua.</p>
+        <p>Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+        </p>
+    </div>
+
+    <div class="test-item">
+        <h2>Item 6</h2>
+        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore
+            magna aliqua.</p>
+        <p>Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+        </p>
+    </div>
+
+    <div class="test-item">
+        <h2>Item 7</h2>
+        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore
+            magna aliqua.</p>
+        <p>Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+        </p>
+    </div>
+
+    <div class="test-item">
+        <h2>Item 8</h2>
+        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore
+            magna aliqua.</p>
+        <p>Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+        </p>
+    </div>
+
+    <div class="test-item">
+        <h2>Item 9</h2>
+        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore
+            magna aliqua.</p>
+        <p>Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+        </p>
+    </div>
+
+    <div class="test-item">
+        <h2>Item 10</h2>
+        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore
+            magna aliqua.</p>
+        <p>Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+        </p>
+    </div>
+
+    <div style="margin-top: 40px; padding: 20px; background: #fffacd; border: 2px solid #ffd700;">
+        <h3>Print Instructions:</h3>
+        <ol>
+            <li>Press Ctrl+P (or Cmd+P on Mac) to open print dialog</li>
+            <li><strong>IMPORTANT:</strong> Look for "More settings" or "Options"</li>
+            <li>Find the "Scale" setting and make sure it's set to <strong>100%</strong> or <strong>"Default"</strong>
+            </li>
+            <li>Disable "Fit to page" or "Shrink to fit" if present</li>
+            <li>Check the preview - you should see 2-3 pages</li>
+        </ol>
+        <p><strong>If you still see only 1 page:</strong> Your browser is forcing content to fit. Try using Firefox or
+            Edge instead of Chrome.</p>
+    </div>
+</body>
+
+</html>

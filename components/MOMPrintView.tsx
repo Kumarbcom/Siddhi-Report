@@ -17,430 +17,342 @@ interface MOM {
     items: MOMItem[];
 }
 
+interface Attendee {
+    id: string;
+    name: string;
+}
+
 interface MOMPrintViewProps {
     mom: MOM;
+    attendeeMaster: Attendee[];
     onClose: () => void;
 }
 
-export const MOMPrintView: React.FC<MOMPrintViewProps> = ({ mom, onClose }) => {
+export const MOMPrintView: React.FC<MOMPrintViewProps> = ({ mom, attendeeMaster, onClose }) => {
     React.useEffect(() => {
-        const timer = setTimeout(() => {
-            window.print();
-        }, 500);
-        return () => clearTimeout(timer);
-    }, []);
+        // Filter out empty agenda items
+        const validItems = mom.items?.filter(item =>
+            item.agendaItem?.trim() || item.discussion?.trim()
+        ) || [];
 
-    // Filter out empty agenda items
-    const validItems = mom.items?.filter(item =>
-        item.agendaItem?.trim() || item.discussion?.trim()
-    ) || [];
+        // Resolve attendee IDs to names with robust checking
+        const attendeeNames = mom.attendees?.map(id => {
+            const cleanId = (id || '').trim();
+            const attendee = attendeeMaster.find(a => a.id.toLowerCase() === cleanId.toLowerCase());
+            return attendee ? attendee.name : cleanId; // Fallback to ID if not found
+        }) || [];
 
-    return (
-        <div className="mom-print-container">
-            {/* Screen-only header */}
-            <div className="screen-only-header">
-                <h2>MOM Print Preview</h2>
-                <button onClick={onClose}>Close Preview</button>
-            </div>
+        // Create print content HTML
+        const printHTML = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>${mom.title} - ${mom.date}</title>
+    <style>
+        /* Reset */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-            {/* Print content */}
-            <div className="print-content">
-                {/* Company & Title Header */}
-                <div className="page-header">
-                    <h1 className="company-name">Siddhi Kabel Corporation</h1>
-                    <h2 className="document-title">Minutes of Meeting</h2>
-                    <div className="meeting-info">
-                        <div className="meeting-title">{mom.title}</div>
-                        <div className="meeting-date">Date: {mom.date}</div>
-                    </div>
-                </div>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #000;
+            background: white;
+            /* Ensure content can flow to multiple pages */
+            height: auto !important;
+            overflow: visible !important;
+            display: block !important;
+        }
 
-                {/* Attendees - Only if present */}
-                {mom.attendees && mom.attendees.length > 0 && (
-                    <div className="attendees-section">
-                        <h3>Attendees ({mom.attendees.length})</h3>
-                        <div className="attendees-list">
-                            {mom.attendees.map((attendee, idx) => (
-                                <span key={idx} className="attendee-badge">{attendee}</span>
-                            ))}
-                        </div>
-                    </div>
-                )}
+        /* Page setup */
+        @page {
+            size: A4 portrait;
+            margin: 15mm;
+        }
 
-                {/* Agenda Table - Only valid items */}
-                {validItems.length > 0 && (
-                    <table className="agenda-table">
-                        <thead>
-                            <tr>
-                                <th className="col-number">#</th>
-                                <th className="col-agenda">Agenda & Discussion</th>
-                                <th className="col-action">Action</th>
-                                <th className="col-timeline">Timeline</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {validItems.map((item, index) => (
-                                <tr key={item.id} className="agenda-row">
-                                    <td className="cell-number">{item.slNo}</td>
-                                    <td className="cell-agenda">
-                                        {item.agendaItem && (
-                                            <div className="agenda-title">{item.agendaItem}</div>
-                                        )}
-                                        {item.discussion && (
-                                            <div className="agenda-discussion">{item.discussion}</div>
-                                        )}
-                                    </td>
-                                    <td className="cell-action">
-                                        {item.actionAccount && item.actionAccount.length > 0 && (
-                                            <div className="action-list">
-                                                {item.actionAccount.map(acc => (
-                                                    <span key={acc} className="action-badge">{acc}</span>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </td>
-                                    <td className="cell-timeline">
-                                        {item.timeline && <div>{item.timeline}</div>}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                )}
+        /* Header */
+        .page-header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #000;
+        }
 
-                {/* Signatures Footer */}
-                <div className="signatures-footer">
-                    <div className="signature-block">
-                        <div className="signature-line"></div>
-                        <p>Prepared By</p>
-                    </div>
-                    <div className="signature-block">
-                        <div className="signature-line"></div>
-                        <p>Approved By</p>
-                    </div>
-                </div>
-            </div>
+        .company-name {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+        }
 
-            <style>{`
-                /* ============================================
-                   SCREEN VIEW STYLES
-                   ============================================ */
-                .mom-print-container {
-                    position: fixed;
-                    inset: 0;
-                    background: white;
-                    z-index: 9999;
-                    overflow-y: auto;
-                }
+        .document-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
 
-                .screen-only-header {
-                    position: fixed;
-                    top: 0;
-                    left: 0;
-                    right: 0;
-                    background: white;
-                    border-bottom: 1px solid #e5e7eb;
-                    padding: 12px 16px;
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    z-index: 10;
-                    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-                }
+        .meeting-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
 
-                .screen-only-header h2 {
-                    font-size: 14px;
-                    font-weight: 700;
-                    text-transform: uppercase;
-                    color: #111827;
-                    margin: 0;
-                }
+        .meeting-date {
+            font-size: 12px;
+            color: #333;
+        }
 
-                .screen-only-header button {
-                    padding: 8px 16px;
-                    background: #111827;
-                    color: white;
-                    border: none;
-                    border-radius: 8px;
-                    font-size: 14px;
-                    font-weight: 600;
-                    cursor: pointer;
-                    transition: background 0.2s;
-                }
+        /* Attendees */
+        .attendees-section {
+            margin-bottom: 16px;
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
 
-                .screen-only-header button:hover {
-                    background: #374151;
-                }
+        .attendees-section h3 {
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: #666;
+            margin-bottom: 6px;
+        }
 
-                .print-content {
-                    max-width: 800px;
-                    margin: 0 auto;
-                    padding: 80px 32px 32px;
-                }
+        .attendees-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
 
-                /* ============================================
-                   COMMON STYLES (Screen & Print)
-                   ============================================ */
-                .page-header {
-                    text-align: center;
-                    margin-bottom: 24px;
-                    padding-bottom: 16px;
-                    border-bottom: 2px solid #1f2937;
-                }
+        .attendee-badge {
+            background: #f5f5f5;
+            border: 1px solid #ccc;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 10px;
+            font-weight: 500;
+        }
 
-                .company-name {
-                    font-size: 18px;
-                    font-weight: 700;
-                    color: #1f2937;
-                    margin: 0 0 8px 0;
-                    text-transform: uppercase;
-                    letter-spacing: 0.5px;
-                }
+        /* Table */
+        .agenda-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+        }
 
-                .document-title {
-                    font-size: 20px;
-                    font-weight: 700;
-                    color: #111827;
-                    margin: 0 0 12px 0;
-                    text-transform: uppercase;
-                }
+        .agenda-table thead {
+            display: table-header-group;
+        }
 
-                .meeting-info {
-                    margin-top: 8px;
-                }
+        .agenda-table tbody {
+            display: table-row-group;
+        }
 
-                .meeting-title {
-                    font-size: 15px;
-                    font-weight: 600;
-                    color: #374151;
-                    margin-bottom: 4px;
-                }
+        .agenda-table thead tr {
+            border-bottom: 2px solid #000;
+        }
 
-                .meeting-date {
-                    font-size: 13px;
-                    color: #6b7280;
-                }
+        .agenda-table th {
+            padding: 8px 4px;
+            text-align: left;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: #666;
+        }
 
-                .attendees-section {
-                    margin-bottom: 20px;
-                }
+        .col-number { width: 30px; }
+        .col-action { width: 140px; }
+        .col-timeline { width: 100px; }
 
-                .attendees-section h3 {
-                    font-size: 11px;
-                    font-weight: 600;
-                    text-transform: uppercase;
-                    color: #6b7280;
-                    margin: 0 0 8px 0;
-                }
+        .agenda-row {
+            border-bottom: 1px solid #ddd;
+            page-break-inside: auto; /* Allow breaking inside rows if needed, or avoid */
+            break-inside: avoid;
+        }
 
-                .attendees-list {
-                    display: flex;
-                    flex-wrap: wrap;
-                    gap: 6px;
-                }
+        .agenda-table td {
+            padding: 10px 4px;
+            vertical-align: top;
+            font-size: 11px;
+        }
 
-                .attendee-badge {
-                    background: #f9fafb;
-                    border: 1px solid #e5e7eb;
-                    padding: 4px 10px;
-                    border-radius: 4px;
-                    font-size: 11px;
-                    font-weight: 500;
-                    color: #374151;
-                }
+        .cell-number {
+            font-weight: 600;
+        }
 
-                .agenda-table {
-                    width: 100%;
-                    border-collapse: collapse;
-                    margin-bottom: 40px;
-                }
+        .agenda-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: #000;
+        }
 
-                .agenda-table thead tr {
-                    border-bottom: 2px solid #1f2937;
-                }
+        .agenda-discussion {
+            font-size: 10px;
+            color: #333;
+            white-space: pre-wrap;
+            line-height: 1.5;
+        }
 
-                .agenda-table th {
-                    padding: 8px 4px;
-                    text-align: left;
-                    font-size: 11px;
-                    font-weight: 600;
-                    text-transform: uppercase;
-                    color: #6b7280;
-                }
+        .action-list {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
 
-                .col-number { width: 40px; }
-                .col-action { width: 160px; }
-                .col-timeline { width: 110px; }
+        .action-badge {
+            background: #f5f5f5;
+            border: 1px solid #ccc;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 9px;
+            font-weight: 500;
+            display: inline-block;
+        }
 
-                .agenda-row {
-                    border-bottom: 1px solid #e5e7eb;
-                }
+        .cell-timeline {
+            font-size: 10px;
+            font-weight: 500;
+        }
 
-                .agenda-table td {
-                    padding: 12px 4px;
-                    vertical-align: top;
-                    font-size: 12px;
-                    color: #374151;
-                }
+        /* Signatures */
+        .signatures-footer {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 2px solid #000;
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
 
-                .cell-number {
-                    font-weight: 600;
-                }
+        .signature-block {
+            text-align: center;
+        }
 
-                .agenda-title {
-                    font-weight: 600;
-                    margin-bottom: 4px;
-                    color: #111827;
-                }
+        .signature-line {
+            width: 150px;
+            border-top: 1px solid #666;
+            margin-bottom: 6px;
+        }
 
-                .agenda-discussion {
-                    font-size: 11px;
-                    color: #4b5563;
-                    white-space: pre-wrap;
-                    line-height: 1.5;
-                }
+        .signature-block p {
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: #666;
+        }
 
-                .action-list {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 4px;
-                }
+        @media print {
+            html, body {
+                height: auto !important;
+                overflow: visible !important;
+            }
+            .print-button {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="page-header">
+        <h1 class="company-name">Siddhi Kabel Corporation</h1>
+        <h2 class="document-title">Minutes of Meeting</h2>
+        <div class="meeting-title">${mom.title}</div>
+        <div class="meeting-date">Date: ${mom.date}</div>
+    </div>
 
-                .action-badge {
-                    background: #f9fafb;
-                    border: 1px solid #e5e7eb;
-                    padding: 3px 8px;
-                    border-radius: 4px;
-                    font-size: 10px;
-                    font-weight: 500;
-                    display: inline-block;
-                }
-
-                .cell-timeline {
-                    font-size: 11px;
-                    font-weight: 500;
-                }
-
-                .signatures-footer {
-                    display: flex;
-                    justify-content: space-around;
-                    margin-top: 48px;
-                    padding-top: 24px;
-                    border-top: 2px solid #1f2937;
-                }
-
-                .signature-block {
-                    text-align: center;
-                }
-
-                .signature-line {
-                    width: 160px;
-                    border-top: 1px solid #9ca3af;
-                    margin-bottom: 8px;
-                }
-
-                .signature-block p {
-                    font-size: 11px;
-                    font-weight: 600;
-                    text-transform: uppercase;
-                    color: #6b7280;
-                    margin: 0;
-                }
-
-                /* ============================================
-                   PRINT-SPECIFIC STYLES
-                   ============================================ */
-                @media print {
-                    /* Hide screen-only elements */
-                    .screen-only-header {
-                        display: none !important;
-                    }
-
-                    /* Reset container for print */
-                    .mom-print-container {
-                        position: static;
-                        overflow: visible;
-                        background: white;
-                    }
-
-                    .print-content {
-                        max-width: 100%;
-                        padding: 0;
-                        margin: 0;
-                    }
-
-                    /* Page setup */
-                    @page {
-                        size: A4;
-                        margin: 15mm 15mm 15mm 15mm;
-                    }
-
-                    /* Ensure body/html don't constrain */
-                    html, body {
-                        height: auto !important;
-                        overflow: visible !important;
-                        margin: 0;
-                        padding: 0;
-                    }
-                    
-                    /* All containers must allow expansion */
-                    * {
-                        max-height: none !important;
-                    }
-
-                    /* Header stays together */
-                    .page-header {
-                        page-break-after: avoid;
-                        page-break-inside: avoid;
-                    }
-
-                    /* Attendees stay together */
-                    .attendees-section {
-                        page-break-after: avoid;
-                        page-break-inside: avoid;
-                    }
-
-                    /* Table can break across pages */
-                    .agenda-table {
-                        page-break-inside: auto;
-                    }
-
-                    /* Rows can break across pages */
-                    .agenda-row {
-                        page-break-inside: auto;
-                        page-break-after: auto;
-                    }
-
-                    /* Cells can break if needed */
-                    .agenda-table td {
-                        page-break-inside: auto;
-                    }
-
-                    /* Footer stays together on last page */
-                    .signatures-footer {
-                        page-break-inside: avoid;
-                        page-break-before: auto;
-                        margin-top: 48px;
-                    }
-
-                    /* Ensure black text in print */
-                    * {
-                        color: black !important;
-                        -webkit-print-color-adjust: exact;
-                        print-color-adjust: exact;
-                    }
-
-                    /* Keep borders visible */
-                    .page-header,
-                    .signatures-footer {
-                        border-color: black !important;
-                    }
-
-                    .agenda-table thead tr {
-                        border-color: black !important;
-                    }
-                }
-            `}</style>
+    <!-- Attendees -->
+    ${attendeeNames && attendeeNames.length > 0 ? `
+    <div class="attendees-section">
+        <h3>Attendees (${attendeeNames.length})</h3>
+        <div class="attendees-list">
+            ${attendeeNames.map(name => `
+                <span class="attendee-badge">${name}</span>
+            `).join('')}
         </div>
-    );
+    </div>
+    ` : ''}
+
+    <!-- Agenda Table -->
+    ${validItems.length > 0 ? `
+    <table class="agenda-table">
+        <thead>
+            <tr>
+                <th class="col-number">#</th>
+                <th class="col-agenda">Agenda & Discussion</th>
+                <th class="col-action">Action</th>
+                <th class="col-timeline">Timeline</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${validItems.map(item => `
+                <tr class="agenda-row">
+                    <td class="cell-number">${item.slNo}</td>
+                    <td class="cell-agenda">
+                        ${item.agendaItem ? `<div class="agenda-title">${item.agendaItem}</div>` : ''}
+                        ${item.discussion ? `<div class="agenda-discussion">${item.discussion}</div>` : ''}
+                    </td>
+                    <td class="cell-action">
+                        ${item.actionAccount && item.actionAccount.length > 0 ? `
+                            <div class="action-list">
+                                ${item.actionAccount.map(acc => `
+                                    <span class="action-badge">${acc}</span>
+                                `).join('')}
+                            </div>
+                        ` : ''}
+                    </td>
+                    <td class="cell-timeline">
+                        ${item.timeline ? `<div>${item.timeline}</div>` : ''}
+                    </td>
+                </tr>
+            `).join('')}
+        </tbody>
+    </table>
+    ` : ''}
+
+    <!-- Signatures -->
+    <div class="signatures-footer">
+        <div class="signature-block">
+            <div class="signature-line"></div>
+            <p>Prepared By</p>
+        </div>
+        <div class="signature-block">
+            <div class="signature-line"></div>
+            <p>Approved By</p>
+        </div>
+    </div>
+    <script>
+        window.onload = function() {
+             setTimeout(function() {
+                 window.print();
+             }, 500);
+        }
+    </script>
+</body>
+</html>
+        `;
+
+        // Open in new window
+        const printWindow = window.open('', '_blank', 'width=800,height=600');
+        if (printWindow) {
+            printWindow.document.write(printHTML);
+            printWindow.document.close();
+        }
+
+        // Close the modal immediately
+        onClose();
+
+        return () => {
+            // Cleanup if needed
+        };
+    }, [mom, attendeeMaster, onClose]);
+
+    // Return null since we're opening a new window
+    return null;
 };

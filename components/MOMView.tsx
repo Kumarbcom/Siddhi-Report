@@ -680,6 +680,7 @@ const MOMView: React.FC<MOMViewProps> = ({
             {showPrintView && (
                 <MOMPrintView
                     mom={currentMom as MOM}
+                    attendeeMaster={attendeeMaster}
                     onClose={() => setShowPrintView(false)}
                 />
             )}
