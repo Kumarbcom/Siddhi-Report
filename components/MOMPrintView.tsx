@@ -33,7 +33,7 @@ export const MOMPrintView: React.FC<MOMPrintViewProps> = ({ mom, onClose }) => {
     }, []);
 
     return (
-        <div className="fixed inset-0 bg-white z-[9999] print:static print:w-full print:h-auto">
+        <div className="print-only-content fixed inset-0 bg-white z-[9999] print:static print:w-full print:h-auto">
             {/* Close button - only visible on screen */}
             <div className="print:hidden fixed top-0 left-0 right-0 bg-white border-b border-gray-200 p-3 flex justify-between items-center z-10 shadow-sm">
                 <h2 className="text-sm font-black text-gray-900 uppercase tracking-tight">MOM Print Preview</h2>
