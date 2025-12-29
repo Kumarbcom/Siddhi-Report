@@ -6,6 +6,7 @@ import { utils, writeFile } from 'xlsx';
 import { momService } from '../services/momService';
 import { attendeeService } from '../services/attendeeService';
 import AttendeeMasterView from './AttendeeMasterView';
+import { MOMPrintView } from './MOMPrintView';
 
 interface MOMViewProps {
     materials: Material[];
@@ -55,6 +56,7 @@ const MOMView: React.FC<MOMViewProps> = ({
     const [showAttendeeDropdown, setShowAttendeeDropdown] = useState(false);
     const [isHistoryVisible, setIsHistoryVisible] = useState(true);
     const [isAttendeeModalOpen, setIsAttendeeModalOpen] = useState(false);
+    const [showPrintView, setShowPrintView] = useState(false);
 
     const toCr = (val: number) => (val / 10000000).toFixed(2) + ' Cr';
 
@@ -482,7 +484,7 @@ const MOMView: React.FC<MOMViewProps> = ({
                     <button onClick={handleSave} disabled={isLoading} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-black shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all">
                         {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Save
                     </button>
-                    <button onClick={() => window.print()} className="p-2 bg-gray-50 text-gray-600 rounded-xl border border-gray-200 hover:bg-gray-100">
+                    <button onClick={() => setShowPrintView(true)} className="p-2 bg-gray-50 text-gray-600 rounded-xl border border-gray-200 hover:bg-gray-100">
                         <Printer className="w-5 h-5" />
                     </button>
                 </div>
@@ -770,6 +772,14 @@ const MOMView: React.FC<MOMViewProps> = ({
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Print View Modal */}
+            {showPrintView && (
+                <MOMPrintView
+                    mom={currentMom as MOM}
+                    onClose={() => setShowPrintView(false)}
+                />
             )}
         </div>
     );
