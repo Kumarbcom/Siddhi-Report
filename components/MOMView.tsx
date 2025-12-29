@@ -654,61 +654,59 @@ const MOMView: React.FC<MOMViewProps> = ({
                         size: A4; 
                     }
                     
-                    /* Hide navigation and UI chrome */
+                    /* NUCLEAR OPTION: Hide everything except the print area */
+                    body > *:not(#root) {
+                        display: none !important;
+                    }
+                    
+                    #root > *:not(main) {
+                        display: none !important;
+                    }
+                    
+                    main > *:not(.print-area):not([key]) {
+                        display: none !important;
+                    }
+                    
+                    /* Also hide by class */
                     aside, header, nav, footer, button, 
-                    .print\\:hidden,
-                    [class*="bg-emerald"],
-                    [class*="bg-indigo"],
-                    [class*="bg-red"],
-                    [class*="bg-black"] { 
+                    .print\\:hidden { 
                         display: none !important; 
                     }
 
-                    /* Reset all containers to allow natural flow */
-                    * {
-                        box-sizing: border-box !important;
-                    }
-                    
-                    html, body {
+                    /* Force everything to expand */
+                    html, body, #root, main {
                         width: 100% !important;
                         height: auto !important;
                         margin: 0 !important;
                         padding: 0 !important;
                         overflow: visible !important;
                         background: white !important;
-                    }
-
-                    /* CRITICAL: Force ALL parent containers to expand */
-                    #root, main, div, .flex, .flex-1, .flex-col, .overflow-auto, .overflow-y-auto {
                         display: block !important;
-                        width: 100% !important;
-                        height: auto !important;
-                        margin: 0 !important;
-                        padding: 0 !important;
-                        overflow: visible !important;
                         position: static !important;
-                        min-height: 0 !important;
-                        max-height: none !important;
                     }
 
-                    /* The print area */
+                    /* Force ALL divs to expand (catches the overflow-auto container) */
+                    div {
+                        overflow: visible !important;
+                        height: auto !important;
+                        max-height: none !important;
+                        min-height: 0 !important;
+                        position: static !important;
+                    }
+
+                    /* The print area must be visible */
                     .print-area {
                         display: block !important;
+                        visibility: visible !important;
                         width: 100% !important;
                         margin: 0 !important;
                         padding: 0 !important;
                         background: white !important;
-                        position: relative !important;
                         overflow: visible !important;
                         height: auto !important;
                     }
 
-                    /* Make sticky headers static for print */
-                    .sticky {
-                        position: static !important;
-                    }
-
-                    /* Table formatting */
+                    /* Table structure */
                     table {
                         width: 100% !important;
                         border-collapse: collapse !important;
@@ -717,6 +715,7 @@ const MOMView: React.FC<MOMViewProps> = ({
 
                     thead {
                         display: table-header-group !important;
+                        position: static !important;
                     }
 
                     tbody {
@@ -735,7 +734,7 @@ const MOMView: React.FC<MOMViewProps> = ({
                         display: table-cell !important;
                     }
 
-                    /* Flatten inputs for print */
+                    /* Flatten form elements */
                     input, textarea, select {
                         border: none !important;
                         background: transparent !important;
@@ -743,6 +742,8 @@ const MOMView: React.FC<MOMViewProps> = ({
                         margin: 0 !important;
                         box-shadow: none !important;
                         outline: none !important;
+                        -webkit-appearance: none !important;
+                        appearance: none !important;
                     }
 
                     textarea {
@@ -750,6 +751,7 @@ const MOMView: React.FC<MOMViewProps> = ({
                         min-height: fit-content !important;
                         overflow: visible !important;
                         white-space: pre-wrap !important;
+                        display: block !important;
                     }
 
                     /* Signature footer */
@@ -759,6 +761,7 @@ const MOMView: React.FC<MOMViewProps> = ({
                         padding-top: 20px !important;
                         border-top: 1px solid #000 !important;
                         page-break-inside: avoid !important;
+                        display: block !important;
                     }
                 }
 
