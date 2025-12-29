@@ -671,23 +671,31 @@ const MOMView: React.FC<MOMViewProps> = ({
                         background-color: transparent !important;
                     }
 
-                    /* 3. Hide ALL App UI, Sidebars, Overlays and Banners (Fixes Black Shadow) */
+                    /* 3. Surgical Hide: Kill only the UI elements and overlays that create shadows */
                     aside, header, nav, footer, button, .print\\:hidden, 
-                    [class*="fixed"], [class*="absolute"]:not(.print-footer), 
-                    .bg-emerald-600, .bg-indigo-600, .bg-red-600, .bg-emerald-700, .bg-black\\/50 { 
+                    .bg-black\\/50, .bg-emerald-600, .bg-indigo-600, .bg-red-600, .bg-emerald-700,
+                    [role="banner"], [role="navigation"] { 
                         display: none !important; 
                         visibility: hidden !important;
                         opacity: 0 !important;
+                        height: 0 !important;
+                        width: 0 !important;
+                        position: absolute !important;
+                        pointer-events: none !important;
                     }
 
-                    /* 4. Layout Pass-Through (Fixes Top Gap) */
-                    #root, #root > .flex, .flex-1, main, main > div {
+                    /* 4. Total Parent Reset (Ensures Multi-Page Flow) */
+                    /* We must force every single parent to expand and not clip */
+                    html, body, #root, #root > .flex, .flex-1, .flex-col, main, .animate-fade-in-up, div[key] {
                         display: block !important;
+                        overflow: visible !important;
+                        height: auto !important;
+                        min-height: 0 !important;
+                        max-height: none !important;
                         margin: 0 !important;
                         padding: 0 !important;
-                        height: auto !important;
-                        width: 100% !important;
                         position: static !important;
+                        width: 100% !important;
                     }
 
                     /* 5. The MOM Document */
