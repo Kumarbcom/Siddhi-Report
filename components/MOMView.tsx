@@ -651,7 +651,7 @@ const MOMView: React.FC<MOMViewProps> = ({
                 @media print {
                     @page { margin: 1cm; size: A4; }
                     
-                    /* Reset body to prevent offset */
+                    /* Global Environment Reset */
                     html, body {
                         margin: 0 !important;
                         padding: 0 !important;
@@ -659,43 +659,38 @@ const MOMView: React.FC<MOMViewProps> = ({
                         width: 100% !important;
                         height: auto !important;
                         overflow: visible !important;
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
                     }
 
-                    /* Hide specific app-wide layout elements */
-                    header, aside, nav, .print\\:hidden, button, footer { 
+                    /* Kill headers, sidebars, and the Emerald Cloud bars that create top gaps */
+                    header, aside, nav, footer, .bg-emerald-600, .bg-indigo-600, .bg-red-600, .bg-emerald-700, button, .print\\:hidden { 
                         display: none !important; 
+                        height: 0 !important;
                     }
                     
-                    /* Reset all parent flex/overflow containers to allow natural document flow */
+                    /* Force parents to disappear as layout blocks but show their children */
                     #root, [data-v-app], main, .flex, .flex-col, .flex-1, .h-full, .h-screen {
-                        display: block !important;
-                        padding: 0 !important;
+                        display: contents !important;
                         margin: 0 !important;
-                        height: auto !important;
-                        overflow: visible !important;
-                        position: static !important;
-                        width: 100% !important;
-                        min-height: 0 !important;
-                        max-height: none !important;
+                        padding: 0 !important;
                     }
 
-                    /* Show only the print area and its children */
-                    .print-area, .print-area * {
-                        visibility: visible !important;
-                        color: black !important;
-                    }
-
+                    /* The Main Document Container */
                     .print-area { 
                         display: block !important;
                         position: relative !important;
                         width: 100% !important; 
                         margin: 0 !important;
                         padding: 0 !important;
-                        padding-bottom: 3cm !important; /* Safe space for fixed footer */
+                        padding-bottom: 3.5cm !important; /* Safety room for fixed footer */
                         background: white !important;
-                        border: none !important;
-                        box-shadow: none !important;
                         visibility: visible !important;
+                    }
+
+                    .print-area * {
+                        visibility: visible !important;
+                        color: black !important;
                     }
 
                     .print-area * {
@@ -761,15 +756,13 @@ const MOMView: React.FC<MOMViewProps> = ({
                     /* Final Page Margin to ensure footer space */
                     .print-area { padding-bottom: 2cm !important; }
                     
-                    /* Signature Footer - Fixed at bottom for official look */
+                    /* Signature Footer - Fixed at bottom of every sheet */
                     .print-footer {
                         position: fixed !important;
                         bottom: 0 !important;
                         left: 0 !important;
                         right: 0 !important;
-                        width: 100% !important;
                         padding: 10mm 15mm !important;
-                        margin: 0 !important;
                         border-top: 1px solid #eee !important;
                         background: white !important;
                         z-index: 1000 !important;
