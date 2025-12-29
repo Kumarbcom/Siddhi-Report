@@ -1377,24 +1377,19 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                     const yoyPct = (k.yoy || 0) > 0 ? (yoyDiff / k.yoy!) * 100 : 0;
 
                                     return (
-                                        <div key={i} className={`relative overflow-hidden bg-white ${k.border} p-4 rounded-2xl shadow-[0_10px_25px_-10px_rgba(0,0,0,0.1)] transition-all duration-500 hover:shadow-[0_20px_40px_-10px_rgba(0,0,0,0.15)] hover:-translate-y-1 group border-2 active:scale-[0.98]`}>
-                                            {/* Decorative Background Icon - Soft Tinted */}
-                                            <div className="absolute -top-2 -right-2 p-2 opacity-[0.08] transform scale-125 group-hover:rotate-12 group-hover:scale-150 transition-all duration-1000 ease-in-out">
-                                                <k.icon className={`w-20 h-20 ${k.text}`} />
-                                            </div>
-
-                                            <div className="relative z-10 flex flex-col h-full justify-between gap-3">
+                                        <div key={i} className={`relative overflow-hidden bg-white border ${k.border} p-4 rounded-xl shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 group`}>
+                                            <div className="flex flex-col h-full justify-between gap-3">
                                                 <div>
-                                                    <div className="flex items-center gap-2 mb-1">
-                                                        <div className={`p-1 ${k.bg} rounded border ${k.border} transition-colors duration-300`}>
-                                                            <k.icon className={`w-3 h-3 ${k.text}`} />
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                        <div className={`p-1.5 ${k.bg} rounded-lg border ${k.border}`}>
+                                                            <k.icon className={`w-3.5 h-3.5 ${k.text}`} />
                                                         </div>
-                                                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                                                        <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
                                                             {k.label}
-                                                            <span className="ml-1 text-gray-400 font-normal italic">({timeView})</span>
+                                                            <span className="ml-1 text-gray-400 font-normal">({timeView})</span>
                                                         </p>
                                                     </div>
-                                                    <h3 className={`text-3xl font-black ${k.text} tracking-tighter tabular-nums leading-none`}>
+                                                    <h3 className={`text-2xl font-bold ${k.text} tracking-tight tabular-nums`}>
                                                         {k.isCurr ? formatLargeValue(k.val, true) : k.val.toLocaleString()}
                                                     </h3>
                                                 </div>
