@@ -33,9 +33,9 @@ export const MOMPrintView: React.FC<MOMPrintViewProps> = ({ mom, onClose }) => {
     }, []);
 
     return (
-        <div className="fixed inset-0 bg-white z-[9999] print:relative print:inset-auto">
+        <div className="fixed inset-0 bg-white z-[9999] print:static print:w-full print:h-auto">
             {/* Close button - only visible on screen */}
-            <div className="screen-only fixed top-0 left-0 right-0 bg-white border-b border-gray-200 p-3 flex justify-between items-center z-10 shadow-sm">
+            <div className="print:hidden fixed top-0 left-0 right-0 bg-white border-b border-gray-200 p-3 flex justify-between items-center z-10 shadow-sm">
                 <h2 className="text-sm font-black text-gray-900 uppercase tracking-tight">MOM Print Preview</h2>
                 <button
                     onClick={onClose}
@@ -46,7 +46,7 @@ export const MOMPrintView: React.FC<MOMPrintViewProps> = ({ mom, onClose }) => {
             </div>
 
             {/* Print content */}
-            <div className="h-full overflow-y-auto screen-only-scroll pt-14 print:pt-0 print:h-auto print:overflow-visible">
+            <div className="h-full overflow-y-auto pt-14 print:h-auto print:overflow-visible print:pt-0">
                 <div className="max-w-4xl mx-auto p-8 print:p-0 print:max-w-none">
                     {/* Header */}
                     <div className="text-center mb-8">
@@ -128,18 +128,7 @@ export const MOMPrintView: React.FC<MOMPrintViewProps> = ({ mom, onClose }) => {
             </div>
 
             <style>{`
-                /* Hide screen-only elements in print */
                 @media print {
-                    .screen-only {
-                        display: none !important;
-                    }
-                    
-                    .screen-only-scroll {
-                        overflow: visible !important;
-                        height: auto !important;
-                        padding-top: 0 !important;
-                    }
-                    
                     @page {
                         margin: 15mm;
                         size: A4;
@@ -166,24 +155,6 @@ export const MOMPrintView: React.FC<MOMPrintViewProps> = ({ mom, onClose }) => {
                     td {
                         page-break-inside: auto;
                     }
-                }
-                
-                /* Custom scrollbar for screen view */
-                .screen-only-scroll::-webkit-scrollbar {
-                    width: 8px;
-                }
-                
-                .screen-only-scroll::-webkit-scrollbar-track {
-                    background: #f1f1f1;
-                }
-                
-                .screen-only-scroll::-webkit-scrollbar-thumb {
-                    background: #888;
-                    border-radius: 4px;
-                }
-                
-                .screen-only-scroll::-webkit-scrollbar-thumb:hover {
-                    background: #555;
                 }
             `}</style>
         </div>
