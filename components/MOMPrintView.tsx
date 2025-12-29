@@ -88,8 +88,8 @@ export const MOMPrintView: React.FC<MOMPrintViewProps> = ({ mom, onClose }) => {
                             </tr>
                         </thead>
                         <tbody>
-                            {mom.items?.map((item) => (
-                                <tr key={item.id} className="border-b border-gray-100" style={{ pageBreakInside: 'avoid' }}>
+                            {mom.items?.map((item, index) => (
+                                <tr key={item.id} className="border-b border-gray-100" style={{ pageBreakBefore: index > 0 ? 'auto' : 'avoid', pageBreakAfter: 'auto' }}>
                                     <td className="py-4 align-top text-sm font-black">{item.slNo}</td>
                                     <td className="py-4 px-2 align-top">
                                         <div className="font-black text-sm mb-1">{item.agendaItem}</div>
@@ -157,9 +157,17 @@ export const MOMPrintView: React.FC<MOMPrintViewProps> = ({ mom, onClose }) => {
                         page-break-inside: auto;
                     }
                     
+                    thead {
+                        display: table-header-group;
+                    }
+                    
                     tr {
-                        page-break-inside: avoid;
+                        page-break-inside: auto;
                         page-break-after: auto;
+                    }
+                    
+                    td {
+                        page-break-inside: auto;
                     }
                 }
                 
