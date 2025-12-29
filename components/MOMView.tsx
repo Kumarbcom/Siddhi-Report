@@ -678,7 +678,8 @@ const MOMView: React.FC<MOMViewProps> = ({
                         background: white !important;
                     }
 
-                    #root, main, .flex, .flex-1, .flex-col {
+                    /* CRITICAL: Force ALL parent containers to expand */
+                    #root, main, div, .flex, .flex-1, .flex-col, .overflow-auto, .overflow-y-auto {
                         display: block !important;
                         width: 100% !important;
                         height: auto !important;
@@ -698,6 +699,13 @@ const MOMView: React.FC<MOMViewProps> = ({
                         padding: 0 !important;
                         background: white !important;
                         position: relative !important;
+                        overflow: visible !important;
+                        height: auto !important;
+                    }
+
+                    /* Make sticky headers static for print */
+                    .sticky {
+                        position: static !important;
                     }
 
                     /* Table formatting */
@@ -707,18 +715,28 @@ const MOMView: React.FC<MOMViewProps> = ({
                         page-break-inside: auto !important;
                     }
 
+                    thead {
+                        display: table-header-group !important;
+                    }
+
+                    tbody {
+                        display: table-row-group !important;
+                    }
+
                     tr {
                         page-break-inside: avoid !important;
                         page-break-after: auto !important;
+                        display: table-row !important;
                     }
 
                     td, th {
                         padding: 8px 4px !important;
                         vertical-align: top !important;
+                        display: table-cell !important;
                     }
 
                     /* Flatten inputs for print */
-                    input, textarea {
+                    input, textarea, select {
                         border: none !important;
                         background: transparent !important;
                         padding: 0 !important;
@@ -734,15 +752,6 @@ const MOMView: React.FC<MOMViewProps> = ({
                         white-space: pre-wrap !important;
                     }
 
-                    /* Remove scrollbars */
-                    .overflow-auto,
-                    .overflow-y-auto,
-                    .overflow-x-auto {
-                        overflow: visible !important;
-                        max-height: none !important;
-                        height: auto !important;
-                    }
-
                     /* Signature footer */
                     .print-footer {
                         position: relative !important;
@@ -751,6 +760,7 @@ const MOMView: React.FC<MOMViewProps> = ({
                         border-top: 1px solid #000 !important;
                         page-break-inside: avoid !important;
                     }
+                }
 
                     /* Safety: Kill any stray bars or buttons */
                     header, aside, nav, footer, button, .print\\:hidden, [role="banner"], [role="navigation"] {
