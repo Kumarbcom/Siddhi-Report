@@ -35,21 +35,18 @@ export const MOMPrintView: React.FC<MOMPrintViewProps> = ({ mom, onClose }) => {
     return (
         <div className="fixed inset-0 bg-white z-[9999] print:relative print:inset-auto">
             {/* Close button - only visible on screen */}
-            <div className="screen-only fixed top-0 left-0 right-0 bg-gray-50 border-b border-gray-200 p-4 flex justify-between items-center z-10">
-                <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                    <span className="text-xs font-bold text-gray-600 uppercase">Print Preview</span>
-                </div>
+            <div className="screen-only fixed top-0 left-0 right-0 bg-white border-b border-gray-200 p-3 flex justify-between items-center z-10 shadow-sm">
+                <h2 className="text-sm font-black text-gray-900 uppercase tracking-tight">MOM Print Preview</h2>
                 <button
                     onClick={onClose}
-                    className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-700 text-sm font-bold"
+                    className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-700 text-sm font-bold transition-colors"
                 >
                     Close Preview
                 </button>
             </div>
 
             {/* Print content */}
-            <div className="h-full overflow-y-auto screen-only-scroll pt-16 print:pt-0 print:h-auto print:overflow-visible">
+            <div className="h-full overflow-y-auto screen-only-scroll pt-14 print:pt-0 print:h-auto print:overflow-visible">
                 <div className="max-w-4xl mx-auto p-8 print:p-0 print:max-w-none">
                     {/* Header */}
                     <div className="text-center mb-8">
