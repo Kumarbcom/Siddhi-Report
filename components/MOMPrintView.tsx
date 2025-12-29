@@ -382,6 +382,11 @@ export const MOMPrintView: React.FC<MOMPrintViewProps> = ({ mom, onClose }) => {
                         margin: 0;
                         padding: 0;
                     }
+                    
+                    /* All containers must allow expansion */
+                    * {
+                        max-height: none !important;
+                    }
 
                     /* Header stays together */
                     .page-header {
@@ -400,11 +405,6 @@ export const MOMPrintView: React.FC<MOMPrintViewProps> = ({ mom, onClose }) => {
                         page-break-inside: auto;
                     }
 
-                    /* Table header doesn't repeat */
-                    .agenda-table thead {
-                        display: table-header-group;
-                    }
-
                     /* Rows can break across pages */
                     .agenda-row {
                         page-break-inside: auto;
@@ -420,6 +420,7 @@ export const MOMPrintView: React.FC<MOMPrintViewProps> = ({ mom, onClose }) => {
                     .signatures-footer {
                         page-break-inside: avoid;
                         page-break-before: auto;
+                        margin-top: 48px;
                     }
 
                     /* Ensure black text in print */
