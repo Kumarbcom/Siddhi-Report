@@ -654,114 +654,82 @@ const MOMView: React.FC<MOMViewProps> = ({
                         size: A4; 
                     }
                     
-                    /* NUCLEAR OPTION: Hide everything except the print area */
-                    body > *:not(#root) {
+                    /* Hide only the sidebar and chrome */
+                    aside {
                         display: none !important;
                     }
                     
-                    #root > *:not(main) {
+                    header, nav, footer, button, .print\\:hidden {
                         display: none !important;
-                    }
-                    
-                    main > *:not(.print-area):not([key]) {
-                        display: none !important;
-                    }
-                    
-                    /* Also hide by class */
-                    aside, header, nav, footer, button, 
-                    .print\\:hidden { 
-                        display: none !important; 
                     }
 
-                    /* Force everything to expand */
-                    html, body, #root, main {
-                        width: 100% !important;
-                        height: auto !important;
+                    /* Clean reset for main containers */
+                    html, body {
                         margin: 0 !important;
                         padding: 0 !important;
-                        overflow: visible !important;
                         background: white !important;
-                        display: block !important;
-                        position: static !important;
-                    }
-
-                    /* Force ALL divs to expand (catches the overflow-auto container) */
-                    div {
                         overflow: visible !important;
-                        height: auto !important;
-                        max-height: none !important;
-                        min-height: 0 !important;
-                        position: static !important;
                     }
 
-                    /* The print area must be visible */
+                    #root, main {
+                        display: block !important;
+                        width: 100% !important;
+                        height: auto !important;
+                        overflow: visible !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                    }
+
+                    /* Fix the scrolling container */
+                    .overflow-auto, .overflow-y-auto {
+                        overflow: visible !important;
+                        max-height: none !important;
+                        height: auto !important;
+                    }
+
+                    /* Print area */
                     .print-area {
                         display: block !important;
-                        visibility: visible !important;
                         width: 100% !important;
-                        margin: 0 !important;
-                        padding: 0 !important;
                         background: white !important;
-                        overflow: visible !important;
-                        height: auto !important;
                     }
 
-                    /* Table structure */
+                    /* Table */
                     table {
                         width: 100% !important;
                         border-collapse: collapse !important;
-                        page-break-inside: auto !important;
                     }
 
                     thead {
                         display: table-header-group !important;
-                        position: static !important;
-                    }
-
-                    tbody {
-                        display: table-row-group !important;
                     }
 
                     tr {
                         page-break-inside: avoid !important;
-                        page-break-after: auto !important;
-                        display: table-row !important;
                     }
 
                     td, th {
                         padding: 8px 4px !important;
-                        vertical-align: top !important;
-                        display: table-cell !important;
                     }
 
-                    /* Flatten form elements */
+                    /* Flatten inputs */
                     input, textarea, select {
                         border: none !important;
                         background: transparent !important;
-                        padding: 0 !important;
-                        margin: 0 !important;
                         box-shadow: none !important;
-                        outline: none !important;
-                        -webkit-appearance: none !important;
-                        appearance: none !important;
                     }
 
                     textarea {
                         height: auto !important;
-                        min-height: fit-content !important;
                         overflow: visible !important;
                         white-space: pre-wrap !important;
-                        display: block !important;
                     }
 
-                    /* Signature footer */
+                    /* Footer */
                     .print-footer {
-                        position: relative !important;
                         margin-top: 40px !important;
                         padding-top: 20px !important;
                         border-top: 1px solid #000 !important;
-                        page-break-inside: avoid !important;
-                        display: block !important;
                     }
                 }
 
