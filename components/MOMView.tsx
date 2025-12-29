@@ -649,72 +649,108 @@ const MOMView: React.FC<MOMViewProps> = ({
 
             <style>{`
                 @media print {
-                    @page { margin: 1cm; size: A4; }
+                    @page { 
+                        margin: 15mm; 
+                        size: A4; 
+                    }
                     
-                    /* 1. Reset Global Environment to Clean White */
+                    /* Hide navigation and UI chrome */
+                    aside, header, nav, footer, button, 
+                    .print\\:hidden,
+                    [class*="bg-emerald"],
+                    [class*="bg-indigo"],
+                    [class*="bg-red"],
+                    [class*="bg-black"] { 
+                        display: none !important; 
+                    }
+
+                    /* Reset all containers to allow natural flow */
+                    * {
+                        box-sizing: border-box !important;
+                    }
+                    
                     html, body {
+                        width: 100% !important;
+                        height: auto !important;
                         margin: 0 !important;
                         padding: 0 !important;
+                        overflow: visible !important;
                         background: white !important;
-                        color: black !important;
-                        height: auto !important;
-                        overflow: visible !important;
                     }
 
-                    /* 2. Kill Animations & Transparency only (Fixes Blank Page) */
-                    .print-area, .print-area * {
-                        animation: none !important;
-                        transition: none !important;
-                        opacity: 1 !important;
-                        visibility: visible !important;
-                        transform: none !important;
-                        background-color: transparent !important;
-                    }
-
-                    /* 3. Surgical Hide: Kill only the UI elements and overlays that create shadows */
-                    aside, header, nav, footer, button, .print\\:hidden, 
-                    .bg-black\\/50, .bg-emerald-600, .bg-indigo-600, .bg-red-600, .bg-emerald-700,
-                    [role="banner"], [role="navigation"] { 
-                        display: none !important; 
-                        visibility: hidden !important;
-                        opacity: 0 !important;
-                        height: 0 !important;
-                        width: 0 !important;
-                        position: absolute !important;
-                        pointer-events: none !important;
-                    }
-
-                    /* 4. Total Parent Reset (Ensures Multi-Page Flow) */
-                    /* We must force every single parent to expand and not clip */
-                    html, body, #root, #root > .flex, .flex-1, .flex-col, main, .animate-fade-in-up, div[key] {
+                    #root, main, .flex, .flex-1, .flex-col {
                         display: block !important;
-                        overflow: visible !important;
+                        width: 100% !important;
                         height: auto !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                        overflow: visible !important;
+                        position: static !important;
                         min-height: 0 !important;
                         max-height: none !important;
-                        margin: 0 !important;
-                        padding: 0 !important;
-                        position: static !important;
-                        width: 100% !important;
                     }
 
-                    /* 5. The MOM Document */
-                    .print-area { 
+                    /* The print area */
+                    .print-area {
                         display: block !important;
-                        position: relative !important;
-                        width: 100% !important; 
+                        width: 100% !important;
                         margin: 0 !important;
                         padding: 0 !important;
                         background: white !important;
-                        padding-bottom: 5cm !important;
+                        position: relative !important;
                     }
 
-                    .print-area * { color: black !important; }
-                    .print-area table { display: table !important; width: 100% !important; border-collapse: collapse !important; }
-                    .print-area tr { page-break-inside: avoid !important; }
-                    .print-area td, .print-area th { padding: 8px 4px !important; }
-                    .print-area .flex { display: flex !important; }
-                    .print-area .grid { display: grid !important; }
+                    /* Table formatting */
+                    table {
+                        width: 100% !important;
+                        border-collapse: collapse !important;
+                        page-break-inside: auto !important;
+                    }
+
+                    tr {
+                        page-break-inside: avoid !important;
+                        page-break-after: auto !important;
+                    }
+
+                    td, th {
+                        padding: 8px 4px !important;
+                        vertical-align: top !important;
+                    }
+
+                    /* Flatten inputs for print */
+                    input, textarea {
+                        border: none !important;
+                        background: transparent !important;
+                        padding: 0 !important;
+                        margin: 0 !important;
+                        box-shadow: none !important;
+                        outline: none !important;
+                    }
+
+                    textarea {
+                        height: auto !important;
+                        min-height: fit-content !important;
+                        overflow: visible !important;
+                        white-space: pre-wrap !important;
+                    }
+
+                    /* Remove scrollbars */
+                    .overflow-auto,
+                    .overflow-y-auto,
+                    .overflow-x-auto {
+                        overflow: visible !important;
+                        max-height: none !important;
+                        height: auto !important;
+                    }
+
+                    /* Signature footer */
+                    .print-footer {
+                        position: relative !important;
+                        margin-top: 40px !important;
+                        padding-top: 20px !important;
+                        border-top: 1px solid #000 !important;
+                        page-break-inside: avoid !important;
+                    }
 
                     /* Safety: Kill any stray bars or buttons */
                     header, aside, nav, footer, button, .print\\:hidden, [role="banner"], [role="navigation"] {
