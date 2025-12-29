@@ -651,50 +651,57 @@ const MOMView: React.FC<MOMViewProps> = ({
                 @media print {
                     @page { margin: 1cm; size: A4; }
                     
-                    /* Hide Sidebar, Header, and Cloud Status Banners specifically */
-                    aside, header, nav, footer, button, .print\\:hidden, 
-                    .bg-emerald-600, .bg-indigo-600, .bg-red-600, .bg-gray-50 { 
-                        display: none !important; 
-                        height: 0 !important;
-                        margin: 0 !important;
-                        padding: 0 !important;
+                    /* Force ALL elements to be visible and non-animated */
+                    * {
+                        animation: none !important;
+                        transition: none !important;
+                        opacity: 1 !important;
+                        visibility: visible;
+                        transform: none !important;
                     }
 
-                    /* Remove constraints from all parent containers to allow natural pagination */
-                    html, body, #root, [data-v-app], .flex, .flex-col, .flex-1, main, .animate-fade-in-up {
+                    /* Hide specific app UI that "leaks" into print */
+                    aside, header, nav, footer, button, .print\\:hidden, 
+                    [role="banner"], [role="navigation"],
+                    .bg-emerald-600, .bg-indigo-600, .bg-red-600 { 
+                        display: none !important; 
+                        height: 0 !important;
+                        overflow: hidden !important;
+                    }
+
+                    /* Reset the entire app layout structure to be print-friendly nodes */
+                    html, body, #root, [data-v-app], main, 
+                    .flex, .flex-1, .flex-col, .animate-fade-in-up {
                         display: block !important;
+                        position: static !important;
                         overflow: visible !important;
                         height: auto !important;
-                        min-height: 0 !important;
-                        max-height: none !important;
-                        margin: 0 !important;
                         padding: 0 !important;
-                        position: static !important;
+                        margin: 0 !important;
                         background: white !important;
                         box-shadow: none !important;
                         border: none !important;
                     }
 
-                    /* The Main MOM Document */
+                    /* The Document Area */
                     .print-area { 
                         display: block !important;
                         position: relative !important;
                         width: 100% !important; 
                         margin: 0 !important;
                         padding: 0 !important;
-                        padding-bottom: 4cm !important; /* Space for signatures */
+                        padding-bottom: 4cm !important;
                         background: white !important;
-                        visibility: visible !important;
                     }
 
-                    /* Layout Restoration for internal elements */
-                    .print-area * { visibility: visible !important; color: black !important; }
-                    .print-area table { display: table !important; width: 100% !important; border-collapse: collapse !important; }
+                    /* Precision restoration for layout elements we DO want */
+                    .print-area table { display: table !important; width: 100% !important; }
                     .print-area thead { display: table-header-group !important; }
                     .print-area tbody { display: table-row-group !important; }
                     .print-area tr { display: table-row !important; page-break-inside: avoid !important; }
-                    .print-area td, .print-area th { display: table-cell !important; }
+                    .print-area td, .print-area th { display: table-cell !important; color: black !important; }
                     .print-area .flex { display: flex !important; }
+                    .print-area .grid { display: grid !important; }
 
                     /* Safety: Kill any stray bars or buttons */
                     header, aside, nav, footer, button, .print\\:hidden, [role="banner"], [role="navigation"] {
