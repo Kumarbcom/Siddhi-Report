@@ -147,10 +147,6 @@ export const MOMPrintView: React.FC<MOMPrintViewProps> = ({ mom, onClose }) => {
                         page-break-inside: auto;
                     }
                     
-                    thead {
-                        display: table-header-group;
-                    }
-                    
                     tr {
                         page-break-inside: auto;
                         page-break-after: auto;
