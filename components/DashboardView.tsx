@@ -428,6 +428,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     setActiveTab
 }) => {
     const [activeSubTab, setActiveSubTab] = useState<'sales' | 'inventory' | 'so' | 'po' | 'weekly'>('sales');
+    const [relatedMomId, setRelatedMomId] = useState<string | null>(null);
     const [weeklyBenchmarks, setWeeklyBenchmarks] = useState<{ [key: string]: any }>(() => {
         const saved = localStorage.getItem('weeklyBenchmarks');
         return saved ? JSON.parse(saved) : {};
@@ -448,11 +449,14 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                         .filter(m => new Date(m.date) < target && m.benchmarks)
                         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-                    if (pastMoms.length > 0 && pastMoms[0].benchmarks) {
-                        setWeeklyBenchmarks(prev => ({
-                            ...prev,
-                            ...pastMoms[0].benchmarks
-                        }));
+                    if (pastMoms.length > 0) {
+                        setRelatedMomId(pastMoms[0].id);
+                        if (pastMoms[0].benchmarks) {
+                            setWeeklyBenchmarks(prev => ({
+                                ...prev,
+                                ...pastMoms[0].benchmarks
+                            }));
+                        }
                     }
                 }
             }
@@ -1208,6 +1212,27 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     const chartMax = useMemo(() => Math.max(...lineChartData.series.flatMap(s => s.data), 1000) * 1.1, [lineChartData]);
     const formatAxisValue = (val: number) => { if (isNaN(val)) return '0'; if (val >= 10000000) return (val / 10000000).toFixed(1) + 'Cr'; if (val >= 100000) return (val / 100000).toFixed(1) + 'L'; if (val >= 1000) return (val / 1000).toFixed(0) + 'k'; return Math.round(val).toString(); };
 
+    const handleSaveReport = async () => {
+        if (!relatedMomId) {
+            alert("No linked MOM found to save report.");
+            return;
+        }
+        try {
+            const moms = await momService.getAll();
+            const mom = moms.find(m => m.id === relatedMomId);
+            if (mom) {
+                await momService.save({
+                    ...mom,
+                    benchmarks: weeklyBenchmarks
+                });
+                alert("Report saved to MOM successfully!");
+            }
+        } catch (error) {
+            console.error(error);
+            alert("Failed to save report.");
+        }
+    };
+
     return (
         <div className="h-full w-full flex flex-col bg-gray-50/50 overflow-hidden relative">
             {/* SO Detail Modal */}
@@ -1673,27 +1698,19 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                     <p className="text-[10px] text-teal-600 font-bold uppercase tracking-wider">Order Summary</p>
                                     <div className="flex-1 flex flex-col gap-2">
                                         <div className="flex justify-between items-center bg-teal-50/50 p-2 rounded-lg border border-teal-100/50">
-                                            <span className="text-[9px] font-bold text-teal-700 uppercase">Customers</span>
+                                            <span className="text-[9px] font-bold text-teal-700 uppercase">Unique Customers</span>
                                             <span className="text-sm font-black text-teal-900">{soStats.custMix.length}</span>
                                         </div>
                                         <div className="bg-gray-50/80 p-2 rounded-lg border border-gray-100">
-                                            <div className="flex justify-between items-center mb-0.5">
-                                                <span className="text-[9px] font-bold text-gray-500 uppercase">SO Pending</span>
-                                                <span className="text-xs font-black text-gray-900">{formatLargeValue(soStats.totalVal, true)}</span>
-                                            </div>
                                             <div className="flex justify-between items-center">
-                                                <p className="text-[9px] text-gray-400 font-bold">Qty: {soStats.totalQty.toLocaleString()}</p>
-                                                <span className="text-[10px] font-black text-gray-600">{soStats.uniqueSOCount} SOs</span>
+                                                <span className="text-[9px] font-bold text-gray-500 uppercase">Unique SO No</span>
+                                                <span className="text-xs font-black text-gray-900">{soStats.uniqueSOCount}</span>
                                             </div>
                                         </div>
                                         <div className="bg-indigo-50/50 p-2 rounded-lg border border-indigo-100/50">
-                                            <div className="flex justify-between items-center mb-0.5">
-                                                <span className="text-[9px] font-bold text-indigo-700 uppercase">Unique Items Pending</span>
-                                                <span className="text-xs font-black text-indigo-900">{formatLargeValue(soStats.totalVal, true)}</span>
-                                            </div>
                                             <div className="flex justify-between items-center">
-                                                <p className="text-[9px] text-indigo-400 font-bold">Qty: {soStats.totalQty.toLocaleString()}</p>
-                                                <span className="text-[10px] font-black text-indigo-600">{soStats.uniqueItemCount} Items</span>
+                                                <span className="text-[9px] font-bold text-indigo-700 uppercase">Unique Items</span>
+                                                <span className="text-xs font-black text-indigo-900">{soStats.uniqueItemCount}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -1822,6 +1839,15 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                         </div>
                     ) : activeSubTab === 'weekly' ? (
                         <div className="flex flex-col gap-6 p-4 bg-gray-50 min-h-full">
+                            <div className="flex justify-end">
+                                <button
+                                    onClick={handleSaveReport}
+                                    className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold text-xs hover:bg-indigo-700 transition-colors shadow-sm"
+                                >
+                                    <CheckCircle2 className="w-4 h-4" />
+                                    Save Report to MOM
+                                </button>
+                            </div>
                             {/* Sales Report Section */}
                             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                                 <div className="bg-indigo-600 px-6 py-4 flex items-center gap-3">

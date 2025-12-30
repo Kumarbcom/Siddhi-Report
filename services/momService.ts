@@ -44,6 +44,7 @@ export const momService = {
                         date: fullMom.date,
                         attendees: fullMom.attendees,
                         items: fullMom.items,
+                        benchmarks: fullMom.benchmarks,
                         created_at: new Date(fullMom.createdAt).toISOString()
                     });
 
