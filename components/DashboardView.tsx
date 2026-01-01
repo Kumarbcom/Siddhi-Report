@@ -1062,7 +1062,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     const weeklyStats = useMemo(() => {
         const targetDate = new Date(2026, 0, 1); // Jan 01, 2026
         const prevDate = new Date(2025, 11, 24); // Dec 24, 2025
-        const mtdStartCurr = new Date(targetDate.getFullYear(), targetDate.getMonth(), 1);
+
+        // Define Weekly Gap for Current Week "MTD" (25.12.2025 - 31.12.2025)
+        const weeklyGapStart = new Date(prevDate);
+        weeklyGapStart.setDate(weeklyGapStart.getDate() + 1);
+        const weeklyGapEnd = new Date(targetDate);
+        weeklyGapEnd.setDate(weeklyGapEnd.getDate() - 1);
+
         const mtdStartPrev = new Date(prevDate.getFullYear(), prevDate.getMonth(), 1);
         const ytdYear = targetDate.getMonth() >= 3 ? targetDate.getFullYear() : targetDate.getFullYear() - 1;
         const ytdStart = new Date(ytdYear, 3, 1); // April 1st of fiscal year
@@ -1078,12 +1084,12 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         };
 
         const mtdPrev = getSalesSum(mtdStartPrev, prevDate);
-        const mtdCurr = getSalesSum(mtdStartCurr, targetDate);
+        const mtdCurr = getSalesSum(weeklyGapStart, weeklyGapEnd);
         const ytdPrev = getSalesSum(ytdStart, prevDate);
         const ytdCurr = getSalesSum(ytdStart, targetDate);
 
         const mtdPrevOnline = getSalesSum(mtdStartPrev, prevDate, true);
-        const mtdCurrOnline = getSalesSum(mtdStartCurr, targetDate, true);
+        const mtdCurrOnline = getSalesSum(weeklyGapStart, weeklyGapEnd, true);
         const ytdPrevOnline = getSalesSum(ytdStart, prevDate, true);
         const ytdCurrOnline = getSalesSum(ytdStart, targetDate, true);
 
@@ -2005,7 +2011,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                                     <input
                                                                         type="number"
                                                                         className="w-full bg-transparent text-right outline-none focus:ring-1 focus:ring-blue-300 rounded px-1 text-[10px]"
-                                                                        value={weeklyBenchmarks[`${table.id}_${make}_Ready`] || ""}
+                                                                        value={weeklyBenchmarks[`${table.id}_${make}_Ready`] ? Math.round(parseFloat(weeklyBenchmarks[`${table.id}_${make}_Ready`])).toString() : ""}
                                                                         placeholder="0"
                                                                         onChange={(e) => setWeeklyBenchmarks(prev => ({ ...prev, [`${table.id}_${make}_Ready`]: e.target.value }))}
                                                                     />
@@ -2014,7 +2020,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                                     <input
                                                                         type="number"
                                                                         className="w-full bg-transparent text-right outline-none focus:ring-1 focus:ring-blue-300 rounded px-1 text-[10px]"
-                                                                        value={weeklyBenchmarks[`${table.id}_${make}_Shortage`] || ""}
+                                                                        value={weeklyBenchmarks[`${table.id}_${make}_Shortage`] ? Math.round(parseFloat(weeklyBenchmarks[`${table.id}_${make}_Shortage`])).toString() : ""}
                                                                         placeholder="0"
                                                                         onChange={(e) => setWeeklyBenchmarks(prev => ({ ...prev, [`${table.id}_${make}_Shortage`]: e.target.value }))}
                                                                     />
@@ -2140,7 +2146,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                                             <input
                                                                                 type="number"
                                                                                 className="w-full bg-transparent text-right outline-none text-[9px]"
-                                                                                value={weeklyBenchmarks[`STOCK_${makeGroup.make}_${grp.group}_Qty`] || ''}
+                                                                                value={weeklyBenchmarks[`STOCK_${makeGroup.make}_${grp.group}_Qty`] ? Math.round(parseFloat(weeklyBenchmarks[`STOCK_${makeGroup.make}_${grp.group}_Qty`])).toString() : ''}
                                                                                 onChange={(e) => setWeeklyBenchmarks(prev => ({ ...prev, [`STOCK_${makeGroup.make}_${grp.group}_Qty`]: e.target.value }))}
                                                                                 placeholder="0"
                                                                             />
@@ -2149,7 +2155,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                                             <input
                                                                                 type="number"
                                                                                 className="w-full bg-transparent text-right outline-none text-[9px]"
-                                                                                value={weeklyBenchmarks[`STOCK_${makeGroup.make}_${grp.group}_Value`] || ''}
+                                                                                value={weeklyBenchmarks[`STOCK_${makeGroup.make}_${grp.group}_Value`] ? Math.round(parseFloat(weeklyBenchmarks[`STOCK_${makeGroup.make}_${grp.group}_Value`])).toString() : ''}
                                                                                 onChange={(e) => setWeeklyBenchmarks(prev => ({ ...prev, [`STOCK_${makeGroup.make}_${grp.group}_Value`]: e.target.value }))}
                                                                                 placeholder="0"
                                                                             />
