@@ -444,7 +444,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 const moms = await momService.getAll();
                 if (moms && moms.length > 0) {
                     // Find the most recent MOM before targetDate
-                    const target = new Date(2025, 11, 24); // Matching hardcoded targetDate
+                    const target = new Date(2026, 0, 1); // Matching hardcoded targetDate
                     const pastMoms = moms
                         .filter(m => new Date(m.date) < target && m.benchmarks)
                         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -1052,8 +1052,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     }, [pendingPO, materials]);
 
     const weeklyStats = useMemo(() => {
-        const targetDate = new Date(2025, 11, 24); // Dec 24, 2025
-        const prevDate = new Date(2025, 11, 17); // Dec 17, 2025
+        const targetDate = new Date(2026, 0, 1); // Jan 01, 2026
+        const prevDate = new Date(2025, 11, 24); // Dec 24, 2025
         const mtdStart = new Date(targetDate.getFullYear(), targetDate.getMonth(), 1);
         const ytdYear = targetDate.getMonth() >= 3 ? targetDate.getFullYear() : targetDate.getFullYear() - 1;
         const ytdStart = new Date(ytdYear, 3, 1); // April 1st of fiscal year
