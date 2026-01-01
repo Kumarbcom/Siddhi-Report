@@ -480,7 +480,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         if (!val) return new Date();
         let d: Date;
         if (val instanceof Date) {
-            d = new Date(val.getTime() + (12 * 60 * 60 * 1000));
+            d = new Date(val);
         } else if (typeof val === 'number') {
             d = new Date((Math.round(val) - 25568) * 86400 * 1000);
         } else if (typeof val === 'string') {
@@ -488,9 +488,17 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             if (isNaN(d.getTime())) {
                 const parts = val.split(/[-/.]/);
                 if (parts.length === 3) {
-                    // Try DD-MM-YYYY
-                    const d2 = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
-                    d = !isNaN(d2.getTime()) ? d2 : new Date();
+                    if (parts[0].length === 4) {
+                        // YYYY-MM-DD
+                        const d2 = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+                        d = !isNaN(d2.getTime()) ? d2 : new Date();
+                    } else {
+                        // DD-MM-YYYY or DD-MM-YY
+                        let y = parseInt(parts[2]);
+                        if (y < 100) y += 2000;
+                        const d2 = new Date(y, parseInt(parts[1]) - 1, parseInt(parts[0]));
+                        d = !isNaN(d2.getTime()) ? d2 : new Date();
+                    }
                 } else {
                     d = new Date();
                 }
