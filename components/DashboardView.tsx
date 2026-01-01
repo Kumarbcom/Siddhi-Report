@@ -1054,7 +1054,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     const weeklyStats = useMemo(() => {
         const targetDate = new Date(2026, 0, 1); // Jan 01, 2026
         const prevDate = new Date(2025, 11, 24); // Dec 24, 2025
-        const mtdStart = new Date(targetDate.getFullYear(), targetDate.getMonth(), 1);
+        const mtdStartCurr = new Date(targetDate.getFullYear(), targetDate.getMonth(), 1);
+        const mtdStartPrev = new Date(prevDate.getFullYear(), prevDate.getMonth(), 1);
         const ytdYear = targetDate.getMonth() >= 3 ? targetDate.getFullYear() : targetDate.getFullYear() - 1;
         const ytdStart = new Date(ytdYear, 3, 1); // April 1st of fiscal year
 
@@ -1068,13 +1069,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 .reduce((acc, i) => acc + (i.value || 0), 0);
         };
 
-        const mtdPrev = getSalesSum(mtdStart, prevDate);
-        const mtdCurr = getSalesSum(mtdStart, targetDate);
+        const mtdPrev = getSalesSum(mtdStartPrev, prevDate);
+        const mtdCurr = getSalesSum(mtdStartCurr, targetDate);
         const ytdPrev = getSalesSum(ytdStart, prevDate);
         const ytdCurr = getSalesSum(ytdStart, targetDate);
 
-        const mtdPrevOnline = getSalesSum(mtdStart, prevDate, true);
-        const mtdCurrOnline = getSalesSum(mtdStart, targetDate, true);
+        const mtdPrevOnline = getSalesSum(mtdStartPrev, prevDate, true);
+        const mtdCurrOnline = getSalesSum(mtdStartCurr, targetDate, true);
         const ytdPrevOnline = getSalesSum(ytdStart, prevDate, true);
         const ytdCurrOnline = getSalesSum(ytdStart, targetDate, true);
 
@@ -1879,7 +1880,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                             {weeklyStats.sales.mtdDiff >= 0 ? '+' : ''}{Math.round(weeklyStats.sales.mtdDiff).toLocaleString('en-IN')}
                                                         </td>
                                                         <td className={`px-4 py-3 text-right font-black ${weeklyStats.sales.mtdDiff >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-                                                            {((weeklyStats.sales.mtdDiff / (weeklyStats.sales.mtdPrev || 1)) * 100).toFixed(2)}%
+                                                            {((weeklyStats.sales.mtdDiff / (weeklyStats.sales.mtdPrev || 1)) * 100).toFixed(0)}%
                                                         </td>
                                                     </tr>
                                                     {/* Online Sales Row */}
@@ -1891,7 +1892,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                             {weeklyStats.sales.mtdDiffOnline >= 0 ? '+' : ''}{Math.round(weeklyStats.sales.mtdDiffOnline).toLocaleString('en-IN')}
                                                         </td>
                                                         <td className={`px-4 py-3 text-right font-black ${weeklyStats.sales.mtdDiffOnline >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-                                                            {((weeklyStats.sales.mtdDiffOnline / (weeklyStats.sales.mtdPrevOnline || 1)) * 100).toFixed(2)}%
+                                                            {((weeklyStats.sales.mtdDiffOnline / (weeklyStats.sales.mtdPrevOnline || 1)) * 100).toFixed(0)}%
                                                         </td>
                                                     </tr>
                                                 </tbody>
@@ -1923,7 +1924,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                             {weeklyStats.sales.ytdDiff >= 0 ? '+' : ''}{Math.round(weeklyStats.sales.ytdDiff).toLocaleString('en-IN')}
                                                         </td>
                                                         <td className={`px-4 py-3 text-right font-black ${weeklyStats.sales.ytdDiff >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-                                                            {((weeklyStats.sales.ytdDiff / (weeklyStats.sales.ytdPrev || 1)) * 100).toFixed(2)}%
+                                                            {((weeklyStats.sales.ytdDiff / (weeklyStats.sales.ytdPrev || 1)) * 100).toFixed(0)}%
                                                         </td>
                                                     </tr>
                                                     {/* Online Sales Row */}
@@ -1935,7 +1936,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                             {weeklyStats.sales.ytdDiffOnline >= 0 ? '+' : ''}{Math.round(weeklyStats.sales.ytdDiffOnline).toLocaleString('en-IN')}
                                                         </td>
                                                         <td className={`px-4 py-3 text-right font-black ${weeklyStats.sales.ytdDiffOnline >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-                                                            {((weeklyStats.sales.ytdDiffOnline / (weeklyStats.sales.ytdPrevOnline || 1)) * 100).toFixed(2)}%
+                                                            {((weeklyStats.sales.ytdDiffOnline / (weeklyStats.sales.ytdPrevOnline || 1)) * 100).toFixed(0)}%
                                                         </td>
                                                     </tr>
                                                 </tbody>
@@ -2016,7 +2017,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                                 <td className="p-2 border text-right font-mono font-black text-indigo-900 bg-indigo-50/10">{Math.round(curr.total).toLocaleString("en-IN")}</td>
                                                                 <td className={`p-2 border text-right font-bold ${diffReady >= 0 ? "text-emerald-500" : "text-rose-500"}`}>{diffReady !== 0 ? Math.round(diffReady).toLocaleString("en-IN") : "-"}</td>
                                                                 <td className={`p-2 border text-right font-bold ${diffShortage >= 0 ? "text-rose-500" : "text-emerald-500"}`}>{diffShortage !== 0 ? Math.round(diffShortage).toLocaleString("en-IN") : "-"}</td>
-                                                                <td className={`p-2 border text-right font-black ${pctChange >= 0 ? "text-emerald-700" : "text-rose-700"}`}>{pctChange !== 0 ? `${pctChange.toFixed(1)}%` : "-"}</td>
+                                                                <td className={`p-2 border text-right font-black ${pctChange >= 0 ? "text-emerald-700" : "text-rose-700"}`}>{pctChange !== 0 ? `${pctChange.toFixed(0)}%` : "-"}</td>
                                                             </tr>
                                                         );
                                                     })}
@@ -2042,7 +2043,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                                     <td className="p-2 border text-right bg-emerald-200/40 text-indigo-900">{Math.round(totCurrTotal).toLocaleString('en-IN')}</td>
                                                                     <td className={`p-2 border text-right ${diffR >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>{Math.round(diffR).toLocaleString('en-IN')}</td>
                                                                     <td className={`p-2 border text-right ${diffS >= 0 ? 'text-rose-700' : 'text-emerald-700'}`}>{Math.round(diffS).toLocaleString('en-IN')}</td>
-                                                                    <td className={`p-2 border text-right ${pctT >= 0 ? 'text-emerald-800' : 'text-rose-800'}`}>{pctT.toFixed(1)}%</td>
+                                                                    <td className={`p-2 border text-right ${pctT >= 0 ? 'text-emerald-800' : 'text-rose-800'}`}>{pctT.toFixed(0)}%</td>
                                                                 </>
                                                             );
                                                         })()}
@@ -2115,7 +2116,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                                 <td className="p-2 border text-right font-black text-indigo-900 bg-indigo-50/10">{Math.round(makeTotal.value).toLocaleString('en-IN')}</td>
                                                                 <td className={`p-2 border text-right font-black ${diffMakeQty >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{Math.round(diffMakeQty).toLocaleString('en-IN')}</td>
                                                                 <td className={`p-2 border text-right font-black ${diffMakeVal >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>{Math.round(diffMakeVal).toLocaleString('en-IN')}</td>
-                                                                <td className={`p-2 border text-right font-black ${pctMakeVal >= 0 ? 'text-emerald-800' : 'text-rose-800'}`}>{pctMakeVal !== 0 ? `${pctMakeVal.toFixed(1)}%` : '-'}</td>
+                                                                <td className={`p-2 border text-right font-black ${pctMakeVal >= 0 ? 'text-emerald-800' : 'text-rose-800'}`}>{pctMakeVal !== 0 ? `${pctMakeVal.toFixed(0)}%` : '-'}</td>
                                                             </tr>
                                                             {makeGroup.groups.map(grp => {
                                                                 const prevGrpQty = parseFloat(weeklyBenchmarks[`STOCK_${makeGroup.make}_${grp.group}_Qty`] || 0);
@@ -2149,7 +2150,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                                         <td className="p-2 border text-right font-bold text-gray-700">{Math.round(grp.value).toLocaleString('en-IN')}</td>
                                                                         <td className={`p-2 border text-right ${diffGrpQty >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{Math.round(diffGrpQty).toLocaleString('en-IN')}</td>
                                                                         <td className={`p-2 border text-right ${diffGrpVal >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{Math.round(diffGrpVal).toLocaleString('en-IN')}</td>
-                                                                        <td className={`p-2 border text-right font-medium ${pctGrpVal >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{pctGrpVal !== 0 ? `${pctGrpVal.toFixed(1)}%` : '-'}</td>
+                                                                        <td className={`p-2 border text-right font-medium ${pctGrpVal >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{pctGrpVal !== 0 ? `${pctGrpVal.toFixed(0)}%` : '-'}</td>
                                                                     </tr>
                                                                 );
                                                             })}
@@ -2182,7 +2183,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                             <>
                                                                 <td className={`p-3 border text-right font-mono ${diffQty >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{Math.round(diffQty).toLocaleString('en-IN')}</td>
                                                                 <td className={`p-3 border text-right font-mono ${diffVal >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{Math.round(diffVal).toLocaleString('en-IN')}</td>
-                                                                <td className={`p-3 border text-right font-black ${pctVal >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{pctVal !== 0 ? `${pctVal.toFixed(1)}%` : '-'}</td>
+                                                                <td className={`p-3 border text-right font-black ${pctVal >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{pctVal !== 0 ? `${pctVal.toFixed(0)}%` : '-'}</td>
                                                             </>
                                                         );
                                                     })()}
