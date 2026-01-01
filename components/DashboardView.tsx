@@ -1084,12 +1084,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         };
 
         const mtdPrev = getSalesSum(mtdStartPrev, prevDate);
-        const mtdCurr = getSalesSum(weeklyGapStart, weeklyGapEnd);
+        // Calculate Total Month Sales (Dec 01 - Dec 31) for Current Week column
+        const mtdCurr = getSalesSum(mtdStartPrev, weeklyGapEnd);
         const ytdPrev = getSalesSum(ytdStart, prevDate);
         const ytdCurr = getSalesSum(ytdStart, targetDate);
 
         const mtdPrevOnline = getSalesSum(mtdStartPrev, prevDate, true);
-        const mtdCurrOnline = getSalesSum(weeklyGapStart, weeklyGapEnd, true);
+        const mtdCurrOnline = getSalesSum(mtdStartPrev, weeklyGapEnd, true);
         const ytdPrevOnline = getSalesSum(ytdStart, prevDate, true);
         const ytdCurrOnline = getSalesSum(ytdStart, targetDate, true);
 
