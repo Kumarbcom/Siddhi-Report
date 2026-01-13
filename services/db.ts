@@ -1,6 +1,6 @@
 
 const DB_NAME = 'SiddhiKabel_Enterprise_DB';
-const DB_VERSION = 5;
+const DB_VERSION = 6;
 
 export const STORES = {
   MATERIALS: 'materials',
@@ -10,7 +10,8 @@ export const STORES = {
   PO: 'pending_po',
   SALES: 'sales_report',
   MOMS: 'moms',
-  ATTENDEES: 'attendees'
+  ATTENDEES: 'attendees',
+  USERS: 'users'
 };
 
 const openDB = (): Promise<IDBDatabase> => {

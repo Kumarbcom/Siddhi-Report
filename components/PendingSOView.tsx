@@ -13,6 +13,7 @@ interface PendingSOViewProps {
     onDelete: (id: string) => void;
     onClear: () => void;
     onAddMaterial?: (data: any) => Promise<void>;
+    isAdmin?: boolean;
 }
 
 type SortKey = keyof PendingSOItem;
@@ -27,7 +28,8 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
     onUpdate,
     onDelete,
     onClear,
-    onAddMaterial
+    onAddMaterial,
+    isAdmin = false
 }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [searchTerm, setSearchTerm] = useState('');
@@ -456,11 +458,15 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
                     <h2 className="text-sm font-semibold text-gray-800 flex items-center gap-2"><ClipboardList className="w-4 h-4 text-purple-600" /> Sales Order Pipeline</h2>
                     <div className="flex flex-wrap gap-2">
                         <button onClick={handleExport} className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 transition-colors shadow-sm"><FileDown className="w-3.5 h-3.5" /> Export Filtered</button>
-                        <button onClick={handleDownloadTemplate} className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-600 rounded-lg text-xs border hover:bg-gray-50 transition-colors"><Download className="w-3.5 h-3.5" /> Template</button>
-                        <input type="file" ref={fileInputRef} className="hidden" accept=".xlsx, .xls" onChange={handleFileUpload} />
-                        <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-xs border border-emerald-100 hover:bg-emerald-100 transition-colors"><Upload className="w-3.5 h-3.5" /> Import Excel</button>
-                        <div className="w-px h-6 bg-gray-200 mx-0.5 hidden sm:block"></div>
-                        <button onClick={onClear} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs border border-red-100 hover:bg-red-100 transition-colors"><Trash2 className="w-3.5 h-3.5" /> Clear Data</button>
+                        {isAdmin && (
+                            <>
+                                <button onClick={handleDownloadTemplate} className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-600 rounded-lg text-xs border hover:bg-gray-50 transition-colors"><Download className="w-3.5 h-3.5" /> Template</button>
+                                <input type="file" ref={fileInputRef} className="hidden" accept=".xlsx, .xls" onChange={handleFileUpload} />
+                                <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-xs border border-emerald-100 hover:bg-emerald-100 transition-colors"><Upload className="w-3.5 h-3.5" /> Import Excel</button>
+                                <div className="w-px h-6 bg-gray-200 mx-0.5 hidden sm:block"></div>
+                                <button onClick={onClear} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs border border-red-100 hover:bg-red-100 transition-colors"><Trash2 className="w-3.5 h-3.5" /> Clear Data</button>
+                            </>
+                        )}
                     </div>
                 </div>
 
@@ -504,11 +510,11 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
                                 <th className="py-2 px-3 text-center bg-gray-50 border-l border-gray-100">Stock</th>
                                 <th className="py-2 px-3 text-right bg-gray-50">Alloc Val</th>
                                 <th className="py-2 px-3 text-right bg-gray-50 border-r border-gray-100 text-red-600">Shortage Val</th>
-                                <th className="py-2 px-3 text-right">Act</th>
+                                {isAdmin && <th className="py-2 px-3 text-right">Act</th>}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200 text-xs">
-                            {processedItems.length === 0 ? (<tr><td colSpan={11} className="py-8 text-center text-gray-500">No matching orders found.</td></tr>) : (
+                            {processedItems.length === 0 ? (<tr><td colSpan={isAdmin ? 11 : 10} className="py-8 text-center text-gray-500">No matching orders found.</td></tr>) : (
                                 processedItems.map(item => {
                                     const inMaster = materials.some(m => m.description.toLowerCase().trim() === item.itemName.toLowerCase().trim());
                                     return (
@@ -561,24 +567,26 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
                                                     <td className="py-2 px-3 text-right border-r border-gray-100 bg-gray-50/40">
                                                         {item.shortage > 0 ? <span className="font-bold text-red-600 bg-red-50 px-1 py-px rounded">{formatCurrency((item.shortage || 0) * (item.rate || 0))}</span> : <span className="text-emerald-500">✔</span>}
                                                     </td>
-                                                    <td className="py-2 px-3 text-right">
-                                                        <div className="flex justify-end gap-1">
-                                                            {!inMaster && (
-                                                                <button
-                                                                    onClick={() => handleOpenQuickAdd(item)}
-                                                                    className="text-red-600 hover:text-red-700 p-1 rounded hover:bg-red-50 transition-colors flex items-center gap-1 group relative"
-                                                                    title="Add to Material Master"
-                                                                >
-                                                                    <Plus className="w-4 h-4" />
-                                                                    <div className="absolute bottom-full right-0 mb-2 px-2 py-1 bg-gray-900 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 transition-opacity">
-                                                                        Add to Master
-                                                                    </div>
-                                                                </button>
-                                                            )}
-                                                            <button onClick={() => handleEditClick(item)} className="text-gray-400 hover:text-blue-600 p-0.5 rounded hover:bg-blue-50 transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
-                                                            <button onClick={() => onDelete(item.id)} className="text-gray-400 hover:text-red-600 p-0.5 rounded hover:bg-red-50 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
-                                                        </div>
-                                                    </td>
+                                                    {isAdmin && (
+                                                        <td className="py-2 px-3 text-right">
+                                                            <div className="flex justify-end gap-1">
+                                                                {!inMaster && (
+                                                                    <button
+                                                                        onClick={() => handleOpenQuickAdd(item)}
+                                                                        className="text-red-600 hover:text-red-700 p-1 rounded hover:bg-red-50 transition-colors flex items-center gap-1 group relative"
+                                                                        title="Add to Material Master"
+                                                                    >
+                                                                        <Plus className="w-4 h-4" />
+                                                                        <div className="absolute bottom-full right-0 mb-2 px-2 py-1 bg-gray-900 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 transition-opacity">
+                                                                            Add to Master
+                                                                        </div>
+                                                                    </button>
+                                                                )}
+                                                                <button onClick={() => handleEditClick(item)} className="text-gray-400 hover:text-blue-600 p-0.5 rounded hover:bg-blue-50 transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
+                                                                <button onClick={() => onDelete(item.id)} className="text-gray-400 hover:text-red-600 p-0.5 rounded hover:bg-red-50 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                                                            </div>
+                                                        </td>
+                                                    )}
                                                 </>
                                             )}
                                         </tr>

@@ -8,11 +8,12 @@ interface MaterialTableProps {
   materials: Material[];
   onUpdate: (item: Material) => void;
   onDelete: (id: string) => void;
+  isAdmin?: boolean;
 }
 
 type SortKey = keyof Material;
 
-const MaterialTable: React.FC<MaterialTableProps> = ({ materials, onUpdate, onDelete }) => {
+const MaterialTable: React.FC<MaterialTableProps> = ({ materials, onUpdate, onDelete, isAdmin = false }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const deferredSearchTerm = useDeferredValue(searchTerm);
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' } | null>(null);
@@ -167,10 +168,12 @@ const MaterialTable: React.FC<MaterialTableProps> = ({ materials, onUpdate, onDe
                         <td className="py-2.5 px-4"><span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-gray-100 text-gray-700 border border-gray-200 whitespace-nowrap">{material.make || 'Other'}</span></td>
                         <td className="py-2.5 px-4 text-xs text-gray-500 font-medium whitespace-nowrap">{material.materialGroup || '-'}</td>
                         <td className="py-2.5 px-4 text-right">
-                          <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                            <button onClick={() => handleEditClick(material)} className="text-gray-400 hover:text-blue-600 p-1.5 rounded-md hover:bg-blue-50 transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
-                            <button onClick={() => onDelete(material.id)} className="text-gray-400 hover:text-red-600 p-1.5 rounded-md hover:bg-red-50 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
-                          </div>
+                          {isAdmin && (
+                            <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                              <button onClick={() => handleEditClick(material)} className="text-gray-400 hover:text-blue-600 p-1.5 rounded-md hover:bg-blue-50 transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
+                              <button onClick={() => onDelete(material.id)} className="text-gray-400 hover:text-red-600 p-1.5 rounded-md hover:bg-red-50 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                            </div>
+                          )}
                         </td>
                       </>
                     )}

@@ -139,6 +139,7 @@ interface ClosingStockViewProps {
   onUpdate: (item: ClosingStockItem) => void;
   onDelete: (id: string) => void;
   onClear: () => void;
+  isAdmin?: boolean;
 }
 
 const ClosingStockView: React.FC<ClosingStockViewProps> = ({
@@ -147,7 +148,8 @@ const ClosingStockView: React.FC<ClosingStockViewProps> = ({
   onBulkAdd,
   onUpdate,
   onDelete,
-  onClear
+  onClear,
+  isAdmin = false
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -365,10 +367,14 @@ const ClosingStockView: React.FC<ClosingStockViewProps> = ({
           </div>
           <div className="flex items-end gap-2 px-1">
             <button onClick={handleExport} className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-600 rounded-lg text-xs font-bold border border-gray-200 shadow-sm hover:bg-gray-50 transition-colors uppercase"><FileDown className="w-3.5 h-3.5" /> Export</button>
-            <input type="file" ref={fileInputRef} className="hidden" accept=".xlsx, .xls" onChange={handleFileUpload} />
-            <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold shadow-lg hover:bg-emerald-700 active:scale-95 transition-all uppercase"><Upload className="w-3.5 h-3.5" /> Import</button>
-            <div className="w-px h-6 bg-gray-200 mx-1"></div>
-            <button onClick={onClear} className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 text-rose-600 rounded-lg text-xs font-bold border border-rose-100 hover:bg-rose-100 transition-colors uppercase"><Trash2 className="w-3.5 h-3.5" /> Clear</button>
+            {isAdmin && (
+              <>
+                <input type="file" ref={fileInputRef} className="hidden" accept=".xlsx, .xls" onChange={handleFileUpload} />
+                <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold shadow-lg hover:bg-emerald-700 active:scale-95 transition-all uppercase"><Upload className="w-3.5 h-3.5" /> Import</button>
+                <div className="w-px h-6 bg-gray-200 mx-1"></div>
+                <button onClick={onClear} className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 text-rose-600 rounded-lg text-xs font-bold border border-rose-100 hover:bg-rose-100 transition-colors uppercase"><Trash2 className="w-3.5 h-3.5" /> Clear</button>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -446,12 +452,12 @@ const ClosingStockView: React.FC<ClosingStockViewProps> = ({
                 <th className="py-3 px-4 text-right cursor-pointer hover:bg-gray-200 transition-colors" onClick={() => handleSort('quantity')}><div className="flex items-center justify-end gap-1.5">Quantity <ArrowUpDown className={`w-3 h-3 ${sortKey === 'quantity' ? 'text-blue-600' : 'text-gray-300'}`} /></div></th>
                 <th className="py-3 px-4 text-right cursor-pointer hover:bg-gray-200 transition-colors" onClick={() => handleSort('rate')}><div className="flex items-center justify-end gap-1.5">Rate <ArrowUpDown className={`w-3 h-3 ${sortKey === 'rate' ? 'text-blue-600' : 'text-gray-300'}`} /></div></th>
                 <th className="py-3 px-4 text-right cursor-pointer hover:bg-gray-200 transition-colors" onClick={() => handleSort('value')}><div className="flex items-center justify-end gap-1.5">Value <ArrowUpDown className={`w-3 h-3 ${sortKey === 'value' ? 'text-blue-600' : 'text-gray-300'}`} /></div></th>
-                <th className="py-3 px-4 text-right">Actions</th>
+                {isAdmin && <th className="py-3 px-4 text-right">Actions</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {tableData.length === 0 ? (
-                <tr><td colSpan={7} className="py-20 text-center text-gray-400 bg-gray-50/20"><div className="flex flex-col items-center justify-center gap-3"><Package className="w-12 h-12 text-gray-200" /><p className="text-sm font-bold uppercase tracking-tight">No matching stock found</p></div></td></tr>
+                <tr><td colSpan={isAdmin ? 7 : 6} className="py-20 text-center text-gray-400 bg-gray-50/20"><div className="flex flex-col items-center justify-center gap-3"><Package className="w-12 h-12 text-gray-200" /><p className="text-sm font-bold uppercase tracking-tight">No matching stock found</p></div></td></tr>
               ) : (
                 tableData.map((item) => (
                   <tr key={item.id} className={`hover:bg-blue-50/30 transition-all duration-200 group ${editingId === item.id ? 'bg-blue-50/60' : ''}`}>
@@ -483,12 +489,14 @@ const ClosingStockView: React.FC<ClosingStockViewProps> = ({
                         <td className="py-2.5 px-4 text-right font-black text-blue-900 text-xs">{item.quantity.toLocaleString()}</td>
                         <td className="py-2.5 px-4 text-right font-mono text-gray-400 text-[10px]">{item.rate.toFixed(1)}</td>
                         <td className="py-2.5 px-4 text-right font-black text-emerald-700 text-xs tracking-tight">{formatCurrency(item.value)}</td>
-                        <td className="py-2.5 px-4 text-right opacity-0 group-hover:opacity-100 transition-opacity">
-                          <div className="flex justify-end gap-1">
-                            <button onClick={() => handleEditClick(item)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition-all"><Pencil className="w-3.5 h-3.5" /></button>
-                            <button onClick={() => onDelete(item.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-md transition-all"><Trash2 className="w-3.5 h-3.5" /></button>
-                          </div>
-                        </td>
+                        {isAdmin && (
+                          <td className="py-2.5 px-4 text-right opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="flex justify-end gap-1">
+                              <button onClick={() => handleEditClick(item)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition-all"><Pencil className="w-3.5 h-3.5" /></button>
+                              <button onClick={() => onDelete(item.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-md transition-all"><Trash2 className="w-3.5 h-3.5" /></button>
+                            </div>
+                          </td>
+                        )}
                       </>
                     )}
                   </tr>

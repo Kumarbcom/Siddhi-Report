@@ -10,6 +10,7 @@ interface CustomerMasterViewProps {
   onUpdate: (item: CustomerMasterItem) => void;
   onDelete: (id: string) => void;
   onClear: () => void;
+  isAdmin?: boolean;
 }
 
 type SortKey = keyof CustomerMasterItem;
@@ -19,7 +20,8 @@ const CustomerMasterView: React.FC<CustomerMasterViewProps> = ({
   onBulkAdd,
   onUpdate,
   onDelete,
-  onClear
+  onClear,
+  isAdmin = false
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -160,11 +162,15 @@ const CustomerMasterView: React.FC<CustomerMasterViewProps> = ({
           <h2 className="text-sm font-semibold text-gray-800 flex items-center gap-2"><Users className="w-4 h-4 text-blue-600" /> Customer Master</h2>
           <div className="flex flex-wrap gap-2">
             <button onClick={handleExport} className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-700 rounded-lg text-xs font-medium border border-gray-300 transition-colors shadow-sm hover:bg-gray-50"><FileDown className="w-3.5 h-3.5" /> Export All</button>
-            <button onClick={handleDownloadTemplate} className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-600 rounded-lg text-xs border hover:bg-gray-50 transition-colors"><Download className="w-3.5 h-3.5" /> Template</button>
-            <input type="file" ref={fileInputRef} className="hidden" accept=".xlsx, .xls" onChange={handleFileUpload} />
-            <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs border border-blue-100 hover:bg-blue-100 transition-colors"><Upload className="w-3.5 h-3.5" /> Import Excel</button>
-            <div className="w-px h-6 bg-gray-200 mx-0.5 hidden sm:block"></div>
-            <button onClick={onClear} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs border border-red-100 hover:bg-red-100 transition-colors"><Trash2 className="w-3.5 h-3.5" /> Clear Data</button>
+            {isAdmin && (
+              <>
+                <button onClick={handleDownloadTemplate} className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-600 rounded-lg text-xs border hover:bg-gray-50 transition-colors"><Download className="w-3.5 h-3.5" /> Template</button>
+                <input type="file" ref={fileInputRef} className="hidden" accept=".xlsx, .xls" onChange={handleFileUpload} />
+                <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs border border-blue-100 hover:bg-blue-100 transition-colors"><Upload className="w-3.5 h-3.5" /> Import Excel</button>
+                <div className="w-px h-6 bg-gray-200 mx-0.5 hidden sm:block"></div>
+                <button onClick={onClear} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs border border-red-100 hover:bg-red-100 transition-colors"><Trash2 className="w-3.5 h-3.5" /> Clear Data</button>
+              </>
+            )}
           </div>
         </div>
         <div className="relative">
@@ -189,12 +195,12 @@ const CustomerMasterView: React.FC<CustomerMasterViewProps> = ({
                 <th className="py-2 px-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('salesRep')}>Sales Rep {renderSortIcon('salesRep')}</th>
                 <th className="py-2 px-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('status')}>Status {renderSortIcon('status')}</th>
                 <th className="py-2 px-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('customerGroup')}>Customer Group {renderSortIcon('customerGroup')}</th>
-                <th className="py-2 px-3 text-right">Act</th>
+                {isAdmin && <th className="py-2 px-3 text-right">Act</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 text-xs text-gray-700">
               {processedItems.length === 0 ? (
-                <tr><td colSpan={6} className="py-8 text-center text-gray-500">No matching customers found.</td></tr>
+                <tr><td colSpan={isAdmin ? 6 : 5} className="py-8 text-center text-gray-500">No matching customers found.</td></tr>
               ) : (
                 processedItems.map(item => (
                   <tr key={item.id} className={`hover:bg-blue-50/20 transition-colors ${editingId === item.id ? 'bg-blue-50' : ''}`}>
@@ -221,12 +227,14 @@ const CustomerMasterView: React.FC<CustomerMasterViewProps> = ({
                           <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium border ${getStatusColor(item.status)}`}>{item.status}</span>
                         </td>
                         <td className="py-2 px-3">{item.customerGroup}</td>
-                        <td className="py-2 px-3 text-right">
-                          <div className="flex justify-end gap-1">
-                            <button onClick={() => handleEditClick(item)} className="text-gray-400 hover:text-blue-600 transition-colors p-0.5 rounded hover:bg-blue-50"><Pencil className="w-3.5 h-3.5" /></button>
-                            <button onClick={() => onDelete(item.id)} className="text-gray-400 hover:text-red-600 transition-colors p-0.5 rounded hover:bg-red-50"><Trash2 className="w-3.5 h-3.5" /></button>
-                          </div>
-                        </td>
+                        {isAdmin && (
+                          <td className="py-2 px-3 text-right">
+                            <div className="flex justify-end gap-1">
+                              <button onClick={() => handleEditClick(item)} className="text-gray-400 hover:text-blue-600 transition-colors p-0.5 rounded hover:bg-blue-50"><Pencil className="w-3.5 h-3.5" /></button>
+                              <button onClick={() => onDelete(item.id)} className="text-gray-400 hover:text-red-600 transition-colors p-0.5 rounded hover:bg-red-50"><Trash2 className="w-3.5 h-3.5" /></button>
+                            </div>
+                          </td>
+                        )}
                       </>
                     )}
                   </tr>

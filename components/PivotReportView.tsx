@@ -10,9 +10,9 @@ interface PivotReportViewProps {
     pendingSO: PendingSOItem[];
     pendingPO: PendingPOItem[];
     salesReportItems: SalesReportItem[];
+    isAdmin?: boolean;
 }
 
-// --- Groups allowed for Stock Planning ---
 const PLANNED_STOCK_GROUPS = new Set([
     "eaton-ace",
     "eaton-biesse",
@@ -109,7 +109,8 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
     closingStock,
     pendingSO,
     pendingPO,
-    salesReportItems
+    salesReportItems,
+    isAdmin = false
 }) => {
     const [searchTerm, setSearchTerm] = useState('');
 
@@ -689,7 +690,7 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                                 <tr><td colSpan={showPlanningColumns ? 29 : 20} className="py-10 text-center text-gray-400">No active items match your filter.</td></tr>
                             ) : (
                                 filteredData.map((row, idx) => (
-                                    <tr key={row.id} className="hover:bg-gray-50 transition-colors group">
+                                    <tr key={row.description + idx} className="hover:bg-gray-50 transition-colors group">
                                         <td className="sticky left-0 z-10 py-1 px-2 border-r truncate max-w-[100px] bg-white group-hover:bg-gray-50 border-b border-gray-100">{row.make}</td>
                                         <td className="sticky left-[6rem] z-10 py-1 px-2 border-r truncate max-w-[100px] bg-white group-hover:bg-gray-50 border-b border-gray-100">{row.materialGroup}</td>
                                         <td className="sticky left-[12rem] z-10 py-1 px-2 border-r truncate max-w-[250px] font-medium text-gray-900 bg-white group-hover:bg-gray-50 border-b border-gray-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" title={row.description}>{row.description}</td>

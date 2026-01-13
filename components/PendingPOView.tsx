@@ -15,6 +15,7 @@ interface PendingPOViewProps {
     pendingSOItems?: PendingSOItem[];
     salesReportItems?: SalesReportItem[];
     onAddMaterial?: (data: any) => Promise<void>;
+    isAdmin?: boolean;
 }
 
 type SortKey = keyof PendingPOItem;
@@ -76,7 +77,8 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
     onClear,
     pendingSOItems = [],
     salesReportItems = [],
-    onAddMaterial
+    onAddMaterial,
+    isAdmin = false
 }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [searchTerm, setSearchTerm] = useState('');
@@ -322,9 +324,13 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
                 <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
                     <h2 className="text-sm font-semibold text-gray-800 flex items-center gap-2"><Filter className="w-4 h-4 text-indigo-500" /> Pending PO List</h2>
                     <div className="flex flex-wrap gap-2">
-                        <input type="file" ref={fileInputRef} className="hidden" accept=".xlsx, .xls" onChange={handleFileUpload} />
-                        <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-xs border border-emerald-100 hover:bg-emerald-100 transition-colors"><Upload className="w-3.5 h-3.5" /> Import POs</button>
-                        <button onClick={onClear} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs border border-red-100 hover:bg-red-100 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                        {isAdmin && (
+                            <>
+                                <input type="file" ref={fileInputRef} className="hidden" accept=".xlsx, .xls" onChange={handleFileUpload} />
+                                <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-xs border border-emerald-100 hover:bg-emerald-100 transition-colors"><Upload className="w-3.5 h-3.5" /> Import POs</button>
+                                <button onClick={onClear} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs border border-red-100 hover:bg-red-100 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                            </>
+                        )}
                     </div>
                 </div>
                 <div className="relative"><div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Search className="h-3.5 w-3.5 text-gray-400" /></div><input type="text" placeholder="Search POs..." className="pl-9 pr-3 py-1.5 w-full border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-orange-500 outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div>
@@ -343,11 +349,11 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
                                 <th className="py-2 px-3 font-semibold text-right">Value</th>
                                 <th className="py-2 px-3 font-semibold">Due on</th>
                                 <th className="py-2 px-3 font-semibold text-center">Status</th>
-                                <th className="py-2 px-3 font-semibold text-right">Act</th>
+                                {isAdmin && <th className="py-2 px-3 font-semibold text-right">Act</th>}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200 text-xs text-gray-700">
-                            {processedItems.length === 0 ? (<tr><td colSpan={9} className="py-8 text-center text-gray-500 text-xs">No records found.</td></tr>) : (
+                            {processedItems.length === 0 ? (<tr><td colSpan={isAdmin ? 9 : 8} className="py-8 text-center text-gray-500 text-xs">No records found.</td></tr>) : (
                                 processedItems.map(item => {
                                     const strat = supplyMap.get(item.itemName.toLowerCase().trim());
                                     return (
@@ -371,23 +377,25 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
                                             <td className="py-2 px-3 text-center">
                                                 {strat?.expedite ? <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-blue-100 text-blue-700">EXPEDITE</span> : (strat?.excessPO ? <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-orange-100 text-orange-700">EXCESS</span> : <span className="text-gray-300">-</span>)}
                                             </td>
-                                            <td className="py-2 px-3 text-right">
-                                                <div className="flex justify-end gap-1">
-                                                    {!materials.some(m => m.description.toLowerCase().trim() === item.itemName.toLowerCase().trim()) && (
-                                                        <button
-                                                            onClick={() => handleOpenQuickAdd(item)}
-                                                            className="text-red-600 hover:text-red-700 p-1 rounded hover:bg-red-50 transition-colors flex items-center gap-1 group relative"
-                                                            title="Add to Material Master"
-                                                        >
-                                                            <Plus className="w-4 h-4" />
-                                                            <div className="absolute bottom-full right-0 mb-2 px-2 py-1 bg-gray-900 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 transition-opacity">
-                                                                Add to Master
-                                                            </div>
-                                                        </button>
-                                                    )}
-                                                    <button onClick={() => onDelete(item.id)} className="text-gray-400 hover:text-red-600 p-0.5"><Trash2 className="w-3.5 h-3.5" /></button>
-                                                </div>
-                                            </td>
+                                            {isAdmin && (
+                                                <td className="py-2 px-3 text-right">
+                                                    <div className="flex justify-end gap-1">
+                                                        {!materials.some(m => m.description.toLowerCase().trim() === item.itemName.toLowerCase().trim()) && (
+                                                            <button
+                                                                onClick={() => handleOpenQuickAdd(item)}
+                                                                className="text-red-600 hover:text-red-700 p-1 rounded hover:bg-red-50 transition-colors flex items-center gap-1 group relative"
+                                                                title="Add to Material Master"
+                                                            >
+                                                                <Plus className="w-4 h-4" />
+                                                                <div className="absolute bottom-full right-0 mb-2 px-2 py-1 bg-gray-900 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 transition-opacity">
+                                                                    Add to Master
+                                                                </div>
+                                                            </button>
+                                                        )}
+                                                        <button onClick={() => onDelete(item.id)} className="text-gray-400 hover:text-red-600 p-0.5"><Trash2 className="w-3.5 h-3.5" /></button>
+                                                    </div>
+                                                </td>
+                                            )}
                                         </tr>
                                     );
                                 })

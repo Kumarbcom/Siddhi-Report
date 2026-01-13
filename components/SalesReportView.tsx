@@ -14,6 +14,7 @@ interface SalesReportViewProps {
     onClear: () => void;
     onAddMaterial?: (data: any) => Promise<void>;
     onAddCustomer?: (data: any) => Promise<void>;
+    isAdmin?: boolean;
 }
 
 type EnrichedSalesItem = SalesReportItem & {
@@ -51,7 +52,8 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
     onDelete,
     onClear,
     onAddMaterial,
-    onAddCustomer
+    onAddCustomer,
+    isAdmin = false
 }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [searchTerm, setSearchTerm] = useState('');
@@ -517,7 +519,16 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
 
             <div className="flex items-center justify-between bg-white p-2 rounded-xl shadow-sm border border-gray-200 flex-shrink-0">
                 <div className="flex items-center gap-4 pl-2"><div className="flex flex-col"><span className="text-[10px] text-gray-500 font-bold uppercase">Qty</span><span className="text-sm font-black text-blue-600">{totals.qty.toLocaleString()}</span></div><div className="w-px h-6 bg-gray-200"></div><div className="flex flex-col"><span className="text-[10px] text-gray-500 font-bold uppercase">Total Value</span><span className="text-sm font-black text-emerald-600">{formatCurrency(totals.val)}</span></div></div>
-                <div className="flex gap-2"><input type="file" ref={fileInputRef} className="hidden" accept=".xlsx, .xls" onChange={handleFileUpload} /><button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold border border-blue-100 hover:bg-blue-100"><Upload className="w-3.5 h-3.5" /> Import</button><button onClick={onClear} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-bold border border-red-100 hover:bg-red-100"><Trash2 className="w-3.5 h-3.5" /></button></div>
+                <div className="flex gap-2">
+                    <input type="file" ref={fileInputRef} className="hidden" accept=".xlsx, .xls" onChange={handleFileUpload} />
+                    <button onClick={handleExportToExcel} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-xs font-bold border border-emerald-100 hover:bg-emerald-100"><Download className="w-3.5 h-3.5" /> Export</button>
+                    {isAdmin && (
+                        <>
+                            <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold border border-blue-100 hover:bg-blue-100"><Upload className="w-3.5 h-3.5" /> Import</button>
+                            <button onClick={onClear} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-bold border border-red-100 hover:bg-red-100"><Trash2 className="w-3.5 h-3.5" /></button>
+                        </>
+                    )}
+                </div>
             </div>
 
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col flex-1 min-h-0">
@@ -534,7 +545,7 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                                 <th className="py-2 px-3 whitespace-nowrap text-right">Value</th>
                                 <th className="py-2 px-3 whitespace-nowrap">Make</th>
                                 <th className="py-2 px-3 whitespace-nowrap cursor-pointer hover:bg-gray-100" onClick={() => handleSort('matGroup')}>Group {renderSortIcon('matGroup')}</th>
-                                <th className="py-2 px-3 text-right">Actions</th>
+                                {isAdmin && <th className="py-2 px-3 text-right">Actions</th>}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200 text-xs text-gray-700">
@@ -546,7 +557,7 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                                     <td className="py-2 px-3 whitespace-nowrap">
                                         <div className="flex items-center gap-2">
                                             <span className="font-bold text-gray-900 truncate max-w-[200px]">{item.customerName}</span>
-                                            {item.isCustUnknown && (
+                                            {item.isCustUnknown && isAdmin && (
                                                 <button onClick={() => handleOpenQuickAddCust(item)} className="p-0.5 bg-red-100 text-red-700 rounded hover:bg-red-200 flex-shrink-0" title="Unknown Master"><UserPlus className="w-2.5 h-2.5" /></button>
                                             )}
                                         </div>
@@ -554,7 +565,7 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                                     <td className="py-2 px-3 whitespace-nowrap">
                                         <div className="flex items-center gap-2">
                                             <span className="truncate max-w-[250px]">{item.particulars}</span>
-                                            {item.isMatUnknown && (
+                                            {item.isMatUnknown && isAdmin && (
                                                 <button onClick={() => handleOpenQuickAddMat(item)} className="p-0.5 bg-red-100 text-red-700 rounded hover:bg-red-200 flex-shrink-0" title="Unknown Item"><Plus className="w-2.5 h-2.5" /></button>
                                             )}
                                         </div>
@@ -563,9 +574,11 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                                     <td className="py-2 px-3 text-right font-bold text-emerald-700 whitespace-nowrap">{formatCurrency(item.value)}</td>
                                     <td className="py-2 px-3 italic text-gray-500 whitespace-nowrap">{item.make}</td>
                                     <td className="py-2 px-3 italic text-gray-400 font-bold uppercase text-[9px] whitespace-nowrap">{item.matGroup}</td>
-                                    <td className="py-2 px-3 text-right whitespace-nowrap">
-                                        <button onClick={() => onDelete(item.id)} className="text-gray-400 hover:text-red-600 p-1"><Trash2 className="w-3.5 h-3.5" /></button>
-                                    </td>
+                                    {isAdmin && (
+                                        <td className="py-2 px-3 text-right whitespace-nowrap">
+                                            <button onClick={() => onDelete(item.id)} className="text-gray-400 hover:text-red-600 p-1"><Trash2 className="w-3.5 h-3.5" /></button>
+                                        </td>
+                                    )}
                                 </tr>
                             ))}
                         </tbody>

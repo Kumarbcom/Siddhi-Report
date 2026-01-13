@@ -416,6 +416,7 @@ interface DashboardViewProps {
     sales1Year: SalesRecord[];
     sales3Months: SalesRecord[];
     setActiveTab: (tab: any) => void;
+    isAdmin?: boolean;
 }
 
 const DashboardView: React.FC<DashboardViewProps> = ({
@@ -425,7 +426,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     pendingPO = [],
     salesReportItems = [],
     customers = [],
-    setActiveTab
+    setActiveTab,
+    isAdmin = false
 }) => {
     const [activeSubTab, setActiveSubTab] = useState<'sales' | 'inventory' | 'so' | 'po' | 'weekly'>('sales');
     const [relatedMomId, setRelatedMomId] = useState<string | null>(null);

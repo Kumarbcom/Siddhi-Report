@@ -4,7 +4,11 @@ import { Attendee } from '../types';
 import { attendeeService } from '../services/attendeeService';
 import { Plus, Trash2, User, Camera, Save, X, Loader2, Search } from 'lucide-react';
 
-const AttendeeMasterView: React.FC = () => {
+interface AttendeeMasterProps {
+    isAdmin?: boolean;
+}
+
+const AttendeeMasterView: React.FC<AttendeeMasterProps> = ({ isAdmin = false }) => {
     const [attendees, setAttendees] = useState<Attendee[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isAdding, setIsAdding] = useState(false);
@@ -78,12 +82,14 @@ const AttendeeMasterView: React.FC = () => {
                         <p className="text-xs text-gray-500 font-bold uppercase tracking-widest">Manage Meeting Participants</p>
                     </div>
                 </div>
-                <button
-                    onClick={() => setIsAdding(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-violet-600 text-white rounded-xl text-xs font-black shadow-lg shadow-violet-200 hover:bg-violet-700 transition-all"
-                >
-                    <Plus className="w-4 h-4" /> Add New Attendee
-                </button>
+                {isAdmin && (
+                    <button
+                        onClick={() => setIsAdding(true)}
+                        className="flex items-center gap-2 px-4 py-2 bg-violet-600 text-white rounded-xl text-xs font-black shadow-lg shadow-violet-200 hover:bg-violet-700 transition-all"
+                    >
+                        <Plus className="w-4 h-4" /> Add New Attendee
+                    </button>
+                )}
             </div>
 
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
@@ -117,12 +123,14 @@ const AttendeeMasterView: React.FC = () => {
                                     <h3 className="text-sm font-black text-gray-800">{attendee.name}</h3>
                                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{attendee.designation}</p>
                                 </div>
-                                <button
-                                    onClick={() => handleDelete(attendee.id)}
-                                    className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                                >
-                                    <Trash2 className="w-4 h-4" />
-                                </button>
+                                {isAdmin && (
+                                    <button
+                                        onClick={() => handleDelete(attendee.id)}
+                                        className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                )}
                             </div>
                         ))}
                     </div>

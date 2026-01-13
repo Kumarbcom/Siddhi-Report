@@ -15,6 +15,7 @@ interface MOMViewProps {
     pendingPO: PendingPOItem[];
     salesReportItems: SalesReportItem[];
     customers: CustomerMasterItem[];
+    isAdmin?: boolean;
 }
 
 const MOMView: React.FC<MOMViewProps> = ({
@@ -23,7 +24,8 @@ const MOMView: React.FC<MOMViewProps> = ({
     pendingSO,
     pendingPO,
     salesReportItems,
-    customers
+    customers,
+    isAdmin = false
 }) => {
     const PLANNED_STOCK_GROUPS = useMemo(() => new Set([
         "eaton-ace", "eaton-biesse", "eaton-coffee day", "eaton-enrx pvt ltd",

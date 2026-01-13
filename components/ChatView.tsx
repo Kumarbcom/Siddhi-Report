@@ -27,6 +27,7 @@ interface ChatViewProps {
   pendingPO: PendingPOItem[];
   salesReportItems: SalesReportItem[];
   customers: CustomerMasterItem[];
+  isAdmin?: boolean;
 }
 
 const ChatView: React.FC<ChatViewProps> = ({
@@ -35,7 +36,8 @@ const ChatView: React.FC<ChatViewProps> = ({
   pendingSO,
   pendingPO,
   salesReportItems,
-  customers
+  customers,
+  isAdmin = false
 }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
