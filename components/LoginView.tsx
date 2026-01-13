@@ -16,9 +16,21 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
 
     useEffect(() => {
         const init = async () => {
-            await authService.initializeUsers();
-            const users = await authService.getUsers();
-            setAvailableUsers(users);
+            setIsLoading(true);
+            try {
+                await authService.initializeUsers();
+                const users = await authService.getUsers();
+                console.log("Fetched users for login:", users);
+                setAvailableUsers(users);
+                if (users.length > 0 && !username) {
+                    // Pre-select first user or leave as empty for "Select your name"
+                }
+            } catch (err) {
+                console.error("Login init error:", err);
+                setError("Failed to load user list");
+            } finally {
+                setIsLoading(false);
+            }
         };
         init();
     }, []);

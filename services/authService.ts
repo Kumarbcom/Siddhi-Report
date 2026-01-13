@@ -54,23 +54,37 @@ export const authService = {
     },
 
     async getUsers(): Promise<User[]> {
+        let users: User[] = [];
         if (isSupabaseConfigured) {
             try {
                 const { data } = await supabase.from('app_users').select('*');
-                if (data) return data.map((r: any) => ({
-                    id: r.id,
-                    username: r.username,
-                    role: r.role,
-                    passwordHash: r.password_hash
-                }));
-            } catch (e) { console.error("Cloud users fetch fail", e); }
+                if (data && data.length > 0) {
+                    users = data.map((r: any) => ({
+                        id: r.id,
+                        username: r.username,
+                        role: r.role,
+                        passwordHash: r.password_hash
+                    }));
+                }
+            } catch (e) {
+                console.error("Cloud users fetch fail", e);
+            }
         }
-        // Fallback to local
-        try {
-            return await dbService.getAll<User>(STORES.USERS || 'users');
-        } catch {
-            return [];
+
+        if (users.length === 0) {
+            try {
+                users = await dbService.getAll<User>(STORES.USERS || 'users');
+            } catch (e) {
+                console.error("Local users fetch fail", e);
+            }
         }
+
+        if (users.length === 0) {
+            await this.initializeUsers();
+            users = await dbService.getAll<User>(STORES.USERS || 'users');
+        }
+
+        return users;
     },
 
     async login(username: string, password: string): Promise<User | null> {
