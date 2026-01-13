@@ -1,6 +1,6 @@
 
-import React, { useState } from 'react';
-import { LogIn, Shield, Lock, User as UserIcon, AlertCircle, Loader2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { LogIn, Shield, Lock, User as UserIcon, AlertCircle, Loader2, ChevronDown } from 'lucide-react';
 import { authService, User } from '../services/authService';
 
 interface LoginViewProps {
@@ -12,6 +12,16 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [availableUsers, setAvailableUsers] = useState<User[]>([]);
+
+    useEffect(() => {
+        const init = async () => {
+            await authService.initializeUsers();
+            const users = await authService.getUsers();
+            setAvailableUsers(users);
+        };
+        init();
+    }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -19,7 +29,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
         setIsLoading(true);
 
         try {
-            await authService.initializeUsers();
             const user = await authService.login(username, password);
             if (user) {
                 onLogin(user);
@@ -47,19 +56,25 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                 <div className="bg-white rounded-[2.5rem] shadow-2xl shadow-gray-200/50 p-10 border border-gray-100">
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div className="space-y-2">
-                            <label className="text-[11px] font-black text-gray-400 uppercase tracking-widest ml-1">Username</label>
+                            <label className="text-[11px] font-black text-gray-400 uppercase tracking-widest ml-1">Select User / Name</label>
                             <div className="relative group">
                                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                     <UserIcon className="h-5 w-5 text-gray-300 group-focus-within:text-blue-500 transition-colors" />
                                 </div>
-                                <input
-                                    type="text"
+                                <select
                                     value={username}
                                     onChange={(e) => setUsername(e.target.value)}
-                                    className="block w-full pl-12 pr-4 py-4 bg-gray-50 border-2 border-transparent rounded-2xl text-gray-900 font-bold placeholder:text-gray-300 placeholder:font-medium focus:bg-white focus:border-blue-500 focus:outline-none transition-all"
-                                    placeholder="Enter your name"
+                                    className="block w-full pl-12 pr-10 py-4 bg-gray-50 border-2 border-transparent rounded-2xl text-gray-900 font-bold appearance-none focus:bg-white focus:border-blue-500 focus:outline-none transition-all"
                                     required
-                                />
+                                >
+                                    <option value="" disabled>Select your name</option>
+                                    {availableUsers.map(u => (
+                                        <option key={u.id} value={u.username}>{u.username}</option>
+                                    ))}
+                                </select>
+                                <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none text-gray-400">
+                                    <ChevronDown className="w-5 h-5" />
+                                </div>
                             </div>
                         </div>
 
@@ -104,7 +119,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                     </form>
 
                     <div className="mt-8 text-center">
-                        <p className="text-gray-400 text-xs font-medium">Default users initialized. Use 123456 as initial password.</p>
+                        <p className="text-gray-400 text-xs font-medium italic">Hint: Select your name above. Default password is 123456.</p>
                     </div>
                 </div>
 

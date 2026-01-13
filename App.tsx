@@ -14,6 +14,7 @@ import PivotReportView from './components/PivotReportView';
 import MOMView from './components/MOMView';
 import AttendeeMasterView from './components/AttendeeMasterView';
 import ChatView from './components/ChatView';
+import UserManagementView from './components/UserManagementView';
 import ConfirmationModal from './components/ConfirmationModal';
 import { Database, AlertCircle, ClipboardList, ShoppingCart, TrendingUp, Package, Layers, LayoutDashboard, FileBarChart, Users, ChevronRight, Menu, X, HardDrive, Table, MessageSquare, AlertTriangle, Factory, CloudOff, Cloud, Trash2, Loader2, UserCircle, LogOut, ShieldCheck, Lock } from 'lucide-react';
 import { authService, User } from './services/authService';
@@ -39,7 +40,7 @@ const getMergedMakeName = (makeName: string) => {
   return m;
 };
 
-type ActiveTab = 'dashboard' | 'chat' | 'master' | 'customerMaster' | 'closingStock' | 'pendingSO' | 'pendingPO' | 'salesHistory' | 'salesReport' | 'pivotReport' | 'mom' | 'attendees';
+type ActiveTab = 'dashboard' | 'chat' | 'master' | 'customerMaster' | 'closingStock' | 'pendingSO' | 'pendingPO' | 'salesHistory' | 'salesReport' | 'pivotReport' | 'mom' | 'attendees' | 'userManagement';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(authService.getCurrentUser());
@@ -589,6 +590,19 @@ const App: React.FC = () => {
                 <SidebarItem id="attendees" label="Attendee Master" icon={UserCircle} onClick={setActiveTab} />
               </div>
             </div>
+            <div>
+              <div className="px-3 mb-3 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Security</div>
+              <div className="space-y-1">
+                {isAdmin && <SidebarItem id="userManagement" label="User Management" icon={ShieldCheck} onClick={setActiveTab} />}
+                <button
+                  onClick={() => setShowPasswordChange(true)}
+                  className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all text-gray-500 hover:bg-gray-50 hover:text-gray-900 group"
+                >
+                  <Lock className="w-4 h-4 text-gray-400 group-hover:text-gray-600" />
+                  <span>Change Password</span>
+                </button>
+              </div>
+            </div>
           </nav>
 
           <div className="p-4 border-t border-gray-100 bg-gray-50 flex-shrink-0">
@@ -641,6 +655,7 @@ const App: React.FC = () => {
             {activeTab === 'salesReport' && <div className="h-full w-full"><SalesReportView isAdmin={isAdmin} items={salesReportItems} materials={materials} customers={customerMasterItems} onBulkAdd={handleBulkAddSales} onUpdate={handleUpdateSales} onDelete={handleDeleteSales} onClear={handleClearSales} onAddMaterial={handleAddMaterial} onAddCustomer={handleAddCustomer} /></div>}
             {activeTab === 'mom' && <div className="h-full w-full"><MOMView isAdmin={isAdmin} materials={materials} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} salesReportItems={salesReportItems} customers={customerMasterItems} /></div>}
             {activeTab === 'attendees' && <div className="h-full w-full"><AttendeeMasterView isAdmin={isAdmin} /></div>}
+            {activeTab === 'userManagement' && isAdmin && <div className="h-full w-full"><UserManagementView /></div>}
           </div>
         </main>
       </div>
