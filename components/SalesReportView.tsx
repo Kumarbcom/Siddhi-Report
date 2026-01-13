@@ -356,7 +356,25 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
     const handleSort = (key: SortKey) => { let direction: 'asc' | 'desc' = 'asc'; if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc'; setSortConfig({ key, direction }); };
     const renderSortIcon = (key: SortKey) => { if (!sortConfig || sortConfig.key !== key) return <ArrowUpDown className="w-3 h-3 text-gray-400" />; return sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 text-blue-500" /> : <ArrowDown className="w-3 h-3 text-blue-500" />; };
 
-    const handleDownloadTemplate = () => { const headers = [{ "Date": "2023-10-01", "Customer Name": "ABC Corp", "Particulars": "Item", "Voucher No.": "INV-001", "Quantity": 1, "Value": 1000 }]; const ws = utils.json_to_sheet(headers); const wb = utils.book_new(); utils.book_append_sheet(wb, ws, "Template"); writeFile(wb, "Sales_Report_Template.xlsx"); };
+    const handleDownloadTemplate = () => { const headers = [{ "Date": "2023-10-01", "Customer Name": "ABC Corp", "Particulars": "Item", "Voucher No.": "INV-001", "Voucher Ref No.": "REF-001", "Quantity": 1, "Value": 1000 }]; const ws = utils.json_to_sheet(headers); const wb = utils.book_new(); utils.book_append_sheet(wb, ws, "Template"); writeFile(wb, "Sales_Report_Template.xlsx"); };
+
+    const handleExportToExcel = () => {
+        const exportData = processedItems.map(item => ({
+            'Date': formatDateDisplay(item.date),
+            'Voucher No': item.voucherNo || '',
+            'Voucher Ref No': item.voucherRefNo || '',
+            'Make': item.make || '',
+            'Item': item.particulars || '',
+            'Qty': item.quantity || 0,
+            'Value': item.value || 0,
+            'Group': item.matGroup || '',
+            'Customer': item.customerName || ''
+        }));
+        const ws = utils.json_to_sheet(exportData);
+        const wb = utils.book_new();
+        utils.book_append_sheet(wb, ws, "Sales Report");
+        writeFile(wb, `Sales_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+    };
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -392,17 +410,18 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                     const end = Math.min(currentIndex + CHUNK_SIZE, totalRows);
                     for (let i = currentIndex; i < end; i++) {
                         const row = jsonData[i];
-                        let customerName = '', particulars = '', voucherNo = '', value = 0, quantity = 0, date = null;
+                        let customerName = '', particulars = '', voucherNo = '', voucherRefNo = '', value = 0, quantity = 0, date = null;
                         Object.keys(row).forEach(key => {
                             const lowerKey = key.toLowerCase();
                             if (lowerKey.includes('customer') || lowerKey === 'name') customerName = String(row[key]);
                             else if (lowerKey.includes('particular') || lowerKey.includes('item')) particulars = String(row[key]);
-                            else if (lowerKey.includes('voucher')) voucherNo = String(row[key]);
+                            else if (lowerKey.includes('voucher no') || (lowerKey.includes('voucher') && !lowerKey.includes('ref'))) voucherNo = String(row[key]);
+                            else if (lowerKey.includes('ref')) voucherRefNo = String(row[key]);
                             else if (lowerKey.includes('value') || lowerKey.includes('amount')) value = parseFloat(row[key]);
                             else if (lowerKey.includes('quant') || lowerKey === 'qty') quantity = parseFloat(row[key]);
                             else if (lowerKey.includes('date') || lowerKey === 'dt') date = formatExcelDate(row[key]);
                         });
-                        if (customerName) allNewItems.push({ date, customerName, particulars, voucherNo, quantity: quantity || 0, value: value || 0, consignee: '', voucherRefNo: '' });
+                        if (customerName) allNewItems.push({ date, customerName, particulars, voucherNo, quantity: quantity || 0, value: value || 0, consignee: '', voucherRefNo: voucherRefNo || '' });
                     }
                     currentIndex = end;
                     const progress = Math.round((currentIndex / totalRows) * 100);
@@ -434,6 +453,7 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                 <div className="flex gap-2">
                     <button onClick={() => setShowMismatchesOnly(!showMismatchesOnly)} className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${showMismatchesOnly ? 'bg-orange-100 text-orange-700 border-orange-200 shadow-sm' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}>{showMismatchesOnly ? "Show Valid Records" : "Filter Mismatches"}</button>
                     <button onClick={handleDownloadTemplate} className="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-600 text-white hover:bg-blue-700 shadow-sm flex items-center gap-1.5"><Download className="w-3.5 h-3.5" /> Template</button>
+                    <button onClick={handleExportToExcel} className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm flex items-center gap-1.5"><FileDown className="w-3.5 h-3.5" /> Export Excel</button>
                 </div>
             </div>
 
@@ -470,23 +490,28 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col flex-1 min-h-0">
                 <div className="overflow-auto flex-1 h-full">
                     <table className="w-full text-left border-collapse min-w-full">
-                        <thead className="sticky top-0 z-10 bg-gray-50 shadow-sm text-[10px] font-bold text-gray-500 uppercase tracking-tighter"><tr className="border-b border-gray-200"><th className="py-2 px-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('date')}>Date {renderSortIcon('date')}</th><th className="py-2 px-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('customerName')}>Customer {renderSortIcon('customerName')}</th><th className="py-2 px-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('custGroup')}>Group {renderSortIcon('custGroup')}</th><th className="py-2 px-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('particulars')}>Item {renderSortIcon('particulars')}</th><th className="py-2 px-3">Make</th><th className="py-2 px-3">Voucher</th><th className="py-2 px-3 text-right">Qty</th><th className="py-2 px-3 text-right">Value</th><th className="py-2 px-3 text-right">Actions</th></tr></thead>
+                        <thead className="sticky top-0 z-10 bg-gray-50 shadow-sm text-[10px] font-bold text-gray-500 uppercase tracking-tighter">
+                            <tr className="border-b border-gray-200">
+                                <th className="py-2 px-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('date')}>Date {renderSortIcon('date')}</th>
+                                <th className="py-2 px-3">Voucher No</th>
+                                <th className="py-2 px-3">Voucher Ref</th>
+                                <th className="py-2 px-3">Make</th>
+                                <th className="py-2 px-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('particulars')}>Item {renderSortIcon('particulars')}</th>
+                                <th className="py-2 px-3 text-right">Qty</th>
+                                <th className="py-2 px-3 text-right">Value</th>
+                                <th className="py-2 px-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('matGroup')}>Group {renderSortIcon('matGroup')}</th>
+                                <th className="py-2 px-3 border-r" onClick={() => handleSort('custGroup')}>Cust Group</th>
+                                <th className="py-2 px-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('customerName')}>Customer {renderSortIcon('customerName')}</th>
+                                <th className="py-2 px-3 text-right">Actions</th>
+                            </tr>
+                        </thead>
                         <tbody className="divide-y divide-gray-200 text-xs text-gray-700">
                             {paginatedItems.map(item => (
                                 <tr key={item.id} className="hover:bg-blue-50/10 transition-colors">
-                                    <td className="py-2 px-3 text-gray-500">{formatDateDisplay(item.date)}</td>
-                                    <td className="py-2 px-3">
-                                        <div className="flex flex-col">
-                                            <span className="font-bold text-gray-900 truncate max-w-[150px]">{item.customerName}</span>
-                                            {item.isCustUnknown && (
-                                                <div className="flex items-center gap-1 mt-0.5">
-                                                    <span className="text-[8px] text-red-600 bg-red-50 px-1 rounded font-bold border border-red-100">Unknown Master</span>
-                                                    <button onClick={() => handleOpenQuickAddCust(item)} className="p-0.5 bg-red-100 text-red-700 rounded hover:bg-red-200"><UserPlus className="w-2.5 h-2.5" /></button>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </td>
-                                    <td className="py-2 px-3 font-bold uppercase text-[9px] text-gray-400">{item.custGroup}</td>
+                                    <td className="py-2 px-3 text-gray-500 whitespace-nowrap">{formatDateDisplay(item.date)}</td>
+                                    <td className="py-2 px-3 font-mono text-[10px] text-gray-700">{item.voucherNo}</td>
+                                    <td className="py-2 px-3 font-mono text-[10px] text-gray-400">{item.voucherRefNo || '-'}</td>
+                                    <td className="py-2 px-3 italic text-gray-500">{item.make}</td>
                                     <td className="py-2 px-3">
                                         <div className="flex flex-col">
                                             <span className="truncate max-w-[180px]">{item.particulars}</span>
@@ -498,10 +523,21 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                                             )}
                                         </div>
                                     </td>
-                                    <td className="py-2 px-3 italic text-gray-500">{item.make}</td>
-                                    <td className="py-2 px-3 font-mono text-[9px] text-gray-400">{item.voucherNo}</td>
                                     <td className="py-2 px-3 text-right font-medium text-blue-700">{item.quantity}</td>
                                     <td className="py-2 px-3 text-right font-bold text-emerald-700">{formatCurrency(item.value)}</td>
+                                    <td className="py-2 px-3 italic text-gray-400 font-bold uppercase text-[9px]">{item.matGroup}</td>
+                                    <td className="py-2 px-3 font-bold uppercase text-[9px] text-gray-400">{item.custGroup}</td>
+                                    <td className="py-2 px-3">
+                                        <div className="flex flex-col">
+                                            <span className="font-bold text-gray-900 truncate max-w-[150px]">{item.customerName}</span>
+                                            {item.isCustUnknown && (
+                                                <div className="flex items-center gap-1 mt-0.5">
+                                                    <span className="text-[8px] text-red-600 bg-red-50 px-1 rounded font-bold border border-red-100">Unknown Master</span>
+                                                    <button onClick={() => handleOpenQuickAddCust(item)} className="p-0.5 bg-red-100 text-red-700 rounded hover:bg-red-200"><UserPlus className="w-2.5 h-2.5" /></button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </td>
                                     <td className="py-2 px-3 text-right">
                                         <button onClick={() => onDelete(item.id)} className="text-gray-400 hover:text-red-600 p-1"><Trash2 className="w-3.5 h-3.5" /></button>
                                     </td>
