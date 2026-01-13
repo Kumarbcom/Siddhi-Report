@@ -410,18 +410,19 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                     const end = Math.min(currentIndex + CHUNK_SIZE, totalRows);
                     for (let i = currentIndex; i < end; i++) {
                         const row = jsonData[i];
-                        let customerName = '', particulars = '', voucherNo = '', voucherRefNo = '', value = 0, quantity = 0, date = null;
+                        let customerName = '', particulars = '', voucherNo = '', voucherRefNo = '', consignee = '', value = 0, quantity = 0, date = null;
                         Object.keys(row).forEach(key => {
-                            const lowerKey = key.toLowerCase();
+                            const lowerKey = key.toLowerCase().trim();
                             if (lowerKey.includes('customer') || lowerKey === 'name') customerName = String(row[key]);
+                            else if (lowerKey.includes('consignee')) consignee = String(row[key]);
                             else if (lowerKey.includes('particular') || lowerKey.includes('item')) particulars = String(row[key]);
-                            else if (lowerKey.includes('voucher no') || (lowerKey.includes('voucher') && !lowerKey.includes('ref'))) voucherNo = String(row[key]);
+                            else if (lowerKey.includes('voucher no') || (lowerKey.includes('voucher') && !lowerKey.includes('ref')) || lowerKey === 'vch no') voucherNo = String(row[key]);
                             else if (lowerKey.includes('ref')) voucherRefNo = String(row[key]);
                             else if (lowerKey.includes('value') || lowerKey.includes('amount')) value = parseFloat(row[key]);
                             else if (lowerKey.includes('quant') || lowerKey === 'qty') quantity = parseFloat(row[key]);
                             else if (lowerKey.includes('date') || lowerKey === 'dt') date = formatExcelDate(row[key]);
                         });
-                        if (customerName) allNewItems.push({ date, customerName, particulars, voucherNo, quantity: quantity || 0, value: value || 0, consignee: '', voucherRefNo: voucherRefNo || '' });
+                        if (customerName) allNewItems.push({ date, customerName, particulars, voucherNo, quantity: quantity || 0, value: value || 0, consignee: consignee || '', voucherRefNo: voucherRefNo || '' });
                     }
                     currentIndex = end;
                     const progress = Math.round((currentIndex / totalRows) * 100);
