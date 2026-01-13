@@ -361,8 +361,8 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
     const handleExportToExcel = () => {
         const exportData = processedItems.map(item => ({
             'Date': formatDateDisplay(item.date),
-            'Voucher No': item.voucherNo || '',
-            'Voucher Ref No': item.voucherRefNo || '',
+            'Voucher No.': item.voucherNo || '',
+            'Voucher Ref. No.': item.voucherRefNo || '',
             'Make': item.make || '',
             'Item': item.particulars || '',
             'Qty': item.quantity || 0,
@@ -412,17 +412,49 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                         const row = jsonData[i];
                         let customerName = '', particulars = '', voucherNo = '', voucherRefNo = '', consignee = '', value = 0, quantity = 0, date = null;
                         Object.keys(row).forEach(key => {
-                            const lowerKey = key.toLowerCase().trim();
-                            if (lowerKey.includes('customer') || lowerKey === 'name') customerName = String(row[key]);
-                            else if (lowerKey.includes('consignee')) consignee = String(row[key]);
-                            else if (lowerKey.includes('particular') || lowerKey.includes('item')) particulars = String(row[key]);
-                            else if (lowerKey.includes('voucher no') || (lowerKey.includes('voucher') && !lowerKey.includes('ref')) || lowerKey === 'vch no') voucherNo = String(row[key]);
-                            else if (lowerKey.includes('ref')) voucherRefNo = String(row[key]);
-                            else if (lowerKey.includes('value') || lowerKey.includes('amount')) value = parseFloat(row[key]);
-                            else if (lowerKey.includes('quant') || lowerKey === 'qty') quantity = parseFloat(row[key]);
-                            else if (lowerKey.includes('date') || lowerKey === 'dt') date = formatExcelDate(row[key]);
+                            const lowerKey = key.toLowerCase().trim().replace(/\./g, ''); // Remove dots for cleaner matching
+
+                            // 1. Check for Reference Number FIRST (to avoid overlap with Voucher No)
+                            if (lowerKey.includes('ref')) {
+                                voucherRefNo = String(row[key]);
+                            }
+                            // 2. Check for Consignee
+                            else if (lowerKey.includes('consignee')) {
+                                consignee = String(row[key]);
+                            }
+                            // 3. Check for Customer Name
+                            else if (lowerKey.includes('customer') || lowerKey === 'name' || lowerKey === 'party') {
+                                customerName = String(row[key]);
+                            }
+                            // 4. Check for Particulars / Items
+                            else if (lowerKey.includes('particular') || lowerKey.includes('item') || lowerKey.includes('description')) {
+                                particulars = String(row[key]);
+                            }
+                            // 5. Check for Voucher Number (after Ref check)
+                            else if (lowerKey.includes('voucher no') || lowerKey.includes('vch no') || (lowerKey.includes('voucher') && !lowerKey.includes('ref'))) {
+                                voucherNo = String(row[key]);
+                            }
+                            // 6. Metrics and Dates
+                            else if (lowerKey.includes('value') || lowerKey.includes('amount')) {
+                                value = parseFloat(row[key]);
+                            }
+                            else if (lowerKey.includes('quant') || lowerKey === 'qty') {
+                                quantity = parseFloat(row[key]);
+                            }
+                            else if (lowerKey.includes('date') || lowerKey === 'dt') {
+                                date = formatExcelDate(row[key]);
+                            }
                         });
-                        if (customerName) allNewItems.push({ date, customerName, particulars, voucherNo, quantity: quantity || 0, value: value || 0, consignee: consignee || '', voucherRefNo: voucherRefNo || '' });
+                        if (customerName) allNewItems.push({
+                            date,
+                            customerName,
+                            particulars,
+                            voucherNo,
+                            quantity: quantity || 0,
+                            value: value || 0,
+                            consignee: consignee || '',
+                            voucherRefNo: voucherRefNo || ''
+                        });
                     }
                     currentIndex = end;
                     const progress = Math.round((currentIndex / totalRows) * 100);
@@ -494,8 +526,8 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                         <thead className="sticky top-0 z-10 bg-gray-50 shadow-sm text-[10px] font-bold text-gray-500 uppercase tracking-tighter">
                             <tr className="border-b border-gray-200">
                                 <th className="py-2 px-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('date')}>Date {renderSortIcon('date')}</th>
-                                <th className="py-2 px-3">Voucher No</th>
-                                <th className="py-2 px-3">Voucher Ref</th>
+                                <th className="py-2 px-3">Voucher No.</th>
+                                <th className="py-2 px-3">Voucher Ref. No.</th>
                                 <th className="py-2 px-3">Make</th>
                                 <th className="py-2 px-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('particulars')}>Item {renderSortIcon('particulars')}</th>
                                 <th className="py-2 px-3 text-right">Qty</th>

@@ -114,12 +114,12 @@ const MOMView: React.FC<MOMViewProps> = ({
         const fourteenDaysAgo = new Date(today);
         fourteenDaysAgo.setDate(today.getDate() - 14);
 
-        const thisWeekSales = salesReportItems
-            .filter(i => {
-                const d = new Date(i.date);
-                return d > sevenDaysAgo && d <= today;
-            })
-            .reduce((acc, i) => acc + (i.value || 0), 0);
+        const thisWeekItems = salesReportItems.filter(i => {
+            const d = new Date(i.date);
+            return d > sevenDaysAgo && d <= today;
+        });
+
+        const thisWeekSales = thisWeekItems.reduce((acc, i) => acc + (i.value || 0), 0);
 
         const lastWeekSales = salesReportItems
             .filter(i => {
@@ -135,6 +135,10 @@ const MOMView: React.FC<MOMViewProps> = ({
                 return g.includes('online');
             })
             .reduce((acc, i) => acc + (i.value || 0), 0);
+
+        const voucherSummary = thisWeekItems.slice(0, 15).map(i => {
+            return `  - ${i.voucherNo}${i.voucherRefNo ? ` (Ref: ${i.voucherRefNo})` : ''}: ${toCr(i.value)}`;
+        }).join('\n');
 
         const totalPendingSOVal = pendingSO.reduce((acc, i) => acc + (i.value || 0), 0);
         const scheduledOrdersVal = pendingSO
@@ -358,7 +362,7 @@ const MOMView: React.FC<MOMViewProps> = ({
             totalPendingSO: totalPendingSOVal, scheduledOrders: scheduledOrdersVal, dueOrdersVal, readyStockVal, shortageVal,
             lappNonMoving, eatonNonMoving, hagerNonMoving, othersNonMoving,
             totalExcess: totalExcessStockVal, excessByMake: excessStockByMake, excessPOVal: totalExcessPOVal,
-            benchmarks
+            benchmarks, voucherSummary
         };
     }, [pendingSO, closingStock, salesReportItems, customers, currentMom.date, materials, pendingPO]);
 
@@ -373,7 +377,7 @@ const MOMView: React.FC<MOMViewProps> = ({
         const agendaItems: MOMItem[] = [
             {
                 id: crypto.randomUUID(), slNo: 1, agendaItem: 'Sales Review: Present YTD vs Weekly Momentum',
-                discussion: `• Present YTD Sales (FY): ${toCr(autoPullData.ytdSales)}\n• Online Sales YTD: ${toCr(autoPullData.onlineSales)}\n• Current Week Sales: ${toCr(autoPullData.thisWeekSales)} (${autoPullData.weeklyGrowthText})\n• Last Week Sales Performance: ${toCr(autoPullData.lastWeekSales)}`,
+                discussion: `• Present YTD Sales (FY): ${toCr(autoPullData.ytdSales)}\n• Online Sales YTD: ${toCr(autoPullData.onlineSales)}\n• Current Week Sales: ${toCr(autoPullData.thisWeekSales)} (${autoPullData.weeklyGrowthText})\n• Last Week Sales Performance: ${toCr(autoPullData.lastWeekSales)}${autoPullData.voucherSummary ? `\n• Vouchers for Current Week:\n${autoPullData.voucherSummary}` : ''}`,
                 actionAccount: ['Kumar'], timeline: currentMom.date || '', isCompleted: false
             },
             {
