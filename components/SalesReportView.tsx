@@ -525,16 +525,15 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                     <table className="w-full text-left border-collapse min-w-full">
                         <thead className="sticky top-0 z-10 bg-gray-50 shadow-sm text-[10px] font-bold text-gray-500 uppercase tracking-tighter">
                             <tr className="border-b border-gray-200">
-                                <th className="py-2 px-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('date')}>Date {renderSortIcon('date')}</th>
-                                <th className="py-2 px-3">Voucher No.</th>
-                                <th className="py-2 px-3">Voucher Ref. No.</th>
-                                <th className="py-2 px-3">Make</th>
-                                <th className="py-2 px-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('particulars')}>Item {renderSortIcon('particulars')}</th>
-                                <th className="py-2 px-3 text-right">Qty</th>
-                                <th className="py-2 px-3 text-right">Value</th>
-                                <th className="py-2 px-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('matGroup')}>Group {renderSortIcon('matGroup')}</th>
-                                <th className="py-2 px-3 border-r" onClick={() => handleSort('custGroup')}>Cust Group</th>
-                                <th className="py-2 px-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('customerName')}>Customer {renderSortIcon('customerName')}</th>
+                                <th className="py-2 px-3 whitespace-nowrap cursor-pointer hover:bg-gray-100" onClick={() => handleSort('date')}>Date {renderSortIcon('date')}</th>
+                                <th className="py-2 px-3 whitespace-nowrap">Voucher No.</th>
+                                <th className="py-2 px-3 whitespace-nowrap">Voucher Ref. No.</th>
+                                <th className="py-2 px-3 whitespace-nowrap cursor-pointer hover:bg-gray-100" onClick={() => handleSort('customerName')}>Customer Name {renderSortIcon('customerName')}</th>
+                                <th className="py-2 px-3 whitespace-nowrap cursor-pointer hover:bg-gray-100" onClick={() => handleSort('particulars')}>Item Name {renderSortIcon('particulars')}</th>
+                                <th className="py-2 px-3 whitespace-nowrap text-right">Qty</th>
+                                <th className="py-2 px-3 whitespace-nowrap text-right">Value</th>
+                                <th className="py-2 px-3 whitespace-nowrap">Make</th>
+                                <th className="py-2 px-3 whitespace-nowrap cursor-pointer hover:bg-gray-100" onClick={() => handleSort('matGroup')}>Group {renderSortIcon('matGroup')}</th>
                                 <th className="py-2 px-3 text-right">Actions</th>
                             </tr>
                         </thead>
@@ -542,36 +541,29 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                             {paginatedItems.map(item => (
                                 <tr key={item.id} className="hover:bg-blue-50/10 transition-colors">
                                     <td className="py-2 px-3 text-gray-500 whitespace-nowrap">{formatDateDisplay(item.date)}</td>
-                                    <td className="py-2 px-3 font-mono text-[10px] text-gray-700">{item.voucherNo}</td>
-                                    <td className="py-2 px-3 font-mono text-[10px] text-gray-400">{item.voucherRefNo || '-'}</td>
-                                    <td className="py-2 px-3 italic text-gray-500">{item.make}</td>
-                                    <td className="py-2 px-3">
-                                        <div className="flex flex-col">
-                                            <span className="truncate max-w-[180px]">{item.particulars}</span>
-                                            {item.isMatUnknown && (
-                                                <div className="flex items-center gap-1 mt-0.5">
-                                                    <span className="text-[8px] text-red-600 bg-red-50 px-1 rounded font-bold border border-red-100">Unknown Item</span>
-                                                    <button onClick={() => handleOpenQuickAddMat(item)} className="p-0.5 bg-red-100 text-red-700 rounded hover:bg-red-200"><Plus className="w-2.5 h-2.5" /></button>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </td>
-                                    <td className="py-2 px-3 text-right font-medium text-blue-700">{item.quantity}</td>
-                                    <td className="py-2 px-3 text-right font-bold text-emerald-700">{formatCurrency(item.value)}</td>
-                                    <td className="py-2 px-3 italic text-gray-400 font-bold uppercase text-[9px]">{item.matGroup}</td>
-                                    <td className="py-2 px-3 font-bold uppercase text-[9px] text-gray-400">{item.custGroup}</td>
-                                    <td className="py-2 px-3">
-                                        <div className="flex flex-col">
-                                            <span className="font-bold text-gray-900 truncate max-w-[150px]">{item.customerName}</span>
+                                    <td className="py-2 px-3 font-mono text-[10px] text-gray-700 whitespace-nowrap">{item.voucherNo}</td>
+                                    <td className="py-2 px-3 font-mono text-[10px] text-gray-400 whitespace-nowrap">{item.voucherRefNo || '-'}</td>
+                                    <td className="py-2 px-3 whitespace-nowrap">
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-bold text-gray-900 truncate max-w-[200px]">{item.customerName}</span>
                                             {item.isCustUnknown && (
-                                                <div className="flex items-center gap-1 mt-0.5">
-                                                    <span className="text-[8px] text-red-600 bg-red-50 px-1 rounded font-bold border border-red-100">Unknown Master</span>
-                                                    <button onClick={() => handleOpenQuickAddCust(item)} className="p-0.5 bg-red-100 text-red-700 rounded hover:bg-red-200"><UserPlus className="w-2.5 h-2.5" /></button>
-                                                </div>
+                                                <button onClick={() => handleOpenQuickAddCust(item)} className="p-0.5 bg-red-100 text-red-700 rounded hover:bg-red-200 flex-shrink-0" title="Unknown Master"><UserPlus className="w-2.5 h-2.5" /></button>
                                             )}
                                         </div>
                                     </td>
-                                    <td className="py-2 px-3 text-right">
+                                    <td className="py-2 px-3 whitespace-nowrap">
+                                        <div className="flex items-center gap-2">
+                                            <span className="truncate max-w-[250px]">{item.particulars}</span>
+                                            {item.isMatUnknown && (
+                                                <button onClick={() => handleOpenQuickAddMat(item)} className="p-0.5 bg-red-100 text-red-700 rounded hover:bg-red-200 flex-shrink-0" title="Unknown Item"><Plus className="w-2.5 h-2.5" /></button>
+                                            )}
+                                        </div>
+                                    </td>
+                                    <td className="py-2 px-3 text-right font-medium text-blue-700 whitespace-nowrap">{item.quantity.toLocaleString()}</td>
+                                    <td className="py-2 px-3 text-right font-bold text-emerald-700 whitespace-nowrap">{formatCurrency(item.value)}</td>
+                                    <td className="py-2 px-3 italic text-gray-500 whitespace-nowrap">{item.make}</td>
+                                    <td className="py-2 px-3 italic text-gray-400 font-bold uppercase text-[9px] whitespace-nowrap">{item.matGroup}</td>
+                                    <td className="py-2 px-3 text-right whitespace-nowrap">
                                         <button onClick={() => onDelete(item.id)} className="text-gray-400 hover:text-red-600 p-1"><Trash2 className="w-3.5 h-3.5" /></button>
                                     </td>
                                 </tr>
