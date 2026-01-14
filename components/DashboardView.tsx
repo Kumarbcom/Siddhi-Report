@@ -429,7 +429,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     setActiveTab,
     isAdmin = false
 }) => {
-    const [activeSubTab, setActiveSubTab] = useState<'sales' | 'inventory' | 'so' | 'po' | 'weekly'>('sales');
+    const [activeSubTab, setActiveSubTab] = useState<'sales' | 'inventory' | 'so' | 'po' | 'weekly' | 'stockPlanning'>('sales');
     const [relatedMomId, setRelatedMomId] = useState<string | null>(null);
     const [weeklyBenchmarks, setWeeklyBenchmarks] = useState<{ [key: string]: any }>(() => {
         const saved = localStorage.getItem('weeklyBenchmarks');
@@ -477,6 +477,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     const [invSortKey, setInvSortKey] = useState<string>('value');
     const [invSortOrder, setInvSortOrder] = useState<'asc' | 'desc'>('desc');
     const [groupingMode, setGroupingMode] = useState<'RAW' | 'MERGED'>('MERGED');
+    const [selectedStockItem, setSelectedStockItem] = useState<string | null>(null);
+    const [stockSearchTerm, setStockSearchTerm] = useState('');
+    const [stockSlicers, setStockSlicers] = useState({ make: 'ALL', group: 'ALL', strategy: 'ALL', class: 'ALL' });
+
 
     const parseDate = (val: any): Date => {
         if (!val) return new Date();
@@ -791,6 +795,128 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             .sort((a, b) => b.value - a.value)
             .slice(0, 10);
     }, [currentData, previousDataForComparison, yoyData, timeView]);
+
+    const stockPlanningData = useMemo(() => {
+        const materialMap = new Map<string, any>();
+
+        // 1. Initialize with Materials
+        materials.forEach(m => {
+            const desc = (m.description || '').trim();
+            const lowerDesc = desc.toLowerCase();
+            materialMap.set(lowerDesc, {
+                description: desc,
+                make: getMergedMakeName(m.make),
+                group: m.materialGroup,
+                stock: 0,
+                soDue: 0,
+                soSched: 0,
+                poDue: 0,
+                poSched: 0,
+                salesCY: 0,
+                salesPY: 0,
+                monthlySales: new Map<string, number>(),
+                hasProject: false,
+                strategy: 'MADE TO ORDER',
+                classification: 'NON-MOVING'
+            });
+        });
+
+        // 2. Closing Stock
+        closingStock.forEach(item => {
+            const lower = (item.description || '').toLowerCase().trim();
+            if (materialMap.has(lower)) {
+                materialMap.get(lower).stock += (item.quantity || 0);
+            }
+        });
+
+        const monthEnd = new Date(2026, 0, 31); // End of Jan 2026
+
+        // 3. Pending SO
+        pendingSO.forEach(item => {
+            const lower = (item.itemName || '').toLowerCase().trim();
+            if (materialMap.has(lower)) {
+                const m = materialMap.get(lower);
+                const due = parseDate(item.dueDate);
+                if (due <= monthEnd) m.soDue += (item.balanceQty || 0);
+                else m.soSched += (item.balanceQty || 0);
+            }
+        });
+
+        // 4. Pending PO
+        pendingPO.forEach(item => {
+            const lower = (item.itemName || '').toLowerCase().trim();
+            if (materialMap.has(lower)) {
+                const m = materialMap.get(lower);
+                const due = parseDate(item.dueDate);
+                if (due <= monthEnd) m.poDue += (item.balanceQty || 0);
+                else m.poSched += (item.balanceQty || 0);
+            }
+        });
+
+        // 5. Sales & Movement
+        enrichedSales.forEach(item => {
+            const desc = (item.particulars || '').toLowerCase().trim();
+            if (materialMap.has(desc)) {
+                const m = materialMap.get(desc);
+                const isProject = desc.includes('project') || (item.customerName || '').toLowerCase().includes('project');
+
+                if (item.fiscalYear === '2025-26') m.salesCY += (item.quantity || 0);
+                if (item.fiscalYear === '2024-25') m.salesPY += (item.quantity || 0);
+
+                const d = parseDate(item.date);
+                const monthKey = `${d.getFullYear()}-${d.getMonth() + 1}`;
+                m.monthlySales.set(monthKey, (m.monthlySales.get(monthKey) || 0) + (item.quantity || 0));
+
+                if (isProject) m.hasProject = true;
+            }
+        });
+
+        // 6. Final Calculations & Heuristics
+        return Array.from(materialMap.values()).map(m => {
+            const activeMonths = m.monthlySales.size;
+            const avgMonthly = activeMonths > 0 ? Array.from(m.monthlySales.values() as IterableIterator<number>).reduce((a: number, b: number) => a + b, 0) / activeMonths : 0;
+
+            // Classification Logic
+            if (activeMonths >= 6) m.classification = 'FAST RUNNER';
+            else if (activeMonths >= 2) m.classification = 'SLOW RUNNER';
+
+            // Strategy Logic
+            if (m.salesCY + m.salesPY > 1000) m.strategy = 'GENERAL STOCK';
+            else if (m.salesCY + m.salesPY > 0) m.strategy = 'AGAINST ORDER';
+
+            const netQty = m.stock + m.poDue + m.poSched - (m.soDue + m.soSched);
+
+            // Inventory Levels
+            const safetyStock = Math.ceil(avgMonthly * 1.2);
+            const minStock = safetyStock;
+            const rol = Math.ceil(safetyStock + (avgMonthly * 0.5)); // 0.5 month lead time
+            const maxStock = Math.ceil(rol + (avgMonthly * 1.5));
+
+            const projection = Math.ceil(avgMonthly);
+
+            return {
+                ...m,
+                netQty,
+                safetyStock,
+                minStock,
+                rol,
+                maxStock,
+                projection,
+                avgMonthly
+            };
+        });
+    }, [materials, closingStock, pendingSO, pendingPO, enrichedSales]);
+
+    const filteredStockPlanning = useMemo(() => {
+        return stockPlanningData.filter(d => {
+            const matchesMake = stockSlicers.make === 'ALL' || d.make === stockSlicers.make;
+            const matchesGroup = stockSlicers.group === 'ALL' || d.group === stockSlicers.group;
+            const matchesStrat = stockSlicers.strategy === 'ALL' || d.strategy === stockSlicers.strategy;
+            const matchesClass = stockSlicers.class === 'ALL' || d.classification === stockSlicers.class;
+            const matchesSearch = !stockSearchTerm || d.description.toLowerCase().includes(stockSearchTerm.toLowerCase());
+            return matchesMake && matchesGroup && matchesStrat && matchesClass && matchesSearch;
+        }).sort((a, b) => b.salesCY - a.salesCY);
+    }, [stockPlanningData, stockSlicers, stockSearchTerm]);
 
     const inventoryStats = useMemo(() => {
         // Build maps for O(1) matching
@@ -2228,6 +2354,199 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                             </tbody>
                                         </table>
                                     </div>
+                                </div>
+                            </div>
+                        </div>
+                    ) : activeSubTab === 'stockPlanning' ? (
+                        <div className="flex flex-col gap-6">
+                            {/* Header & Slicers */}
+                            <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex flex-col gap-4">
+                                <div className="flex justify-between items-center">
+                                    <div className="flex items-center gap-3">
+                                        <div className="bg-rose-600 p-2 rounded-lg text-white">
+                                            <Layers className="w-5 h-5" />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-sm font-black text-gray-800 uppercase">Advanced Stock Planning</h3>
+                                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Inventory Health & Sales Projections</p>
+                                        </div>
+                                    </div>
+                                    <div className="relative w-96">
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                        <input
+                                            type="text"
+                                            placeholder="Search Items for specific movement analysis..."
+                                            className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-rose-500 transition-all"
+                                            value={stockSearchTerm}
+                                            onChange={(e) => setStockSearchTerm(e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-4 gap-4 pt-2 border-t border-gray-50">
+                                    {[
+                                        { label: 'Make', key: 'make', options: ['ALL', ...Array.from(new Set(stockPlanningData.map(d => d.make))).sort()] },
+                                        { label: 'Group', key: 'group', options: ['ALL', ...Array.from(new Set(stockPlanningData.map(d => d.group))).sort()] },
+                                        { label: 'Strategy', key: 'strategy', options: ['ALL', 'GENERAL STOCK', 'MADE TO ORDER', 'AGAINST ORDER'] },
+                                        { label: 'Classification', key: 'class', options: ['ALL', 'FAST RUNNER', 'SLOW RUNNER', 'NON-MOVING'] }
+                                    ].map((s) => (
+                                        <div key={s.key} className="flex flex-col gap-1.5">
+                                            <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">{s.label}</label>
+                                            <select
+                                                className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-[10px] font-black uppercase outline-none focus:ring-2 focus:ring-rose-500"
+                                                value={(stockSlicers as any)[s.key]}
+                                                onChange={(e) => setStockSlicers(prev => ({ ...prev, [s.key]: e.target.value }))}
+                                            >
+                                                {s.options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                            </select>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Chart Area for Selected Item */}
+                            {selectedStockItem && (
+                                <div className="bg-white p-6 rounded-2xl border border-rose-200 shadow-lg animate-in fade-in slide-in-from-top-4 duration-500 relative">
+                                    <button
+                                        onClick={() => setSelectedStockItem(null)}
+                                        className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+                                    >
+                                        <X className="w-5 h-5" />
+                                    </button>
+                                    {(() => {
+                                        const item = stockPlanningData.find(d => d.description === selectedStockItem);
+                                        if (!item) return null;
+
+                                        // Prepare Chart Data
+                                        const months = [];
+                                        const d = new Date();
+                                        for (let i = 11; i >= 0; i--) {
+                                            const m = new Date(d.getFullYear(), d.getMonth() - i, 1);
+                                            months.push(`${m.getFullYear()}-${m.getMonth() + 1}`);
+                                        }
+
+                                        const salesPoints = months.map(m => item.monthlySales.get(m) || 0);
+                                        const projectionPoints = [...salesPoints.slice(0, 12)];
+                                        // Add 3 forecasted months
+                                        for (let i = 0; i < 3; i++) {
+                                            projectionPoints.push(item.projection);
+                                        }
+                                        const extendedLabels = [...months, 'Feb-26', 'Mar-26', 'Apr-26'];
+
+                                        return (
+                                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                                                <div className="lg:col-span-2">
+                                                    <h4 className="text-xs font-black text-gray-900 uppercase mb-6 flex items-center gap-2">
+                                                        <Activity className="w-4 h-4 text-rose-600" />
+                                                        Movement Trend & Forecast: <span className="text-rose-600">{item.description}</span>
+                                                    </h4>
+                                                    <div className="h-64">
+                                                        <SalesTrendChart
+                                                            maxVal={Math.max(...salesPoints, item.projection, 1)}
+                                                            data={{
+                                                                labels: extendedLabels,
+                                                                series: [
+                                                                    { name: 'Actual Sales', data: salesPoints, color: '#e11d48', active: true },
+                                                                    { name: 'Projection', data: projectionPoints, color: '#fb7185', active: true }
+                                                                ]
+                                                            }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div className="bg-rose-50/50 p-5 rounded-2xl border border-rose-100 space-y-4">
+                                                    <h5 className="text-[10px] font-black text-rose-800 uppercase tracking-widest border-b border-rose-200 pb-2">Inventory Control Center</h5>
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        <div className="bg-white p-3 rounded-xl border border-rose-100 shadow-sm">
+                                                            <p className="text-[8px] font-bold text-gray-400 uppercase">Min Stock</p>
+                                                            <p className="text-lg font-black text-gray-900">{item.minStock}</p>
+                                                        </div>
+                                                        <div className="bg-white p-3 rounded-xl border border-rose-100 shadow-sm">
+                                                            <p className="text-[8px] font-bold text-gray-400 uppercase">Max Stock</p>
+                                                            <p className="text-lg font-black text-gray-900">{item.maxStock}</p>
+                                                        </div>
+                                                        <div className="bg-white p-3 rounded-xl border border-rose-100 shadow-sm col-span-2 border-l-4 border-l-rose-600">
+                                                            <p className="text-[8px] font-bold text-gray-400 uppercase">Reorder Level (ROL)</p>
+                                                            <p className="text-xl font-black text-rose-700">{item.rol}</p>
+                                                        </div>
+                                                        <div className="bg-white p-3 rounded-xl border border-rose-100 shadow-sm col-span-2">
+                                                            <p className="text-[8px] font-bold text-gray-400 uppercase">Future Projection (Monthly)</p>
+                                                            <p className="text-lg font-black text-indigo-700">{item.projection}</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+                                </div>
+                            )}
+
+                            {/* Main Data Grid */}
+                            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left border-collapse">
+                                        <thead>
+                                            <tr className="bg-gray-50 divide-x divide-gray-100 text-[10px] font-black text-gray-500 uppercase tracking-tighter">
+                                                <th className="px-4 py-3 sticky left-0 z-10 bg-gray-50/95 backdrop-blur-md">Make & Group</th>
+                                                <th className="px-4 py-3">Material Description</th>
+                                                <th className="px-4 py-3 text-center bg-emerald-50/30">Qty Sold (Present)</th>
+                                                <th className="px-4 py-3 text-center bg-gray-50/50">Qty Sold (Prev)</th>
+                                                <th className="px-4 py-3 text-center bg-blue-50/30">Closing Stock</th>
+                                                <th className="px-4 py-3 text-center bg-indigo-50/30">SO (Due / Sched)</th>
+                                                <th className="px-4 py-3 text-center bg-orange-50/30">PO (Due / Sched)</th>
+                                                <th className="px-4 py-3 text-center bg-rose-50/50">Net Qty</th>
+                                                <th className="px-4 py-3 text-center">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-50 text-[10px]">
+                                            {filteredStockPlanning.slice(0, 100).map((item, idx) => (
+                                                <tr
+                                                    key={idx}
+                                                    onClick={() => setSelectedStockItem(item.description)}
+                                                    className={`hover:bg-rose-50/50 cursor-pointer transition-colors group ${selectedStockItem === item.description ? 'bg-rose-50' : ''}`}
+                                                >
+                                                    <td className="px-4 py-2 sticky left-0 z-10 bg-white group-hover:bg-rose-50/5 backdrop-blur-md">
+                                                        <span className="font-black text-gray-900 block">{item.make}</span>
+                                                        <span className="font-bold text-blue-600 text-[9px] uppercase tracking-tighter">{item.group}</span>
+                                                    </td>
+                                                    <td className="px-4 py-2">
+                                                        <span className="font-black text-gray-700 block max-w-[200px] truncate" title={item.description}>{item.description}</span>
+                                                        <div className="flex gap-2 mt-1">
+                                                            <span className="px-1.5 py-0.5 rounded bg-gray-100 text-[8px] font-black text-gray-500 uppercase">{item.classification}</span>
+                                                            <span className="px-1.5 py-0.5 rounded bg-indigo-50 text-[8px] font-black text-indigo-500 uppercase">{item.strategy}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-4 py-2 text-center font-black text-emerald-700 bg-emerald-50/5">{item.salesCY}</td>
+                                                    <td className="px-4 py-2 text-center font-bold text-gray-400">{item.salesPY}</td>
+                                                    <td className="px-4 py-2 text-center font-black text-blue-700 bg-blue-50/5">{item.stock}</td>
+                                                    <td className="px-4 py-2 text-center bg-indigo-50/5">
+                                                        <div className="flex items-center justify-center gap-2">
+                                                            <span className="font-black text-red-600">{item.soDue}</span>
+                                                            <span className="text-gray-300">|</span>
+                                                            <span className="font-bold text-indigo-400">{item.soSched}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-4 py-2 text-center bg-orange-50/5">
+                                                        <div className="flex items-center justify-center gap-2">
+                                                            <span className="font-black text-orange-600">{item.poDue}</span>
+                                                            <span className="text-gray-300">|</span>
+                                                            <span className="font-bold text-orange-400">{item.poSched}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className={`px-4 py-2 text-center font-black text-[11px] ${item.netQty < item.rol ? 'text-red-700 bg-red-50' : 'text-emerald-700 bg-emerald-50'}`}>
+                                                        {item.netQty}
+                                                    </td>
+                                                    <td className="px-4 py-2 text-center">
+                                                        {item.netQty < item.minStock ? (
+                                                            <span className="px-2 py-0.5 rounded-full bg-red-600 text-white font-black text-[8px] uppercase">Shortage</span>
+                                                        ) : item.netQty < item.rol ? (
+                                                            <span className="px-2 py-0.5 rounded-full bg-orange-500 text-white font-black text-[8px] uppercase">Refill</span>
+                                                        ) : (
+                                                            <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-black text-[8px] uppercase">Healthy</span>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
                         </div>
