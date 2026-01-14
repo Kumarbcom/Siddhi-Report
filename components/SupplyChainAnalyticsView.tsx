@@ -13,7 +13,10 @@ import {
     Calendar,
     Factory,
     TrendingUp,
-    CheckCircle2
+    CheckCircle2,
+    Eye,
+    EyeOff,
+    Settings2
 } from 'lucide-react';
 import { utils, writeFile } from 'xlsx';
 
@@ -44,6 +47,16 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
     const [selectedClass, setSelectedClass] = useState<string>('All');
     const [searchTerm, setSearchTerm] = useState('');
     const deferredSearch = useDeferredValue(searchTerm);
+    const [showColumnConfig, setShowColumnConfig] = useState(false);
+    const [visibleColumns, setVisibleColumns] = useState({
+        makeGroup: true,
+        strategyClass: true,
+        activeMonths: true,
+        customerCount: true,
+        qtySold: true
+    });
+
+    const toggleCol = (key: keyof typeof visibleColumns) => setVisibleColumns(prev => ({ ...prev, [key]: !prev[key] }));
 
     // Sorting State
     const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
@@ -255,12 +268,49 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
                         />
                     </div>
 
-                    <button
-                        onClick={handleExport}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-green-700 text-white rounded text-[10px] font-black uppercase shadow-md hover:bg-green-800 transition-all"
-                    >
-                        <FileDown className="w-4 h-4" /> Export Excel
-                    </button>
+                    <div className="flex flex-wrap gap-2">
+                        <div className="relative">
+                            <button
+                                onClick={() => setShowColumnConfig(!showColumnConfig)}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase transition-all shadow-md ${showColumnConfig ? 'bg-indigo-600 text-white shadow-indigo-100' : 'bg-white text-gray-500 border border-gray-200 hover:text-indigo-600'}`}
+                            >
+                                <Settings2 className="w-3.5 h-3.5" /> Manage View
+                            </button>
+                            {showColumnConfig && (
+                                <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-2xl shadow-2xl z-[100] p-4 flex flex-col gap-2">
+                                    <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2 border-b border-gray-100 pb-2 flex items-center gap-2">
+                                        <Eye className="w-3.5 h-3.5" /> Toggle Sections
+                                    </div>
+                                    <button onClick={() => toggleCol('makeGroup')} className="flex items-center justify-between px-2 py-1.5 hover:bg-gray-50 rounded-lg text-[10px] font-bold uppercase transition-all">
+                                        <span className={visibleColumns.makeGroup ? 'text-gray-900' : 'text-gray-400 line-through'}>Make / Group</span>
+                                        {visibleColumns.makeGroup ? <Eye className="w-3 h-3 text-indigo-600" /> : <EyeOff className="w-3 h-3 text-gray-300" />}
+                                    </button>
+                                    <button onClick={() => toggleCol('strategyClass')} className="flex items-center justify-between px-2 py-1.5 hover:bg-gray-50 rounded-lg text-[10px] font-bold uppercase transition-all">
+                                        <span className={visibleColumns.strategyClass ? 'text-gray-900' : 'text-gray-400 line-through'}>Strategy & Class</span>
+                                        {visibleColumns.strategyClass ? <Eye className="w-3 h-3 text-indigo-600" /> : <EyeOff className="w-3 h-3 text-gray-300" />}
+                                    </button>
+                                    <button onClick={() => toggleCol('activeMonths')} className="flex items-center justify-between px-2 py-1.5 hover:bg-gray-50 rounded-lg text-[10px] font-bold uppercase transition-all">
+                                        <span className={visibleColumns.activeMonths ? 'text-gray-900' : 'text-gray-400 line-through'}>Active Months</span>
+                                        {visibleColumns.activeMonths ? <Eye className="w-3 h-3 text-indigo-600" /> : <EyeOff className="w-3 h-3 text-gray-300" />}
+                                    </button>
+                                    <button onClick={() => toggleCol('customerCount')} className="flex items-center justify-between px-2 py-1.5 hover:bg-gray-50 rounded-lg text-[10px] font-bold uppercase transition-all">
+                                        <span className={visibleColumns.customerCount ? 'text-gray-900' : 'text-gray-400 line-through'}>Customer Count</span>
+                                        {visibleColumns.customerCount ? <Eye className="w-3 h-3 text-indigo-600" /> : <EyeOff className="w-3 h-3 text-gray-300" />}
+                                    </button>
+                                    <button onClick={() => toggleCol('qtySold')} className="flex items-center justify-between px-2 py-1.5 hover:bg-gray-50 rounded-lg text-[10px] font-bold uppercase transition-all">
+                                        <span className={visibleColumns.qtySold ? 'text-gray-900' : 'text-gray-400 line-through'}>Quantity Sold</span>
+                                        {visibleColumns.qtySold ? <Eye className="w-3 h-3 text-indigo-600" /> : <EyeOff className="w-3 h-3 text-gray-300" />}
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                        <button
+                            onClick={handleExport}
+                            className="flex items-center gap-2 px-3 py-1.5 bg-green-700 text-white rounded-xl text-[10px] font-black uppercase shadow-md hover:bg-green-800 transition-all"
+                        >
+                            <FileDown className="w-4 h-4" /> Export Excel
+                        </button>
+                    </div>
                 </div>
 
                 {/* Slicers Area */}
@@ -276,98 +326,144 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
             <div className="flex-1 overflow-auto bg-white custom-scrollbar">
                 <table className="w-full text-left border-collapse table-auto min-w-max border-r border-b border-gray-300">
                     <thead className="sticky top-0 z-20 bg-[#f8f9fa]">
-                        {/* Hierarchical Header Row 1 */}
                         <tr className="text-[9px] font-black text-gray-500 uppercase">
                             <th rowSpan={3} className="border border-gray-300 px-3 py-2 bg-gray-100 w-10 text-center">#</th>
-                            <th rowSpan={3} className="border border-gray-300 px-3 py-2 cursor-pointer hover:bg-gray-200" onClick={() => handleSort('make')}>
-                                <div className="flex items-center gap-1">Make {renderSortIcon('make')}</div>
-                            </th>
-                            <th rowSpan={3} className="border border-gray-300 px-3 py-2 cursor-pointer hover:bg-gray-200" onClick={() => handleSort('group')}>
-                                <div className="flex items-center gap-1">Group {renderSortIcon('group')}</div>
-                            </th>
+                            {visibleColumns.makeGroup && (
+                                <>
+                                    <th rowSpan={3} className="border border-gray-300 px-3 py-2 cursor-pointer hover:bg-gray-200" onClick={() => handleSort('make')}>
+                                        <div className="flex items-center gap-1">Make {renderSortIcon('make')}</div>
+                                    </th>
+                                    <th rowSpan={3} className="border border-gray-300 px-3 py-2 cursor-pointer hover:bg-gray-200" onClick={() => handleSort('group')}>
+                                        <div className="flex items-center gap-1">Group {renderSortIcon('group')}</div>
+                                    </th>
+                                </>
+                            )}
                             <th rowSpan={3} className="border border-gray-300 px-3 py-2 cursor-pointer hover:bg-gray-200 min-w-[300px]" onClick={() => handleSort('description')}>
                                 <div className="flex items-center gap-1">Material Description {renderSortIcon('description')}</div>
                             </th>
-                            <th rowSpan={3} className="border border-gray-300 px-3 py-2 cursor-pointer hover:bg-gray-200" onClick={() => handleSort('stockStrategy')}>
-                                <div className="flex items-center gap-1">Strategy Group {renderSortIcon('stockStrategy')}</div>
-                            </th>
-                            <th rowSpan={3} className="border border-gray-300 px-3 py-2 cursor-pointer hover:bg-gray-200" onClick={() => handleSort('movementClass')}>
-                                <div className="flex items-center gap-1">Classification {renderSortIcon('movementClass')}</div>
-                            </th>
-                            <th colSpan={2} className="border border-gray-300 px-3 py-1 bg-blue-50 text-center text-blue-800">Active Months</th>
-                            <th colSpan={4} className="border border-gray-300 px-3 py-1 bg-green-50 text-center text-green-800">Customer Count</th>
-                            <th colSpan={4} className="border border-gray-300 px-3 py-1 bg-orange-50 text-center text-orange-800">Quantity Sold</th>
+                            {visibleColumns.strategyClass && (
+                                <>
+                                    <th rowSpan={3} className="border border-gray-300 px-3 py-2 cursor-pointer hover:bg-gray-200" onClick={() => handleSort('stockStrategy')}>
+                                        <div className="flex items-center gap-1">Strategy Group {renderSortIcon('stockStrategy')}</div>
+                                    </th>
+                                    <th rowSpan={3} className="border border-gray-300 px-3 py-2 cursor-pointer hover:bg-gray-200" onClick={() => handleSort('movementClass')}>
+                                        <div className="flex items-center gap-1">Classification {renderSortIcon('movementClass')}</div>
+                                    </th>
+                                </>
+                            )}
+                            {visibleColumns.activeMonths && <th colSpan={2} className="border border-gray-300 px-3 py-1 bg-blue-50 text-center text-blue-800">Active Months</th>}
+                            {visibleColumns.customerCount && <th colSpan={4} className="border border-gray-300 px-3 py-1 bg-green-50 text-center text-green-800">Customer Count</th>}
+                            {visibleColumns.qtySold && <th colSpan={4} className="border border-gray-300 px-3 py-1 bg-orange-50 text-center text-orange-800">Quantity Sold</th>}
                         </tr>
                         {/* Hierarchical Header Row 2 */}
                         <tr className="text-[9px] font-bold text-gray-600 uppercase">
-                            <th className="border border-gray-300 px-2 py-1 bg-blue-50/50 text-center">{FY_2526}</th>
-                            <th className="border border-gray-300 px-2 py-1 bg-blue-50/50 text-center">{FY_2425}</th>
-                            <th colSpan={2} className="border border-gray-300 px-2 py-1 bg-green-50/50 text-center">{FY_2526}</th>
-                            <th colSpan={2} className="border border-gray-300 px-2 py-1 bg-green-50/50 text-center">{FY_2425}</th>
-                            <th colSpan={2} className="border border-gray-300 px-2 py-1 bg-orange-50/50 text-center">{FY_2526}</th>
-                            <th colSpan={2} className="border border-gray-300 px-2 py-1 bg-orange-50/50 text-center">{FY_2425}</th>
+                            {visibleColumns.activeMonths && (
+                                <>
+                                    <th className="border border-gray-300 px-2 py-1 bg-blue-50/50 text-center">{FY_2526}</th>
+                                    <th className="border border-gray-300 px-2 py-1 bg-blue-50/50 text-center">{FY_2425}</th>
+                                </>
+                            )}
+                            {visibleColumns.customerCount && (
+                                <>
+                                    <th colSpan={2} className="border border-gray-300 px-2 py-1 bg-green-50/50 text-center">{FY_2526}</th>
+                                    <th colSpan={2} className="border border-gray-300 px-2 py-1 bg-green-50/50 text-center">{FY_2425}</th>
+                                </>
+                            )}
+                            {visibleColumns.qtySold && (
+                                <>
+                                    <th colSpan={2} className="border border-gray-300 px-2 py-1 bg-orange-50/50 text-center">{FY_2526}</th>
+                                    <th colSpan={2} className="border border-gray-300 px-2 py-1 bg-orange-50/50 text-center">{FY_2425}</th>
+                                </>
+                            )}
                         </tr>
                         {/* Hierarchical Header Row 3 */}
                         <tr className="text-[8px] font-black text-gray-400 uppercase text-center">
-                            <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer" onClick={() => handleSort(`metrics.${FY_2526}.activeMonths`)}>Months {renderSortIcon(`metrics.${FY_2526}.activeMonths`)}</th>
-                            <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer" onClick={() => handleSort(`metrics.${FY_2425}.activeMonths`)}>Months {renderSortIcon(`metrics.${FY_2425}.activeMonths`)}</th>
+                            {visibleColumns.activeMonths && (
+                                <>
+                                    <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer" onClick={() => handleSort(`metrics.${FY_2526}.activeMonths`)}>Months {renderSortIcon(`metrics.${FY_2526}.activeMonths`)}</th>
+                                    <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer" onClick={() => handleSort(`metrics.${FY_2425}.activeMonths`)}>Months {renderSortIcon(`metrics.${FY_2425}.activeMonths`)}</th>
+                                </>
+                            )}
+                            {visibleColumns.customerCount && (
+                                <>
+                                    <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-green-50/30" onClick={() => handleSort(`metrics.${FY_2526}.totalCust`)}>Total Count</th>
+                                    <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-green-50/30" onClick={() => handleSort(`metrics.${FY_2526}.avgCust`)}>Avg / Month</th>
 
-                            <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-green-50/30" onClick={() => handleSort(`metrics.${FY_2526}.totalCust`)}>Total Count</th>
-                            <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-green-50/30" onClick={() => handleSort(`metrics.${FY_2526}.avgCust`)}>Avg / Month</th>
+                                    <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-green-50/30" onClick={() => handleSort(`metrics.${FY_2425}.totalCust`)}>Total Count</th>
+                                    <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-green-50/30" onClick={() => handleSort(`metrics.${FY_2425}.avgCust`)}>Avg / Month</th>
+                                </>
+                            )}
 
-                            <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-green-50/30" onClick={() => handleSort(`metrics.${FY_2425}.totalCust`)}>Total Count</th>
-                            <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-green-50/30" onClick={() => handleSort(`metrics.${FY_2425}.avgCust`)}>Avg / Month</th>
+                            {visibleColumns.qtySold && (
+                                <>
+                                    <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-orange-50/30" onClick={() => handleSort(`metrics.${FY_2526}.totalQty`)}>Total Qty</th>
+                                    <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-orange-50/30" onClick={() => handleSort(`metrics.${FY_2526}.avgQty`)}>Avg / Month</th>
 
-                            <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-orange-50/30" onClick={() => handleSort(`metrics.${FY_2526}.totalQty`)}>Total Qty</th>
-                            <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-orange-50/30" onClick={() => handleSort(`metrics.${FY_2526}.avgQty`)}>Avg / Month</th>
-
-                            <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-orange-50/30" onClick={() => handleSort(`metrics.${FY_2425}.totalQty`)}>Total Qty</th>
-                            <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-orange-50/30" onClick={() => handleSort(`metrics.${FY_2425}.avgQty`)}>Avg / Month</th>
+                                    <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-orange-50/30" onClick={() => handleSort(`metrics.${FY_2425}.totalQty`)}>Total Qty</th>
+                                    <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-orange-50/30" onClick={() => handleSort(`metrics.${FY_2425}.avgQty`)}>Avg / Month</th>
+                                </>
+                            )}
                         </tr>
                     </thead>
                     <tbody className="text-[10px]">
                         {filteredData.map((item, idx) => (
                             <tr key={idx} className="hover:bg-green-50/30 even:bg-gray-50/20 transition-colors group">
                                 <td className="border border-gray-200 px-2 py-1 text-center text-gray-400 font-mono select-none">{idx + 1}</td>
-                                <td className="border border-gray-200 px-3 py-1 font-black text-gray-500 uppercase">{item.make}</td>
-                                <td className="border border-gray-200 px-3 py-1 font-bold text-blue-700 uppercase tracking-tighter">{item.group}</td>
+                                {visibleColumns.makeGroup && (
+                                    <>
+                                        <td className="border border-gray-200 px-3 py-1 font-black text-gray-500 uppercase">{item.make}</td>
+                                        <td className="border border-gray-200 px-3 py-1 font-bold text-blue-700 uppercase tracking-tighter">{item.group}</td>
+                                    </>
+                                )}
                                 <td className="border border-gray-200 px-3 py-1 font-black text-gray-900 uppercase truncate max-w-[400px]" title={item.description}>{item.description}</td>
-                                <td className="border border-gray-200 px-3 py-1 text-center">
-                                    <span className={`px-2 py-0.5 rounded text-[8px] font-black ${item.stockStrategy === 'GENERAL STOCK' ? 'bg-blue-600 text-white' :
-                                            item.stockStrategy === 'AGAINST ORDER' ? 'bg-purple-600 text-white' :
-                                                'bg-gray-400 text-white'
-                                        }`}>
-                                        {item.stockStrategy}
-                                    </span>
-                                </td>
-                                <td className="border border-gray-200 px-3 py-1 text-center">
-                                    <span className={`px-2 py-0.5 rounded text-[8px] font-black ${item.movementClass === 'FAST RUNNER' ? 'bg-green-600 text-white' :
-                                            item.movementClass === 'SLOW RUNNER' ? 'bg-amber-500 text-white' :
-                                                'bg-gray-300 text-gray-600'
-                                        }`}>
-                                        {item.movementClass}
-                                    </span>
-                                </td>
+                                {visibleColumns.strategyClass && (
+                                    <>
+                                        <td className="border border-gray-200 px-3 py-1 text-center">
+                                            <span className={`px-2 py-0.5 rounded text-[8px] font-black ${item.stockStrategy === 'GENERAL STOCK' ? 'bg-blue-600 text-white' :
+                                                    item.stockStrategy === 'AGAINST ORDER' ? 'bg-purple-600 text-white' :
+                                                        'bg-gray-400 text-white'
+                                                }`}>
+                                                {item.stockStrategy}
+                                            </span>
+                                        </td>
+                                        <td className="border border-gray-200 px-3 py-1 text-center">
+                                            <span className={`px-2 py-0.5 rounded text-[8px] font-black ${item.movementClass === 'FAST RUNNER' ? 'bg-green-600 text-white' :
+                                                    item.movementClass === 'SLOW RUNNER' ? 'bg-amber-500 text-white' :
+                                                        'bg-gray-300 text-gray-600'
+                                                }`}>
+                                                {item.movementClass}
+                                            </span>
+                                        </td>
+                                    </>
+                                )}
 
                                 {/* Active Months */}
-                                <td className="border border-gray-200 px-2 py-1 text-center font-bold text-blue-700 bg-blue-50/10">{item.metrics[FY_2526].activeMonths}</td>
-                                <td className="border border-gray-200 px-2 py-1 text-center font-bold text-blue-700 bg-blue-50/10">{item.metrics[FY_2425].activeMonths}</td>
+                                {visibleColumns.activeMonths && (
+                                    <>
+                                        <td className="border border-gray-200 px-2 py-1 text-center font-bold text-blue-700 bg-blue-50/10">{item.metrics[FY_2526].activeMonths}</td>
+                                        <td className="border border-gray-200 px-2 py-1 text-center font-bold text-blue-700 bg-blue-50/10">{item.metrics[FY_2425].activeMonths}</td>
+                                    </>
+                                )}
 
-                                {/* Customer Count 25-26 */}
-                                <td className="border border-gray-200 px-2 py-1 text-center font-black text-green-700 bg-green-50/10">{item.metrics[FY_2526].totalCust}</td>
-                                <td className="border border-gray-200 px-2 py-1 text-center font-mono text-gray-500 bg-green-50/10">{item.metrics[FY_2526].avgCust.toFixed(1)}</td>
+                                {/* Customer Count */}
+                                {visibleColumns.customerCount && (
+                                    <>
+                                        <td className="border border-gray-200 px-2 py-1 text-center font-black text-green-700 bg-green-50/10">{item.metrics[FY_2526].totalCust}</td>
+                                        <td className="border border-gray-200 px-2 py-1 text-center font-mono text-gray-500 bg-green-50/10">{item.metrics[FY_2526].avgCust.toFixed(1)}</td>
+                                        <td className="border border-gray-200 px-2 py-1 text-center font-black text-green-700 bg-green-50/10">{item.metrics[FY_2425].totalCust}</td>
+                                        <td className="border border-gray-200 px-2 py-1 text-center font-mono text-gray-500 bg-green-50/10">{item.metrics[FY_2425].avgCust.toFixed(1)}</td>
+                                    </>
+                                )}
 
-                                {/* Customer Count 24-25 */}
-                                <td className="border border-gray-200 px-2 py-1 text-center font-black text-green-700 bg-green-50/10">{item.metrics[FY_2425].totalCust}</td>
-                                <td className="border border-gray-200 px-2 py-1 text-center font-mono text-gray-500 bg-green-50/10">{item.metrics[FY_2425].avgCust.toFixed(1)}</td>
-
-                                {/* Qty Sold 25-26 */}
-                                <td className="border border-gray-200 px-2 py-1 text-center font-black text-orange-700 bg-orange-50/10">{item.metrics[FY_2526].totalQty}</td>
-                                <td className="border border-gray-200 px-2 py-1 text-center font-mono text-gray-500 bg-orange-50/10">{item.metrics[FY_2526].avgQty.toFixed(1)}</td>
-
-                                {/* Qty Sold 24-25 */}
-                                <td className="border border-gray-200 px-2 py-1 text-center font-black text-orange-700 bg-orange-50/10">{item.metrics[FY_2425].totalQty}</td>
-                                <td className="border border-gray-200 px-2 py-1 text-center font-mono text-gray-500 bg-orange-50/10">{item.metrics[FY_2425].avgQty.toFixed(1)}</td>
+                                {/* Qty Sold */}
+                                {visibleColumns.qtySold && (
+                                    <>
+                                        <td className="border border-gray-200 px-2 py-1 text-center font-black text-orange-700 bg-orange-50/10">{item.metrics[FY_2526].totalQty}</td>
+                                        <td className="border border-gray-200 px-2 py-1 text-center font-mono text-gray-500 bg-orange-50/10">{item.metrics[FY_2526].avgQty.toFixed(1)}</td>
+                                        <td className="border border-gray-200 px-2 py-1 text-center font-black text-orange-700 bg-orange-50/10">{item.metrics[FY_2425].totalQty}</td>
+                                        <td className="border border-gray-200 px-2 py-1 text-center font-mono text-gray-500 bg-orange-50/10">{item.metrics[FY_2425].avgQty.toFixed(1)}</td>
+                                    </>
+                                )}
                             </tr>
                         ))}
                     </tbody>
@@ -403,8 +499,8 @@ const Slicer = ({ label, selected, options, onSelect }: any) => (
                     key={opt}
                     onClick={() => onSelect(opt)}
                     className={`px-2 py-0.5 rounded-[4px] text-[8px] font-bold uppercase transition-all border ${selected === opt
-                            ? 'bg-green-700 text-white border-green-800 shadow-sm'
-                            : 'bg-white text-gray-500 border-gray-200 hover:border-green-400 hover:text-green-700'
+                        ? 'bg-green-700 text-white border-green-800 shadow-sm'
+                        : 'bg-white text-gray-500 border-gray-200 hover:border-green-400 hover:text-green-700'
                         }`}
                 >
                     {opt}

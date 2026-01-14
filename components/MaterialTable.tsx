@@ -17,7 +17,10 @@ import {
   Loader2,
   Grid,
   Package,
-  Users
+  Users,
+  Eye,
+  EyeOff,
+  Settings2
 } from 'lucide-react';
 import { isSupabaseConfigured } from '../services/supabase';
 
@@ -38,6 +41,20 @@ const MaterialTable: React.FC<MaterialTableProps> = ({ materials, salesReportIte
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Material | null>(null);
+  const [showColumnConfig, setShowColumnConfig] = useState(false);
+  const [visibleColumns, setVisibleColumns] = useState({
+    materialGroup: true,
+    make: true,
+    materialCode: true,
+    description: true,
+    partNo: true,
+    salesQty: true,
+    customers: true
+  });
+
+  const toggleColumn = (key: keyof typeof visibleColumns) => {
+    setVisibleColumns(prev => ({ ...prev, [key]: !prev[key] }));
+  };
 
   const handleEditClick = (item: Material) => {
     setEditingId(item.id);
@@ -138,8 +155,36 @@ const MaterialTable: React.FC<MaterialTableProps> = ({ materials, salesReportIte
           )}
         </div>
         <div className="flex items-center gap-4">
-          <div className="text-[10px] font-bold text-gray-500 uppercase tracking-tight">
-            ITEMS LOADED: <span className="text-green-700 font-black">{processedMaterials.length}</span>
+          <div className="relative">
+            <button
+              onClick={() => setShowColumnConfig(!showColumnConfig)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[10px] font-black uppercase transition-all border ${showColumnConfig ? 'bg-blue-600 text-white border-blue-700' : 'bg-gray-50 text-gray-500 border-gray-300 hover:bg-white hover:text-blue-600'}`}
+            >
+              <Settings2 className="w-3.5 h-3.5" /> Manage Columns
+            </button>
+
+            {showColumnConfig && (
+              <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-xl shadow-xl z-50 p-3 flex flex-col gap-2">
+                <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 border-b border-gray-100 pb-1 flex items-center gap-1">
+                  <Eye className="w-3 h-3" /> Hide / Unhide
+                </div>
+                {(Object.keys(visibleColumns) as Array<keyof typeof visibleColumns>).map(key => (
+                  <button
+                    key={key}
+                    onClick={() => toggleColumn(key)}
+                    className="flex items-center justify-between px-2 py-1.5 hover:bg-gray-50 rounded-lg text-[10px] font-bold uppercase transition-all"
+                  >
+                    <span className={visibleColumns[key] ? 'text-gray-900' : 'text-gray-400 line-through'}>
+                      {key.replace(/([A-Z])/g, ' $1')}
+                    </span>
+                    {visibleColumns[key] ? <Eye className="w-3 h-3 text-blue-600" /> : <EyeOff className="w-3 h-3 text-gray-300" />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="text-[10px] font-bold text-gray-500 uppercase tracking-tight hidden sm:block">
+            ITEMS: <span className="text-green-700 font-black">{processedMaterials.length}</span>
           </div>
         </div>
       </div>
@@ -150,23 +195,33 @@ const MaterialTable: React.FC<MaterialTableProps> = ({ materials, salesReportIte
           <thead className="sticky top-0 z-20 bg-[#f8f9fa]">
             <tr className="text-[10px] font-bold text-gray-600 uppercase">
               <th className="border border-gray-300 px-3 py-2 bg-gray-100 w-10 text-center select-none">#</th>
-              <th className="border border-gray-300 px-3 py-2 bg-gray-50 hover:bg-gray-200 cursor-pointer select-none" onClick={() => handleSort('materialGroup')}>
-                <div className="flex items-center gap-1">Group {renderSortIcon('materialGroup')}</div>
-              </th>
-              <th className="border border-gray-300 px-3 py-2 bg-gray-50 hover:bg-gray-200 cursor-pointer select-none" onClick={() => handleSort('make')}>
-                <div className="flex items-center gap-1">Make {renderSortIcon('make')}</div>
-              </th>
-              <th className="border border-gray-300 px-3 py-2 bg-gray-50 hover:bg-gray-200 cursor-pointer select-none" onClick={() => handleSort('materialCode')}>
-                <div className="flex items-center gap-1">Code {renderSortIcon('materialCode')}</div>
-              </th>
-              <th className="border border-gray-300 px-3 py-2 bg-gray-50 hover:bg-gray-200 cursor-pointer select-none min-w-[350px]" onClick={() => handleSort('description')}>
-                <div className="flex items-center gap-1">Material Description {renderSortIcon('description')}</div>
-              </th>
-              <th className="border border-gray-300 px-3 py-2 bg-gray-50 hover:bg-gray-200 cursor-pointer select-none" onClick={() => handleSort('partNo')}>
-                <div className="flex items-center gap-1">Part Number {renderSortIcon('partNo')}</div>
-              </th>
-              <th className="border border-gray-300 px-3 py-2 bg-green-50 text-green-800 text-center font-black">Sales Qty</th>
-              <th className="border border-gray-300 px-3 py-2 bg-green-50 text-green-800 text-center font-black">Customers</th>
+              {visibleColumns.materialGroup && (
+                <th className="border border-gray-300 px-3 py-2 bg-gray-50 hover:bg-gray-200 cursor-pointer select-none" onClick={() => handleSort('materialGroup')}>
+                  <div className="flex items-center gap-1">Group {renderSortIcon('materialGroup')}</div>
+                </th>
+              )}
+              {visibleColumns.make && (
+                <th className="border border-gray-300 px-3 py-2 bg-gray-50 hover:bg-gray-200 cursor-pointer select-none" onClick={() => handleSort('make')}>
+                  <div className="flex items-center gap-1">Make {renderSortIcon('make')}</div>
+                </th>
+              )}
+              {visibleColumns.materialCode && (
+                <th className="border border-gray-300 px-3 py-2 bg-gray-50 hover:bg-gray-200 cursor-pointer select-none" onClick={() => handleSort('materialCode')}>
+                  <div className="flex items-center gap-1">Code {renderSortIcon('materialCode')}</div>
+                </th>
+              )}
+              {visibleColumns.description && (
+                <th className="border border-gray-300 px-3 py-2 bg-gray-50 hover:bg-gray-200 cursor-pointer select-none min-w-[350px]" onClick={() => handleSort('description')}>
+                  <div className="flex items-center gap-1">Material Description {renderSortIcon('description')}</div>
+                </th>
+              )}
+              {visibleColumns.partNo && (
+                <th className="border border-gray-300 px-3 py-2 bg-gray-50 hover:bg-gray-200 cursor-pointer select-none" onClick={() => handleSort('partNo')}>
+                  <div className="flex items-center gap-1">Part Number {renderSortIcon('partNo')}</div>
+                </th>
+              )}
+              {visibleColumns.salesQty && <th className="border border-gray-300 px-3 py-2 bg-green-50 text-green-800 text-center font-black">Sales Qty</th>}
+              {visibleColumns.customers && <th className="border border-gray-300 px-3 py-2 bg-green-50 text-green-800 text-center font-black">Customers</th>}
               <th className="border border-gray-300 px-3 py-2 bg-gray-100 text-right">Actions</th>
             </tr>
           </thead>
@@ -195,13 +250,13 @@ const MaterialTable: React.FC<MaterialTableProps> = ({ materials, salesReportIte
                     </>
                   ) : (
                     <>
-                      <td className="border border-gray-200 px-3 py-1 font-bold text-gray-500 uppercase">{material.materialGroup || '-'}</td>
-                      <td className="border border-gray-200 px-3 py-1 font-black text-blue-700 uppercase tracking-tighter">{material.make || '-'}</td>
-                      <td className="border border-gray-200 px-3 py-1 font-mono text-gray-400">{material.materialCode || '-'}</td>
-                      <td className="border border-gray-200 px-3 py-1 font-black text-gray-900 uppercase truncate max-w-[400px]" title={material.description}>{material.description}</td>
-                      <td className="border border-gray-200 px-3 py-1 font-mono text-gray-500">{material.partNo || '-'}</td>
-                      <td className="border border-gray-200 px-3 py-1 text-center font-bold text-green-700 bg-green-50/10">{salesInfo.total || 0}</td>
-                      <td className="border border-gray-200 px-3 py-1 text-center font-bold text-blue-600 bg-green-50/10">{salesInfo.customers.size || 0}</td>
+                      {visibleColumns.materialGroup && <td className="border border-gray-200 px-3 py-1 font-bold text-gray-500 uppercase">{material.materialGroup || '-'}</td>}
+                      {visibleColumns.make && <td className="border border-gray-200 px-3 py-1 font-black text-blue-700 uppercase tracking-tighter">{material.make || '-'}</td>}
+                      {visibleColumns.materialCode && <td className="border border-gray-200 px-3 py-1 font-mono text-gray-400">{material.materialCode || '-'}</td>}
+                      {visibleColumns.description && <td className="border border-gray-200 px-3 py-1 font-black text-gray-900 uppercase truncate max-w-[400px]" title={material.description}>{material.description}</td>}
+                      {visibleColumns.partNo && <td className="border border-gray-200 px-3 py-1 font-mono text-gray-500">{material.partNo || '-'}</td>}
+                      {visibleColumns.salesQty && <td className="border border-gray-200 px-3 py-1 text-center font-bold text-green-700 bg-green-50/10">{salesInfo.total || 0}</td>}
+                      {visibleColumns.customers && <td className="border border-gray-200 px-3 py-1 text-center font-bold text-blue-600 bg-green-50/10">{salesInfo.customers.size || 0}</td>}
                       <td className="border border-gray-200 px-3 py-1 text-right">
                         {isAdmin && (
                           <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
