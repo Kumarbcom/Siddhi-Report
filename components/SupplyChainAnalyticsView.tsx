@@ -65,11 +65,13 @@ const getFY = (dateInput: string | number | Date) => {
     if (isNaN(d.getTime())) return 'Unknown';
     const year = d.getFullYear();
     const month = d.getMonth();
-    // FY starts in April
+    // FY starts in April (month 3)
     if (month >= 3) {
-        return `20${year.toString().slice(-2)}-${(year + 1).toString().slice(-2)}`;
+        // April 2025 onwards = FY 2025-26
+        return `${year}-${(year + 1).toString().slice(-2)}`;
     } else {
-        return `20${(year - 1).toString().slice(-2)}-${year.toString().slice(-2)}`;
+        // Jan-Mar 2025 = FY 2024-25
+        return `${year - 1}-${year.toString().slice(-2)}`;
     }
 };
 
