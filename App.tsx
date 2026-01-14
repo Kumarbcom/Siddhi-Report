@@ -15,8 +15,37 @@ import MOMView from './components/MOMView';
 import AttendeeMasterView from './components/AttendeeMasterView';
 import ChatView from './components/ChatView';
 import UserManagementView from './components/UserManagementView';
+import SupplyChainAnalyticsView from './components/SupplyChainAnalyticsView';
 import ConfirmationModal from './components/ConfirmationModal';
-import { Database, AlertCircle, ClipboardList, ShoppingCart, TrendingUp, Package, Layers, LayoutDashboard, FileBarChart, Users, ChevronRight, Menu, X, HardDrive, Table, MessageSquare, AlertTriangle, Factory, CloudOff, Cloud, Trash2, Loader2, UserCircle, LogOut, ShieldCheck, Lock } from 'lucide-react';
+import {
+  Database,
+  AlertCircle,
+  ClipboardList,
+  ShoppingCart,
+  TrendingUp,
+  Package,
+  Layers,
+  LayoutDashboard,
+  FileBarChart,
+  Users,
+  ChevronRight,
+  Menu,
+  X,
+  HardDrive,
+  Table,
+  MessageSquare,
+  AlertTriangle,
+  Factory,
+  CloudOff,
+  Cloud,
+  Trash2,
+  Loader2,
+  UserCircle,
+  LogOut,
+  ShieldCheck,
+  Lock,
+  LineChart
+} from 'lucide-react';
 import { authService, User } from './services/authService';
 import { LoginView } from './components/LoginView';
 import { PasswordChangeModal } from './components/PasswordChangeModal';
@@ -40,7 +69,7 @@ const getMergedMakeName = (makeName: string) => {
   return m;
 };
 
-type ActiveTab = 'dashboard' | 'chat' | 'master' | 'customerMaster' | 'closingStock' | 'pendingSO' | 'pendingPO' | 'salesHistory' | 'salesReport' | 'pivotReport' | 'mom' | 'attendees' | 'userManagement';
+type ActiveTab = 'dashboard' | 'chat' | 'master' | 'customerMaster' | 'closingStock' | 'pendingSO' | 'pendingPO' | 'salesHistory' | 'salesReport' | 'pivotReport' | 'mom' | 'attendees' | 'userManagement' | 'supplyChain';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(authService.getCurrentUser());
@@ -582,6 +611,7 @@ const App: React.FC = () => {
             <div>
               <div className="px-3 mb-3 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Analytics</div>
               <div className="space-y-1">
+                <SidebarItem id="supplyChain" label="SC Planning" icon={LineChart} onClick={setActiveTab} />
                 <SidebarItem id="closingStock" label="Closing Stock" icon={Package} count={closingStockItems.length} onClick={setActiveTab} />
                 <SidebarItem id="pendingSO" label="Pending SO" icon={ClipboardList} count={pendingSOItems.length} onClick={setActiveTab} />
                 <SidebarItem id="pendingPO" label="Pending PO" icon={ShoppingCart} count={pendingPOItems.length} onClick={setActiveTab} />
@@ -627,6 +657,7 @@ const App: React.FC = () => {
           <div key={activeTab} className="h-full w-full">
             {activeTab === 'dashboard' && <DashboardView isAdmin={isAdmin} materials={materials} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} salesReportItems={salesReportItems} customers={customerMasterItems} sales1Year={sales1Year} sales3Months={sales3Months} setActiveTab={setActiveTab} />}
             {activeTab === 'pivotReport' && <PivotReportView isAdmin={isAdmin} materials={materials} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} salesReportItems={salesReportItems} />}
+            {activeTab === 'supplyChain' && <SupplyChainAnalyticsView materials={materials} salesReportItems={salesReportItems} closingStock={closingStockItems} />}
             {activeTab === 'chat' && <div className="h-full w-full max-w-4xl mx-auto flex flex-col gap-4"><ChatView isAdmin={isAdmin} materials={materials} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} salesReportItems={salesReportItems} customers={customerMasterItems} /></div>}
             {activeTab === 'master' && (
               <div className="flex flex-col h-full gap-4">
