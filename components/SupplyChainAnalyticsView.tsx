@@ -41,15 +41,15 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
 
     const analyticsData = useMemo(() => {
         const materialMap = new Map<string, any>();
-        // Case-insensitive lookup map for material details
+        // Match Sales Report "Description" (Particulars) with Material Master "Part No"
         const masterMap = new Map();
         materials.forEach(m => {
-            const desc = m.description.trim().toLowerCase();
-            // Store the group and any other relevant fields
-            masterMap.set(desc, {
+            const partNoKey = m.partNo.trim().toLowerCase();
+            masterMap.set(partNoKey, {
                 group: m.materialGroup,
-                partNo: m.partNo,
-                make: m.make
+                make: m.make,
+                description: m.description,
+                partNo: m.partNo
             });
         });
 
@@ -257,6 +257,7 @@ const ExcelTable = ({ data, type }: { data: any[], type: string }) => {
                     <tr className="text-[10px] font-bold text-gray-600 uppercase">
                         <th className="border border-gray-300 px-3 py-2 bg-gray-100 w-10 text-center">#</th>
                         <th className="border border-gray-300 px-3 py-2 hover:bg-gray-200 cursor-pointer">Group</th>
+                        <th className="border border-gray-300 px-3 py-2 hover:bg-gray-200 cursor-pointer">Make</th>
                         <th className="border border-gray-300 px-3 py-2 hover:bg-gray-200 cursor-pointer min-w-[300px]">Description</th>
 
                         {type === 'movement' && (
@@ -291,6 +292,7 @@ const ExcelTable = ({ data, type }: { data: any[], type: string }) => {
                         <tr key={idx} className="hover:bg-blue-50/50 even:bg-gray-50/30 transition-colors">
                             <td className="border border-gray-200 px-2 py-1 text-center text-gray-400 font-mono">{idx + 1}</td>
                             <td className="border border-gray-200 px-3 py-1 font-bold text-gray-600 uppercase">{item.group}</td>
+                            <td className="border border-gray-200 px-3 py-1 font-bold text-gray-500 uppercase">{item.make}</td>
                             <td className="border border-gray-200 px-3 py-1 font-bold text-gray-900 uppercase truncate max-w-[400px]" title={item.description}>{item.description}</td>
 
                             {type === 'movement' && (
