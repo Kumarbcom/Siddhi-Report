@@ -174,7 +174,7 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
         uniqueMaterials.forEach(m => {
             m.sales.forEach((item: any) => {
                 const fy = getFY(item.date);
-                const d = new Date(item.date);
+                const d = parseDate(item.date);
                 const monthKey = `${d.getFullYear()}-${d.getMonth() + 1}`;
 
                 const isProjectKeyword = (item.particulars || '').toLowerCase().includes('project') || (item.customerName || '').toLowerCase().includes('project');
@@ -224,14 +224,14 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
             // Movement Classification (Rolling 12 Months)
             const rollingMonths = new Set();
             m.sales.forEach((s: any) => {
-                const sd = new Date(s.date);
+                const sd = parseDate(s.date);
                 if (sd >= twelveMonthsAgo) {
                     rollingMonths.add(`${sd.getFullYear()}-${sd.getMonth() + 1}`);
                 }
             });
 
             const activeMonthsRolling = rollingMonths.size;
-            const lastSaleDate = m.sales.length > 0 ? new Date(Math.max(...m.sales.map((s: any) => new Date(s.date).getTime()))) : new Date(0);
+            const lastSaleDate = m.sales.length > 0 ? new Date(Math.max(...m.sales.map((s: any) => parseDate(s.date).getTime()))) : new Date(0);
 
             let movementClass = 'NON-MOVING';
             if (lastSaleDate >= twelveMonthsAgo) {
