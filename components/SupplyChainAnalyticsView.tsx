@@ -28,8 +28,40 @@ interface AnalyticsProps {
     pendingPO: PendingPOItem[];
 }
 
+const parseDate = (val: any): Date => {
+    if (!val) return new Date();
+    let d: Date;
+    if (val instanceof Date) {
+        d = new Date(val);
+    } else if (typeof val === 'number') {
+        // Handle Excel serial date
+        d = new Date((Math.round(val) - 25568) * 86400 * 1000);
+    } else if (typeof val === 'string') {
+        d = new Date(val);
+        if (isNaN(d.getTime())) {
+            const parts = val.split(/[-/.]/);
+            if (parts.length === 3) {
+                if (parts[0].length === 4) {
+                    const d2 = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+                    d = !isNaN(d2.getTime()) ? d2 : new Date();
+                } else if (parts[2].length === 4) {
+                    const d2 = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+                    d = !isNaN(d2.getTime()) ? d2 : new Date();
+                } else {
+                    d = new Date();
+                }
+            } else {
+                d = new Date();
+            }
+        }
+    } else {
+        d = new Date();
+    }
+    return d;
+};
+
 const getFY = (dateInput: string | number | Date) => {
-    const d = new Date(dateInput);
+    const d = parseDate(dateInput);
     if (isNaN(d.getTime())) return 'Unknown';
     const year = d.getFullYear();
     const month = d.getMonth();

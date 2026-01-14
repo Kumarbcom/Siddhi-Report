@@ -803,7 +803,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         materials.forEach(m => {
             const desc = (m.description || '').trim();
             const lowerDesc = desc.toLowerCase();
-            materialMap.set(lowerDesc, {
+            const partNo = (m.partNo || '').trim().toLowerCase();
+
+            const entry = {
                 description: desc,
                 make: getMergedMakeName(m.make),
                 group: m.materialGroup,
@@ -819,8 +821,14 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 monthlySales: new Map<string, number>(),
                 hasProject: false,
                 strategy: 'MADE TO ORDER',
-                classification: 'NON-MOVING'
-            });
+                classification: 'NON-MOVING',
+                rollingMonths: new Set<string>()
+            };
+
+            materialMap.set(lowerDesc, entry);
+            if (partNo && partNo !== lowerDesc) {
+                materialMap.set(partNo, entry);
+            }
         });
 
         // 2. Closing Stock
@@ -889,11 +897,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         });
 
         // 6. Final Calculations & Heuristics
+        const uniqueMaterials = Array.from(new Set(materialMap.values()));
+
         // Calculate Top 30% volume for Pareto based on Regular Sales
         let totalRegQtyCombined = 0;
-        Array.from(materialMap.values()).forEach(m => { totalRegQtyCombined += ((m.regSalesCY || 0) + (m.regSalesPY || 0)); });
+        uniqueMaterials.forEach(m => { totalRegQtyCombined += ((m.regSalesCY || 0) + (m.regSalesPY || 0)); });
 
-        const sortedByRegVolume = Array.from(materialMap.values())
+        const sortedByRegVolume = uniqueMaterials
             .map(m => ({ desc: m.description.toLowerCase(), qty: (m.regSalesCY || 0) + (m.regSalesPY || 0) }))
             .sort((a, b) => b.qty - a.qty);
 
@@ -905,7 +915,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             if (cumulative >= totalRegQtyCombined * 0.3) break;
         }
 
-        return Array.from(materialMap.values()).map(m => {
+        return uniqueMaterials.map(m => {
             const activeMonths = m.monthlySales.size;
             const rollingMonthsCount = m.rollingMonths ? m.rollingMonths.size : 0;
             const avgMonthly = activeMonths > 0 ? Array.from(m.monthlySales.values() as IterableIterator<number>).reduce((a: number, b: number) => a + b, 0) / activeMonths : 0;
