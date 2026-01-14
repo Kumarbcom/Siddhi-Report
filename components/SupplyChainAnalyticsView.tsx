@@ -152,23 +152,57 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
             });
         });
 
+        // Calculate total regular quantity for Pareto (Top 30%)
+        let totalRegularQty = 0;
+        materialMap.forEach(m => {
+            totalRegularQty += (m.fyData[FY_2526].qty + m.fyData[FY_2425].qty);
+        });
+
+        const sortedByQty = Array.from(materialMap.values())
+            .map(m => ({ id: m.description, qty: m.fyData[FY_2526].qty + m.fyData[FY_2425].qty }))
+            .sort((a, b) => b.qty - a.qty);
+
+        let cumulativeQty = 0;
+        const top30PercentIds = new Set<string>();
+        for (const item of sortedByQty) {
+            cumulativeQty += item.qty;
+            top30PercentIds.add(item.id);
+            if (cumulativeQty >= totalRegularQty * 0.3) break;
+        }
+
         // Finalize and Classify
         const results = Array.from(materialMap.values()).map(m => {
-            // Movement Classification (based on Active Months in FY 25-26)
-            const activeMonthsCurrent = m.fyData[FY_2526].months.size;
+            // Movement Classification (Rolling 12 Months)
+            const rollingMonths = new Set();
+            m.sales.forEach((s: any) => {
+                const sd = new Date(s.date);
+                if (sd >= twelveMonthsAgo) {
+                    rollingMonths.add(`${sd.getFullYear()}-${sd.getMonth() + 1}`);
+                }
+            });
+
+            const activeMonthsRolling = rollingMonths.size;
             const lastSaleDate = m.sales.length > 0 ? new Date(Math.max(...m.sales.map((s: any) => new Date(s.date).getTime()))) : new Date(0);
 
             let movementClass = 'NON-MOVING';
             if (lastSaleDate >= twelveMonthsAgo) {
-                if (activeMonthsCurrent >= 9) movementClass = 'FAST RUNNER';
-                else if (activeMonthsCurrent >= 3) movementClass = 'SLOW RUNNER';
+                // Criteria: Top 30% volume AND semi-consistent (>= 6 months) OR just very consistent (>= 9 months)
+                const isVolumeLeader = top30PercentIds.has(m.description);
+                if (activeMonthsRolling >= 9 || (activeMonthsRolling >= 6 && isVolumeLeader)) {
+                    movementClass = 'FAST RUNNER';
+                } else if (activeMonthsRolling >= 3) {
+                    movementClass = 'SLOW RUNNER';
+                }
             }
 
-            // Stock Strategy (based on customer count)
+            // Stock Strategy (based on customer count and regularity)
             const totalCustCount = m.distinctCustomers.size;
             let stockStrategy = 'MADE TO ORDER';
-            if (totalCustCount > 10) stockStrategy = 'GENERAL STOCK';
-            else if (totalCustCount >= 5) stockStrategy = 'AGAINST ORDER';
+            if (totalCustCount > 10 || (totalCustCount >= 5 && movementClass === 'FAST RUNNER')) {
+                stockStrategy = 'GENERAL STOCK';
+            } else if (totalCustCount >= 5 || (totalCustCount >= 3 && movementClass === 'FAST RUNNER')) {
+                stockStrategy = 'AGAINST ORDER';
+            }
 
             // Calculate Avg Customers based on unique counts per month
             const calculateAvgMonthlyCust = (fyKey: string) => {
