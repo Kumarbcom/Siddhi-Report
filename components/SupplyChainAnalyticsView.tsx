@@ -107,7 +107,8 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
         materials.forEach(m => {
             const partNo = (m.partNo || '').trim().toLowerCase();
             const desc = (m.description || '').trim().toLowerCase();
-            materialMap.set(partNo, {
+
+            const entry = {
                 partNo: m.partNo,
                 description: m.description,
                 group: m.materialGroup,
@@ -119,12 +120,17 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
                 distinctCustomers: new Set(),
                 hasProjectOrders: false,
                 fyData: {
-                    [FY_2526]: { qty: 0, projectQty: 0, customers: new Set(), months: new Set(), monthlyCust: new Map<string, Set<string>>(), totalRawQty: 0 },
-                    [FY_2425]: { qty: 0, projectQty: 0, customers: new Set(), months: new Set(), monthlyCust: new Map<string, Set<string>>(), totalRawQty: 0 }
+                    [FY_2526]: { qty: 0, projectQty: 0, customers: new Set(), months: new Set(), monthlyCust: new Map(), totalRawQty: 0 },
+                    [FY_2425]: { qty: 0, projectQty: 0, customers: new Set(), months: new Set(), monthlyCust: new Map(), totalRawQty: 0 }
                 }
-            });
-            // Also map by description for robustness
-            if (desc !== partNo) materialMap.set(desc, materialMap.get(partNo));
+            };
+
+            // Map by description (primary key for sales matching)
+            if (desc) materialMap.set(desc, entry);
+            // Also map by partNo if different
+            if (partNo && partNo !== desc) {
+                materialMap.set(partNo, entry);
+            }
         });
 
         // 2. Integrate Stock
