@@ -90,6 +90,7 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
         salesReportItems.forEach(item => {
             const key = (item.particulars || '').trim();
             const lowerKey = key.toLowerCase();
+            const isProjectSale = lowerKey.includes('project') || (item.customerName || '').toLowerCase().includes('project');
 
             if (!materialMap.has(lowerKey)) {
                 const masterInfo = masterMap.get(lowerKey);
@@ -99,9 +100,10 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
                     make: masterInfo?.make || 'N/A',
                     sales: [],
                     distinctCustomers: new Set(),
+                    hasProjectOrders: false,
                     fyData: {
-                        [FY_2526]: { qty: 0, customers: new Set(), months: new Set() },
-                        [FY_2425]: { qty: 0, customers: new Set(), months: new Set() }
+                        [FY_2526]: { qty: 0, projectQty: 0, customers: new Set(), months: new Set(), monthlyCust: new Map<string, Set<string>>() },
+                        [FY_2425]: { qty: 0, projectQty: 0, customers: new Set(), months: new Set(), monthlyCust: new Map<string, Set<string>>() }
                     }
                 });
             }
@@ -113,11 +115,22 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
 
             mData.sales.push(item);
             mData.distinctCustomers.add(item.customerName);
+            if (isProjectSale) mData.hasProjectOrders = true;
 
             if (mData.fyData[fy]) {
-                mData.fyData[fy].qty += (item.quantity || 0);
+                if (isProjectSale) {
+                    mData.fyData[fy].projectQty += (item.quantity || 0);
+                } else {
+                    mData.fyData[fy].qty += (item.quantity || 0);
+                }
+
                 mData.fyData[fy].customers.add(item.customerName);
                 mData.fyData[fy].months.add(monthKey);
+
+                if (!mData.fyData[fy].monthlyCust.has(monthKey)) {
+                    mData.fyData[fy].monthlyCust.set(monthKey, new Set());
+                }
+                mData.fyData[fy].monthlyCust.get(monthKey).add(item.customerName);
             }
         });
 
@@ -139,6 +152,17 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
             if (totalCustCount > 10) stockStrategy = 'GENERAL STOCK';
             else if (totalCustCount >= 5) stockStrategy = 'AGAINST ORDER';
 
+            // Calculate Avg Customers based on unique counts per month
+            const calculateAvgMonthlyCust = (fyKey: string) => {
+                const fy = m.fyData[fyKey];
+                if (fy.months.size === 0) return 0;
+                let sum = 0;
+                fy.monthlyCust.forEach((custSet: Set<string>) => {
+                    sum += custSet.size;
+                });
+                return sum / fy.months.size;
+            };
+
             return {
                 ...m,
                 movementClass,
@@ -149,15 +173,17 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
                     [FY_2526]: {
                         activeMonths: m.fyData[FY_2526].months.size,
                         totalCust: m.fyData[FY_2526].customers.size,
-                        avgCust: m.fyData[FY_2526].months.size > 0 ? m.fyData[FY_2526].customers.size / 12 : 0,
+                        avgCust: calculateAvgMonthlyCust(FY_2526),
                         totalQty: m.fyData[FY_2526].qty,
+                        projectQty: m.fyData[FY_2526].projectQty,
                         avgQty: m.fyData[FY_2526].months.size > 0 ? m.fyData[FY_2526].qty / 12 : 0
                     },
                     [FY_2425]: {
                         activeMonths: m.fyData[FY_2425].months.size,
                         totalCust: m.fyData[FY_2425].customers.size,
-                        avgCust: m.fyData[FY_2425].months.size > 0 ? m.fyData[FY_2425].customers.size / 12 : 0,
+                        avgCust: calculateAvgMonthlyCust(FY_2425),
                         totalQty: m.fyData[FY_2425].qty,
+                        projectQty: m.fyData[FY_2425].projectQty,
                         avgQty: m.fyData[FY_2425].months.size > 0 ? m.fyData[FY_2425].qty / 12 : 0
                     }
                 }
@@ -229,10 +255,12 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
             "Description": d.description,
             "Strategy": d.stockStrategy,
             "Class": d.movementClass,
+            "Project Order": d.hasProjectOrders ? "YES" : "NO",
             "Active Mos (25-26)": d.metrics[FY_2526].activeMonths,
             "Cust Count (25-26)": d.metrics[FY_2526].totalCust,
             "Avg Cust (25-26)": d.metrics[FY_2526].avgCust.toFixed(2),
-            "Qty Sold (25-26)": d.metrics[FY_2526].totalQty,
+            "Reg Qty Sold (25-26)": d.metrics[FY_2526].totalQty,
+            "Proj Qty Sold (25-26)": d.metrics[FY_2526].projectQty,
             "Avg Qty (25-26)": d.metrics[FY_2526].avgQty.toFixed(2)
         }));
         const ws = utils.json_to_sheet(exportData);
@@ -314,7 +342,7 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
                 </div>
 
                 {/* Slicers Area */}
-                <div className="flex flex-wrap gap-4 items-start bg-gray-50/50 p-2 rounded-lg border border-gray-200">
+                <div className="flex flex-wrap gap-6 items-end bg-gray-50/50 p-3 rounded-lg border border-gray-200">
                     <Slicer label="Make" selected={selectedMake} options={makes} onSelect={setSelectedMake} />
                     <Slicer label="Material Group" selected={selectedGroup} options={groups} onSelect={setSelectedGroup} />
                     <Slicer label="Stock Strategy" selected={selectedStrategy} options={strategies} onSelect={setSelectedStrategy} />
@@ -349,11 +377,14 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
                                     <th rowSpan={3} className="border border-gray-300 px-3 py-2 cursor-pointer hover:bg-gray-200" onClick={() => handleSort('movementClass')}>
                                         <div className="flex items-center gap-1">Classification {renderSortIcon('movementClass')}</div>
                                     </th>
+                                    <th rowSpan={3} className="border border-gray-300 px-3 py-2 cursor-pointer hover:bg-gray-200" onClick={() => handleSort('hasProjectOrders')}>
+                                        <div className="flex items-center gap-1">Project Order {renderSortIcon('hasProjectOrders')}</div>
+                                    </th>
                                 </>
                             )}
                             {visibleColumns.activeMonths && <th colSpan={2} className="border border-gray-300 px-3 py-1 bg-blue-50 text-center text-blue-800">Active Months</th>}
                             {visibleColumns.customerCount && <th colSpan={4} className="border border-gray-300 px-3 py-1 bg-green-50 text-center text-green-800">Customer Count</th>}
-                            {visibleColumns.qtySold && <th colSpan={4} className="border border-gray-300 px-3 py-1 bg-orange-50 text-center text-orange-800">Quantity Sold</th>}
+                            {visibleColumns.qtySold && <th colSpan={6} className="border border-gray-300 px-3 py-1 bg-orange-50 text-center text-orange-800">Quantity Sold (Reg vs Proj)</th>}
                         </tr>
                         {/* Hierarchical Header Row 2 */}
                         <tr className="text-[9px] font-bold text-gray-600 uppercase">
@@ -371,8 +402,8 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
                             )}
                             {visibleColumns.qtySold && (
                                 <>
-                                    <th colSpan={2} className="border border-gray-300 px-2 py-1 bg-orange-50/50 text-center">{FY_2526}</th>
-                                    <th colSpan={2} className="border border-gray-300 px-2 py-1 bg-orange-50/50 text-center">{FY_2425}</th>
+                                    <th colSpan={3} className="border border-gray-300 px-2 py-1 bg-orange-50/50 text-center">{FY_2526}</th>
+                                    <th colSpan={3} className="border border-gray-300 px-2 py-1 bg-orange-50/50 text-center">{FY_2425}</th>
                                 </>
                             )}
                         </tr>
@@ -396,11 +427,13 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
 
                             {visibleColumns.qtySold && (
                                 <>
-                                    <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-orange-50/30" onClick={() => handleSort(`metrics.${FY_2526}.totalQty`)}>Total Qty</th>
-                                    <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-orange-50/30" onClick={() => handleSort(`metrics.${FY_2526}.avgQty`)}>Avg / Month</th>
+                                    <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-orange-50/30" onClick={() => handleSort(`metrics.${FY_2526}.totalQty`)}>Reg Qty</th>
+                                    <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-orange-50/30 text-purple-700" onClick={() => handleSort(`metrics.${FY_2526}.projectQty`)}>Proj Qty</th>
+                                    <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-orange-50/30" onClick={() => handleSort(`metrics.${FY_2526}.avgQty`)}>Avg / Mo</th>
 
-                                    <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-orange-50/30" onClick={() => handleSort(`metrics.${FY_2425}.totalQty`)}>Total Qty</th>
-                                    <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-orange-50/30" onClick={() => handleSort(`metrics.${FY_2425}.avgQty`)}>Avg / Month</th>
+                                    <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-orange-50/30" onClick={() => handleSort(`metrics.${FY_2425}.totalQty`)}>Reg Qty</th>
+                                    <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-orange-50/30 text-purple-700" onClick={() => handleSort(`metrics.${FY_2425}.projectQty`)}>Proj Qty</th>
+                                    <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-orange-50/30" onClick={() => handleSort(`metrics.${FY_2425}.avgQty`)}>Avg / Mo</th>
                                 </>
                             )}
                         </tr>
@@ -420,8 +453,8 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
                                     <>
                                         <td className="border border-gray-200 px-3 py-1 text-center">
                                             <span className={`px-2 py-0.5 rounded text-[8px] font-black ${item.stockStrategy === 'GENERAL STOCK' ? 'bg-blue-600 text-white' :
-                                                    item.stockStrategy === 'AGAINST ORDER' ? 'bg-purple-600 text-white' :
-                                                        'bg-gray-400 text-white'
+                                                item.stockStrategy === 'AGAINST ORDER' ? 'bg-purple-600 text-white' :
+                                                    'bg-gray-400 text-white'
                                                 }`}>
                                                 {item.stockStrategy}
                                             </span>
@@ -433,6 +466,15 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
                                                 }`}>
                                                 {item.movementClass}
                                             </span>
+                                        </td>
+                                        <td className="border border-gray-200 px-3 py-1 text-center font-bold">
+                                            {item.hasProjectOrders ? (
+                                                <span className="text-[9px] text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100 uppercase tracking-tighter shadow-sm">
+                                                    Yes
+                                                </span>
+                                            ) : (
+                                                <span className="text-[9px] text-gray-300 uppercase tracking-tighter">No</span>
+                                            )}
                                         </td>
                                     </>
                                 )}
@@ -459,8 +501,11 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
                                 {visibleColumns.qtySold && (
                                     <>
                                         <td className="border border-gray-200 px-2 py-1 text-center font-black text-orange-700 bg-orange-50/10">{item.metrics[FY_2526].totalQty}</td>
+                                        <td className="border border-gray-200 px-2 py-1 text-center font-black text-purple-700 bg-purple-50/20">{item.metrics[FY_2526].projectQty || 0}</td>
                                         <td className="border border-gray-200 px-2 py-1 text-center font-mono text-gray-500 bg-orange-50/10">{item.metrics[FY_2526].avgQty.toFixed(1)}</td>
+
                                         <td className="border border-gray-200 px-2 py-1 text-center font-black text-orange-700 bg-orange-50/10">{item.metrics[FY_2425].totalQty}</td>
+                                        <td className="border border-gray-200 px-2 py-1 text-center font-black text-purple-700 bg-purple-50/20">{item.metrics[FY_2425].projectQty || 0}</td>
                                         <td className="border border-gray-200 px-2 py-1 text-center font-mono text-gray-500 bg-orange-50/10">{item.metrics[FY_2425].avgQty.toFixed(1)}</td>
                                     </>
                                 )}
@@ -489,25 +534,19 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
 };
 
 const Slicer = ({ label, selected, options, onSelect }: any) => (
-    <div className="flex flex-col gap-1 min-w-[150px]">
-        <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1">
-            <Filter className="w-2.5 h-2.5" /> {label}
+    <div className="flex flex-col gap-1.5 min-w-[160px]">
+        <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
+            <Filter className="w-3 h-3 text-green-700" /> {label}
         </span>
-        <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto custom-scrollbar p-1 bg-white border border-gray-200 rounded">
-            {options.slice(0, 20).map((opt: string) => (
-                <button
-                    key={opt}
-                    onClick={() => onSelect(opt)}
-                    className={`px-2 py-0.5 rounded-[4px] text-[8px] font-bold uppercase transition-all border ${selected === opt
-                        ? 'bg-green-700 text-white border-green-800 shadow-sm'
-                        : 'bg-white text-gray-500 border-gray-200 hover:border-green-400 hover:text-green-700'
-                        }`}
-                >
-                    {opt}
-                </button>
+        <select
+            value={selected}
+            onChange={(e) => onSelect(e.target.value)}
+            className="w-full bg-white border border-gray-300 rounded-lg px-3 py-1.5 text-xs font-bold uppercase outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 shadow-sm transition-all text-gray-700 cursor-pointer"
+        >
+            {options.map((opt: string) => (
+                <option key={opt} value={opt}>{opt}</option>
             ))}
-            {options.length > 20 && <span className="text-[7px] text-gray-300 font-bold ml-1">+{options.length - 20} more</span>}
-        </div>
+        </select>
     </div>
 );
 
