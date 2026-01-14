@@ -13,7 +13,8 @@ import {
     Filter,
     FileDown,
     Info,
-    Users
+    Users,
+    Grid
 } from 'lucide-react';
 import { utils, writeFile } from 'xlsx';
 
@@ -40,7 +41,18 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
 
     const analyticsData = useMemo(() => {
         const materialMap = new Map<string, any>();
-        const masterMap = new Map(materials.map(m => [m.description.trim().toLowerCase(), m]));
+        // Case-insensitive lookup map for material details
+        const masterMap = new Map();
+        materials.forEach(m => {
+            const desc = m.description.trim().toLowerCase();
+            // Store the group and any other relevant fields
+            masterMap.set(desc, {
+                group: m.materialGroup,
+                partNo: m.partNo,
+                make: m.make
+            });
+        });
+
         const now = new Date();
         const twelveMonthsAgo = new Date();
         twelveMonthsAgo.setMonth(now.getMonth() - 12);
@@ -50,15 +62,18 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
         salesReportItems.forEach(item => {
             const key = item.particulars.trim();
             const lowerKey = key.toLowerCase();
+
             if (!materialMap.has(lowerKey)) {
+                const masterInfo = masterMap.get(lowerKey);
                 materialMap.set(lowerKey, {
                     description: key,
-                    group: masterMap.get(lowerKey)?.materialGroup || 'Uncategorized',
+                    group: masterInfo?.group || 'Uncategorized',
+                    make: masterInfo?.make || 'N/A',
                     sales: [],
                     distinctCustomers24m: new Set(),
                     fySales: {},
-                    monthlySales: {}, // { '2024-04': qty }
-                    monthlyCustomers: {}, // { '2024-04': Set of customers }
+                    monthlySales: {},
+                    monthlyCustomers: {},
                 });
             }
             const mData = materialMap.get(lowerKey);
@@ -107,7 +122,6 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
             if (customerCount > 10) stockStrategy = 'General Stock';
             else if (customerCount >= 5) stockStrategy = 'Against Customer Order';
 
-            // Monthly Customer Count Mapping
             const monthWiseCustCount = Object.keys(m.monthlyCustomers).sort().reverse().slice(0, 12).map(mon => ({
                 month: mon,
                 count: m.monthlyCustomers[mon].size
@@ -148,6 +162,7 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
         const ws = utils.json_to_sheet(analyticsData.map(d => ({
             "Group": d.group,
             "Material": d.description,
+            "Make": d.make,
             "Movement": d.movementClass,
             "Strategy": d.stockStrategy,
             "Monthly Forecast": d.forecast.toFixed(2),
@@ -177,172 +192,154 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
     }, [analyticsData]);
 
     return (
-        <div className="flex flex-col h-full gap-4 p-4 lg:p-6 bg-gray-50/50">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div className="flex items-center gap-4">
-                    <div className="p-3 bg-indigo-600 rounded-2xl text-white shadow-xl shadow-indigo-200">
-                        <BarChart3 className="w-6 h-6" />
+        <div className="flex flex-col h-full gap-2 p-3 bg-[#f3f4f6]">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-3 border border-gray-200 shadow-sm rounded-lg">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 bg-green-700 rounded-lg text-white">
+                        <Grid className="w-5 h-5" />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-black text-gray-900 tracking-tight uppercase">Supply Chain Planning</h1>
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">Advanced Inventory Analytics & Forecasting</p>
+                        <h1 className="text-lg font-black text-gray-900 tracking-tight uppercase leading-tight">Supply Chain Master Sheet</h1>
+                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Excel-Style Analytical View</p>
                     </div>
                 </div>
-                <button onClick={handleExport} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-xl text-xs font-black shadow-lg shadow-green-100 hover:bg-green-700 transition-all">
-                    <FileDown className="w-4 h-4" /> Export Report
+                <button onClick={handleExport} className="flex items-center gap-2 px-3 py-1.5 bg-green-700 text-white rounded text-xs font-bold hover:bg-green-800 transition-all border border-green-900 overflow-hidden shadow-sm">
+                    <FileDown className="w-4 h-4" /> EXPORT EXCEL
                 </button>
             </div>
 
-            <div className="flex items-center gap-1 p-1 bg-white border border-gray-100 rounded-2xl shadow-sm overflow-x-auto whitespace-nowrap">
-                <TabButton active={activeTab === 'movement'} onClick={() => setActiveTab('movement')} icon={RefreshCw} label="Movement Analysis" />
-                <TabButton active={activeTab === 'strategy'} onClick={() => setActiveTab('strategy')} icon={TrendingUp} label="Stock Strategy" />
-                <TabButton active={activeTab === 'planning'} onClick={() => setActiveTab('planning')} icon={LineChart} label="Planning & Forecast" />
-                <TabButton active={activeTab === 'insights'} onClick={() => setActiveTab('insights')} icon={AlertTriangle} label="Management Insights" />
+            <div className="flex items-center bg-white border border-gray-200 rounded-md p-0.5 overflow-x-auto whitespace-nowrap scrollbar-hide">
+                <ExcelTab active={activeTab === 'movement'} onClick={() => setActiveTab('movement')} label="Movement Analysis" />
+                <ExcelTab active={activeTab === 'strategy'} onClick={() => setActiveTab('strategy')} label="Stock Strategy" />
+                <ExcelTab active={activeTab === 'planning'} onClick={() => setActiveTab('planning')} label="Planning & Forecast" />
+                <ExcelTab active={activeTab === 'insights'} onClick={() => setActiveTab('insights')} label="Insights" />
             </div>
 
-            <div className="flex-1 min-h-0 bg-white border border-gray-100 rounded-3xl shadow-sm overflow-hidden flex flex-col">
-                {activeTab === 'movement' && <MovementTable data={analyticsData} />}
-                {activeTab === 'strategy' && <StrategyTable data={analyticsData} />}
-                {activeTab === 'planning' && <PlanningTable data={analyticsData} />}
+            <div className="flex-1 min-h-0 bg-white border border-gray-200 shadow-sm overflow-hidden flex flex-col">
+                {activeTab === 'movement' && <ExcelTable data={analyticsData} type="movement" />}
+                {activeTab === 'strategy' && <ExcelTable data={analyticsData} type="strategy" />}
+                {activeTab === 'planning' && <ExcelTable data={analyticsData} type="planning" />}
                 {activeTab === 'insights' && <InsightsView insights={getInsights} />}
+            </div>
+
+            {/* Excel Status Bar */}
+            <div className="bg-green-700 text-white px-3 py-1 text-[10px] font-bold flex justify-between items-center rounded-b-md">
+                <div className="flex gap-4">
+                    <span>READY</span>
+                    <span>ITEMS: {analyticsData.length}</span>
+                </div>
+                <div className="flex gap-4 uppercase">
+                    <span>{activeTab} VIEW</span>
+                    <span>100% SCALE</span>
+                </div>
             </div>
         </div>
     );
 };
 
-const TabButton = ({ active, onClick, icon: Icon, label }: any) => (
-    <button onClick={onClick} className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all ${active ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-gray-400 hover:bg-gray-50 hover:text-gray-600'}`}>
-        <Icon className="w-4 h-4" /> {label}
+const ExcelTab = ({ active, onClick, label }: any) => (
+    <button
+        onClick={onClick}
+        className={`px-4 py-1.5 text-[11px] font-bold uppercase transition-all border-r border-gray-100 ${active ? 'bg-[#f3f4f6] text-green-800 border-b-2 border-b-green-700' : 'text-gray-500 hover:bg-gray-50'
+            }`}
+    >
+        {label}
     </button>
 );
 
-const MovementTable = ({ data }: { data: any[] }) => (
-    <div className="overflow-auto flex-1">
-        <table className="w-full text-left border-collapse table-fixed min-w-[1200px]">
-            <thead className="sticky top-0 bg-gray-50 shadow-sm z-10">
-                <tr className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                    <th className="px-6 py-4 w-40">Group</th>
-                    <th className="px-6 py-4 w-80">Description</th>
-                    <th className="px-6 py-4 w-24 text-center">Active Mos</th>
-                    <th className="px-6 py-4 w-64">Customers (Monthwise Count)</th>
-                    <th className="px-6 py-4 w-28 text-center">Project Order?</th>
-                    <th className="px-6 py-4 w-32">Classification</th>
-                </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-                {data.map((item, idx) => (
-                    <tr key={idx} className="hover:bg-gray-50/50 transition-colors group">
-                        <td className="px-6 py-4">
-                            <span className="text-[10px] font-black py-1 px-2 bg-gray-100 text-gray-600 rounded-md uppercase truncate block">
-                                {item.group}
-                            </span>
-                        </td>
-                        <td className="px-6 py-4">
-                            <div>
-                                <p className="text-xs font-black text-gray-800 line-clamp-2 leading-tight uppercase">{item.description}</p>
-                            </div>
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                            <span className="text-xs font-mono font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg">
-                                {item.activeMonthsInFY}
-                            </span>
-                        </td>
-                        <td className="px-6 py-4">
-                            <div className="flex gap-1 overflow-x-auto pb-2 scrollbar-hide">
-                                {item.monthWiseCustCount.map((mc: any, i: number) => (
-                                    <div key={i} className="flex flex-col items-center min-w-[40px] bg-gray-50 p-1.5 rounded-lg border border-gray-100">
-                                        <span className="text-[8px] font-black text-gray-400 uppercase">{mc.month.split('-')[1]}</span>
-                                        <span className="text-[10px] font-bold text-gray-800">{mc.count}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase border ${item.avgMonthlyQty > 0 && item.regularTotalQty < item.avgMonthlyQty * 12 ? 'bg-orange-50 text-orange-600 border-orange-100' : 'bg-gray-100 text-gray-400 border-gray-200'}`}>
-                                {item.avgMonthlyQty > 0 && item.regularTotalQty < item.avgMonthlyQty * 12 ? 'Yes' : 'No'}
-                            </span>
-                        </td>
-                        <td className="px-6 py-4">
-                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tight block text-center ${item.movementClass === 'Fast Runner' ? 'bg-green-50 text-green-700 border border-green-200' :
-                                    item.movementClass === 'Slow Runner' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
-                                        'bg-gray-50 text-gray-400 border border-gray-200'
-                                }`}>
-                                {item.movementClass}
-                            </span>
-                        </td>
-                    </tr>
-                ))}
-            </tbody>
-        </table>
-    </div>
-);
+const ExcelTable = ({ data, type }: { data: any[], type: string }) => {
+    const fyKeys = type === 'planning' ? Object.keys(data[0]?.fyMetrics || {}) : [];
 
-const StrategyTable = ({ data }: { data: any[] }) => (
-    <div className="overflow-auto flex-1">
-        <table className="w-full text-left border-collapse">
-            <thead className="sticky top-0 bg-gray-50 shadow-sm z-10">
-                <tr className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                    <th className="px-6 py-4">Group</th>
-                    <th className="px-6 py-4">Description</th>
-                    <th className="px-6 py-4">Cust Count (24M)</th>
-                    <th className="px-6 py-4">Strategy</th>
-                </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-                {data.map((item, idx) => (
-                    <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
-                        <td className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase">{item.group}</td>
-                        <td className="px-6 py-4 text-xs font-bold text-gray-800 uppercase">{item.description}</td>
-                        <td className="px-6 py-4 text-xs font-mono font-bold text-blue-600">
-                            <div className="flex items-center gap-2">
-                                <Users className="w-3.5 h-3.5" />
-                                {item.customerCount} Customers
-                            </div>
-                        </td>
-                        <td className="px-6 py-4">
-                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${item.stockStrategy === 'General Stock' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
-                                    item.stockStrategy === 'Against Customer Order' ? 'bg-purple-50 text-purple-700 border border-purple-200' :
-                                        'bg-indigo-50 text-indigo-700 border border-indigo-200'
-                                }`}>
-                                {item.stockStrategy}
-                            </span>
-                        </td>
-                    </tr>
-                ))}
-            </tbody>
-        </table>
-    </div>
-);
-
-const PlanningTable = ({ data }: { data: any[] }) => {
-    const fyKeys = Object.keys(data[0]?.fyMetrics || {});
     return (
-        <div className="overflow-auto flex-1">
-            <table className="w-full text-left border-collapse">
-                <thead className="sticky top-0 bg-gray-50 shadow-sm z-10">
-                    <tr className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                        <th className="px-6 py-4">Group / Description</th>
-                        {fyKeys.map(k => <th key={k} className="px-6 py-4">{k}</th>)}
-                        <th className="px-6 py-4 bg-indigo-50/50 text-indigo-700">Forecast</th>
-                        <th className="px-6 py-4 bg-green-50/50 text-green-700">Rec. Stock</th>
-                        <th className="px-6 py-4">Procurement</th>
+        <div className="overflow-auto flex-1 scrollbar-thin">
+            <table className="w-full text-left border-collapse table-auto min-w-max border-r border-b border-gray-200">
+                <thead className="sticky top-0 bg-[#f8f9fa] z-20">
+                    <tr className="text-[10px] font-bold text-gray-600 uppercase">
+                        <th className="border border-gray-300 px-3 py-2 bg-gray-100 w-10 text-center">#</th>
+                        <th className="border border-gray-300 px-3 py-2 hover:bg-gray-200 cursor-pointer">Group</th>
+                        <th className="border border-gray-300 px-3 py-2 hover:bg-gray-200 cursor-pointer min-w-[300px]">Description</th>
+
+                        {type === 'movement' && (
+                            <>
+                                <th className="border border-gray-300 px-3 py-2 text-center">Mo. Act.</th>
+                                <th className="border border-gray-300 px-2 py-1 text-center min-w-[350px]">Customer Matrix (12M)</th>
+                                <th className="border border-gray-300 px-3 py-2 text-center">Project Order</th>
+                                <th className="border border-gray-300 px-3 py-2">Classification</th>
+                            </>
+                        )}
+
+                        {type === 'strategy' && (
+                            <>
+                                <th className="border border-gray-300 px-3 py-2 text-center">Cust (24M)</th>
+                                <th className="border border-gray-300 px-3 py-2">Last Sale</th>
+                                <th className="border border-gray-300 px-3 py-2">Stock Strategy</th>
+                            </>
+                        )}
+
+                        {type === 'planning' && (
+                            <>
+                                {fyKeys.map(k => <th key={k} className="border border-gray-300 px-3 py-2 text-right">{k}</th>)}
+                                <th className="border border-gray-300 px-3 py-2 text-right bg-blue-50">Weight Forecast</th>
+                                <th className="border border-gray-300 px-3 py-2 text-right bg-green-50">Rec. Stock</th>
+                                <th className="border border-gray-300 px-3 py-2">Sugg. Procurement</th>
+                            </>
+                        )}
                     </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50">
+                <tbody className="text-[11px]">
                     {data.map((item, idx) => (
-                        <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
-                            <td className="px-6 py-4">
-                                <span className="text-[8px] font-black text-gray-400 block uppercase mb-1">{item.group}</span>
-                                <p className="text-xs font-bold text-gray-800 uppercase line-clamp-1">{item.description}</p>
-                            </td>
-                            {fyKeys.map(k => <td key={k} className="px-6 py-4 text-xs font-mono text-gray-500">{Math.round(item.fyMetrics[k]) || '-'}</td>)}
-                            <td className="px-6 py-4 bg-indigo-50/30 text-indigo-700 font-black text-xs">{item.forecast.toFixed(2)}</td>
-                            <td className="px-6 py-4 bg-green-50/30 text-green-700 font-black text-xs">{item.recommendedStock.toFixed(2)}</td>
-                            <td className="px-6 py-4 text-xs">
-                                <span className={`px-2 py-1 rounded-lg font-black uppercase text-[10px] ${item.stockStrategy === 'General Stock' ? 'bg-blue-50 text-blue-600' : 'bg-gray-50 text-gray-600'}`}>
-                                    {item.stockStrategy === 'General Stock' ? 'Stock Purchase' : item.stockStrategy}
-                                </span>
-                            </td>
+                        <tr key={idx} className="hover:bg-blue-50/50 even:bg-gray-50/30 transition-colors">
+                            <td className="border border-gray-200 px-2 py-1 text-center text-gray-400 font-mono">{idx + 1}</td>
+                            <td className="border border-gray-200 px-3 py-1 font-bold text-gray-600 uppercase">{item.group}</td>
+                            <td className="border border-gray-200 px-3 py-1 font-bold text-gray-900 uppercase truncate max-w-[400px]" title={item.description}>{item.description}</td>
+
+                            {type === 'movement' && (
+                                <>
+                                    <td className="border border-gray-200 px-3 py-1 text-center font-bold text-indigo-700">{item.activeMonthsInFY}</td>
+                                    <td className="border border-gray-200 px-2 py-1">
+                                        <div className="flex gap-[2px]">
+                                            {item.monthWiseCustCount.map((mc: any, i: number) => (
+                                                <div key={i} className="flex flex-col items-center min-w-[28px] border-x border-gray-100 bg-white" title={`${mc.month}: ${mc.count} Customers`}>
+                                                    <span className="text-[7px] font-bold text-gray-400">{mc.month.split('-')[1]}</span>
+                                                    <span className={`text-[9px] font-black ${mc.count > 0 ? 'text-green-700' : 'text-gray-300'}`}>{mc.count}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </td>
+                                    <td className="border border-gray-200 px-3 py-1 text-center">
+                                        <span className={item.avgMonthlyQty > 0 && item.regularTotalQty < item.avgMonthlyQty * 12 ? 'text-orange-600' : 'text-gray-300'}>
+                                            {item.avgMonthlyQty > 0 && item.regularTotalQty < item.avgMonthlyQty * 12 ? '• PROJECT' : '• REGULAR'}
+                                        </span>
+                                    </td>
+                                    <td className="border border-gray-200 px-3 py-1 font-black">
+                                        <span className={
+                                            item.movementClass === 'Fast Runner' ? 'text-green-600' :
+                                                item.movementClass === 'Slow Runner' ? 'text-amber-600' : 'text-gray-400'
+                                        }>{item.movementClass}</span>
+                                    </td>
+                                </>
+                            )}
+
+                            {type === 'strategy' && (
+                                <>
+                                    <td className="border border-gray-200 px-3 py-1 text-center font-bold text-blue-700">{item.customerCount}</td>
+                                    <td className="border border-gray-200 px-3 py-1 text-gray-500">{new Date(item.lastSaleDate).toLocaleDateString()}</td>
+                                    <td className="border border-gray-200 px-3 py-1 font-bold text-purple-700">{item.stockStrategy}</td>
+                                </>
+                            )}
+
+                            {type === 'planning' && (
+                                <>
+                                    {fyKeys.map(k => <td key={k} className="border border-gray-200 px-3 py-1 text-right text-gray-500 font-mono">{Math.round(item.fyMetrics[k]) || 0}</td>)}
+                                    <td className="border border-gray-200 px-3 py-1 text-right font-black text-blue-700 bg-blue-50/30">{item.forecast.toFixed(2)}</td>
+                                    <td className="border border-gray-200 px-3 py-1 text-right font-black text-green-700 bg-green-50/30">{item.recommendedStock.toFixed(2)}</td>
+                                    <td className="border border-gray-200 px-3 py-1">
+                                        <span className="text-[10px] font-bold px-2 py-0.5 bg-gray-100 rounded text-gray-600">
+                                            {item.stockStrategy === 'General Stock' ? 'STOCK PURCHASE' : 'ORDER LINKED'}
+                                        </span>
+                                    </td>
+                                </>
+                            )}
                         </tr>
                     ))}
                 </tbody>
@@ -352,17 +349,21 @@ const PlanningTable = ({ data }: { data: any[] }) => {
 };
 
 const InsightsView = ({ insights }: { insights: any[] }) => (
-    <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 overflow-auto">
+    <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 overflow-auto bg-gray-50">
         {insights.map((insight, idx) => (
-            <div key={idx} className={`p-6 rounded-[2rem] border-2 flex flex-col gap-4 transition-all hover:scale-[1.02] ${insight.type === 'warning' ? 'bg-orange-50/50 border-orange-100' : insight.type === 'danger' ? 'bg-red-50/50 border-red-100' : 'bg-blue-50/50 border-blue-100'}`}>
-                <div className="flex items-center justify-between">
-                    <div className={`p-3 rounded-2xl ${insight.type === 'warning' ? 'bg-orange-100 text-orange-600' : insight.type === 'danger' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}><LineChart className="w-6 h-6" /></div>
-                    <span className="text-2xl font-black text-gray-900">{insight.count}</span>
+            <div key={idx} className={`p-4 border bg-white flex flex-col gap-3 shadow-sm ${insight.type === 'warning' ? 'border-l-4 border-l-orange-500' :
+                    insight.type === 'danger' ? 'border-l-4 border-l-red-500' :
+                        'border-l-4 border-l-blue-500'
+                }`}>
+                <div className="flex items-center justify-between border-b pb-2">
+                    <h3 className="text-xs font-black text-gray-700 uppercase tracking-tighter">{insight.title}</h3>
+                    <span className="text-xl font-black text-gray-900">{insight.count}</span>
                 </div>
-                <h3 className="text-sm font-black text-gray-900 leading-tight mb-2 uppercase tracking-tighter">{insight.title}</h3>
-                <div className="space-y-2">
+                <div className="space-y-1">
                     {insight.items.map((it: string, i: number) => (
-                        <div key={i} className="flex items-center gap-2 text-[11px] font-bold text-gray-600 truncate"><ChevronRight className="w-3 h-3 text-gray-300" /> {it}</div>
+                        <div key={i} className="text-[10px] font-bold text-gray-500 truncate uppercase flex items-center gap-1">
+                            <span className="w-1 h-1 bg-gray-300 rounded-full" /> {it}
+                        </div>
                     ))}
                 </div>
             </div>
