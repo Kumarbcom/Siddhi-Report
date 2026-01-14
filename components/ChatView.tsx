@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { GoogleGenAI, Chat, GenerateContentResponse } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Material, ClosingStockItem, PendingSOItem, PendingPOItem, SalesReportItem, CustomerMasterItem } from '../types';
 import { Send, Bot, User, Trash2, Sparkles, Loader2, StopCircle } from 'lucide-react';
 
@@ -176,20 +176,22 @@ const ChatView: React.FC<ChatViewProps> = ({
         throw new Error("Gemini API Key is missing. Please add VITE_GEMINI_API_KEY to your .env file or environment variables.");
       }
 
-      const ai = new GoogleGenAI({ apiKey });
-      const chat: Chat = ai.chats.create({
-        model: 'gemini-3-pro-preview',
-        config: {
-          systemInstruction: prepareContext(),
-        },
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({
+        model: "gemini-1.5-flash",
+        systemInstruction: prepareContext()
+      });
+
+      const chat = model.startChat({
         history: messages.map(m => ({
           role: m.role,
           parts: [{ text: m.content }]
         }))
       });
 
-      const response: GenerateContentResponse = await chat.sendMessage({ message: text });
-      const responseText = response.text || "I'm sorry, I couldn't generate a response.";
+      const result = await chat.sendMessage(text);
+      const response = await result.response;
+      const responseText = response.text() || "I'm sorry, I couldn't generate a response.";
 
       const aiMsg: Message = { id: generateSafeId(), role: 'model', content: responseText, timestamp: Date.now() };
       setMessages(prev => [...prev, aiMsg]);
@@ -217,7 +219,7 @@ const ChatView: React.FC<ChatViewProps> = ({
       <div className="bg-white p-4 border-b border-gray-200 flex justify-between items-center flex-shrink-0">
         <div className="flex items-center gap-2">
           <div className="bg-indigo-100 p-2 rounded-lg text-indigo-600"><Sparkles className="w-5 h-5" /></div>
-          <div><h2 className="text-sm font-bold text-gray-800">AI Data Analyst</h2><p className="text-[10px] text-gray-500">Analytics powered by Gemini 3 Pro</p></div>
+          <div><h2 className="text-sm font-bold text-gray-800">AI Data Analyst</h2><p className="text-[10px] text-gray-500">Analytics powered by Gemini 1.5 Flash</p></div>
         </div>
         <button onClick={handleClear} className="text-gray-400 hover:text-red-500 p-2 rounded-full hover:bg-gray-100"><Trash2 className="w-4 h-4" /></button>
       </div>

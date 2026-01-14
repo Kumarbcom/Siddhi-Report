@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useDeferredValue } from 'react';
-import { SalesReportItem, Material, ClosingStockItem } from '../types';
+import { SalesReportItem, Material, ClosingStockItem, PendingSOItem, PendingPOItem } from '../types';
 import {
     Search,
     FileDown,
@@ -104,7 +104,7 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
 
         // 3. Integrate Pending SO
         pendingSO.forEach(s => {
-            const key = (s.description || '').trim().toLowerCase();
+            const key = (s.itemName || '').trim().toLowerCase();
             const m = materialMap.get(key);
             if (m) m.so += (s.balanceQty || 0);
         });

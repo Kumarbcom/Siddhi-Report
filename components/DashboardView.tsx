@@ -814,6 +814,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 poSched: 0,
                 salesCY: 0,
                 salesPY: 0,
+                regSalesCY: 0,
+                regSalesPY: 0,
                 monthlySales: new Map<string, number>(),
                 hasProject: false,
                 strategy: 'MADE TO ORDER',
@@ -854,34 +856,72 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         });
 
         // 5. Sales & Movement
+        const now = new Date();
+        const twelveMonthsAgo = new Date();
+        twelveMonthsAgo.setMonth(now.getMonth() - 12);
+
         enrichedSales.forEach(item => {
             const desc = (item.particulars || '').toLowerCase().trim();
             if (materialMap.has(desc)) {
                 const m = materialMap.get(desc);
+                const itemDate = parseDate(item.date);
                 const isProject = desc.includes('project') || (item.customerName || '').toLowerCase().includes('project');
 
-                if (item.fiscalYear === '2025-26') m.salesCY += (item.quantity || 0);
-                if (item.fiscalYear === '2024-25') m.salesPY += (item.quantity || 0);
+                if (item.fiscalYear === '2025-26') {
+                    m.salesCY += (item.quantity || 0);
+                    if (!isProject) m.regSalesCY += (item.quantity || 0);
+                }
+                if (item.fiscalYear === '2024-25') {
+                    m.salesPY += (item.quantity || 0);
+                    if (!isProject) m.regSalesPY += (item.quantity || 0);
+                }
 
-                const d = parseDate(item.date);
-                const monthKey = `${d.getFullYear()}-${d.getMonth() + 1}`;
+                const monthKey = `${itemDate.getFullYear()}-${itemDate.getMonth() + 1}`;
                 m.monthlySales.set(monthKey, (m.monthlySales.get(monthKey) || 0) + (item.quantity || 0));
+
+                if (itemDate >= twelveMonthsAgo) {
+                    if (!m.rollingMonths) m.rollingMonths = new Set<string>();
+                    m.rollingMonths.add(monthKey);
+                }
 
                 if (isProject) m.hasProject = true;
             }
         });
 
         // 6. Final Calculations & Heuristics
+        // Calculate Top 30% volume for Pareto based on Regular Sales
+        let totalRegQtyCombined = 0;
+        Array.from(materialMap.values()).forEach(m => { totalRegQtyCombined += ((m.regSalesCY || 0) + (m.regSalesPY || 0)); });
+
+        const sortedByRegVolume = Array.from(materialMap.values())
+            .map(m => ({ desc: m.description.toLowerCase(), qty: (m.regSalesCY || 0) + (m.regSalesPY || 0) }))
+            .sort((a, b) => b.qty - a.qty);
+
+        let cumulative = 0;
+        const top30PercentIds = new Set<string>();
+        for (const item of sortedByRegVolume) {
+            cumulative += item.qty;
+            top30PercentIds.add(item.desc);
+            if (cumulative >= totalRegQtyCombined * 0.3) break;
+        }
+
         return Array.from(materialMap.values()).map(m => {
             const activeMonths = m.monthlySales.size;
+            const rollingMonthsCount = m.rollingMonths ? m.rollingMonths.size : 0;
             const avgMonthly = activeMonths > 0 ? Array.from(m.monthlySales.values() as IterableIterator<number>).reduce((a: number, b: number) => a + b, 0) / activeMonths : 0;
 
-            // Classification Logic
-            if (activeMonths >= 6) m.classification = 'FAST RUNNER';
-            else if (activeMonths >= 2) m.classification = 'SLOW RUNNER';
+            // Classification Logic (Rolling 12 Months + Pareto)
+            const isVolumeLeader = top30PercentIds.has(m.description.toLowerCase());
+            let movementClass = 'NON-MOVING';
+            if (rollingMonthsCount >= 9 || (rollingMonthsCount >= 6 && isVolumeLeader)) {
+                movementClass = 'FAST RUNNER';
+            } else if (rollingMonthsCount >= 3) {
+                movementClass = 'SLOW RUNNER';
+            }
+            m.classification = movementClass;
 
             // Strategy Logic
-            if (m.salesCY + m.salesPY > 1000) m.strategy = 'GENERAL STOCK';
+            if (m.salesCY + m.salesPY > 1000 || (movementClass === 'FAST RUNNER' && m.salesCY + m.salesPY > 500)) m.strategy = 'GENERAL STOCK';
             else if (m.salesCY + m.salesPY > 0) m.strategy = 'AGAINST ORDER';
 
             const netQty = m.stock + m.poDue + m.poSched - (m.soDue + m.soSched);
@@ -889,10 +929,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             // Inventory Levels
             const safetyStock = Math.ceil(avgMonthly * 1.2);
             const minStock = safetyStock;
-            const rol = Math.ceil(safetyStock + (avgMonthly * 0.5)); // 0.5 month lead time
+            const rol = Math.ceil(safetyStock + (avgMonthly * 0.5));
             const maxStock = Math.ceil(rol + (avgMonthly * 1.5));
-
-            const projection = Math.ceil(avgMonthly);
 
             return {
                 ...m,
@@ -901,7 +939,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 minStock,
                 rol,
                 maxStock,
-                projection,
+                projection: Math.ceil(avgMonthly),
                 avgMonthly
             };
         });
@@ -1722,16 +1760,17 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                     </div>
                                 </div>
                                 <div className="overflow-x-auto max-h-96 custom-scrollbar">
-                                    <table className="w-full text-left border-collapse min-w-[800px]">
-                                        <thead className="sticky top-0 z-10 bg-white/80 backdrop-blur-xl shadow-[0_1px_0_0_rgba(0,0,0,0.05)] border-b border-gray-200">
-                                            <tr className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
+                                    <table className="w-full text-left border-collapse border border-gray-300 min-w-[800px]">
+                                        <thead className="sticky top-0 z-20 bg-gray-100 shadow-[0_2px_4px_rgba(0,0,0,0.1)]">
+                                            <tr className="text-[9px] font-black text-gray-700 uppercase tracking-widest text-center divide-x divide-gray-300">
+                                                <th className="py-2 px-2 border border-gray-300 w-8">#</th>
                                                 {[
-                                                    { key: 'description', label: 'Description', align: 'left' },
+                                                    { key: 'description', label: 'Item Description', align: 'left' },
                                                     { key: 'make', label: 'Make', align: 'left' },
-                                                    { key: 'group', label: 'Group', align: 'left' },
-                                                    { key: 'quantity', label: 'Quantity', align: 'right' },
-                                                    { key: 'rate', label: 'Rate', align: 'right' },
-                                                    { key: 'value', label: 'Value', align: 'right' }
+                                                    { key: 'group', label: 'Material Group', align: 'left' },
+                                                    { key: 'quantity', label: 'Stock Qty', align: 'right' },
+                                                    { key: 'rate', label: 'Avg Rate', align: 'right' },
+                                                    { key: 'value', label: 'Total Value', align: 'right' }
                                                 ].map(col => (
                                                     <th
                                                         key={col.key}
@@ -1746,28 +1785,19 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                 ))}
                                             </tr>
                                         </thead>
-                                        <tbody className="divide-y divide-gray-100 text-[11px] text-gray-700">
+                                        <tbody className="divide-y divide-gray-200 text-[10px] text-gray-700">
                                             {processedInventoryItems.length === 0 ? (
-                                                <tr>
-                                                    <td colSpan={6} className="py-20 text-center text-gray-400 bg-gray-50/10">
-                                                        <div className="flex flex-col items-center justify-center gap-3">
-                                                            <Package className="w-12 h-12 text-gray-200" />
-                                                            <p className="text-sm font-bold uppercase tracking-tight">No matching stock found</p>
-                                                            <p className="text-[10px] text-gray-400">Try adjusting your Brand/Group filters or search term</p>
-                                                        </div>
-                                                    </td>
-                                                </tr>
+                                                <tr><td colSpan={7} className="p-8 text-center text-gray-400">No records found matching filters</td></tr>
                                             ) : (
                                                 processedInventoryItems.map((item, idx) => (
-                                                    <tr key={idx} className="hover:bg-emerald-50/30 transition-colors group">
-                                                        <td className="py-2.5 px-4 font-bold text-gray-900 max-w-xs truncate" title={item.description}>{item.description}</td>
-                                                        <td className="py-2.5 px-4">
-                                                            <span className="inline-block px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-gray-100 text-gray-600 border border-gray-200 group-hover:bg-white">{item.make}</span>
-                                                        </td>
-                                                        <td className="py-2.5 px-4 text-gray-500 font-medium">{item.group}</td>
-                                                        <td className="py-2.5 px-4 text-right font-mono font-bold text-blue-600">{item.quantity.toLocaleString()}</td>
-                                                        <td className="py-2.5 px-4 text-right font-mono text-gray-400">{item.rate.toFixed(1)}</td>
-                                                        <td className="py-2.5 px-4 text-right font-black text-emerald-700">{formatLargeValue(item.value, true)}</td>
+                                                    <tr key={idx} className="hover:bg-emerald-50/30 even:bg-gray-50/20 transition-colors group">
+                                                        <td className="py-1 px-2 border border-gray-200 text-center text-gray-400 font-mono text-[9px] select-none">{idx + 1}</td>
+                                                        <td className="py-1 px-3 border border-gray-200 font-black text-gray-700 truncate max-w-[300px]" title={item.description}>{item.description}</td>
+                                                        <td className="py-1 px-3 border border-gray-200 font-bold text-gray-500 uppercase">{item.make}</td>
+                                                        <td className="py-1 px-3 border border-gray-200 font-bold text-blue-600 uppercase tracking-tighter">{item.group}</td>
+                                                        <td className="py-1 px-3 border border-gray-200 text-right font-black text-emerald-700">{item.quantity.toLocaleString()}</td>
+                                                        <td className="py-1 px-3 border border-gray-200 text-right font-mono text-[9px] text-gray-400">{item.rate.toLocaleString()}</td>
+                                                        <td className="py-1 px-3 border border-gray-200 text-right font-black text-gray-900 bg-gray-50/30">{item.value.toLocaleString()}</td>
                                                     </tr>
                                                 ))
                                             )}
@@ -2482,71 +2512,97 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                             {/* Main Data Grid */}
                             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
                                 <div className="overflow-x-auto">
-                                    <table className="w-full text-left border-collapse">
+                                    <table className="w-full text-left border-collapse border border-gray-300">
                                         <thead>
-                                            <tr className="bg-gray-50 divide-x divide-gray-100 text-[10px] font-black text-gray-500 uppercase tracking-tighter">
-                                                <th className="px-4 py-3 sticky left-0 z-10 bg-gray-50/95 backdrop-blur-md">Make & Group</th>
-                                                <th className="px-4 py-3">Material Description</th>
-                                                <th className="px-4 py-3 text-center bg-emerald-50/30">Qty Sold (Present)</th>
-                                                <th className="px-4 py-3 text-center bg-gray-50/50">Qty Sold (Prev)</th>
-                                                <th className="px-4 py-3 text-center bg-blue-50/30">Closing Stock</th>
-                                                <th className="px-4 py-3 text-center bg-indigo-50/30">SO (Due / Sched)</th>
-                                                <th className="px-4 py-3 text-center bg-orange-50/30">PO (Due / Sched)</th>
-                                                <th className="px-4 py-3 text-center bg-rose-50/50">Net Qty</th>
-                                                <th className="px-4 py-3 text-center">Status</th>
+                                            <tr className="bg-gray-100 divide-x divide-gray-300 text-[9px] font-black text-gray-700 uppercase tracking-tighter text-center">
+                                                <th className="px-2 py-2 border border-gray-300 w-8 bg-gray-100 sticky left-0 z-20">#</th>
+                                                <th className="px-3 py-2 border border-gray-300 sticky left-8 z-20 bg-gray-100 min-w-[120px]">Make & Group</th>
+                                                <th className="px-3 py-2 border border-gray-300 text-left">Material Description</th>
+                                                <th className="px-3 py-2 border border-gray-300 bg-emerald-100/50">Qty Sold (CY)</th>
+                                                <th className="px-3 py-2 border border-gray-300">Qty Sold (PY)</th>
+                                                <th className="px-3 py-2 border border-gray-300 bg-blue-100/50">Stock</th>
+                                                <th className="px-3 py-2 border border-gray-300 bg-indigo-100/50">SO (D | S)</th>
+                                                <th className="px-3 py-2 border border-gray-300 bg-orange-100/50">PO (D | S)</th>
+                                                <th className="px-3 py-2 border border-gray-300 bg-rose-100/50">Net Qty</th>
+                                                <th className="px-3 py-2 border border-gray-300">Target Level</th>
+                                                <th className="px-3 py-2 border border-gray-300">Status</th>
                                             </tr>
                                         </thead>
-                                        <tbody className="divide-y divide-gray-50 text-[10px]">
-                                            {filteredStockPlanning.slice(0, 100).map((item, idx) => (
+                                        <tbody className="divide-y divide-gray-200 text-[10px]">
+                                            {filteredStockPlanning.slice(0, 150).map((item, idx) => (
                                                 <tr
                                                     key={idx}
                                                     onClick={() => setSelectedStockItem(item.description)}
                                                     className={`hover:bg-rose-50/50 cursor-pointer transition-colors group ${selectedStockItem === item.description ? 'bg-rose-50' : ''}`}
                                                 >
-                                                    <td className="px-4 py-2 sticky left-0 z-10 bg-white group-hover:bg-rose-50/5 backdrop-blur-md">
-                                                        <span className="font-black text-gray-900 block">{item.make}</span>
-                                                        <span className="font-bold text-blue-600 text-[9px] uppercase tracking-tighter">{item.group}</span>
+                                                    <td className="px-2 py-1.5 border border-gray-200 text-center text-gray-400 font-mono text-[9px] sticky left-0 z-10 bg-white group-hover:bg-rose-50/5">{idx + 1}</td>
+                                                    <td className="px-3 py-1.5 border border-gray-200 sticky left-8 z-10 bg-white group-hover:bg-rose-50/5 backdrop-blur-md">
+                                                        <span className="font-black text-gray-900 block truncate max-w-[100px]">{item.make}</span>
+                                                        <span className="font-bold text-blue-600 text-[8px] uppercase tracking-tighter">{item.group}</span>
                                                     </td>
-                                                    <td className="px-4 py-2">
-                                                        <span className="font-black text-gray-700 block max-w-[200px] truncate" title={item.description}>{item.description}</span>
-                                                        <div className="flex gap-2 mt-1">
-                                                            <span className="px-1.5 py-0.5 rounded bg-gray-100 text-[8px] font-black text-gray-500 uppercase">{item.classification}</span>
-                                                            <span className="px-1.5 py-0.5 rounded bg-indigo-50 text-[8px] font-black text-indigo-500 uppercase">{item.strategy}</span>
+                                                    <td className="px-3 py-1.5 border border-gray-200">
+                                                        <span className="font-black text-gray-700 block max-w-[250px] truncate" title={item.description}>{item.description}</span>
+                                                        <div className="flex gap-1 mt-0.5">
+                                                            <span className="px-1 py-0.2 rounded bg-gray-100 text-[7px] font-black text-gray-500 uppercase">{item.classification}</span>
+                                                            <span className="px-1 py-0.2 rounded bg-indigo-50 text-[7px] font-black text-indigo-500 uppercase">{item.strategy}</span>
                                                         </div>
                                                     </td>
-                                                    <td className="px-4 py-2 text-center font-black text-emerald-700 bg-emerald-50/5">{item.salesCY}</td>
-                                                    <td className="px-4 py-2 text-center font-bold text-gray-400">{item.salesPY}</td>
-                                                    <td className="px-4 py-2 text-center font-black text-blue-700 bg-blue-50/5">{item.stock}</td>
-                                                    <td className="px-4 py-2 text-center bg-indigo-50/5">
-                                                        <div className="flex items-center justify-center gap-2">
-                                                            <span className="font-black text-red-600">{item.soDue}</span>
+                                                    <td className="px-3 py-1.5 border border-gray-200 text-right font-black text-emerald-700 bg-emerald-50/10">{item.salesCY.toLocaleString()}</td>
+                                                    <td className="px-3 py-1.5 border border-gray-200 text-right font-bold text-gray-400">{item.salesPY.toLocaleString()}</td>
+                                                    <td className="px-3 py-1.5 border border-gray-200 text-right font-black text-blue-700 bg-blue-50/10">{item.stock.toLocaleString()}</td>
+                                                    <td className="px-3 py-1.5 border border-gray-200 text-right bg-indigo-50/10">
+                                                        <div className="flex items-center justify-end gap-1.5">
+                                                            <span className="font-black text-rose-600">{item.soDue}</span>
                                                             <span className="text-gray-300">|</span>
                                                             <span className="font-bold text-indigo-400">{item.soSched}</span>
                                                         </div>
                                                     </td>
-                                                    <td className="px-4 py-2 text-center bg-orange-50/5">
-                                                        <div className="flex items-center justify-center gap-2">
+                                                    <td className="px-3 py-1.5 border border-gray-200 text-right bg-orange-50/10">
+                                                        <div className="flex items-center justify-end gap-1.5">
                                                             <span className="font-black text-orange-600">{item.poDue}</span>
                                                             <span className="text-gray-300">|</span>
                                                             <span className="font-bold text-orange-400">{item.poSched}</span>
                                                         </div>
                                                     </td>
-                                                    <td className={`px-4 py-2 text-center font-black text-[11px] ${item.netQty < item.rol ? 'text-red-700 bg-red-50' : 'text-emerald-700 bg-emerald-50'}`}>
-                                                        {item.netQty}
+                                                    <td className={`px-3 py-1.5 border border-gray-200 text-right font-black text-[11px] ${item.netQty < item.rol ? 'text-red-700 bg-red-50' : 'text-emerald-700 bg-emerald-50'}`}>
+                                                        {item.netQty.toLocaleString()}
                                                     </td>
-                                                    <td className="px-4 py-2 text-center">
+                                                    <td className="px-3 py-1.5 border border-gray-200 text-right">
+                                                        <div className="flex flex-col items-end">
+                                                            <span className="text-[8px] font-black text-gray-400 uppercase">ROL: {item.rol}</span>
+                                                            <span className="text-[7px] font-bold text-gray-300">MAX: {item.maxStock}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-3 py-1.5 border border-gray-200 text-center">
                                                         {item.netQty < item.minStock ? (
-                                                            <span className="px-2 py-0.5 rounded-full bg-red-600 text-white font-black text-[8px] uppercase">Shortage</span>
+                                                            <span className="px-2 py-0.5 rounded bg-red-600 text-white font-black text-[8px] uppercase">Shortage</span>
                                                         ) : item.netQty < item.rol ? (
-                                                            <span className="px-2 py-0.5 rounded-full bg-orange-500 text-white font-black text-[8px] uppercase">Refill</span>
+                                                            <span className="px-2 py-0.5 rounded bg-orange-500 text-white font-black text-[8px] uppercase">Refill</span>
                                                         ) : (
-                                                            <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-black text-[8px] uppercase">Healthy</span>
+                                                            <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 font-black text-[8px] uppercase">Healthy</span>
                                                         )}
                                                     </td>
                                                 </tr>
                                             ))}
                                         </tbody>
                                     </table>
+                                </div>
+                                {/* Excel-Style Status Bar at bottom of table */}
+                                <div className="bg-rose-700 text-white px-3 py-1 text-[9px] font-black flex justify-between items-center select-none uppercase tracking-widest">
+                                    <div className="flex gap-4 items-center">
+                                        <div className="flex items-center gap-2">
+                                            <div className={`w-2 h-2 rounded-full bg-white ${filteredStockPlanning.length > 0 ? 'animate-pulse' : 'opacity-50'}`} />
+                                            <span>Inventory Analysis Engine: Active</span>
+                                        </div>
+                                        <span className="text-rose-400 opacity-30">|</span>
+                                        <span>Displaying {Math.min(filteredStockPlanning.length, 150)} of {filteredStockPlanning.length} Records</span>
+                                        <span className="text-rose-400 opacity-30">|</span>
+                                        <span>Filters: {stockSlicers.make !== 'ALL' || stockSlicers.group !== 'ALL' || stockSlicers.strategy !== 'ALL' || stockSlicers.class !== 'ALL' ? 'ACTIVE' : 'NONE'}</span>
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                        <span className="bg-rose-600 px-2 py-0.5 rounded-full">STOCK PLANNING WORKBOOK</span>
+                                        <span>Scale: 100%</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
