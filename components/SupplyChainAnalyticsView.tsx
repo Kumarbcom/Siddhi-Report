@@ -87,11 +87,11 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
         twelveMonthsAgo.setMonth(now.getMonth() - 12);
 
         // Process Sales
+        // Process Sales - Pass 1: Accumulate Totals and Group by FY
+        const rawSalesByMaterial = new Map<string, any[]>();
         salesReportItems.forEach(item => {
             const key = (item.particulars || '').trim();
             const lowerKey = key.toLowerCase();
-            const isProjectSale = lowerKey.includes('project') || (item.customerName || '').toLowerCase().includes('project');
-
             if (!materialMap.has(lowerKey)) {
                 const masterInfo = masterMap.get(lowerKey);
                 materialMap.set(lowerKey, {
@@ -102,36 +102,54 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
                     distinctCustomers: new Set(),
                     hasProjectOrders: false,
                     fyData: {
-                        [FY_2526]: { qty: 0, projectQty: 0, customers: new Set(), months: new Set(), monthlyCust: new Map<string, Set<string>>() },
-                        [FY_2425]: { qty: 0, projectQty: 0, customers: new Set(), months: new Set(), monthlyCust: new Map<string, Set<string>>() }
+                        [FY_2526]: { qty: 0, projectQty: 0, customers: new Set(), months: new Set(), monthlyCust: new Map<string, Set<string>>(), totalRawQty: 0 },
+                        [FY_2425]: { qty: 0, projectQty: 0, customers: new Set(), months: new Set(), monthlyCust: new Map<string, Set<string>>(), totalRawQty: 0 }
                     }
                 });
+                rawSalesByMaterial.set(lowerKey, []);
             }
-
             const mData = materialMap.get(lowerKey);
             const fy = getFY(item.date);
-            const d = new Date(item.date);
-            const monthKey = `${d.getFullYear()}-${d.getMonth() + 1}`;
-
-            mData.sales.push(item);
-            mData.distinctCustomers.add(item.customerName);
-            if (isProjectSale) mData.hasProjectOrders = true;
-
             if (mData.fyData[fy]) {
-                if (isProjectSale) {
-                    mData.fyData[fy].projectQty += (item.quantity || 0);
-                } else {
-                    mData.fyData[fy].qty += (item.quantity || 0);
-                }
-
-                mData.fyData[fy].customers.add(item.customerName);
-                mData.fyData[fy].months.add(monthKey);
-
-                if (!mData.fyData[fy].monthlyCust.has(monthKey)) {
-                    mData.fyData[fy].monthlyCust.set(monthKey, new Set());
-                }
-                mData.fyData[fy].monthlyCust.get(monthKey).add(item.customerName);
+                mData.fyData[fy].totalRawQty += (item.quantity || 0);
             }
+            rawSalesByMaterial.get(lowerKey)!.push(item);
+        });
+
+        // Pass 2: Categorize sales into Regular or Project
+        rawSalesByMaterial.forEach((sales, lowerKey) => {
+            const mData = materialMap.get(lowerKey);
+            sales.forEach(item => {
+                const fy = getFY(item.date);
+                const d = new Date(item.date);
+                const monthKey = `${d.getFullYear()}-${d.getMonth() + 1}`;
+
+                const isProjectKeyword = item.particulars.toLowerCase().includes('project') || (item.customerName || '').toLowerCase().includes('project');
+                const totalFyQty = mData.fyData[fy]?.totalRawQty || 0;
+                // Threshold of 35% (midpoint of 30-40%)
+                const isVolumeProject = totalFyQty > 0 && (item.quantity || 0) >= (totalFyQty * 0.35);
+                const isProjectSale = isProjectKeyword || isVolumeProject;
+
+                mData.sales.push(item);
+                mData.distinctCustomers.add(item.customerName);
+                if (isProjectSale) mData.hasProjectOrders = true;
+
+                if (mData.fyData[fy]) {
+                    if (isProjectSale) {
+                        mData.fyData[fy].projectQty += (item.quantity || 0);
+                    } else {
+                        mData.fyData[fy].qty += (item.quantity || 0);
+                    }
+
+                    mData.fyData[fy].customers.add(item.customerName);
+                    mData.fyData[fy].months.add(monthKey);
+
+                    if (!mData.fyData[fy].monthlyCust.has(monthKey)) {
+                        mData.fyData[fy].monthlyCust.set(monthKey, new Set());
+                    }
+                    mData.fyData[fy].monthlyCust.get(monthKey).add(item.customerName);
+                }
+            });
         });
 
         // Finalize and Classify
@@ -461,8 +479,8 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
                                         </td>
                                         <td className="border border-gray-200 px-3 py-1 text-center">
                                             <span className={`px-2 py-0.5 rounded text-[8px] font-black ${item.movementClass === 'FAST RUNNER' ? 'bg-green-600 text-white' :
-                                                    item.movementClass === 'SLOW RUNNER' ? 'bg-amber-500 text-white' :
-                                                        'bg-gray-300 text-gray-600'
+                                                item.movementClass === 'SLOW RUNNER' ? 'bg-amber-500 text-white' :
+                                                    'bg-gray-300 text-gray-600'
                                                 }`}>
                                                 {item.movementClass}
                                             </span>
