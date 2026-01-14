@@ -24,6 +24,8 @@ interface AnalyticsProps {
     salesReportItems: SalesReportItem[];
     materials: Material[];
     closingStock: ClosingStockItem[];
+    pendingSO: PendingSOItem[];
+    pendingPO: PendingPOItem[];
 }
 
 const getFY = (dateInput: string | number | Date) => {
@@ -39,7 +41,7 @@ const getFY = (dateInput: string | number | Date) => {
     }
 };
 
-const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, materials, closingStock }) => {
+const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, materials, closingStock, pendingSO, pendingPO }) => {
     // Slicer States
     const [selectedMake, setSelectedMake] = useState<string>('All');
     const [selectedGroup, setSelectedGroup] = useState<string>('All');
@@ -51,6 +53,7 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
     const [visibleColumns, setVisibleColumns] = useState({
         makeGroup: true,
         strategyClass: true,
+        operational: true,
         activeMonths: true,
         customerCount: true,
         qtySold: true
@@ -68,17 +71,49 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
     const analyticsData = useMemo(() => {
         const materialMap = new Map<string, any>();
 
-        // Map materials for Group and Make lookup
-        const masterMap = new Map();
+        // 1. Initialize with Materials
         materials.forEach(m => {
-            const partNoKey = (m.partNo || '').trim().toLowerCase();
-            if (partNoKey) {
-                masterMap.set(partNoKey, {
-                    group: m.materialGroup,
-                    make: m.make,
-                    description: m.description
-                });
-            }
+            const partNo = (m.partNo || '').trim().toLowerCase();
+            const desc = (m.description || '').trim().toLowerCase();
+            materialMap.set(partNo, {
+                partNo: m.partNo,
+                description: m.description,
+                group: m.materialGroup,
+                make: m.make,
+                stock: 0,
+                so: 0,
+                po: 0,
+                sales: [],
+                distinctCustomers: new Set(),
+                hasProjectOrders: false,
+                fyData: {
+                    [FY_2526]: { qty: 0, projectQty: 0, customers: new Set(), months: new Set(), monthlyCust: new Map<string, Set<string>>(), totalRawQty: 0 },
+                    [FY_2425]: { qty: 0, projectQty: 0, customers: new Set(), months: new Set(), monthlyCust: new Map<string, Set<string>>(), totalRawQty: 0 }
+                }
+            });
+            // Also map by description for robustness
+            if (desc !== partNo) materialMap.set(desc, materialMap.get(partNo));
+        });
+
+        // 2. Integrate Stock
+        closingStock.forEach(s => {
+            const key = (s.description || '').trim().toLowerCase();
+            const m = materialMap.get(key);
+            if (m) m.stock += (s.quantity || 0);
+        });
+
+        // 3. Integrate Pending SO
+        pendingSO.forEach(s => {
+            const key = (s.description || '').trim().toLowerCase();
+            const m = materialMap.get(key);
+            if (m) m.so += (s.balanceQty || 0);
+        });
+
+        // 4. Integrate Pending PO
+        pendingPO.forEach(p => {
+            const key = (p.itemName || '').trim().toLowerCase();
+            const m = materialMap.get(key);
+            if (m) m.po += (p.balanceQty || 0);
         });
 
         // Current date and benchmarks
@@ -86,79 +121,62 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
         const twelveMonthsAgo = new Date();
         twelveMonthsAgo.setMonth(now.getMonth() - 12);
 
-        // Process Sales
-        // Process Sales - Pass 1: Accumulate Totals and Group by FY
-        const rawSalesByMaterial = new Map<string, any[]>();
+        // 5. Process Sales
+        const materialAnalysisMap = new Map<string, any>();
+        // Use a unique set of entries from our map to avoid double-processing (since we mapped by both partNo and desc)
+        const uniqueMaterials = Array.from(new Set(materialMap.values()));
+
         salesReportItems.forEach(item => {
-            const key = (item.particulars || '').trim();
-            const lowerKey = key.toLowerCase();
-            if (!materialMap.has(lowerKey)) {
-                const masterInfo = masterMap.get(lowerKey);
-                materialMap.set(lowerKey, {
-                    description: key,
-                    group: masterInfo?.group || 'UNCATEGORIZED',
-                    make: masterInfo?.make || 'N/A',
-                    sales: [],
-                    distinctCustomers: new Set(),
-                    hasProjectOrders: false,
-                    fyData: {
-                        [FY_2526]: { qty: 0, projectQty: 0, customers: new Set(), months: new Set(), monthlyCust: new Map<string, Set<string>>(), totalRawQty: 0 },
-                        [FY_2425]: { qty: 0, projectQty: 0, customers: new Set(), months: new Set(), monthlyCust: new Map<string, Set<string>>(), totalRawQty: 0 }
-                    }
-                });
-                rawSalesByMaterial.set(lowerKey, []);
+            const key = (item.particulars || '').trim().toLowerCase();
+            const m = materialMap.get(key);
+            if (m) {
+                const fy = getFY(item.date);
+                if (m.fyData[fy]) {
+                    m.fyData[fy].totalRawQty += (item.quantity || 0);
+                }
+                m.sales.push(item);
             }
-            const mData = materialMap.get(lowerKey);
-            const fy = getFY(item.date);
-            if (mData.fyData[fy]) {
-                mData.fyData[fy].totalRawQty += (item.quantity || 0);
-            }
-            rawSalesByMaterial.get(lowerKey)!.push(item);
         });
 
         // Pass 2: Categorize sales into Regular or Project
-        rawSalesByMaterial.forEach((sales, lowerKey) => {
-            const mData = materialMap.get(lowerKey);
-            sales.forEach(item => {
+        uniqueMaterials.forEach(m => {
+            m.sales.forEach((item: any) => {
                 const fy = getFY(item.date);
                 const d = new Date(item.date);
                 const monthKey = `${d.getFullYear()}-${d.getMonth() + 1}`;
 
-                const isProjectKeyword = item.particulars.toLowerCase().includes('project') || (item.customerName || '').toLowerCase().includes('project');
-                const totalFyQty = mData.fyData[fy]?.totalRawQty || 0;
-                // Threshold of 35% (midpoint of 30-40%)
+                const isProjectKeyword = (item.particulars || '').toLowerCase().includes('project') || (item.customerName || '').toLowerCase().includes('project');
+                const totalFyQty = m.fyData[fy]?.totalRawQty || 0;
                 const isVolumeProject = totalFyQty > 0 && (item.quantity || 0) >= (totalFyQty * 0.35);
                 const isProjectSale = isProjectKeyword || isVolumeProject;
 
-                mData.sales.push(item);
-                mData.distinctCustomers.add(item.customerName);
-                if (isProjectSale) mData.hasProjectOrders = true;
+                m.distinctCustomers.add(item.customerName);
+                if (isProjectSale) m.hasProjectOrders = true;
 
-                if (mData.fyData[fy]) {
+                if (m.fyData[fy]) {
                     if (isProjectSale) {
-                        mData.fyData[fy].projectQty += (item.quantity || 0);
+                        m.fyData[fy].projectQty += (item.quantity || 0);
                     } else {
-                        mData.fyData[fy].qty += (item.quantity || 0);
+                        m.fyData[fy].qty += (item.quantity || 0);
                     }
-
-                    mData.fyData[fy].customers.add(item.customerName);
-                    mData.fyData[fy].months.add(monthKey);
-
-                    if (!mData.fyData[fy].monthlyCust.has(monthKey)) {
-                        mData.fyData[fy].monthlyCust.set(monthKey, new Set());
+                    m.fyData[fy].customers.add(item.customerName);
+                    m.fyData[fy].months.add(monthKey);
+                    if (!m.fyData[fy].monthlyCust.has(monthKey)) {
+                        m.fyData[fy].monthlyCust.set(monthKey, new Set());
                     }
-                    mData.fyData[fy].monthlyCust.get(monthKey).add(item.customerName);
+                    m.fyData[fy].monthlyCust.get(monthKey).add(item.customerName);
                 }
             });
         });
 
+        // 6. Final Calculations & Heuristics
         // Calculate total regular quantity for Pareto (Top 30%)
         let totalRegularQty = 0;
-        materialMap.forEach(m => {
+        uniqueMaterials.forEach(m => {
             totalRegularQty += (m.fyData[FY_2526].qty + m.fyData[FY_2425].qty);
         });
 
-        const sortedByQty = Array.from(materialMap.values())
+        const sortedByQty = [...uniqueMaterials]
             .map(m => ({ id: m.description, qty: m.fyData[FY_2526].qty + m.fyData[FY_2425].qty }))
             .sort((a, b) => b.qty - a.qty);
 
@@ -170,8 +188,7 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
             if (cumulativeQty >= totalRegularQty * 0.3) break;
         }
 
-        // Finalize and Classify
-        const results = Array.from(materialMap.values()).map(m => {
+        return uniqueMaterials.map(m => {
             // Movement Classification (Rolling 12 Months)
             const rollingMonths = new Set();
             m.sales.forEach((s: any) => {
@@ -186,7 +203,6 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
 
             let movementClass = 'NON-MOVING';
             if (lastSaleDate >= twelveMonthsAgo) {
-                // Criteria: Top 30% volume AND semi-consistent (>= 6 months) OR just very consistent (>= 9 months)
                 const isVolumeLeader = top30PercentIds.has(m.description);
                 if (activeMonthsRolling >= 9 || (activeMonthsRolling >= 6 && isVolumeLeader)) {
                     movementClass = 'FAST RUNNER';
@@ -195,7 +211,7 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
                 }
             }
 
-            // Stock Strategy (based on customer count and regularity)
+            // Stock Strategy
             const totalCustCount = m.distinctCustomers.size;
             let stockStrategy = 'MADE TO ORDER';
             if (totalCustCount > 10 || (totalCustCount >= 5 && movementClass === 'FAST RUNNER')) {
@@ -204,14 +220,11 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
                 stockStrategy = 'AGAINST ORDER';
             }
 
-            // Calculate Avg Customers based on unique counts per month
             const calculateAvgMonthlyCust = (fyKey: string) => {
                 const fy = m.fyData[fyKey];
                 if (fy.months.size === 0) return 0;
                 let sum = 0;
-                fy.monthlyCust.forEach((custSet: Set<string>) => {
-                    sum += custSet.size;
-                });
+                fy.monthlyCust.forEach((custSet: Set<string>) => { sum += custSet.size; });
                 return sum / fy.months.size;
             };
 
@@ -220,7 +233,7 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
                 movementClass,
                 stockStrategy,
                 lastSaleDate,
-                // Metrics per FY
+                netQty: m.stock + m.po - m.so,
                 metrics: {
                     [FY_2526]: {
                         activeMonths: m.fyData[FY_2526].months.size,
@@ -228,7 +241,7 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
                         avgCust: calculateAvgMonthlyCust(FY_2526),
                         totalQty: m.fyData[FY_2526].qty,
                         projectQty: m.fyData[FY_2526].projectQty,
-                        avgQty: m.fyData[FY_2526].months.size > 0 ? m.fyData[FY_2526].qty / 12 : 0
+                        avgQty: m.fyData[FY_2526].months.size > 0 ? m.fyData[FY_2526].qty / m.fyData[FY_2526].months.size : 0
                     },
                     [FY_2425]: {
                         activeMonths: m.fyData[FY_2425].months.size,
@@ -236,14 +249,12 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
                         avgCust: calculateAvgMonthlyCust(FY_2425),
                         totalQty: m.fyData[FY_2425].qty,
                         projectQty: m.fyData[FY_2425].projectQty,
-                        avgQty: m.fyData[FY_2425].months.size > 0 ? m.fyData[FY_2425].qty / 12 : 0
+                        avgQty: m.fyData[FY_2425].months.size > 0 ? m.fyData[FY_2425].qty / m.fyData[FY_2425].months.size : 0
                     }
                 }
             };
         });
-
-        return results;
-    }, [salesReportItems, materials]);
+    }, [salesReportItems, materials, closingStock, pendingSO, pendingPO]);
 
     // Unique values for slicers
     const makes = useMemo(() => ['All', ...Array.from(new Set(analyticsData.map(d => d.make)))].sort(), [analyticsData]);
@@ -429,9 +440,14 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
                                     <th rowSpan={3} className="border border-gray-300 px-3 py-2 cursor-pointer hover:bg-gray-200" onClick={() => handleSort('movementClass')}>
                                         <div className="flex items-center gap-1">Classification {renderSortIcon('movementClass')}</div>
                                     </th>
-                                    <th rowSpan={3} className="border border-gray-300 px-3 py-2 cursor-pointer hover:bg-gray-200" onClick={() => handleSort('hasProjectOrders')}>
-                                        <div className="flex items-center gap-1">Project Order {renderSortIcon('hasProjectOrders')}</div>
-                                    </th>
+                                </>
+                            )}
+                            {visibleColumns.operational && (
+                                <>
+                                    <th rowSpan={3} className="border border-gray-300 px-3 py-1 bg-rose-50 text-rose-800 text-center cursor-pointer" onClick={() => handleSort('stock')}>Stock</th>
+                                    <th rowSpan={3} className="border border-gray-300 px-3 py-1 bg-rose-50 text-rose-800 text-center cursor-pointer" onClick={() => handleSort('so')}>SO</th>
+                                    <th rowSpan={3} className="border border-gray-300 px-3 py-1 bg-rose-50 text-rose-800 text-center cursor-pointer" onClick={() => handleSort('po')}>PO</th>
+                                    <th rowSpan={3} className="border border-gray-300 px-3 py-1 bg-rose-50 text-rose-800 text-center cursor-pointer" onClick={() => handleSort('netQty')}>Net Qty</th>
                                 </>
                             )}
                             {visibleColumns.activeMonths && <th colSpan={2} className="border border-gray-300 px-3 py-1 bg-blue-50 text-center text-blue-800">Active Months</th>}
@@ -519,15 +535,15 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
                                                 {item.movementClass}
                                             </span>
                                         </td>
-                                        <td className="border border-gray-200 px-3 py-1 text-center font-bold">
-                                            {item.hasProjectOrders ? (
-                                                <span className="text-[9px] text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100 uppercase tracking-tighter shadow-sm">
-                                                    Yes
-                                                </span>
-                                            ) : (
-                                                <span className="text-[9px] text-gray-300 uppercase tracking-tighter">No</span>
-                                            )}
-                                        </td>
+                                    </>
+                                )}
+
+                                {visibleColumns.operational && (
+                                    <>
+                                        <td className="border border-gray-200 px-3 py-1 text-right font-black text-gray-900">{item.stock || 0}</td>
+                                        <td className="border border-gray-200 px-3 py-1 text-right font-black text-rose-600">{item.so || 0}</td>
+                                        <td className="border border-gray-200 px-3 py-1 text-right font-black text-blue-600">{item.po || 0}</td>
+                                        <td className={`border border-gray-200 px-3 py-1 text-right font-black ${item.netQty < 0 ? 'text-red-700 bg-red-50' : 'text-emerald-700 bg-emerald-50'}`}>{item.netQty || 0}</td>
                                     </>
                                 )}
 

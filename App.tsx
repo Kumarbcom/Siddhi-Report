@@ -763,7 +763,7 @@ const App: React.FC = () => {
           <div key={activeTab} className="h-full w-full">
             {activeTab === 'dashboard' && <DashboardView isAdmin={isAdmin} materials={materials} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} salesReportItems={salesReportItems} customers={customerMasterItems} sales1Year={sales1Year} sales3Months={sales3Months} setActiveTab={setActiveTab} />}
             {activeTab === 'pivotReport' && <PivotReportView isAdmin={isAdmin} materials={materials} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} salesReportItems={salesReportItems} />}
-            {activeTab === 'supplyChain' && <SupplyChainAnalyticsView materials={materials} salesReportItems={salesReportItems} closingStock={closingStockItems} />}
+            {activeTab === 'supplyChain' && <SupplyChainAnalyticsView materials={materials} salesReportItems={salesReportItems} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} />}
             {activeTab === 'chat' && <div className="h-full w-full max-w-4xl mx-auto flex flex-col gap-4"><ChatView isAdmin={isAdmin} materials={materials} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} salesReportItems={salesReportItems} customers={customerMasterItems} /></div>}
             {activeTab === 'master' && (
               <div className="flex flex-col h-full gap-4">

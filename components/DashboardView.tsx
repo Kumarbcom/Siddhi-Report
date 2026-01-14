@@ -1427,13 +1427,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
             <div className="bg-white border-b border-gray-200 px-4 py-3 flex flex-col xl:flex-row gap-4 items-start xl:items-center justify-between flex-shrink-0 shadow-sm z-10">
                 <div className="flex bg-gray-200/50 backdrop-blur-sm p-1.5 rounded-xl border border-gray-200 shadow-inner overflow-hidden">
-                    {(['sales', 'inventory', 'so', 'po', 'weekly'] as const).map(tab => (
+                    {(['sales', 'inventory', 'so', 'po', 'weekly', 'stockPlanning'] as const).map(tab => (
                         <button
                             key={tab}
                             onClick={() => setActiveSubTab(tab)}
                             className={`px-5 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all duration-500 ease-out transform active:scale-95 ${activeSubTab === tab ? 'bg-white text-indigo-700 shadow-[0_8px_16px_rgba(0,0,0,0.12)] scale-[1.02] translate-y-0' : 'text-gray-500 hover:text-indigo-600 hover:bg-white/40 hover:-translate-y-0.5'}`}
                         >
-                            {tab === 'so' ? 'Pending SO' : tab === 'po' ? 'Pending PO' : tab === 'weekly' ? 'Weekly Report' : tab}
+                            {tab === 'so' ? 'Pending SO' : tab === 'po' ? 'Pending PO' : tab === 'weekly' ? 'Weekly Report' : tab === 'stockPlanning' ? 'Stock Planning' : tab}
                         </button>
                     ))}
                 </div>
