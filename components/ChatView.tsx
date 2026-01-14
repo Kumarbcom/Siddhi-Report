@@ -169,11 +169,10 @@ const ChatView: React.FC<ChatViewProps> = ({
 
     try {
       // Vite uses import.meta.env for environment variables.
-      // We check for VITE_GEMINI_API_KEY (standard) and fallback to define replacements.
-      const apiKey = import.meta.env.VITE_GEMINI_API_KEY || (process.env as any).API_KEY;
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 
       if (!apiKey || apiKey === '') {
-        throw new Error("Gemini API Key is missing. Please add VITE_GEMINI_API_KEY to your .env file or environment variables.");
+        throw new Error("Gemini API Key is missing. Please add VITE_GEMINI_API_KEY to your .env file.");
       }
 
       const genAI = new GoogleGenerativeAI(apiKey);

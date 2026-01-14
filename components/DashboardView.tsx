@@ -822,7 +822,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 hasProject: false,
                 strategy: 'MADE TO ORDER',
                 classification: 'NON-MOVING',
-                rollingMonths: new Set<string>()
+                rollingMonths: new Set()
             };
 
             materialMap.set(lowerDesc, entry);
@@ -888,7 +888,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 m.monthlySales.set(monthKey, (m.monthlySales.get(monthKey) || 0) + (item.quantity || 0));
 
                 if (itemDate >= twelveMonthsAgo) {
-                    if (!m.rollingMonths) m.rollingMonths = new Set<string>();
+                    if (!m.rollingMonths) m.rollingMonths = new Set();
                     m.rollingMonths.add(monthKey);
                 }
 
@@ -908,7 +908,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             .sort((a, b) => b.qty - a.qty);
 
         let cumulative = 0;
-        const top30PercentIds = new Set<string>();
+        const top30PercentIds = new Set();
         for (const item of sortedByRegVolume) {
             cumulative += item.qty;
             top30PercentIds.add(item.desc);
