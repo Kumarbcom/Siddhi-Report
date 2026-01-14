@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Material, MaterialFormData, PendingSOItem, PendingPOItem, SalesRecord, ClosingStockItem, SalesReportItem, CustomerMasterItem } from './types';
 import MaterialTable from './components/MaterialTable';
-import AddMaterialForm from './components/AddMaterialForm';
+
 import PendingSOView from './components/PendingSOView';
 import PendingPOView from './components/PendingPOView';
 import SalesHistoryView from './components/SalesHistoryView';
@@ -44,10 +44,17 @@ import {
   LogOut,
   ShieldCheck,
   Lock,
-  LineChart
+  LineChart,
+  PanelLeftClose,
+  PanelLeftOpen,
+  FileDown,
+  Upload,
+  Download,
+  PlusCircle
 } from 'lucide-react';
 import { authService, User } from './services/authService';
 import { LoginView } from './components/LoginView';
+import { read, utils, writeFile } from 'xlsx';
 import { PasswordChangeModal } from './components/PasswordChangeModal';
 import { materialService } from './services/materialService';
 import { customerService } from './services/customerService';
@@ -113,6 +120,81 @@ const App: React.FC = () => {
   });
 
   const [selectedMake, setSelectedMake] = useState<string | 'ALL'>('ALL');
+  const materialFileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleDownloadMaterialTemplate = () => {
+    const headers = [
+      {
+        "Material Code": "MAT-001",
+        "Description": "Deep Groove Ball Bearing 6205",
+        "Part No": "6205-2RS",
+        "Make": "SKF",
+        "Material Group": "MECH-BRG"
+      }
+    ];
+    const ws = utils.json_to_sheet(headers);
+    const wb = utils.book_new();
+    utils.book_append_sheet(wb, ws, "Template");
+    writeFile(wb, "Material_Master_Template.xlsx");
+  };
+
+  const handleExportMaterial = () => {
+    if (materials.length === 0) {
+      alert("No data to export.");
+      return;
+    }
+    const data = materials.map(m => ({
+      "Material Code": m.materialCode,
+      "Description": m.description,
+      "Part No": m.partNo,
+      "Make": m.make,
+      "Material Group": m.materialGroup
+    }));
+    const ws = utils.json_to_sheet(data);
+    const wb = utils.book_new();
+    utils.book_append_sheet(wb, ws, "Material_Master");
+    writeFile(wb, "Material_Master_Export.xlsx");
+  };
+
+  const handleMaterialFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const wb = read(arrayBuffer);
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const data = utils.sheet_to_json<any>(ws);
+
+      const validItems: MaterialFormData[] = data.map((row) => {
+        const getVal = (keyArray: string[]) => {
+          const foundKey = Object.keys(row).find(k =>
+            keyArray.some(target => k.toLowerCase().replace(/[^a-z0-9]/g, '').includes(target.toLowerCase().replace(/[^a-z0-9]/g, '')))
+          );
+          return foundKey ? String(row[foundKey]).trim() : '';
+        };
+
+        return {
+          materialCode: getVal(['materialcode', 'matcode', 'code', 'id', 'itemcode']),
+          description: getVal(['description', 'desc', 'itemname', 'particulars', 'materialname']),
+          partNo: getVal(['partno', 'partnumber', 'reference', 'refno', 'pno']),
+          make: getVal(['make', 'brand', 'manufacturer', 'mfr', 'mfg']),
+          materialGroup: getVal(['materialgroup', 'group', 'category', 'class'])
+        };
+      }).filter(item => item.description);
+
+      if (validItems.length > 0) {
+        handleBulkAddMaterial(validItems);
+        alert(`Initiated import of ${validItems.length} items.`);
+      } else {
+        alert("Extraction failed: ensure 'Description' column exists.");
+      }
+    } catch (err) {
+      console.error("Excel Parsing Error:", err);
+      alert("Failed to read Excel.");
+    }
+    if (materialFileInputRef.current) materialFileInputRef.current.value = '';
+  };
 
   const loadAllData = async () => {
     try {
@@ -571,14 +653,14 @@ const App: React.FC = () => {
   return (
     <div className="flex h-screen bg-[#f8fafc] text-slate-900 font-sans overflow-hidden">
       {/* Sidebar */}
-      <aside className={`print:hidden fixed inset-y-0 left-0 z-40 w-64 bg-white border-r border-gray-200 transition-transform duration-300 ease-in-out md:static md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="flex flex-col h-full">
+      <aside className={`print:hidden fixed inset-y-0 left-0 z-40 bg-white border-r border-gray-200 transition-all duration-300 ease-in-out md:static ${isSidebarOpen ? 'w-64 translate-x-0' : 'w-0 -translate-x-full md:w-0'}`}>
+        <div className={`flex flex-col h-full transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100' : 'opacity-0'}`}>
           <div className="p-6 border-b border-gray-100 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="bg-blue-600 p-2.5 rounded-2xl shadow-lg shadow-blue-200"><ShieldCheck className="w-5 h-5 text-white" /></div>
               <div><h1 className="text-sm font-black text-gray-900 tracking-tight uppercase leading-none mb-1">Siddhi Kabel</h1><span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Enterprise Hub</span></div>
             </div>
-            <button onClick={() => setIsSidebarOpen(false)} className="md:hidden p-1.5 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5 text-gray-400" /></button>
+            <button onClick={() => setIsSidebarOpen(false)} className="p-1.5 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5 text-gray-400" /></button>
           </div>
 
           <div className="px-4 py-4 border-b border-gray-100 bg-gray-50/50">
@@ -645,15 +727,39 @@ const App: React.FC = () => {
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0 h-full relative overflow-hidden">
-        {/* Mobile Header */}
-        <header className="md:hidden bg-white border-b border-gray-200 h-14 flex items-center justify-between px-4 sticky top-0 z-30">
-          <button onClick={() => setIsSidebarOpen(true)} className="p-2 text-gray-600"><Menu className="w-6 h-6" /></button>
-          <span className="font-black text-sm tracking-tight">SIDDHI KABEL</span>
-          <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs">{currentUser.username.charAt(0)}</div>
+      <div className="flex-1 flex flex-col min-w-0 h-full relative overflow-hidden bg-gray-50/30">
+        {/* Main Top Header (New) */}
+        <header className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between shadow-sm z-30">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className="p-2 hover:bg-gray-100 rounded-xl text-gray-500 hover:text-blue-600 transition-all shadow-sm border border-gray-100 bg-white"
+              title={isSidebarOpen ? "Hide Sidebar" : "Show Sidebar"}
+            >
+              {isSidebarOpen ? <PanelLeftClose className="w-5 h-5" /> : <PanelLeftOpen className="w-5 h-5" />}
+            </button>
+            <div className="h-4 w-[1px] bg-gray-200 mx-2 hidden md:block" />
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">{activeTab}</span>
+              <ChevronRight className="w-3 h-3 text-gray-300" />
+              <span className="text-[10px] font-bold text-gray-400">CONTROL CENTER</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-green-50 rounded-full border border-green-100">
+              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              <span className="text-[9px] font-black text-green-700 uppercase">System Synchronized</span>
+            </div>
+            <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-black text-xs shadow-lg shadow-indigo-100">
+              {currentUser.username.charAt(0).toUpperCase()}
+            </div>
+          </div>
         </header>
 
-        <main className="flex-1 overflow-hidden p-4 relative bg-gray-50/30">
+        <main className="flex-1 overflow-hidden p-4 relative">
+
+
           <div key={activeTab} className="h-full w-full">
             {activeTab === 'dashboard' && <DashboardView isAdmin={isAdmin} materials={materials} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} salesReportItems={salesReportItems} customers={customerMasterItems} sales1Year={sales1Year} sales3Months={sales3Months} setActiveTab={setActiveTab} />}
             {activeTab === 'pivotReport' && <PivotReportView isAdmin={isAdmin} materials={materials} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} salesReportItems={salesReportItems} />}
@@ -661,21 +767,44 @@ const App: React.FC = () => {
             {activeTab === 'chat' && <div className="h-full w-full max-w-4xl mx-auto flex flex-col gap-4"><ChatView isAdmin={isAdmin} materials={materials} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} salesReportItems={salesReportItems} customers={customerMasterItems} /></div>}
             {activeTab === 'master' && (
               <div className="flex flex-col h-full gap-4">
-                <div className="bg-white border border-gray-100 p-4 rounded-3xl shadow-sm flex flex-col md:flex-row justify-between items-center gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="bg-blue-600 p-2.5 rounded-2xl text-white shadow-lg shadow-blue-100"><Factory className="w-5 h-5" /></div>
-                    <div><h2 className="text-sm font-black text-gray-800 uppercase tracking-tight">Material Repository</h2><p className="text-[10px] text-gray-500 font-medium">Internal database for LAPP & Luker brands</p></div>
+                <div className="bg-white border border-gray-100 p-4 rounded-3xl shadow-sm flex flex-col items-stretch gap-4">
+                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-blue-600 p-2.5 rounded-2xl text-white shadow-lg shadow-blue-100"><Factory className="w-5 h-5" /></div>
+                      <div>
+                        <h2 className="text-sm font-black text-gray-800 uppercase tracking-tight">Material Repository</h2>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-bold border border-blue-100 uppercase">{materials.length} Master Records</span>
+                          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">| System Active</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      <input type="file" ref={materialFileInputRef} className="hidden" accept=".xlsx, .xls" onChange={handleMaterialFileUpload} />
+                      <div className="flex bg-gray-50 p-1 rounded-xl border border-gray-200">
+                        <button onClick={handleExportMaterial} className="flex items-center gap-1.5 px-3 py-1.5 text-gray-600 hover:text-blue-600 hover:bg-white rounded-lg text-[10px] font-black uppercase transition-all tracking-wider"><FileDown className="w-3.5 h-3.5" /> Export</button>
+                        <button onClick={handleDownloadMaterialTemplate} className="flex items-center gap-1.5 px-3 py-1.5 text-gray-600 hover:text-blue-600 hover:bg-white rounded-lg text-[10px] font-black uppercase transition-all tracking-wider border-l border-gray-200"><Download className="w-3.5 h-3.5" /> Template</button>
+                      </div>
+                      <button onClick={() => materialFileInputRef.current?.click()} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-black shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all uppercase tracking-widest"><Upload className="w-4 h-4" /> Batch Import</button>
+                      {isAdmin && <button onClick={handleClearMaterials} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all" title="Clear Warehouse"><Trash2 className="w-4 h-4" /></button>}
+                    </div>
+                  </div>
+
+                  {/* Make wise summary */}
+                  <div className="flex items-center gap-2 overflow-x-auto pb-2 custom-scrollbar">
+                    <span className="text-[9px] font-black text-gray-400 uppercase whitespace-nowrap mr-2">Inventory by Make:</span>
+                    {makeStats.map(([make, count]) => (
+                      <div key={make} className="flex-shrink-0 flex items-center gap-2 px-3 py-1.5 bg-gray-50 border border-gray-100 rounded-xl shadow-sm">
+                        <span className="text-[10px] font-black text-gray-700 uppercase">{make}</span>
+                        <span className="text-[10px] font-bold bg-blue-600 text-white px-1.5 rounded-md min-w-[20px] text-center">{count}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
-                <div className="flex flex-col lg:flex-row gap-4 flex-1 min-h-0">
-                  {isAdmin && (
-                    <div className="w-full lg:w-80 flex-shrink-0 flex flex-col gap-4">
-                      <AddMaterialForm materials={materials} onBulkAdd={handleBulkAddMaterial} onClear={handleClearMaterials} />
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0 bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden flex flex-col">
-                    <MaterialTable isAdmin={isAdmin} materials={materials} salesReportItems={salesReportItems} onUpdate={handleUpdateMaterial} onDelete={handleDeleteMaterial} />
-                  </div>
+
+                <div className="flex-1 min-h-0 bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden flex flex-col">
+                  <MaterialTable isAdmin={isAdmin} materials={materials} salesReportItems={salesReportItems} onUpdate={handleUpdateMaterial} onDelete={handleDeleteMaterial} />
                 </div>
               </div>
             )}
