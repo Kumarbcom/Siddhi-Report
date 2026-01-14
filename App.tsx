@@ -674,7 +674,7 @@ const App: React.FC = () => {
                     </div>
                   )}
                   <div className="flex-1 min-w-0 bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden flex flex-col">
-                    <MaterialTable isAdmin={isAdmin} materials={materials} onUpdate={handleUpdateMaterial} onDelete={handleDeleteMaterial} />
+                    <MaterialTable isAdmin={isAdmin} materials={materials} salesReportItems={salesReportItems} onUpdate={handleUpdateMaterial} onDelete={handleDeleteMaterial} />
                   </div>
                 </div>
               </div>
