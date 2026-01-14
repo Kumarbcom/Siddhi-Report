@@ -15,7 +15,7 @@ import {
   Layers,
   CheckCircle2,
   Loader2,
-  Factory,
+  Grid,
   Package,
   Users
 } from 'lucide-react';
@@ -110,98 +110,103 @@ const MaterialTable: React.FC<MaterialTableProps> = ({ materials, salesReportIte
 
   const renderSortIcon = (key: SortKey) => {
     if (!sortConfig || sortConfig.key !== key) return <ArrowUpDown className="w-3 h-3 text-gray-400" />;
-    return sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 text-blue-600" /> : <ArrowDown className="w-3 h-3 text-blue-600" />;
+    return sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 text-green-700" /> : <ArrowDown className="w-3 h-3 text-green-700" />;
   };
 
   return (
-    <div className="flex flex-col gap-4 h-full bg-white rounded-3xl overflow-hidden shadow-sm border border-gray-100">
-      <div className="p-4 bg-gray-50/50 border-b border-gray-100 flex flex-col md:flex-row gap-4 items-center justify-between">
-        <div className="flex items-center gap-3 flex-1 w-full">
-          <div className="relative flex-1 group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-blue-600 transition-colors" />
+    <div className="flex flex-col h-full bg-[#f3f4f6] border border-gray-300 rounded-lg overflow-hidden shadow-sm">
+      {/* Search & Ribbon Area */}
+      <div className="bg-white border-b border-gray-300 p-2 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3 flex-1">
+          <div className="bg-green-700 text-white p-1.5 rounded-md">
+            <Grid className="w-4 h-4" />
+          </div>
+          <div className="relative flex-1 max-w-xl">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Search Material Repository..."
-              className="w-full pl-11 pr-4 py-2.5 bg-white border border-gray-200 rounded-2xl text-xs font-bold focus:ring-4 focus:ring-blue-50 focus:border-blue-400 outline-none transition-all shadow-sm"
+              placeholder="Filter Master Repository..."
+              className="w-full pl-10 pr-4 py-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-green-600 outline-none"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
           {deferredSearchTerm !== searchTerm && (
-            <div className="flex items-center gap-2 text-[10px] text-blue-500 font-bold animate-pulse whitespace-nowrap">
+            <div className="flex items-center gap-2 text-[10px] text-blue-600 font-bold animate-pulse">
               <Loader2 className="w-3 h-3 animate-spin" />
-              <span>SYNCING...</span>
             </div>
           )}
         </div>
-        <div className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-2xl shadow-lg shadow-blue-100 text-[10px] font-black uppercase tracking-widest">
-          <Layers className="w-4 h-4" /> {processedMaterials.length} FOUND
+        <div className="flex items-center gap-4">
+          <div className="text-[10px] font-bold text-gray-500 uppercase tracking-tight">
+            ITEMS LOADED: <span className="text-green-700 font-black">{processedMaterials.length}</span>
+          </div>
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto custom-scrollbar">
-        <table className="w-full text-left border-collapse">
-          <thead className="sticky top-0 z-10 bg-white/80 backdrop-blur-md shadow-sm border-b border-gray-100">
-            <tr className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-              <th className="px-6 py-4 cursor-pointer hover:bg-gray-50" onClick={() => handleSort('materialGroup')}><div className="flex items-center gap-1">Group {renderSortIcon('materialGroup')}</div></th>
-              <th className="px-6 py-4 cursor-pointer hover:bg-gray-50" onClick={() => handleSort('make')}><div className="flex items-center gap-1">Make {renderSortIcon('make')}</div></th>
-              <th className="px-6 py-4 cursor-pointer hover:bg-gray-50" onClick={() => handleSort('description')}><div className="flex items-center gap-1">Description {renderSortIcon('description')}</div></th>
-              <th className="px-6 py-4 cursor-pointer hover:bg-gray-50" onClick={() => handleSort('partNo')}><div className="flex items-center gap-1">Part No {renderSortIcon('partNo')}</div></th>
-              <th className="px-6 py-4 text-center">Historical Sales</th>
-              <th className="px-6 py-4 text-right">Actions</th>
+      {/* Excel Table Area */}
+      <div className="flex-1 overflow-auto bg-white custom-scrollbar">
+        <table className="w-full text-left border-collapse table-auto min-w-max">
+          <thead className="sticky top-0 z-20 bg-[#f8f9fa]">
+            <tr className="text-[10px] font-bold text-gray-600 uppercase">
+              <th className="border border-gray-300 px-3 py-2 bg-gray-100 w-10 text-center select-none">#</th>
+              <th className="border border-gray-300 px-3 py-2 bg-gray-50 hover:bg-gray-200 cursor-pointer select-none" onClick={() => handleSort('materialGroup')}>
+                <div className="flex items-center gap-1">Group {renderSortIcon('materialGroup')}</div>
+              </th>
+              <th className="border border-gray-300 px-3 py-2 bg-gray-50 hover:bg-gray-200 cursor-pointer select-none" onClick={() => handleSort('make')}>
+                <div className="flex items-center gap-1">Make {renderSortIcon('make')}</div>
+              </th>
+              <th className="border border-gray-300 px-3 py-2 bg-gray-50 hover:bg-gray-200 cursor-pointer select-none" onClick={() => handleSort('materialCode')}>
+                <div className="flex items-center gap-1">Code {renderSortIcon('materialCode')}</div>
+              </th>
+              <th className="border border-gray-300 px-3 py-2 bg-gray-50 hover:bg-gray-200 cursor-pointer select-none min-w-[350px]" onClick={() => handleSort('description')}>
+                <div className="flex items-center gap-1">Material Description {renderSortIcon('description')}</div>
+              </th>
+              <th className="border border-gray-300 px-3 py-2 bg-gray-50 hover:bg-gray-200 cursor-pointer select-none" onClick={() => handleSort('partNo')}>
+                <div className="flex items-center gap-1">Part Number {renderSortIcon('partNo')}</div>
+              </th>
+              <th className="border border-gray-300 px-3 py-2 bg-green-50 text-green-800 text-center font-black">Sales Qty</th>
+              <th className="border border-gray-300 px-3 py-2 bg-green-50 text-green-800 text-center font-black">Customers</th>
+              <th className="border border-gray-300 px-3 py-2 bg-gray-100 text-right">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-50">
-            {processedMaterials.map((material) => {
+          <tbody className="text-[11px]">
+            {processedMaterials.map((material, idx) => {
               const salesInfo = salesMap.get(material.description.trim().toLowerCase()) || { total: 0, customers: new Set() };
               return (
-                <tr key={material.id} className={`hover:bg-blue-50/30 transition-all group ${editingId === material.id ? 'bg-blue-50 animate-pulse' : ''}`}>
+                <tr key={material.id} className="hover:bg-blue-50/50 even:bg-gray-50/20 transition-colors group">
+                  <td className="border border-gray-200 px-2 py-1 text-center text-gray-400 font-mono bg-gray-50/30">{idx + 1}</td>
+
                   {editingId === material.id ? (
                     <>
-                      <td className="px-6 py-3"><input className="w-full border-2 border-blue-400 rounded-xl px-3 py-1.5 text-xs font-bold outline-none" value={editForm?.materialGroup || ''} onChange={e => handleInputChange('materialGroup', e.target.value)} /></td>
-                      <td className="px-6 py-3"><input className="w-full border-2 border-blue-400 rounded-xl px-3 py-1.5 text-xs font-bold outline-none" value={editForm?.make || ''} onChange={e => handleInputChange('make', e.target.value)} /></td>
-                      <td className="px-6 py-3"><input className="w-full border-2 border-blue-400 rounded-xl px-3 py-1.5 text-xs font-bold outline-none" value={editForm?.description || ''} onChange={e => handleInputChange('description', e.target.value)} /></td>
-                      <td className="px-6 py-3"><input className="w-full border-2 border-blue-400 rounded-xl px-3 py-1.5 text-xs font-bold outline-none" value={editForm?.partNo || ''} onChange={e => handleInputChange('partNo', e.target.value)} /></td>
-                      <td className="px-6 py-3 text-center">-</td>
-                      <td className="px-6 py-3 text-right">
-                        <div className="flex justify-end gap-2">
-                          <button onClick={handleSaveEdit} className="p-2 bg-green-600 text-white rounded-xl shadow-lg shadow-green-100 hover:scale-110"><Save className="w-4 h-4" /></button>
-                          <button onClick={handleCancelEdit} className="p-2 bg-red-600 text-white rounded-xl shadow-lg shadow-red-100 hover:scale-110"><X className="w-4 h-4" /></button>
+                      <td className="border border-blue-300 px-2 py-1 bg-blue-50"><input className="w-full px-1 py-0.5 border border-blue-400 text-[10px] uppercase font-bold" value={editForm?.materialGroup || ''} onChange={e => handleInputChange('materialGroup', e.target.value)} /></td>
+                      <td className="border border-blue-300 px-2 py-1 bg-blue-50"><input className="w-full px-1 py-0.5 border border-blue-400 text-[10px] uppercase font-bold" value={editForm?.make || ''} onChange={e => handleInputChange('make', e.target.value)} /></td>
+                      <td className="border border-blue-300 px-2 py-1 bg-blue-50"><input className="w-full px-1 py-0.5 border border-blue-400 text-[10px] uppercase font-bold" value={editForm?.materialCode || ''} onChange={e => handleInputChange('materialCode', e.target.value)} /></td>
+                      <td className="border border-blue-300 px-2 py-1 bg-blue-50"><input className="w-full px-1 py-0.5 border border-blue-400 text-[10px] uppercase font-bold" value={editForm?.description || ''} onChange={e => handleInputChange('description', e.target.value)} /></td>
+                      <td className="border border-blue-300 px-2 py-1 bg-blue-50"><input className="w-full px-1 py-0.5 border border-blue-400 text-[10px] uppercase font-bold" value={editForm?.partNo || ''} onChange={e => handleInputChange('partNo', e.target.value)} /></td>
+                      <td className="border border-gray-200 px-3 py-1 text-center bg-green-50/20">-</td>
+                      <td className="border border-gray-200 px-3 py-1 text-center bg-green-50/20">-</td>
+                      <td className="border border-gray-200 px-2 py-1 text-right">
+                        <div className="flex justify-end gap-1">
+                          <button onClick={handleSaveEdit} className="p-1 bg-green-700 text-white rounded"><Save className="w-3.5 h-3.5" /></button>
+                          <button onClick={handleCancelEdit} className="p-1 bg-red-700 text-white rounded"><X className="w-3.5 h-3.5" /></button>
                         </div>
                       </td>
                     </>
                   ) : (
                     <>
-                      <td className="px-6 py-4">
-                        <span className="text-[10px] font-black bg-gray-100 text-gray-500 px-2 py-1 rounded-lg uppercase border border-gray-200">{material.materialGroup || 'UNCATEGORIZED'}</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-1 rounded-lg uppercase border border-blue-100">{material.make || 'OTHER'}</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div>
-                          <p className="text-xs font-black text-gray-800 uppercase leading-tight line-clamp-1 group-hover:text-blue-700 transition-colors" title={material.description}>{material.description}</p>
-                          <p className="text-[10px] font-bold text-gray-400 font-mono mt-0.5">{material.materialCode || '-'}</p>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-xs font-mono font-bold text-gray-500 bg-gray-50 px-2 py-1 rounded-lg border border-gray-100">{material.partNo || '-'}</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex flex-col items-center">
-                          <div className="flex items-center gap-1.5 text-[10px] font-black text-green-700">
-                            <Package className="w-3 h-3" /> {salesInfo.total} Qty
-                          </div>
-                          <div className="flex items-center gap-1.5 text-[9px] font-bold text-gray-400">
-                            <Users className="w-3 h-3" /> {salesInfo.customers.size} Cust
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-right">
+                      <td className="border border-gray-200 px-3 py-1 font-bold text-gray-500 uppercase">{material.materialGroup || '-'}</td>
+                      <td className="border border-gray-200 px-3 py-1 font-black text-blue-700 uppercase tracking-tighter">{material.make || '-'}</td>
+                      <td className="border border-gray-200 px-3 py-1 font-mono text-gray-400">{material.materialCode || '-'}</td>
+                      <td className="border border-gray-200 px-3 py-1 font-black text-gray-900 uppercase truncate max-w-[400px]" title={material.description}>{material.description}</td>
+                      <td className="border border-gray-200 px-3 py-1 font-mono text-gray-500">{material.partNo || '-'}</td>
+                      <td className="border border-gray-200 px-3 py-1 text-center font-bold text-green-700 bg-green-50/10">{salesInfo.total || 0}</td>
+                      <td className="border border-gray-200 px-3 py-1 text-center font-bold text-blue-600 bg-green-50/10">{salesInfo.customers.size || 0}</td>
+                      <td className="border border-gray-200 px-3 py-1 text-right">
                         {isAdmin && (
-                          <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                            <button onClick={() => handleEditClick(material)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"><Pencil className="w-4 h-4" /></button>
-                            <button onClick={() => onDelete(material.id)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"><Trash2 className="w-4 h-4" /></button>
+                          <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => handleEditClick(material)} className="text-gray-400 hover:text-blue-600"><Pencil className="w-3.5 h-3.5" /></button>
+                            <button onClick={() => onDelete(material.id)} className="text-gray-400 hover:text-red-600"><Trash2 className="w-3.5 h-3.5" /></button>
                           </div>
                         )}
                       </td>
@@ -214,19 +219,17 @@ const MaterialTable: React.FC<MaterialTableProps> = ({ materials, salesReportIte
         </table>
       </div>
 
-      <div className="p-3 bg-gray-100 border-t border-gray-200 flex justify-between items-center text-[10px] font-black text-gray-500 uppercase tracking-widest">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <Database className="w-4 h-4 text-blue-600" />
-            <span>{isSupabaseConfigured ? 'CLOUD ENGINE SYNCED' : 'LOCAL ENGINE ACTIVE'}</span>
+      {/* Status Bar */}
+      <div className="bg-green-700 text-white px-3 py-1 text-[9px] font-bold flex justify-between items-center select-none uppercase tracking-widest">
+        <div className="flex gap-4 items-center">
+          <div className="flex items-center gap-1.5">
+            <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
+            <span>{isSupabaseConfigured ? 'CONNECTED ▪ CLOUD DB' : 'LOCAL ▪ OFFLINE ENGINE'}</span>
           </div>
-          <span className="text-gray-300">|</span>
-          <span>INTEGRITY VERIFIED</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+          <span className="text-green-500">|</span>
           <span>SYSTEM READY</span>
         </div>
+        <div>REPOSITORY MASTER SHEET 100% SCALE</div>
       </div>
     </div>
   );
