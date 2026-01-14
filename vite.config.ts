@@ -5,7 +5,7 @@ import react from '@vitejs/plugin-react';
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
-  
+
   return {
     plugins: [react()],
     define: {
@@ -27,7 +27,7 @@ export default defineConfig(({ mode }) => {
           manualChunks: {
             'vendor-react': ['react', 'react-dom'],
             'vendor-supabase': ['@supabase/supabase-js'],
-            'vendor-utils': ['xlsx', '@google/genai'],
+            'vendor-utils': ['xlsx', '@google/generative-ai'],
             'vendor-icons': ['lucide-react']
           }
         }
