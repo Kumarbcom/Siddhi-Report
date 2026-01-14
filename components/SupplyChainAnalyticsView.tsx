@@ -1,21 +1,19 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useDeferredValue } from 'react';
 import { SalesReportItem, Material, ClosingStockItem } from '../types';
 import {
-    TrendingUp,
-    Package,
-    RefreshCw,
-    BarChart3,
-    AlertTriangle,
-    LineChart,
-    ChevronRight,
-    Calendar,
-    Filter,
+    Search,
     FileDown,
-    Info,
-    Users,
+    Filter,
+    ArrowUpDown,
+    ArrowUp,
+    ArrowDown,
     Layers,
-    Factory
+    Table as TableIcon,
+    Calendar,
+    Factory,
+    TrendingUp,
+    CheckCircle2
 } from 'lucide-react';
 import { utils, writeFile } from 'xlsx';
 
@@ -30,19 +28,34 @@ const getFY = (dateInput: string | number | Date) => {
     if (isNaN(d.getTime())) return 'Unknown';
     const year = d.getFullYear();
     const month = d.getMonth();
+    // FY starts in April
     if (month >= 3) {
-        return `FY ${year}-${(year + 1).toString().slice(-2)}`;
+        return `20${year.toString().slice(-2)}-${(year + 1).toString().slice(-2)}`;
     } else {
-        return `FY ${year - 1}-${year.toString().slice(-2)}`;
+        return `20${(year - 1).toString().slice(-2)}-${year.toString().slice(-2)}`;
     }
 };
 
 const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, materials, closingStock }) => {
-    const [activeTab, setActiveTab] = useState<'movement' | 'strategy' | 'planning' | 'insights'>('movement');
+    // Slicer States
+    const [selectedMake, setSelectedMake] = useState<string>('All');
+    const [selectedGroup, setSelectedGroup] = useState<string>('All');
+    const [selectedStrategy, setSelectedStrategy] = useState<string>('All');
+    const [selectedClass, setSelectedClass] = useState<string>('All');
+    const [searchTerm, setSearchTerm] = useState('');
+    const deferredSearch = useDeferredValue(searchTerm);
+
+    // Sorting State
+    const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+
+    // Hardcode the FYs for the report
+    const FY_2526 = "2025-26";
+    const FY_2425 = "2024-25";
 
     const analyticsData = useMemo(() => {
         const materialMap = new Map<string, any>();
-        // Case-insensitive lookup map: Sales "Particulars" -> Material "Part No"
+
+        // Map materials for Group and Make lookup
         const masterMap = new Map();
         materials.forEach(m => {
             const partNoKey = (m.partNo || '').trim().toLowerCase();
@@ -55,12 +68,12 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
             }
         });
 
+        // Current date and benchmarks
         const now = new Date();
         const twelveMonthsAgo = new Date();
         twelveMonthsAgo.setMonth(now.getMonth() - 12);
-        const twentyFourMonthsAgo = new Date();
-        twentyFourMonthsAgo.setMonth(now.getMonth() - 24);
 
+        // Process Sales
         salesReportItems.forEach(item => {
             const key = (item.particulars || '').trim();
             const lowerKey = key.toLowerCase();
@@ -69,304 +82,347 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
                 const masterInfo = masterMap.get(lowerKey);
                 materialMap.set(lowerKey, {
                     description: key,
-                    group: masterInfo?.group || 'Uncategorized',
+                    group: masterInfo?.group || 'UNCATEGORIZED',
                     make: masterInfo?.make || 'N/A',
                     sales: [],
-                    distinctCustomers24m: new Set(),
-                    fySales: {},
-                    monthlySales: {},
-                    monthlyCustomers: {},
+                    distinctCustomers: new Set(),
+                    fyData: {
+                        [FY_2526]: { qty: 0, customers: new Set(), months: new Set() },
+                        [FY_2425]: { qty: 0, customers: new Set(), months: new Set() }
+                    }
                 });
             }
+
             const mData = materialMap.get(lowerKey);
-            const d = new Date(item.date);
             const fy = getFY(item.date);
-            const monthKey = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+            const d = new Date(item.date);
+            const monthKey = `${d.getFullYear()}-${d.getMonth() + 1}`;
 
             mData.sales.push(item);
-            if (d >= twentyFourMonthsAgo) mData.distinctCustomers24m.add(item.customerName);
+            mData.distinctCustomers.add(item.customerName);
 
-            mData.fySales[fy] = (mData.fySales[fy] || 0) + (item.quantity || 0);
-            mData.monthlySales[monthKey] = (mData.monthlySales[monthKey] || 0) + (item.quantity || 0);
-
-            if (!mData.monthlyCustomers[monthKey]) mData.monthlyCustomers[monthKey] = new Set();
-            mData.monthlyCustomers[monthKey].add(item.customerName);
+            if (mData.fyData[fy]) {
+                mData.fyData[fy].qty += (item.quantity || 0);
+                mData.fyData[fy].customers.add(item.customerName);
+                mData.fyData[fy].months.add(monthKey);
+            }
         });
 
+        // Finalize and Classify
         const results = Array.from(materialMap.values()).map(m => {
-            const months = Object.keys(m.monthlySales);
-            const totalQty = Object.values(m.monthlySales).reduce((a: any, b: any) => a + b, 0) as number;
-            const avgMonthlyQty = months.length > 0 ? totalQty / months.length : 0;
+            // Movement Classification (based on Active Months in FY 25-26)
+            const activeMonthsCurrent = m.fyData[FY_2526].months.size;
+            const lastSaleDate = m.sales.length > 0 ? new Date(Math.max(...m.sales.map((s: any) => new Date(s.date).getTime()))) : new Date(0);
 
-            const regularSales = m.sales.filter((s: SalesReportItem) => s.quantity <= 3 * avgMonthlyQty);
-            const regularTotalQty = regularSales.reduce((a: any, b: SalesReportItem) => a + (b.quantity || 0), 0) as number;
-
-            const currentFY = getFY(now);
-            const currentFYSales = regularSales.filter((s: SalesReportItem) => getFY(s.date) === currentFY);
-            const activeMonthsInFY = new Set(currentFYSales.map((s: SalesReportItem) => new Date(s.date).getMonth())).size;
-
-            let movementClass = 'Non-Moving';
-            const lastSaleDate = m.sales.reduce((max: Date, s: SalesReportItem) => {
-                const d = new Date(s.date);
-                return d > max ? d : max;
-            }, new Date(0));
-
-            if (lastSaleDate < twelveMonthsAgo) {
-                movementClass = 'Non-Moving';
-            } else if (activeMonthsInFY >= 9) {
-                movementClass = 'Fast Runner';
-            } else if (activeMonthsInFY >= 3) {
-                movementClass = 'Slow Runner';
+            let movementClass = 'NON-MOVING';
+            if (lastSaleDate >= twelveMonthsAgo) {
+                if (activeMonthsCurrent >= 9) movementClass = 'FAST RUNNER';
+                else if (activeMonthsCurrent >= 3) movementClass = 'SLOW RUNNER';
             }
 
-            const customerCount = m.distinctCustomers24m.size;
-            let stockStrategy = 'Made to Order';
-            if (customerCount > 10) stockStrategy = 'General Stock';
-            else if (customerCount >= 5) stockStrategy = 'Against Customer Order';
-
-            const monthWiseCustCount = Object.keys(m.monthlyCustomers).sort().reverse().slice(0, 12).map(mon => ({
-                month: mon,
-                count: m.monthlyCustomers[mon].size
-            }));
-
-            const last3FYs = [];
-            for (let i = 0; i < 3; i++) {
-                const year = now.getFullYear() - i;
-                const fy = getFY(new Date(year, 3, 1));
-                last3FYs.push(fy);
-            }
+            // Stock Strategy (based on customer count)
+            const totalCustCount = m.distinctCustomers.size;
+            let stockStrategy = 'MADE TO ORDER';
+            if (totalCustCount > 10) stockStrategy = 'GENERAL STOCK';
+            else if (totalCustCount >= 5) stockStrategy = 'AGAINST ORDER';
 
             return {
                 ...m,
-                avgMonthlyQty,
-                regularTotalQty,
-                activeMonthsInFY,
                 movementClass,
                 stockStrategy,
-                customerCount,
                 lastSaleDate,
-                fyMetrics: {
-                    [last3FYs[0]]: m.fySales[last3FYs[0]] || 0,
-                    [last3FYs[1]]: m.fySales[last3FYs[1]] || 0,
-                    [last3FYs[2]]: m.fySales[last3FYs[2]] || 0
-                },
-                monthWiseCustCount,
-                forecast: ((m.fySales[last3FYs[0]] || 0) * 0.5 + (m.fySales[last3FYs[1]] || 0) * 0.3 + (m.fySales[last3FYs[2]] || 0) * 0.2) / 12,
-                peakQty: Math.max(...(Object.values(m.monthlySales) as number[]), 0),
-                recommendedStock: (((m.fySales[last3FYs[0]] || 0) * 0.5 + (m.fySales[last3FYs[1]] || 0) * 0.3 + (m.fySales[last3FYs[2]] || 0) * 0.2) / 12) * 1.5
+                // Metrics per FY
+                metrics: {
+                    [FY_2526]: {
+                        activeMonths: m.fyData[FY_2526].months.size,
+                        totalCust: m.fyData[FY_2526].customers.size,
+                        avgCust: m.fyData[FY_2526].months.size > 0 ? m.fyData[FY_2526].customers.size / 12 : 0,
+                        totalQty: m.fyData[FY_2526].qty,
+                        avgQty: m.fyData[FY_2526].months.size > 0 ? m.fyData[FY_2526].qty / 12 : 0
+                    },
+                    [FY_2425]: {
+                        activeMonths: m.fyData[FY_2425].months.size,
+                        totalCust: m.fyData[FY_2425].customers.size,
+                        avgCust: m.fyData[FY_2425].months.size > 0 ? m.fyData[FY_2425].customers.size / 12 : 0,
+                        totalQty: m.fyData[FY_2425].qty,
+                        avgQty: m.fyData[FY_2425].months.size > 0 ? m.fyData[FY_2425].qty / 12 : 0
+                    }
+                }
             };
         });
 
-        return results.sort((a, b) => b.regularTotalQty - a.regularTotalQty);
+        return results;
     }, [salesReportItems, materials]);
 
-    const handleExport = () => {
-        const ws = utils.json_to_sheet(analyticsData.map(d => ({
-            "Group": d.group,
-            "Make": d.make,
-            "Material": d.description,
-            "Movement": d.movementClass,
-            "Strategy": d.stockStrategy,
-            "Monthly Forecast": d.forecast.toFixed(2),
-            "Rec. Stock": d.recommendedStock.toFixed(2)
-        })));
-        const wb = utils.book_new();
-        utils.book_append_sheet(wb, ws, "Analytics");
-        writeFile(wb, "Siddhi_SC_Planning.xlsx");
+    // Unique values for slicers
+    const makes = useMemo(() => ['All', ...Array.from(new Set(analyticsData.map(d => d.make)))].sort(), [analyticsData]);
+    const groups = useMemo(() => ['All', ...Array.from(new Set(analyticsData.map(d => d.group)))].sort(), [analyticsData]);
+    const strategies = ['All', 'GENERAL STOCK', 'AGAINST ORDER', 'MADE TO ORDER'];
+    const classes = ['All', 'FAST RUNNER', 'SLOW RUNNER', 'NON-MOVING'];
+
+    // Filtered Data
+    const filteredData = useMemo(() => {
+        let data = [...analyticsData];
+        if (selectedMake !== 'All') data = data.filter(d => d.make === selectedMake);
+        if (selectedGroup !== 'All') data = data.filter(d => d.group === selectedGroup);
+        if (selectedStrategy !== 'All') data = data.filter(d => d.stockStrategy === selectedStrategy);
+        if (selectedClass !== 'All') data = data.filter(d => d.movementClass === selectedClass);
+        if (deferredSearch) {
+            const q = deferredSearch.toLowerCase();
+            data = data.filter(d => d.description.toLowerCase().includes(q) || d.group.toLowerCase().includes(q) || d.make.toLowerCase().includes(q));
+        }
+
+        // Sorting
+        if (sortConfig) {
+            data.sort((a, b) => {
+                let valA: any, valB: any;
+                if (sortConfig.key.includes('.')) {
+                    const keys = sortConfig.key.split('.');
+                    valA = a;
+                    valB = b;
+                    keys.forEach(k => { valA = valA[k]; valB = valB[k]; });
+                } else {
+                    valA = (a as any)[sortConfig.key];
+                    valB = (b as any)[sortConfig.key];
+                }
+
+                if (typeof valA === 'string') {
+                    return sortConfig.direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                }
+                return sortConfig.direction === 'asc' ? valA - valB : valB - valA;
+            });
+        }
+
+        return data;
+    }, [analyticsData, selectedMake, selectedGroup, selectedStrategy, selectedClass, deferredSearch, sortConfig]);
+
+    const handleSort = (key: string) => {
+        let direction: 'asc' | 'desc' = 'asc';
+        if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
     };
 
-    const getInsights = useMemo(() => {
-        const insights = [];
-        const wronglyStocked = analyticsData.filter(d => d.stockStrategy === 'Made to Order' && d.movementClass === 'Fast Runner');
-        if (wronglyStocked.length > 0) insights.push({ title: "Wrongly stocked (Should be MTO)", count: wronglyStocked.length, items: wronglyStocked.slice(0, 3).map(i => i.description), type: 'warning' });
+    const renderSortIcon = (key: string) => {
+        if (!sortConfig || sortConfig.key !== key) return <ArrowUpDown className="w-3 h-3 text-gray-300" />;
+        return sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 text-green-700" /> : <ArrowDown className="w-3 h-3 text-green-700" />;
+    };
 
-        const declining = analyticsData.filter(d => {
-            const keys = Object.keys(d.fyMetrics);
-            return d.movementClass === 'Fast Runner' && d.fyMetrics[keys[0]] < d.fyMetrics[keys[1]];
-        });
-        if (declining.length > 0) insights.push({ title: "Fast Runners: Declining Trend", count: declining.length, items: declining.slice(0, 3).map(i => i.description), type: 'danger' });
-
-        const warehouseSpace = analyticsData.filter(d => d.movementClass === 'Slow Runner' || d.movementClass === 'Non-Moving');
-        if (warehouseSpace.length > 0) insights.push({ title: "Slow movers using space", count: warehouseSpace.length, items: warehouseSpace.slice(0, 3).map(i => i.description), type: 'info' });
-
-        return insights;
-    }, [analyticsData]);
+    const handleExport = () => {
+        const exportData = filteredData.map(d => ({
+            "Make": d.make,
+            "Group": d.group,
+            "Description": d.description,
+            "Strategy": d.stockStrategy,
+            "Class": d.movementClass,
+            "Active Mos (25-26)": d.metrics[FY_2526].activeMonths,
+            "Cust Count (25-26)": d.metrics[FY_2526].totalCust,
+            "Avg Cust (25-26)": d.metrics[FY_2526].avgCust.toFixed(2),
+            "Qty Sold (25-26)": d.metrics[FY_2526].totalQty,
+            "Avg Qty (25-26)": d.metrics[FY_2526].avgQty.toFixed(2)
+        }));
+        const ws = utils.json_to_sheet(exportData);
+        const wb = utils.book_new();
+        utils.book_append_sheet(wb, ws, "SC Planning");
+        writeFile(wb, "Siddhi_SC_Planning_Master.xlsx");
+    };
 
     return (
-        <div className="flex flex-col h-full gap-4 p-4 lg:p-6 bg-gray-50/50">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div className="flex items-center gap-4">
-                    <div className="p-3 bg-indigo-600 rounded-2xl text-white shadow-xl shadow-indigo-100">
-                        <BarChart3 className="w-6 h-6" />
+        <div className="flex flex-col h-full bg-[#f3f4f6]">
+            {/* Ribbon / Header */}
+            <div className="bg-white border-b border-gray-300 p-3 shadow-sm flex flex-col gap-4">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div className="flex items-center gap-3">
+                        <div className="bg-green-700 p-2 rounded-lg text-white shadow-lg shadow-green-100">
+                            <TableIcon className="w-5 h-5" />
+                        </div>
+                        <div>
+                            <h1 className="text-sm font-black text-gray-800 uppercase tracking-tighter">Supply Chain Master Sheet</h1>
+                            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Excel-Style Analytical Planning View</p>
+                        </div>
                     </div>
-                    <div>
-                        <h1 className="text-2xl font-black text-gray-900 tracking-tight uppercase">Supply Chain Planning</h1>
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">Advanced Inventory Analytics & Forecasting</p>
+
+                    {/* Search Bar */}
+                    <div className="relative w-full md:w-96">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input
+                            type="text"
+                            placeholder="Search Master Report..."
+                            className="w-full pl-10 pr-4 py-1.5 border border-gray-300 rounded text-xs font-bold focus:ring-1 focus:ring-green-600 outline-none transition-all shadow-sm"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
                     </div>
+
+                    <button
+                        onClick={handleExport}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-green-700 text-white rounded text-[10px] font-black uppercase shadow-md hover:bg-green-800 transition-all"
+                    >
+                        <FileDown className="w-4 h-4" /> Export Excel
+                    </button>
                 </div>
-                <button onClick={handleExport} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-xl text-xs font-black shadow-lg shadow-green-100 hover:bg-green-700 transition-all">
-                    <FileDown className="w-4 h-4" /> Export Report
-                </button>
+
+                {/* Slicers Area */}
+                <div className="flex flex-wrap gap-4 items-start bg-gray-50/50 p-2 rounded-lg border border-gray-200">
+                    <Slicer label="Make" selected={selectedMake} options={makes} onSelect={setSelectedMake} />
+                    <Slicer label="Material Group" selected={selectedGroup} options={groups} onSelect={setSelectedGroup} />
+                    <Slicer label="Stock Strategy" selected={selectedStrategy} options={strategies} onSelect={setSelectedStrategy} />
+                    <Slicer label="Classification" selected={selectedClass} options={classes} onSelect={setSelectedClass} />
+                </div>
             </div>
 
-            {/* Tabs */}
-            <div className="flex items-center gap-1 p-1 bg-white border border-gray-100 rounded-2xl shadow-sm overflow-x-auto whitespace-nowrap">
-                <TabButton active={activeTab === 'movement'} onClick={() => setActiveTab('movement')} icon={RefreshCw} label="Movement Analysis" />
-                <TabButton active={activeTab === 'strategy'} onClick={() => setActiveTab('strategy')} icon={TrendingUp} label="Stock Strategy" />
-                <TabButton active={activeTab === 'planning'} onClick={() => setActiveTab('planning')} icon={LineChart} label="Planning & Forecast" />
-                <TabButton active={activeTab === 'insights'} onClick={() => setActiveTab('insights')} icon={AlertTriangle} label="Management Insights" />
+            {/* Main Table Grid */}
+            <div className="flex-1 overflow-auto bg-white custom-scrollbar">
+                <table className="w-full text-left border-collapse table-auto min-w-max border-r border-b border-gray-300">
+                    <thead className="sticky top-0 z-20 bg-[#f8f9fa]">
+                        {/* Hierarchical Header Row 1 */}
+                        <tr className="text-[9px] font-black text-gray-500 uppercase">
+                            <th rowSpan={3} className="border border-gray-300 px-3 py-2 bg-gray-100 w-10 text-center">#</th>
+                            <th rowSpan={3} className="border border-gray-300 px-3 py-2 cursor-pointer hover:bg-gray-200" onClick={() => handleSort('make')}>
+                                <div className="flex items-center gap-1">Make {renderSortIcon('make')}</div>
+                            </th>
+                            <th rowSpan={3} className="border border-gray-300 px-3 py-2 cursor-pointer hover:bg-gray-200" onClick={() => handleSort('group')}>
+                                <div className="flex items-center gap-1">Group {renderSortIcon('group')}</div>
+                            </th>
+                            <th rowSpan={3} className="border border-gray-300 px-3 py-2 cursor-pointer hover:bg-gray-200 min-w-[300px]" onClick={() => handleSort('description')}>
+                                <div className="flex items-center gap-1">Material Description {renderSortIcon('description')}</div>
+                            </th>
+                            <th rowSpan={3} className="border border-gray-300 px-3 py-2 cursor-pointer hover:bg-gray-200" onClick={() => handleSort('stockStrategy')}>
+                                <div className="flex items-center gap-1">Strategy Group {renderSortIcon('stockStrategy')}</div>
+                            </th>
+                            <th rowSpan={3} className="border border-gray-300 px-3 py-2 cursor-pointer hover:bg-gray-200" onClick={() => handleSort('movementClass')}>
+                                <div className="flex items-center gap-1">Classification {renderSortIcon('movementClass')}</div>
+                            </th>
+                            <th colSpan={2} className="border border-gray-300 px-3 py-1 bg-blue-50 text-center text-blue-800">Active Months</th>
+                            <th colSpan={4} className="border border-gray-300 px-3 py-1 bg-green-50 text-center text-green-800">Customer Count</th>
+                            <th colSpan={4} className="border border-gray-300 px-3 py-1 bg-orange-50 text-center text-orange-800">Quantity Sold</th>
+                        </tr>
+                        {/* Hierarchical Header Row 2 */}
+                        <tr className="text-[9px] font-bold text-gray-600 uppercase">
+                            <th className="border border-gray-300 px-2 py-1 bg-blue-50/50 text-center">{FY_2526}</th>
+                            <th className="border border-gray-300 px-2 py-1 bg-blue-50/50 text-center">{FY_2425}</th>
+                            <th colSpan={2} className="border border-gray-300 px-2 py-1 bg-green-50/50 text-center">{FY_2526}</th>
+                            <th colSpan={2} className="border border-gray-300 px-2 py-1 bg-green-50/50 text-center">{FY_2425}</th>
+                            <th colSpan={2} className="border border-gray-300 px-2 py-1 bg-orange-50/50 text-center">{FY_2526}</th>
+                            <th colSpan={2} className="border border-gray-300 px-2 py-1 bg-orange-50/50 text-center">{FY_2425}</th>
+                        </tr>
+                        {/* Hierarchical Header Row 3 */}
+                        <tr className="text-[8px] font-black text-gray-400 uppercase text-center">
+                            <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer" onClick={() => handleSort(`metrics.${FY_2526}.activeMonths`)}>Months {renderSortIcon(`metrics.${FY_2526}.activeMonths`)}</th>
+                            <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer" onClick={() => handleSort(`metrics.${FY_2425}.activeMonths`)}>Months {renderSortIcon(`metrics.${FY_2425}.activeMonths`)}</th>
+
+                            <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-green-50/30" onClick={() => handleSort(`metrics.${FY_2526}.totalCust`)}>Total Count</th>
+                            <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-green-50/30" onClick={() => handleSort(`metrics.${FY_2526}.avgCust`)}>Avg / Month</th>
+
+                            <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-green-50/30" onClick={() => handleSort(`metrics.${FY_2425}.totalCust`)}>Total Count</th>
+                            <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-green-50/30" onClick={() => handleSort(`metrics.${FY_2425}.avgCust`)}>Avg / Month</th>
+
+                            <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-orange-50/30" onClick={() => handleSort(`metrics.${FY_2526}.totalQty`)}>Total Qty</th>
+                            <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-orange-50/30" onClick={() => handleSort(`metrics.${FY_2526}.avgQty`)}>Avg / Month</th>
+
+                            <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-orange-50/30" onClick={() => handleSort(`metrics.${FY_2425}.totalQty`)}>Total Qty</th>
+                            <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-orange-50/30" onClick={() => handleSort(`metrics.${FY_2425}.avgQty`)}>Avg / Month</th>
+                        </tr>
+                    </thead>
+                    <tbody className="text-[10px]">
+                        {filteredData.map((item, idx) => (
+                            <tr key={idx} className="hover:bg-green-50/30 even:bg-gray-50/20 transition-colors group">
+                                <td className="border border-gray-200 px-2 py-1 text-center text-gray-400 font-mono select-none">{idx + 1}</td>
+                                <td className="border border-gray-200 px-3 py-1 font-black text-gray-500 uppercase">{item.make}</td>
+                                <td className="border border-gray-200 px-3 py-1 font-bold text-blue-700 uppercase tracking-tighter">{item.group}</td>
+                                <td className="border border-gray-200 px-3 py-1 font-black text-gray-900 uppercase truncate max-w-[400px]" title={item.description}>{item.description}</td>
+                                <td className="border border-gray-200 px-3 py-1 text-center">
+                                    <span className={`px-2 py-0.5 rounded text-[8px] font-black ${item.stockStrategy === 'GENERAL STOCK' ? 'bg-blue-600 text-white' :
+                                            item.stockStrategy === 'AGAINST ORDER' ? 'bg-purple-600 text-white' :
+                                                'bg-gray-400 text-white'
+                                        }`}>
+                                        {item.stockStrategy}
+                                    </span>
+                                </td>
+                                <td className="border border-gray-200 px-3 py-1 text-center">
+                                    <span className={`px-2 py-0.5 rounded text-[8px] font-black ${item.movementClass === 'FAST RUNNER' ? 'bg-green-600 text-white' :
+                                            item.movementClass === 'SLOW RUNNER' ? 'bg-amber-500 text-white' :
+                                                'bg-gray-300 text-gray-600'
+                                        }`}>
+                                        {item.movementClass}
+                                    </span>
+                                </td>
+
+                                {/* Active Months */}
+                                <td className="border border-gray-200 px-2 py-1 text-center font-bold text-blue-700 bg-blue-50/10">{item.metrics[FY_2526].activeMonths}</td>
+                                <td className="border border-gray-200 px-2 py-1 text-center font-bold text-blue-700 bg-blue-50/10">{item.metrics[FY_2425].activeMonths}</td>
+
+                                {/* Customer Count 25-26 */}
+                                <td className="border border-gray-200 px-2 py-1 text-center font-black text-green-700 bg-green-50/10">{item.metrics[FY_2526].totalCust}</td>
+                                <td className="border border-gray-200 px-2 py-1 text-center font-mono text-gray-500 bg-green-50/10">{item.metrics[FY_2526].avgCust.toFixed(1)}</td>
+
+                                {/* Customer Count 24-25 */}
+                                <td className="border border-gray-200 px-2 py-1 text-center font-black text-green-700 bg-green-50/10">{item.metrics[FY_2425].totalCust}</td>
+                                <td className="border border-gray-200 px-2 py-1 text-center font-mono text-gray-500 bg-green-50/10">{item.metrics[FY_2425].avgCust.toFixed(1)}</td>
+
+                                {/* Qty Sold 25-26 */}
+                                <td className="border border-gray-200 px-2 py-1 text-center font-black text-orange-700 bg-orange-50/10">{item.metrics[FY_2526].totalQty}</td>
+                                <td className="border border-gray-200 px-2 py-1 text-center font-mono text-gray-500 bg-orange-50/10">{item.metrics[FY_2526].avgQty.toFixed(1)}</td>
+
+                                {/* Qty Sold 24-25 */}
+                                <td className="border border-gray-200 px-2 py-1 text-center font-black text-orange-700 bg-orange-50/10">{item.metrics[FY_2425].totalQty}</td>
+                                <td className="border border-gray-200 px-2 py-1 text-center font-mono text-gray-500 bg-orange-50/10">{item.metrics[FY_2425].avgQty.toFixed(1)}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
             </div>
 
-            {/* Main Table Area */}
-            <div className="flex-1 min-h-0 bg-white border border-gray-100 rounded-3xl shadow-sm overflow-hidden flex flex-col">
-                {activeTab === 'movement' && <ModernTable data={analyticsData} type="movement" />}
-                {activeTab === 'strategy' && <ModernTable data={analyticsData} type="strategy" />}
-                {activeTab === 'planning' && <ModernTable data={analyticsData} type="planning" />}
-                {activeTab === 'insights' && <InsightsView insights={getInsights} />}
+            {/* Excel Status Bar */}
+            <div className="bg-green-700 text-white px-3 py-1 text-[9px] font-bold flex justify-between items-center select-none uppercase tracking-widest">
+                <div className="flex gap-4 items-center">
+                    <div className="flex items-center gap-1.5">
+                        <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                        <span>MASTER DATA ANALYTICS READY</span>
+                    </div>
+                    <span className="text-green-500">|</span>
+                    <span>VIEW: SUPPLY CHAIN PLANNING</span>
+                    <span className="text-green-500">|</span>
+                    <span>FILTERS APPLIED: {filteredData.length < analyticsData.length ? 'YES' : 'NO'}</span>
+                </div>
+                <div>MASTER PLANNING SHEET ▪ 100% SCALE</div>
             </div>
         </div>
     );
 };
 
-const TabButton = ({ active, onClick, icon: Icon, label }: any) => (
-    <button onClick={onClick} className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all ${active ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-gray-400 hover:bg-gray-50 hover:text-gray-600'}`}>
-        <Icon className="w-4 h-4" /> {label}
-    </button>
+const Slicer = ({ label, selected, options, onSelect }: any) => (
+    <div className="flex flex-col gap-1 min-w-[150px]">
+        <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1">
+            <Filter className="w-2.5 h-2.5" /> {label}
+        </span>
+        <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto custom-scrollbar p-1 bg-white border border-gray-200 rounded">
+            {options.slice(0, 20).map((opt: string) => (
+                <button
+                    key={opt}
+                    onClick={() => onSelect(opt)}
+                    className={`px-2 py-0.5 rounded-[4px] text-[8px] font-bold uppercase transition-all border ${selected === opt
+                            ? 'bg-green-700 text-white border-green-800 shadow-sm'
+                            : 'bg-white text-gray-500 border-gray-200 hover:border-green-400 hover:text-green-700'
+                        }`}
+                >
+                    {opt}
+                </button>
+            ))}
+            {options.length > 20 && <span className="text-[7px] text-gray-300 font-bold ml-1">+{options.length - 20} more</span>}
+        </div>
+    </div>
 );
 
-const ModernTable = ({ data, type }: { data: any[], type: string }) => {
-    const fyKeys = type === 'planning' ? Object.keys(data[0]?.fyMetrics || {}) : [];
-
-    return (
-        <div className="overflow-auto flex-1 custom-scrollbar">
-            <table className="w-full text-left border-collapse">
-                <thead className="sticky top-0 bg-gray-50/90 backdrop-blur-sm shadow-sm z-10">
-                    <tr className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                        <th className="px-6 py-4">Group / Make</th>
-                        <th className="px-6 py-4">Material Description</th>
-
-                        {type === 'movement' && (
-                            <>
-                                <th className="px-6 py-4 text-center">Active Mos</th>
-                                <th className="px-6 py-4">Customers (12M)</th>
-                                <th className="px-6 py-4">Classification</th>
-                            </>
-                        )}
-
-                        {type === 'strategy' && (
-                            <>
-                                <th className="px-6 py-4 text-center">Cust Count (24M)</th>
-                                <th className="px-6 py-4">Current Strategy</th>
-                            </>
-                        )}
-
-                        {type === 'planning' && (
-                            <>
-                                {fyKeys.map(k => <th key={k} className="px-6 py-4">{k}</th>)}
-                                <th className="px-6 py-4 bg-indigo-50/50 text-indigo-700">Forecast</th>
-                                <th className="px-6 py-4 bg-green-50/50 text-green-700">Rec. Stock</th>
-                            </>
-                        )}
-                    </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                    {data.map((item, idx) => (
-                        <tr key={idx} className="hover:bg-gray-50/50 transition-colors group">
-                            <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="flex flex-col">
-                                    <span className="text-[10px] font-black text-indigo-600 uppercase tracking-tighter">{item.group}</span>
-                                    <span className="text-[10px] font-bold text-gray-400 uppercase">{item.make}</span>
-                                </div>
-                            </td>
-                            <td className="px-6 py-4">
-                                <p className="text-xs font-bold text-gray-800 uppercase leading-tight line-clamp-2">{item.description}</p>
-                            </td>
-
-                            {type === 'movement' && (
-                                <>
-                                    <td className="px-6 py-4 text-center">
-                                        <span className="text-xs font-mono font-black text-gray-600 bg-gray-100 px-2 py-1 rounded-lg">{item.activeMonthsInFY}</span>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex gap-1 overflow-x-auto max-w-[200px] scrollbar-hide">
-                                            {item.monthWiseCustCount.map((mc: any, i: number) => (
-                                                <div key={i} className={`flex flex-col items-center min-w-[30px] p-1 rounded border ${mc.count > 0 ? 'bg-green-50 border-green-100' : 'bg-gray-50 border-gray-100'}`}>
-                                                    <span className="text-[7px] font-bold text-gray-400">{mc.month.split('-')[1]}</span>
-                                                    <span className={`text-[9px] font-black ${mc.count > 0 ? 'text-green-700' : 'text-gray-300'}`}>{mc.count}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${item.movementClass === 'Fast Runner' ? 'bg-green-50 text-green-700 border border-green-200' :
-                                                item.movementClass === 'Slow Runner' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
-                                                    'bg-gray-50 text-gray-400 border border-gray-200'
-                                            }`}>
-                                            {item.movementClass}
-                                        </span>
-                                    </td>
-                                </>
-                            )}
-
-                            {type === 'strategy' && (
-                                <>
-                                    <td className="px-6 py-4 text-center">
-                                        <div className="flex items-center justify-center gap-2 text-xs font-mono font-bold text-blue-600">
-                                            <Users className="w-3.5 h-3.5" /> {item.customerCount}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${item.stockStrategy === 'General Stock' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
-                                                item.stockStrategy === 'Against Customer Order' ? 'bg-purple-50 text-purple-700 border border-purple-200' :
-                                                    'bg-indigo-50 text-indigo-700 border border-indigo-200'
-                                            }`}>
-                                            {item.stockStrategy}
-                                        </span>
-                                    </td>
-                                </>
-                            )}
-
-                            {type === 'planning' && (
-                                <>
-                                    {fyKeys.map(k => <td key={k} className="px-6 py-4 text-xs font-mono text-gray-500">{Math.round(item.fyMetrics[k]) || 0}</td>)}
-                                    <td className="px-6 py-4 bg-indigo-50/20 text-indigo-700 font-black text-xs">{item.forecast.toFixed(2)}</td>
-                                    <td className="px-6 py-4 bg-green-50/20 text-green-700 font-black text-xs">{item.recommendedStock.toFixed(2)}</td>
-                                </>
-                            )}
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-        </div>
-    );
-};
-
-const InsightsView = ({ insights }: { insights: any[] }) => (
-    <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 overflow-auto">
-        {insights.map((insight, idx) => (
-            <div key={idx} className={`p-6 rounded-[2rem] border-2 flex flex-col gap-4 transition-all hover:scale-[1.02] ${insight.type === 'warning' ? 'bg-orange-50/50 border-orange-100' :
-                    insight.type === 'danger' ? 'bg-red-50/50 border-red-100' :
-                        'bg-blue-50/50 border-blue-100'
-                }`}>
-                <div className="flex items-center justify-between">
-                    <div className={`p-3 rounded-2xl ${insight.type === 'warning' ? 'bg-orange-100 text-orange-600' :
-                            insight.type === 'danger' ? 'bg-red-100 text-red-600' :
-                                'bg-blue-100 text-blue-600'
-                        }`}><LineChart className="w-6 h-6" /></div>
-                    <span className="text-2xl font-black text-gray-900">{insight.count}</span>
-                </div>
-                <h3 className="text-sm font-black text-gray-900 leading-tight mb-2 uppercase tracking-tighter">{insight.title}</h3>
-                <div className="space-y-2">
-                    {insight.items.map((it: string, i: number) => (
-                        <div key={i} className="flex items-center gap-2 text-[11px] font-bold text-gray-600 truncate uppercase">
-                            <ChevronRight className="w-3 h-3 text-gray-300" /> {it}
-                        </div>
-                    ))}
-                </div>
-            </div>
-        ))}
-    </div>
+const Grid = ({ className }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <rect width="18" height="18" x="3" y="3" rx="2" />
+        <path d="M3 9h18" />
+        <path d="M3 15h18" />
+        <path d="M9 3v18" />
+        <path d="M15 3v18" />
+    </svg>
 );
 
 export default SupplyChainAnalyticsView;
