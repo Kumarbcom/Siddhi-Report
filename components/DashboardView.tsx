@@ -746,14 +746,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         } else if (timeView === 'WEEK') {
             data = data.filter(i => i.weekNumber === selectedWeek);
             console.log(`After WEEK filter (week ${selectedWeek}): ${data.length} records`);
-        } else {
-            // FY view: Filter previous year to only include months present in currentData (YTD comparison)
-            const currentMonths = new Set(currentData.map(i => i.fiscalMonthIndex));
-            console.log(`Current months in view: ${Array.from(currentMonths).sort().join(',')}`);
-            const beforeYTD = data.length;
-            data = data.filter(i => currentMonths.has(i.fiscalMonthIndex));
-            console.log(`After YTD filter: ${data.length} records (removed ${beforeYTD - data.length})`);
         }
+        // FY view: Use FULL previous year (no YTD filter)
+        // This compares current year progress against complete previous year
+        console.log(`Using FULL previous year for comparison (no YTD filter)`);
 
         if (selectedMake !== 'ALL') {
             const before = data.length;
@@ -772,7 +768,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         console.log(`=== YoY Debug END ===\n`);
 
         return data;
-    }, [selectedFY, currentData, timeView, selectedMonth, selectedWeek, enrichedSales, selectedMake, selectedMatGroup]);
+    }, [selectedFY, timeView, selectedMonth, selectedWeek, enrichedSales, selectedMake, selectedMatGroup]);
 
     const kpis = useMemo(() => {
         const currVal = currentData.reduce((acc, i) => acc + (i.value || 0), 0);
