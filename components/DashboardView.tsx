@@ -140,7 +140,8 @@ const SalesTrendChart = ({ data, maxVal }: { data: { labels: string[], series: a
 
                     {data.series.map((s: any, i: number) => {
                         if (!s.active) return null;
-                        const points: [number, number][] = s.data.map((val: number, idx: number) => [(idx / (labelCount - 1)) * 100, 100 - ((val / chartMax) * 100)]).filter((p: any) => !isNaN(p[1]));
+                        const denom = labelCount > 1 ? labelCount - 1 : 1;
+                        const points: [number, number][] = s.data.map((val: number, idx: number) => [(idx / denom) * 100, 100 - ((val / chartMax) * 100)]).filter((p: any) => !isNaN(p[1]));
                         if (points.length === 0) return null;
                         const pathD = points.length >= 2 ? (getSmoothPath(points) || `M ${points.map(p => p.join(',')).join(' L ')}`) : null;
                         return (
@@ -2554,17 +2555,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                             </div>
                         </div>
                     ) : activeSubTab === 'stockPlanning' ? (
-                        <div className="flex flex-col gap-6" style={{ animation: 'fadeInUp 0.7s ease-out' }}>
-                            <style>{`
-                                @keyframes fadeInUp {
-                                    from { opacity: 0; transform: translateY(20px); }
-                                    to { opacity: 1; transform: translateY(0); }
-                                }
-                                @keyframes fadeIn {
-                                    from { opacity: 0; }
-                                    to { opacity: 1; }
-                                }
-                            `}</style>
+                        <div className="flex flex-col gap-6 animate-fade-in-up">
                             {/* Graphical Summary Dashboard */}
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                                 {/* Overall Sales Trend (All Filtered Items) */}
@@ -2609,7 +2600,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                 });
 
                                                 const cleanedCY = aggregatedCY.map((v, i) => cyIsFuture[i] ? NaN : v);
-                                                const lastValidIdx = cleanedCY.map((v, i) => isNaN(v) ? -1 : i).reduce((acc, curr) => Math.max(acc, curr), -1);
+                                                let lastValidIdx = -1;
+                                                for (let j = cleanedCY.length - 1; j >= 0; j--) {
+                                                    if (!isNaN(cleanedCY[j])) {
+                                                        lastValidIdx = j;
+                                                        break;
+                                                    }
+                                                }
 
                                                 const forecastSeries = new Array(15).fill(NaN);
                                                 if (lastValidIdx !== -1) {
@@ -2762,7 +2759,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
                             {/* Chart Area for Selected Item */}
                             {selectedStockItem && (
-                                <div className="bg-white p-6 rounded-2xl border border-rose-200 shadow-lg relative" style={{ animation: 'fadeIn 0.5s ease-out' }}>
+                                <div className="bg-white p-6 rounded-2xl border border-rose-200 shadow-lg relative animate-fade-in-up">
                                     <div className="absolute top-4 right-4 flex items-center gap-2">
                                         <button
                                             onClick={() => setSelectedStockItem(null)}

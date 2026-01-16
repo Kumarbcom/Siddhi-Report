@@ -29,7 +29,7 @@ export const authService = {
         const existingUsers = await dbService.getAll<User>(STORES.USERS || 'users');
         if (existingUsers.length === 0) {
             const usersToCreate: User[] = initialUsers.map(u => ({
-                id: crypto.randomUUID(),
+                id: Math.random().toString(36).substring(2, 11),
                 username: u.username,
                 role: u.role as any,
                 passwordHash: '123456', // Storing plain for this simple requirement, should ideally be hashed

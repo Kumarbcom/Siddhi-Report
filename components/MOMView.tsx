@@ -27,6 +27,13 @@ const MOMView: React.FC<MOMViewProps> = ({
     customers,
     isAdmin = false
 }) => {
+    const getUuid = () => {
+        if (typeof window !== 'undefined' && window.crypto && window.crypto.randomUUID) {
+            return window.crypto.randomUUID();
+        }
+        return Math.random().toString(36).substring(2, 11);
+    };
+
     const PLANNED_STOCK_GROUPS = useMemo(() => new Set([
         "eaton-ace", "eaton-biesse", "eaton-coffee day", "eaton-enrx pvt ltd",
         "eaton-eta technology", "eaton-faively", "eaton-planned stock specific customer",
@@ -378,27 +385,27 @@ const MOMView: React.FC<MOMViewProps> = ({
     const handleAutoPopulate = () => {
         const agendaItems: MOMItem[] = [
             {
-                id: crypto.randomUUID(), slNo: 1, agendaItem: 'Sales Review: Present YTD vs Weekly Momentum',
+                id: getUuid(), slNo: 1, agendaItem: 'Sales Review: Present YTD vs Weekly Momentum',
                 discussion: `• Present YTD Sales (FY): ${toCr(autoPullData.ytdSales)}\n• Online Sales YTD: ${toCr(autoPullData.onlineSales)}\n• Current Week Sales: ${toCr(autoPullData.thisWeekSales)} (${autoPullData.weeklyGrowthText})\n• Last Week Sales Performance: ${toCr(autoPullData.lastWeekSales)}${autoPullData.voucherSummary ? `\n• Vouchers for Current Week:\n${autoPullData.voucherSummary}` : ''}`,
                 actionAccount: ['Kumar'], timeline: currentMom.date || '', isCompleted: false
             },
             {
-                id: crypto.randomUUID(), slNo: 2, agendaItem: `Pending SO Deep Analysis - ${toCr(autoPullData.totalPendingSO)}`,
+                id: getUuid(), slNo: 2, agendaItem: `Pending SO Deep Analysis - ${toCr(autoPullData.totalPendingSO)}`,
                 discussion: `• Scheduled Orders (Future): ${toCr(autoPullData.scheduledOrders)}\n• Due Orders (Past/Today): ${toCr(autoPullData.dueOrdersVal)}\n• Ready Stock (For Due Orders): ${toCr(autoPullData.readyStockVal)}\n• Shortage (Need to Arrange): ${toCr(autoPullData.shortageVal)}`,
                 actionAccount: ['Sales Team'], timeline: 'Immediate', isCompleted: false
             },
             {
-                id: crypto.randomUUID(), slNo: 3, agendaItem: 'System Stock & Non-Moving Status',
+                id: getUuid(), slNo: 3, agendaItem: 'System Stock & Non-Moving Status',
                 discussion: `• LAPP Non-Moving: ${toCr(autoPullData.lappNonMoving)}\n• Eaton Non-Moving: ${toCr(autoPullData.eatonNonMoving)}\n• Hager - Non-Moving (Excl. Incap): ${toCr(autoPullData.hagerNonMoving)}\n• Others Non-Moving: ${toCr(autoPullData.othersNonMoving)}\n• Total Physical Stock: ${toCr(closingStock.reduce((a, b) => a + (b.value || 0), 0))}`,
                 actionAccount: ['Logistic Team'], timeline: 'Next Thursday', isCompleted: false
             },
             {
-                id: crypto.randomUUID(), slNo: 4, agendaItem: `Excess Stock Make-wise Summary (Strategy Report) - ${toCr(autoPullData.totalExcess)}`,
+                id: getUuid(), slNo: 4, agendaItem: `Excess Stock Make-wise Summary (Strategy Report) - ${toCr(autoPullData.totalExcess)}`,
                 discussion: Object.entries(autoPullData.excessByMake).sort(([, a], [, b]) => b - a).filter(([_, v]) => v > 1000).map(([m, v]) => `• ${m}: ${toCr(v)}`).join('\n') + `\n• Need Liquadate: ₹ _________ Cr.`,
                 actionAccount: ['Mohan', 'Gurudatt'], timeline: '', isCompleted: false
             },
             {
-                id: crypto.randomUUID(), slNo: 5, agendaItem: 'Procurement Action Plan - Excess PO Analysis',
+                id: getUuid(), slNo: 5, agendaItem: 'Procurement Action Plan - Excess PO Analysis',
                 discussion: `• Excess PO Value (Strategy Report): ${toCr(autoPullData.excessPOVal)}\n• PO need to cancel: ₹ _________ Cr.\n• Need to Hold: ₹ _________ Cr.`,
                 actionAccount: ['Mohan'], timeline: 'Immediate', isCompleted: false
             }
@@ -429,7 +436,7 @@ const MOMView: React.FC<MOMViewProps> = ({
             setMoms(prev => prev.filter(m => m.id !== id));
             if (currentMom.id === id) {
                 setCurrentMom({
-                    id: crypto.randomUUID(),
+                    id: getUuid(),
                     title: 'Weekly Review Meeting',
                     date: getThursdayOfWeek(new Date()),
                     attendees: [],
@@ -455,7 +462,7 @@ const MOMView: React.FC<MOMViewProps> = ({
     };
 
     const addItem = () => {
-        const newItem: MOMItem = { id: crypto.randomUUID(), slNo: (currentMom.items?.length || 0) + 1, agendaItem: '', discussion: '', actionAccount: [], timeline: '', isCompleted: false };
+        const newItem: MOMItem = { id: getUuid(), slNo: (currentMom.items?.length || 0) + 1, agendaItem: '', discussion: '', actionAccount: [], timeline: '', isCompleted: false };
         setCurrentMom(prev => ({ ...prev, items: [...(prev.items || []), newItem] }));
     };
 
