@@ -1005,6 +1005,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 } else if (stockSortConfig.key === 'refillQty') {
                     valA = a.netQty < a.rol ? a.maxStock - a.netQty : 0;
                     valB = b.netQty < b.rol ? b.maxStock - b.netQty : 0;
+                } else if (stockSortConfig.key === 'growth') {
+                    valA = a.salesPY > 0 ? (a.salesCY - a.salesPY) / a.salesPY : a.salesCY > 0 ? 1 : 0;
+                    valB = b.salesPY > 0 ? (b.salesCY - b.salesPY) / b.salesPY : b.salesCY > 0 ? 1 : 0;
                 }
 
                 if (valA < valB) return stockSortConfig.direction === 'asc' ? -1 : 1;
@@ -2680,6 +2683,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                 <th className="px-3 py-2 border border-gray-300 cursor-pointer hover:bg-gray-200" onClick={() => handleStockSort('salesPY')}>
                                                     <div className="flex items-center justify-center gap-1">Qty Sold (PY) {stockSortConfig?.key === 'salesPY' && (stockSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
                                                 </th>
+                                                <th className="px-3 py-2 border border-gray-300 bg-gray-50 cursor-pointer hover:bg-gray-200" onClick={() => handleStockSort('growth')}>
+                                                    <div className="flex items-center justify-center gap-1">YoY {stockSortConfig?.key === 'growth' && (stockSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
+                                                </th>
                                                 <th className="px-3 py-2 border border-gray-300 bg-blue-100/50 cursor-pointer hover:bg-blue-100" onClick={() => handleStockSort('stock')}>
                                                     <div className="flex items-center justify-center gap-1">Stock {stockSortConfig?.key === 'stock' && (stockSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
                                                 </th>
@@ -2725,6 +2731,18 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                     </td>
                                                     <td className="px-3 py-1.5 border border-gray-200 text-right font-black text-emerald-700 bg-emerald-50/10">{item.salesCY.toLocaleString()}</td>
                                                     <td className="px-3 py-1.5 border border-gray-200 text-right font-bold text-gray-400">{item.salesPY.toLocaleString()}</td>
+                                                    <td className="px-3 py-1.5 border border-gray-200 text-center">
+                                                        {(() => {
+                                                            const diff = item.salesCY - item.salesPY;
+                                                            const pct = item.salesPY > 0 ? (diff / item.salesPY) * 100 : item.salesCY > 0 ? 100 : 0;
+                                                            return (
+                                                                <div className={`flex items-center justify-center gap-0.5 font-black text-[9px] ${diff >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                                    {diff >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                                                                    <span>{Math.abs(Math.round(pct))}%</span>
+                                                                </div>
+                                                            );
+                                                        })()}
+                                                    </td>
                                                     <td className="px-3 py-1.5 border border-gray-200 text-right font-black text-blue-700 bg-blue-50/10">{item.stock.toLocaleString()}</td>
                                                     <td className="px-3 py-1.5 border border-gray-200 text-right bg-indigo-50/10">
                                                         <div className="flex items-center justify-end gap-1.5">

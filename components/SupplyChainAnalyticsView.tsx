@@ -13,6 +13,7 @@ import {
     Calendar,
     Factory,
     TrendingUp,
+    TrendingDown,
     CheckCircle2,
     Eye,
     EyeOff,
@@ -523,7 +524,7 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
                             )}
                             {visibleColumns.activeMonths && <th colSpan={2} className="border border-gray-300 px-3 py-1 bg-blue-50 text-center text-blue-800">Active Months</th>}
                             {visibleColumns.customerCount && <th colSpan={4} className="border border-gray-300 px-3 py-1 bg-green-50 text-center text-green-800">Customer Count</th>}
-                            {visibleColumns.qtySold && <th colSpan={6} className="border border-gray-300 px-3 py-1 bg-orange-50 text-center text-orange-800">Quantity Sold (Reg vs Proj)</th>}
+                            {visibleColumns.qtySold && <th colSpan={7} className="border border-gray-300 px-3 py-2 bg-orange-50 text-center text-orange-800">Quantity Sold (Reg vs Proj) & Growth</th>}
                         </tr>
                         {/* Hierarchical Header Row 2 */}
                         <tr className="text-[9px] font-bold text-gray-600 uppercase">
@@ -543,6 +544,7 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
                                 <>
                                     <th colSpan={3} className="border border-gray-300 px-2 py-1 bg-orange-50/50 text-center">{FY_CY}</th>
                                     <th colSpan={3} className="border border-gray-300 px-2 py-1 bg-orange-50/50 text-center">{FY_PY}</th>
+                                    <th rowSpan={2} className="border border-gray-300 px-2 py-1 bg-rose-50 text-rose-800 text-center">YoY %</th>
                                 </>
                             )}
                         </tr>
@@ -643,9 +645,23 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
                                         <td className="border border-gray-200 px-2 py-1 text-center font-black text-purple-700 bg-purple-50/20">{item.metrics[FY_CY].projectQty || 0}</td>
                                         <td className="border border-gray-200 px-2 py-1 text-center font-mono text-gray-500 bg-orange-50/10">{item.metrics[FY_CY].avgQty.toFixed(1)}</td>
 
-                                        <td className="border border-gray-200 px-2 py-1 text-center font-black text-orange-700 bg-orange-50/10">{item.metrics[FY_PY].totalQty}</td>
-                                        <td className="border border-gray-200 px-2 py-1 text-center font-black text-purple-700 bg-purple-50/20">{item.metrics[FY_PY].projectQty || 0}</td>
-                                        <td className="border border-gray-200 px-2 py-1 text-center font-mono text-gray-500 bg-orange-50/10">{item.metrics[FY_PY].avgQty.toFixed(1)}</td>
+                                        <td className="border border-gray-200 px-3 py-1 text-right font-black text-orange-700/60">{(item.metrics[FY_PY]?.totalQty || 0).toLocaleString()}</td>
+                                        <td className="border border-gray-200 px-3 py-1 text-right font-bold text-purple-700/60">{(item.metrics[FY_PY]?.projectQty || 0).toLocaleString()}</td>
+                                        <td className="border border-gray-200 px-3 py-1 text-right font-bold text-gray-400">{(item.metrics[FY_PY]?.avgQty || 0).toFixed(0)}</td>
+                                        <td className="border border-gray-200 px-3 py-1 text-center">
+                                            {(() => {
+                                                const cy = item.metrics[FY_CY]?.totalQty || 0;
+                                                const py = item.metrics[FY_PY]?.totalQty || 0;
+                                                const diff = cy - py;
+                                                const pct = py > 0 ? (diff / py) * 100 : cy > 0 ? 100 : 0;
+                                                return (
+                                                    <div className={`flex items-center justify-center gap-0.5 font-black text-[9px] ${diff >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                        {diff >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                                                        <span>{Math.abs(Math.round(pct))}%</span>
+                                                    </div>
+                                                );
+                                            })()}
+                                        </td>
                                     </>
                                 )}
                             </tr>
