@@ -481,6 +481,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     const [selectedStockItem, setSelectedStockItem] = useState<string | null>(null);
     const [stockSearchTerm, setStockSearchTerm] = useState('');
     const [stockSlicers, setStockSlicers] = useState({ make: 'ALL', group: 'ALL', strategy: 'ALL', class: 'ALL' });
+    const [stockQuickFilter, setStockQuickFilter] = useState<'ALL' | 'SHORTAGE' | 'REFILL'>('ALL');
     const [stockSortConfig, setStockSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>({ key: 'salesCY', direction: 'desc' });
 
 
@@ -954,11 +955,18 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
             const netQty = m.stock + m.poDue + m.poSched - (m.soDue + m.soSched);
 
+            const roundInventory = (val: number) => {
+                if (val <= 0) return 0;
+                if (val < 10) return Math.ceil(val);
+                if (val < 200) return Math.round(val / 10) * 10;
+                return Math.round(val / 100) * 100;
+            };
+
             // Inventory Levels
             let safetyStock = Math.ceil(avgMonthly * 1.2);
-            let minStock = safetyStock;
-            let rol = Math.ceil(safetyStock + (avgMonthly * 0.5));
-            let maxStock = Math.ceil(rol + (avgMonthly * 1.5));
+            let minStock = roundInventory(safetyStock);
+            let rol = roundInventory(safetyStock + (avgMonthly * 0.5));
+            let maxStock = roundInventory(rol + (avgMonthly * 1.5));
 
             // User request: For Non moving or Against order, no need to plan additional (buffer) stock.
             // Requirement is strictly based on Sales Orders (SO - (Stock + PO)).
@@ -990,7 +998,12 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             const matchesStrat = stockSlicers.strategy === 'ALL' || d.strategy === stockSlicers.strategy;
             const matchesClass = stockSlicers.class === 'ALL' || d.classification === stockSlicers.class;
             const matchesSearch = !stockSearchTerm || d.description.toLowerCase().includes(stockSearchTerm.toLowerCase()) || (d.partNo || '').toLowerCase().includes(stockSearchTerm.toLowerCase());
-            return matchesMake && matchesGroup && matchesStrat && matchesClass && matchesSearch;
+
+            const matchesQuick = stockQuickFilter === 'ALL' ||
+                (stockQuickFilter === 'SHORTAGE' && d.netQty < d.minStock) ||
+                (stockQuickFilter === 'REFILL' && d.netQty < d.rol);
+
+            return matchesMake && matchesGroup && matchesStrat && matchesClass && matchesSearch && matchesQuick;
         });
 
         if (stockSortConfig) {
@@ -2529,16 +2542,22 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                             <FileText className="w-4 h-4 mb-1 group-hover:scale-110 transition-transform" />
                                             <span className="text-[10px] font-black uppercase tracking-widest">Export Excel</span>
                                         </button>
-                                        <div className="bg-white px-5 py-3 rounded-2xl border border-red-200 shadow-sm flex flex-col items-end min-w-[140px]">
-                                            <span className="text-[9px] font-black text-red-500 uppercase tracking-widest mb-1">Urgent Shortage</span>
-                                            <span className="text-xl font-black text-red-700 leading-none">{stockPlanningTotals.shortageQty.toLocaleString()}</span>
-                                            <span className="text-[8px] font-bold text-red-400 mt-1 uppercase">Across {stockPlanningTotals.shortageCount} Items</span>
-                                        </div>
-                                        <div className="bg-white px-5 py-3 rounded-2xl border border-orange-200 shadow-sm flex flex-col items-end min-w-[140px]">
-                                            <span className="text-[9px] font-black text-orange-500 uppercase tracking-widest mb-1">Target Refill</span>
-                                            <span className="text-xl font-black text-orange-700 leading-none">{stockPlanningTotals.refillQty.toLocaleString()}</span>
-                                            <span className="text-[8px] font-bold text-orange-400 mt-1 uppercase">Across {stockPlanningTotals.refillCount} Items</span>
-                                        </div>
+                                        <button
+                                            onClick={() => setStockQuickFilter(prev => prev === 'SHORTAGE' ? 'ALL' : 'SHORTAGE')}
+                                            className={`px-5 py-3 rounded-2xl border transition-all flex flex-col items-end min-w-[140px] hover:scale-[1.02] active:scale-[0.98] ${stockQuickFilter === 'SHORTAGE' ? 'bg-red-600 border-red-700 shadow-lg shadow-red-200 ring-2 ring-red-400 ring-offset-2' : 'bg-white border-red-200 shadow-sm'}`}
+                                        >
+                                            <span className={`text-[9px] font-black uppercase tracking-widest mb-1 ${stockQuickFilter === 'SHORTAGE' ? 'text-red-100' : 'text-red-500'}`}>Urgent Shortage</span>
+                                            <span className={`text-xl font-black leading-none ${stockQuickFilter === 'SHORTAGE' ? 'text-white' : 'text-red-700'}`}>{stockPlanningTotals.shortageQty.toLocaleString()}</span>
+                                            <span className={`text-[8px] font-bold mt-1 uppercase ${stockQuickFilter === 'SHORTAGE' ? 'text-red-200' : 'text-red-400'}`}>Across {stockPlanningTotals.shortageCount} Items</span>
+                                        </button>
+                                        <button
+                                            onClick={() => setStockQuickFilter(prev => prev === 'REFILL' ? 'ALL' : 'REFILL')}
+                                            className={`px-5 py-3 rounded-2xl border transition-all flex flex-col items-end min-w-[140px] hover:scale-[1.02] active:scale-[0.98] ${stockQuickFilter === 'REFILL' ? 'bg-orange-500 border-orange-600 shadow-lg shadow-orange-200 ring-2 ring-orange-300 ring-offset-2' : 'bg-white border-orange-200 shadow-sm'}`}
+                                        >
+                                            <span className={`text-[9px] font-black uppercase tracking-widest mb-1 ${stockQuickFilter === 'REFILL' ? 'text-orange-100' : 'text-orange-400'}`}>Target Refill</span>
+                                            <span className={`text-xl font-black leading-none ${stockQuickFilter === 'REFILL' ? 'text-white' : 'text-orange-700'}`}>{stockPlanningTotals.refillQty.toLocaleString()}</span>
+                                            <span className={`text-[8px] font-bold mt-1 uppercase ${stockQuickFilter === 'REFILL' ? 'text-orange-200' : 'text-orange-400'}`}>Across {stockPlanningTotals.refillCount} Items</span>
+                                        </button>
                                     </div>
 
                                     <div className="relative w-80">
