@@ -4,6 +4,7 @@ import { TrendingUp, TrendingDown, Package, ClipboardList, ShoppingCart, Calenda
 import MOMView from './MOMView';
 import AttendeeMasterView from './AttendeeMasterView';
 import { momService } from '../services/momService';
+import { utils, writeFile } from 'xlsx';
 
 const COLORS = ['#10B981', '#3B82F6', '#6366F1', '#8B5CF6', '#EC4899', '#F59E0B', '#EF4444', '#6B7280', '#059669', '#2563EB'];
 
@@ -480,6 +481,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     const [selectedStockItem, setSelectedStockItem] = useState<string | null>(null);
     const [stockSearchTerm, setStockSearchTerm] = useState('');
     const [stockSlicers, setStockSlicers] = useState({ make: 'ALL', group: 'ALL', strategy: 'ALL', class: 'ALL' });
+    const [stockSortConfig, setStockSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>({ key: 'salesCY', direction: 'desc' });
 
 
     const parseDate = (val: any): Date => {
@@ -810,9 +812,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             const desc = (m.description || '').trim();
             const lowerDesc = desc.toLowerCase();
             const partNo = (m.partNo || '').trim().toLowerCase();
+            const uniqueKey = `${lowerDesc}|${partNo}`;
 
             const entry = {
                 description: desc,
+                partNo: m.partNo || '',
                 make: getMergedMakeName(m.make),
                 group: m.materialGroup,
                 stock: 0,
@@ -831,7 +835,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 rollingMonths: new Set()
             };
 
-            materialMap.set(lowerDesc, entry);
+            materialMap.set(uniqueKey, entry);
+            // Also maintain reverse lookup for matching sales/orders
+            if (lowerDesc) materialMap.set(lowerDesc, entry);
             if (partNo && partNo !== lowerDesc) {
                 materialMap.set(partNo, entry);
             }
@@ -849,23 +855,27 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
         // 3. Pending SO
         pendingSO.forEach(item => {
-            const lower = (item.itemName || '').toLowerCase().trim();
-            if (materialMap.has(lower)) {
-                const m = materialMap.get(lower);
+            const nameLower = (item.itemName || '').toLowerCase().trim();
+            const partLower = (item.partNo || '').toLowerCase().trim();
+            const target = materialMap.get(partLower) || materialMap.get(nameLower);
+
+            if (target) {
                 const due = parseDate(item.dueDate);
-                if (due <= monthEnd) m.soDue += (item.balanceQty || 0);
-                else m.soSched += (item.balanceQty || 0);
+                if (due <= monthEnd) target.soDue += (item.balanceQty || 0);
+                else target.soSched += (item.balanceQty || 0);
             }
         });
 
         // 4. Pending PO
         pendingPO.forEach(item => {
-            const lower = (item.itemName || '').toLowerCase().trim();
-            if (materialMap.has(lower)) {
-                const m = materialMap.get(lower);
+            const nameLower = (item.itemName || '').toLowerCase().trim();
+            const partLower = (item.partNo || '').toLowerCase().trim();
+            const target = materialMap.get(partLower) || materialMap.get(nameLower);
+
+            if (target) {
                 const due = parseDate(item.dueDate);
-                if (due <= monthEnd) m.poDue += (item.balanceQty || 0);
-                else m.poSched += (item.balanceQty || 0);
+                if (due <= monthEnd) target.poDue += (item.balanceQty || 0);
+                else target.poSched += (item.balanceQty || 0);
             }
         });
 
@@ -876,29 +886,31 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
         enrichedSales.forEach(item => {
             const desc = (item.particulars || '').toLowerCase().trim();
-            if (materialMap.has(desc)) {
-                const m = materialMap.get(desc);
+            const part = (item.partNo || '').toLowerCase().trim();
+            const target = materialMap.get(part) || materialMap.get(desc);
+
+            if (target) {
                 const itemDate = parseDate(item.date);
                 const isProject = desc.includes('project') || (item.customerName || '').toLowerCase().includes('project');
 
                 if (item.fiscalYear === currentFY) {
-                    m.salesCY += (item.quantity || 0);
-                    if (!isProject) m.regSalesCY += (item.quantity || 0);
+                    target.salesCY += (item.quantity || 0);
+                    if (!isProject) target.regSalesCY += (item.quantity || 0);
                 }
                 if (item.fiscalYear === previousFY) {
-                    m.salesPY += (item.quantity || 0);
-                    if (!isProject) m.regSalesPY += (item.quantity || 0);
+                    target.salesPY += (item.quantity || 0);
+                    if (!isProject) target.regSalesPY += (item.quantity || 0);
                 }
 
                 const monthKey = `${itemDate.getFullYear()}-${itemDate.getMonth() + 1}`;
-                m.monthlySales.set(monthKey, (m.monthlySales.get(monthKey) || 0) + (item.quantity || 0));
+                target.monthlySales.set(monthKey, (target.monthlySales.get(monthKey) || 0) + (item.quantity || 0));
 
                 if (itemDate >= twelveMonthsAgo) {
-                    if (!m.rollingMonths) m.rollingMonths = new Set();
-                    m.rollingMonths.add(monthKey);
+                    if (!target.rollingMonths) target.rollingMonths = new Set();
+                    target.rollingMonths.add(monthKey);
                 }
 
-                if (isProject) m.hasProject = true;
+                if (isProject) target.hasProject = true;
             }
         });
 
@@ -910,14 +922,14 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         uniqueMaterials.forEach(m => { totalRegQtyCombined += ((m.regSalesCY || 0) + (m.regSalesPY || 0)); });
 
         const sortedByRegVolume = uniqueMaterials
-            .map(m => ({ desc: m.description.toLowerCase(), qty: (m.regSalesCY || 0) + (m.regSalesPY || 0) }))
+            .map(m => ({ id: `${m.description}|${m.partNo}`.toLowerCase(), qty: (m.regSalesCY || 0) + (m.regSalesPY || 0) }))
             .sort((a, b) => b.qty - a.qty);
 
         let cumulative = 0;
         const top30PercentIds = new Set();
         for (const item of sortedByRegVolume) {
             cumulative += item.qty;
-            top30PercentIds.add(item.desc);
+            top30PercentIds.add(item.id);
             if (cumulative >= totalRegQtyCombined * 0.3) break;
         }
 
@@ -927,7 +939,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             const avgMonthly = activeMonths > 0 ? Array.from(m.monthlySales.values() as IterableIterator<number>).reduce((a: number, b: number) => a + b, 0) / activeMonths : 0;
 
             // Classification Logic (Rolling 12 Months + Pareto)
-            const isVolumeLeader = top30PercentIds.has(m.description.toLowerCase());
+            const isVolumeLeader = top30PercentIds.has(`${m.description}|${m.partNo}`.toLowerCase());
             let movementClass = 'NON-MOVING';
             if (rollingMonthsCount >= 9 || (rollingMonthsCount >= 6 && isVolumeLeader)) {
                 movementClass = 'FAST RUNNER';
@@ -959,6 +971,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
             return {
                 ...m,
+                uniqueId: `${m.description}|${m.partNo}`,
                 netQty,
                 safetyStock,
                 minStock,
@@ -971,15 +984,93 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     }, [materials, closingStock, pendingSO, pendingPO, enrichedSales]);
 
     const filteredStockPlanning = useMemo(() => {
-        return stockPlanningData.filter(d => {
+        let data = stockPlanningData.filter(d => {
             const matchesMake = stockSlicers.make === 'ALL' || d.make === stockSlicers.make;
             const matchesGroup = stockSlicers.group === 'ALL' || d.group === stockSlicers.group;
             const matchesStrat = stockSlicers.strategy === 'ALL' || d.strategy === stockSlicers.strategy;
             const matchesClass = stockSlicers.class === 'ALL' || d.classification === stockSlicers.class;
-            const matchesSearch = !stockSearchTerm || d.description.toLowerCase().includes(stockSearchTerm.toLowerCase());
+            const matchesSearch = !stockSearchTerm || d.description.toLowerCase().includes(stockSearchTerm.toLowerCase()) || (d.partNo || '').toLowerCase().includes(stockSearchTerm.toLowerCase());
             return matchesMake && matchesGroup && matchesStrat && matchesClass && matchesSearch;
-        }).sort((a, b) => b.salesCY - a.salesCY);
-    }, [stockPlanningData, stockSlicers, stockSearchTerm]);
+        });
+
+        if (stockSortConfig) {
+            data.sort((a: any, b: any) => {
+                let valA = a[stockSortConfig.key];
+                let valB = b[stockSortConfig.key];
+
+                // Special handling for calculated shortage/refill if needed
+                if (stockSortConfig.key === 'shortageQty') {
+                    valA = a.netQty < a.minStock ? a.minStock - a.netQty : 0;
+                    valB = b.netQty < b.minStock ? b.minStock - b.netQty : 0;
+                } else if (stockSortConfig.key === 'refillQty') {
+                    valA = a.netQty < a.rol ? a.maxStock - a.netQty : 0;
+                    valB = b.netQty < b.rol ? b.maxStock - b.netQty : 0;
+                }
+
+                if (valA < valB) return stockSortConfig.direction === 'asc' ? -1 : 1;
+                if (valA > valB) return stockSortConfig.direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+        } else {
+            data.sort((a, b) => b.salesCY - a.salesCY);
+        }
+        return data;
+    }, [stockPlanningData, stockSlicers, stockSearchTerm, stockSortConfig]);
+
+    const handleStockSort = (key: string) => {
+        setStockSortConfig(prev => {
+            if (prev?.key === key) {
+                return { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+            }
+            return { key, direction: 'desc' };
+        });
+    };
+
+    const handleExportStockPlanning = () => {
+        const data = filteredStockPlanning.map((item, idx) => ({
+            "S.No": idx + 1,
+            "Make": item.make,
+            "Material Group": item.group,
+            "Description": item.description,
+            "Part No": item.partNo,
+            "Sales CY": item.salesCY,
+            "Sales PY": item.salesPY,
+            "Classification": item.classification,
+            "Strategy": item.strategy,
+            "On Hand Stock": item.stock,
+            "SO Due": item.soDue,
+            "SO Scheduled": item.soSched,
+            "PO Due": item.poDue,
+            "PO Scheduled": item.poSched,
+            "Net Qty": item.netQty,
+            "Shortage": item.netQty < item.minStock ? Math.round(item.minStock - item.netQty) : 0,
+            "Refill Qty": item.netQty < item.rol ? Math.round(item.maxStock - item.netQty) : 0,
+            "Min Stock": item.minStock,
+            "ROL": item.rol,
+            "Max Stock": item.maxStock,
+            "Avg Monthly Sales": Math.round(item.avgMonthly),
+            "Status": item.netQty < item.minStock ? 'SHORTAGE' : item.netQty < item.rol ? 'REFILL' : 'HEALTHY'
+        }));
+
+        const ws = utils.json_to_sheet(data);
+        const wb = utils.book_new();
+        utils.book_append_sheet(wb, ws, "Stock_Planning");
+        writeFile(wb, `Stock_Planning_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+    };
+
+    const stockPlanningTotals = useMemo(() => {
+        return filteredStockPlanning.reduce((acc, item) => {
+            if (item.netQty < item.minStock) {
+                acc.shortageCount++;
+                acc.shortageQty += Math.round(item.minStock - item.netQty);
+            }
+            if (item.netQty < item.rol) {
+                acc.refillCount++;
+                acc.refillQty += Math.round(item.maxStock - item.netQty);
+            }
+            return acc;
+        }, { shortageCount: 0, shortageQty: 0, refillCount: 0, refillQty: 0 });
+    }, [filteredStockPlanning]);
 
     const inventoryStats = useMemo(() => {
         // Build maps for O(1) matching
@@ -2416,22 +2507,43 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                         <div className="flex flex-col gap-6">
                             {/* Header & Slicers */}
                             <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex flex-col gap-4">
-                                <div className="flex justify-between items-center">
-                                    <div className="flex items-center gap-3">
-                                        <div className="bg-rose-600 p-2 rounded-lg text-white">
+                                <div className="flex justify-between items-center bg-gray-50/50 p-4 rounded-2xl border border-gray-100">
+                                    <div className="flex items-center gap-4">
+                                        <div className="bg-rose-600 p-2.5 rounded-xl text-white shadow-lg shadow-rose-200">
                                             <Layers className="w-5 h-5" />
                                         </div>
                                         <div>
-                                            <h3 className="text-sm font-black text-gray-800 uppercase">Advanced Stock Planning</h3>
-                                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Inventory Health & Sales Projections</p>
+                                            <h3 className="text-sm font-black text-gray-800 uppercase leading-none mb-1">Advanced Stock Planning</h3>
+                                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest leading-none">Inventory Health & Sales Projections</p>
                                         </div>
                                     </div>
-                                    <div className="relative w-96">
+
+                                    <div className="flex gap-4">
+                                        <button
+                                            onClick={handleExportStockPlanning}
+                                            className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-3 rounded-2xl shadow-lg shadow-emerald-200 flex flex-col items-center justify-center min-w-[120px] transition-all group"
+                                        >
+                                            <FileText className="w-4 h-4 mb-1 group-hover:scale-110 transition-transform" />
+                                            <span className="text-[10px] font-black uppercase tracking-widest">Export Excel</span>
+                                        </button>
+                                        <div className="bg-white px-5 py-3 rounded-2xl border border-red-200 shadow-sm flex flex-col items-end min-w-[140px]">
+                                            <span className="text-[9px] font-black text-red-500 uppercase tracking-widest mb-1">Urgent Shortage</span>
+                                            <span className="text-xl font-black text-red-700 leading-none">{stockPlanningTotals.shortageQty.toLocaleString()}</span>
+                                            <span className="text-[8px] font-bold text-red-400 mt-1 uppercase">Across {stockPlanningTotals.shortageCount} Items</span>
+                                        </div>
+                                        <div className="bg-white px-5 py-3 rounded-2xl border border-orange-200 shadow-sm flex flex-col items-end min-w-[140px]">
+                                            <span className="text-[9px] font-black text-orange-500 uppercase tracking-widest mb-1">Target Refill</span>
+                                            <span className="text-xl font-black text-orange-700 leading-none">{stockPlanningTotals.refillQty.toLocaleString()}</span>
+                                            <span className="text-[8px] font-bold text-orange-400 mt-1 uppercase">Across {stockPlanningTotals.refillCount} Items</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="relative w-80">
                                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                                         <input
                                             type="text"
-                                            placeholder="Search Items for specific movement analysis..."
-                                            className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-rose-500 transition-all"
+                                            placeholder="Search Description or Part No..."
+                                            className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-rose-500 transition-all shadow-sm"
                                             value={stockSearchTerm}
                                             onChange={(e) => setStockSearchTerm(e.target.value)}
                                         />
@@ -2468,7 +2580,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                         <X className="w-5 h-5" />
                                     </button>
                                     {(() => {
-                                        const item = stockPlanningData.find(d => d.description === selectedStockItem);
+                                        const item = stockPlanningData.find(d => d.uniqueId === selectedStockItem);
                                         if (!item) return null;
 
                                         // Prepare Chart Data
@@ -2480,22 +2592,23 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                         }
 
                                         const salesPoints = months.map(m => item.monthlySales.get(m) || 0);
-                                        const projectionPoints = [...salesPoints.slice(0, 12)];
-                                        // Add 3 forecasted months
-                                        for (let i = 0; i < 3; i++) {
-                                            projectionPoints.push(item.projection);
-                                        }
-                                        const extendedLabels = [...months, 'Feb-26', 'Mar-26', 'Apr-26'];
+                                        const projectionPoints = [...salesPoints]; // Copy fixed history
+
+                                        // Projection adds future months (just 12 in the past + 3 in future = 15 points total for labels)
+                                        projectionPoints.push(item.projection, item.projection, item.projection);
+
+                                        const extendedLabels = [...months, 'Month +1', 'Month +2', 'Target'];
 
                                         return (
-                                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                                                <div className="lg:col-span-2">
+                                            <div key={item.uniqueId} className="flex flex-col lg:flex-row gap-8">
+                                                <div className="flex-1 min-w-0">
                                                     <h4 className="text-xs font-black text-gray-900 uppercase mb-6 flex items-center gap-2">
                                                         <Activity className="w-4 h-4 text-rose-600" />
                                                         Movement Trend & Forecast: <span className="text-rose-600">{item.description}</span>
                                                     </h4>
-                                                    <div className="h-64">
+                                                    <div className="h-[280px] w-full p-2">
                                                         <SalesTrendChart
+                                                            key={item.uniqueId}
                                                             maxVal={Math.max(...salesPoints, item.projection, 1)}
                                                             data={{
                                                                 labels: extendedLabels,
@@ -2526,6 +2639,20 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                             <p className="text-[8px] font-bold text-gray-400 uppercase">Future Projection (Monthly)</p>
                                                             <p className="text-lg font-black text-indigo-700">{item.projection}</p>
                                                         </div>
+                                                        <div className="bg-red-50 p-3 rounded-xl border border-red-100 shadow-sm col-span-2">
+                                                            <div className="flex justify-between items-center">
+                                                                <p className="text-[8px] font-black text-red-600 uppercase">Urgent Shortage</p>
+                                                                <AlertTriangle className="w-3 h-3 text-red-500" />
+                                                            </div>
+                                                            <p className="text-xl font-black text-red-700">{item.netQty < item.minStock ? Math.round(item.minStock - item.netQty) : 0}</p>
+                                                        </div>
+                                                        <div className="bg-orange-50 p-3 rounded-xl border border-orange-100 shadow-sm col-span-2">
+                                                            <div className="flex justify-between items-center">
+                                                                <p className="text-[8px] font-black text-orange-600 uppercase tracking-tight">Recommended Refill (to Max)</p>
+                                                                <RefreshCw className="w-3 h-3 text-orange-500" />
+                                                            </div>
+                                                            <p className="text-xl font-black text-orange-700">{item.netQty < item.rol ? Math.round(item.maxStock - item.netQty) : 0}</p>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -2541,24 +2668,48 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                         <thead>
                                             <tr className="bg-gray-100 divide-x divide-gray-300 text-[9px] font-black text-gray-700 uppercase tracking-tighter text-center">
                                                 <th className="px-2 py-2 border border-gray-300 w-8 bg-gray-100 sticky left-0 z-20">#</th>
-                                                <th className="px-3 py-2 border border-gray-300 sticky left-8 z-20 bg-gray-100 min-w-[120px]">Make & Group</th>
-                                                <th className="px-3 py-2 border border-gray-300 text-left">Material Description</th>
-                                                <th className="px-3 py-2 border border-gray-300 bg-emerald-100/50">Qty Sold (CY)</th>
-                                                <th className="px-3 py-2 border border-gray-300">Qty Sold (PY)</th>
-                                                <th className="px-3 py-2 border border-gray-300 bg-blue-100/50">Stock</th>
-                                                <th className="px-3 py-2 border border-gray-300 bg-indigo-100/50">SO (D | S)</th>
-                                                <th className="px-3 py-2 border border-gray-300 bg-orange-100/50">PO (D | S)</th>
-                                                <th className="px-3 py-2 border border-gray-300 bg-rose-100/50">Net Qty</th>
-                                                <th className="px-3 py-2 border border-gray-300">Target Level</th>
+                                                <th className="px-3 py-2 border border-gray-300 sticky left-8 z-20 bg-gray-100 min-w-[120px] cursor-pointer hover:bg-gray-200" onClick={() => handleStockSort('make')}>
+                                                    <div className="flex items-center justify-center gap-1">Make & Group {stockSortConfig?.key === 'make' && (stockSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
+                                                </th>
+                                                <th className="px-3 py-2 border border-gray-300 text-left cursor-pointer hover:bg-gray-200" onClick={() => handleStockSort('description')}>
+                                                    <div className="flex items-center gap-1">Material Description {stockSortConfig?.key === 'description' && (stockSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
+                                                </th>
+                                                <th className="px-3 py-2 border border-gray-300 bg-emerald-100/50 cursor-pointer hover:bg-emerald-100" onClick={() => handleStockSort('salesCY')}>
+                                                    <div className="flex items-center justify-center gap-1">Qty Sold (CY) {stockSortConfig?.key === 'salesCY' && (stockSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
+                                                </th>
+                                                <th className="px-3 py-2 border border-gray-300 cursor-pointer hover:bg-gray-200" onClick={() => handleStockSort('salesPY')}>
+                                                    <div className="flex items-center justify-center gap-1">Qty Sold (PY) {stockSortConfig?.key === 'salesPY' && (stockSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
+                                                </th>
+                                                <th className="px-3 py-2 border border-gray-300 bg-blue-100/50 cursor-pointer hover:bg-blue-100" onClick={() => handleStockSort('stock')}>
+                                                    <div className="flex items-center justify-center gap-1">Stock {stockSortConfig?.key === 'stock' && (stockSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
+                                                </th>
+                                                <th className="px-3 py-2 border border-gray-300 bg-indigo-100/50 cursor-pointer hover:bg-indigo-100" onClick={() => handleStockSort('soDue')}>
+                                                    <div className="flex items-center justify-center gap-1">SO (D | S) {stockSortConfig?.key === 'soDue' && (stockSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
+                                                </th>
+                                                <th className="px-3 py-2 border border-gray-300 bg-orange-100/50 cursor-pointer hover:bg-orange-100" onClick={() => handleStockSort('poDue')}>
+                                                    <div className="flex items-center justify-center gap-1">PO (D | S) {stockSortConfig?.key === 'poDue' && (stockSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
+                                                </th>
+                                                <th className="px-3 py-2 border border-gray-300 bg-rose-100/50 cursor-pointer hover:bg-rose-100" onClick={() => handleStockSort('netQty')}>
+                                                    <div className="flex items-center justify-center gap-1">Net Qty {stockSortConfig?.key === 'netQty' && (stockSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
+                                                </th>
+                                                <th className="px-2 py-2 border border-gray-300 bg-red-100/30 text-red-700 cursor-pointer hover:bg-red-100" onClick={() => handleStockSort('shortageQty')}>
+                                                    <div className="flex items-center justify-center gap-1">Shortage Qty {stockSortConfig?.key === 'shortageQty' && (stockSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
+                                                </th>
+                                                <th className="px-2 py-2 border border-gray-300 bg-orange-100/30 text-orange-700 cursor-pointer hover:bg-orange-100" onClick={() => handleStockSort('refillQty')}>
+                                                    <div className="flex items-center justify-center gap-1">Refill Qty {stockSortConfig?.key === 'refillQty' && (stockSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
+                                                </th>
+                                                <th className="px-3 py-2 border border-gray-300 cursor-pointer hover:bg-gray-200" onClick={() => handleStockSort('rol')}>
+                                                    <div className="flex items-center justify-center gap-1">Target Level {stockSortConfig?.key === 'rol' && (stockSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
+                                                </th>
                                                 <th className="px-3 py-2 border border-gray-300">Status</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-200 text-[10px]">
                                             {filteredStockPlanning.slice(0, 150).map((item, idx) => (
                                                 <tr
-                                                    key={idx}
-                                                    onClick={() => setSelectedStockItem(item.description)}
-                                                    className={`hover:bg-rose-50/50 cursor-pointer transition-colors group ${selectedStockItem === item.description ? 'bg-rose-50' : ''}`}
+                                                    key={item.uniqueId || idx}
+                                                    onClick={() => setSelectedStockItem(item.uniqueId)}
+                                                    className={`hover:bg-rose-50/50 cursor-pointer transition-colors group ${selectedStockItem === item.uniqueId ? 'bg-rose-50' : ''}`}
                                                 >
                                                     <td className="px-2 py-1.5 border border-gray-200 text-center text-gray-400 font-mono text-[9px] sticky left-0 z-10 bg-white group-hover:bg-rose-50/5">{idx + 1}</td>
                                                     <td className="px-3 py-1.5 border border-gray-200 sticky left-8 z-10 bg-white group-hover:bg-rose-50/5 backdrop-blur-md">
@@ -2591,6 +2742,12 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                     </td>
                                                     <td className={`px-3 py-1.5 border border-gray-200 text-right font-black text-[11px] ${item.netQty < item.rol ? 'text-red-700 bg-red-50' : 'text-emerald-700 bg-emerald-50'}`}>
                                                         {item.netQty.toLocaleString()}
+                                                    </td>
+                                                    <td className="px-3 py-1.5 border border-gray-200 text-right bg-red-50/20 font-black text-red-600">
+                                                        {item.netQty < item.minStock ? Math.abs(Math.round(item.minStock - item.netQty)).toLocaleString() : 0}
+                                                    </td>
+                                                    <td className="px-3 py-1.5 border border-gray-200 text-right bg-orange-50/20 font-black text-orange-600">
+                                                        {item.netQty < item.rol ? Math.abs(Math.round(item.maxStock - item.netQty)).toLocaleString() : 0}
                                                     </td>
                                                     <td className="px-3 py-1.5 border border-gray-200 text-right">
                                                         <div className="flex flex-col items-end">
