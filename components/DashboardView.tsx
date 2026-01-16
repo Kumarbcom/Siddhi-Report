@@ -724,6 +724,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         const pyString = `${pyStart}-${pyStart + 1}`;
 
         let data = enrichedSales.filter(i => i.fiscalYear === pyString);
+        console.log(`YoY Debug - Looking for FY: ${pyString}, Found ${data.length} records`);
 
         if (timeView === 'MONTH') {
             data = data.filter(i => i.fiscalMonthIndex === selectedMonth);
@@ -733,10 +734,15 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             // FY view: Filter previous year to only include months present in currentData (YTD comparison)
             const currentMonths = new Set(currentData.map(i => i.fiscalMonthIndex));
             data = data.filter(i => currentMonths.has(i.fiscalMonthIndex));
+            console.log(`YoY Debug - After YTD filter: ${data.length} records, Current months: ${Array.from(currentMonths).join(',')}`);
         }
 
         if (selectedMake !== 'ALL') data = data.filter(i => i.make === selectedMake);
         if (selectedMatGroup !== 'ALL') data = data.filter(i => i.matGroup === selectedMatGroup);
+
+        const totalVal = data.reduce((acc, i) => acc + (i.value || 0), 0);
+        console.log(`YoY Debug - Final: ${data.length} records, Total Value: ${totalVal}`);
+
         return data;
     }, [selectedFY, currentData, timeView, selectedMonth, selectedWeek, enrichedSales, selectedMake, selectedMatGroup]);
 
