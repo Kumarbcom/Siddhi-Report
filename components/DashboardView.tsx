@@ -2563,536 +2563,538 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                         </div>
                     ) : activeSubTab === 'stockPlanning' ? (
                         <div className="flex flex-col gap-6 animate-fade-in-up">
+                            {filteredStockPlanning.length === 0 && (
+                                <div className="bg-amber-50 p-6 rounded-xl border border-amber-200 mb-4">
+                                    <div className="flex items-start gap-3">
+                                        <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                                        <div>
+                                            <h4 className="text-sm font-bold text-amber-900 mb-1">No Stock Planning Data</h4>
+                                            <p className="text-xs text-amber-700">
+                                                Materials: {materials.length}, Sales: {salesReportItems.length}, Planning Items: {stockPlanningData.length}
+                                            </p>
+                                            <p className="text-xs text-amber-600 mt-1">
+                                                Check console (F12) for detailed debug information.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                             {(() => {
                                 console.log('Stock Planning Debug - Total items:', stockPlanningData.length);
                                 console.log('Stock Planning Debug - Filtered items:', filteredStockPlanning.length);
                                 console.log('Stock Planning Debug - Materials:', materials.length);
                                 console.log('Stock Planning Debug - Sales items:', salesReportItems.length);
+                                if (stockPlanningData.length > 0) {
+                                    console.log('Stock Planning Debug - Sample item:', stockPlanningData[0]);
+                                }
                                 return null;
                             })()}
-                            {filteredStockPlanning.length === 0 ? (
-                                <div className="bg-white p-12 rounded-2xl border border-gray-200 shadow-sm flex flex-col items-center justify-center gap-4">
-                                    <AlertTriangle className="w-16 h-16 text-amber-500" />
-                                    <h3 className="text-xl font-black text-gray-800">No Stock Planning Data Available</h3>
-                                    <p className="text-sm text-gray-500 text-center max-w-md">
-                                        Stock planning requires material master data and sales history. Please ensure you have:
-                                        <br />• Material Master records uploaded
-                                        <br />• Sales Report data available
-                                        <br />• Closing Stock data (optional)
-                                    </p>
-                                    <p className="text-xs text-gray-400 mt-2">
-                                        Debug: {materials.length} materials, {salesReportItems.length} sales records, {stockPlanningData.length} planning items
-                                    </p>
-                                </div>
-                            ) : (
-                                <>
-                                    {/* Graphical Summary Dashboard */}
-                                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                        {/* Overall Sales Trend (All Filtered Items) */}
-                                        <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col gap-4 min-h-[350px]">
-                                            <div className="flex items-center justify-between">
-                                                <div>
-                                                    <h4 className="text-[11px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1">Overall Movement & Forecast</h4>
-                                                    <p className="text-sm font-black text-gray-800 uppercase">Filtered Inventory Trend Analysis</p>
-                                                </div>
-                                                <Activity className="w-5 h-5 text-rose-500" />
-                                            </div>
-                                            <div className="flex-1 min-h-0">
-                                                {(() => {
-                                                    try {
-                                                        const today = new Date();
-                                                        const currentFYInfo = getFiscalInfo(today);
-                                                        const [cyStartYear] = currentFYInfo.fiscalYear.split('-').map(Number);
-                                                        const pyStartYear = cyStartYear - 1;
-                                                        const fiscalMonthOffsets = [3, 4, 5, 6, 7, 8, 9, 10, 11, 0, 1, 2];
-                                                        const monthNames = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'];
-
-                                                        const aggregatedPY = new Array(12).fill(0);
-                                                        const aggregatedCY = new Array(12).fill(0);
-                                                        const cyIsFuture = new Array(12).fill(false);
-                                                        let totalProj = 0;
-
-                                                        filteredStockPlanning.forEach(item => {
-                                                            fiscalMonthOffsets.forEach((mIdx, i) => {
-                                                                const pyYear = mIdx >= 3 ? pyStartYear : pyStartYear + 1;
-                                                                const cyYear = mIdx >= 3 ? cyStartYear : cyStartYear + 1;
-
-                                                                aggregatedPY[i] += (item.monthlySales?.get?.(`${pyYear}-${mIdx + 1}`) || 0);
-
-                                                                const pointDate = new Date(cyYear, mIdx, 1);
-                                                                if (pointDate <= today) {
-                                                                    aggregatedCY[i] += (item.monthlySales?.get?.(`${cyYear}-${mIdx + 1}`) || 0);
-                                                                } else {
-                                                                    cyIsFuture[i] = true;
-                                                                }
-                                                            });
-                                                            totalProj += item.projection || 0;
-                                                        });
-
-                                                        const cleanedCY = aggregatedCY.map((v, i) => cyIsFuture[i] ? NaN : v);
-                                                        let lastValidIdx = -1;
-                                                        for (let j = cleanedCY.length - 1; j >= 0; j--) {
-                                                            if (!isNaN(cleanedCY[j])) {
-                                                                lastValidIdx = j;
-                                                                break;
-                                                            }
-                                                        }
-
-                                                        const forecastSeries = new Array(15).fill(NaN);
-                                                        if (lastValidIdx !== -1) {
-                                                            forecastSeries[lastValidIdx] = cleanedCY[lastValidIdx];
-                                                            forecastSeries[12] = totalProj;
-                                                            forecastSeries[13] = totalProj;
-                                                            forecastSeries[14] = totalProj;
-                                                        }
-
-                                                        const maxV = Math.max(
-                                                            ...aggregatedPY.filter(v => !isNaN(v)),
-                                                            ...cleanedCY.filter(v => !isNaN(v)),
-                                                            totalProj,
-                                                            1
-                                                        );
-
-                                                        return (
-                                                            <SalesTrendChart
-                                                                maxVal={isNaN(maxV) ? 1 : maxV}
-                                                                data={{
-                                                                    labels: [...monthNames, '+1M', '+2M', '+3M'],
-                                                                    series: [
-                                                                        { name: 'Prev Year', data: [...aggregatedPY, NaN, NaN, NaN], color: '#CBD5E1', active: true },
-                                                                        { name: 'Curr Year', data: [...cleanedCY, NaN, NaN, NaN], color: '#e11d48', active: true },
-                                                                        { name: '3M Forecast', data: forecastSeries, color: '#fb7185', active: true, dotted: true }
-                                                                    ]
-                                                                }}
-                                                            />
-                                                        );
-                                                    } catch (err) {
-                                                        console.error("Summary Chart Error:", err);
-                                                        return <div className="h-full flex items-center justify-center text-[10px] text-gray-400 font-bold uppercase">Preparing Graphical Insights...</div>;
-                                                    }
-                                                })()}
-                                            </div>
+                            {/* Graphical Summary Dashboard */}
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                {/* Overall Sales Trend (All Filtered Items) */}
+                                <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col gap-4 min-h-[350px]">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <h4 className="text-[11px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1">Overall Movement & Forecast</h4>
+                                            <p className="text-sm font-black text-gray-800 uppercase">Filtered Inventory Trend Analysis</p>
                                         </div>
-
-                                        {/* Stock Health Mix */}
-                                        <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col gap-6">
-                                            <div className="flex items-center justify-between">
-                                                <div>
-                                                    <h4 className="text-[11px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1">Health Distribution</h4>
-                                                    <p className="text-sm font-black text-gray-800 uppercase">Stock Adequacy Index</p>
-                                                </div>
-                                                <PieIcon className="w-5 h-5 text-indigo-500" />
-                                            </div>
-                                            <div className="flex-1 min-h-[220px]">
-                                                {(() => {
-                                                    const shortage = filteredStockPlanning.filter(i => i.netQty < i.minStock).length;
-                                                    const refill = filteredStockPlanning.filter(i => i.netQty >= i.minStock && i.netQty < i.rol).length;
-                                                    const healthy = filteredStockPlanning.filter(i => i.netQty >= i.rol).length;
-                                                    return (
-                                                        <ModernDonutChartDashboard
-                                                            title="STOCK HEALTH"
-                                                            centerColorClass="text-indigo-600"
-                                                            data={[
-                                                                { label: 'CRITICAL', value: shortage, color: '#e11d48' },
-                                                                { label: 'NEED REFILL', value: refill, color: '#f59e0b' },
-                                                                { label: 'HEALTHY', value: healthy, color: '#10b981' }
-                                                            ]}
-                                                        />
-                                                    );
-                                                })()}
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-3">
-                                                <div className="bg-rose-50 p-3 rounded-xl border border-rose-100">
-                                                    <p className="text-[8px] font-black text-rose-600 uppercase">Procurement Gap</p>
-                                                    <p className="text-lg font-black text-rose-800 tracking-tight">{formatLargeValue(stockPlanningTotals.shortageQty)}</p>
-                                                </div>
-                                                <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-100">
-                                                    <p className="text-[8px] font-black text-emerald-600 uppercase">Plan Accuracy</p>
-                                                    <p className="text-lg font-black text-emerald-800 tracking-tight">
-                                                        {filteredStockPlanning.length > 0 ? Math.round(((filteredStockPlanning.length - shortage) / filteredStockPlanning.length) * 100) : 0}%
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
+                                        <Activity className="w-5 h-5 text-rose-500" />
                                     </div>
-
-                                    {/* Filters & Actions Panel */}
-                                    <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex flex-col gap-4">
-                                        <div className="flex justify-between items-center bg-gray-50/50 p-4 rounded-2xl border border-gray-100">
-                                            <div className="flex items-center gap-4">
-                                                <div className="bg-rose-600 p-2.5 rounded-xl text-white shadow-lg shadow-rose-200">
-                                                    <Search className="w-5 h-5" />
-                                                </div>
-                                                <div>
-                                                    <h3 className="text-sm font-black text-gray-800 uppercase leading-none mb-1">Material Intelligence Filters</h3>
-                                                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest leading-none">Refine Selection & Search by Part No</p>
-                                                </div>
-                                            </div>
-
-                                            <div className="flex gap-4">
-                                                <button
-                                                    onClick={handleExportStockPlanning}
-                                                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-3 rounded-2xl shadow-lg shadow-emerald-200 flex flex-col items-center justify-center min-w-[120px] transition-all group"
-                                                >
-                                                    <FileText className="w-4 h-4 mb-1 group-hover:scale-110 transition-transform" />
-                                                    <span className="text-[10px] font-black uppercase tracking-widest">Export Excel</span>
-                                                </button>
-                                                <button
-                                                    onClick={() => setStockQuickFilter(prev => prev === 'SHORTAGE' ? 'ALL' : 'SHORTAGE')}
-                                                    className={`px-5 py-3 rounded-2xl border transition-all flex flex-col items-end min-w-[140px] hover:scale-[1.02] active:scale-[0.98] ${stockQuickFilter === 'SHORTAGE' ? 'bg-red-600 border-red-700 shadow-lg shadow-red-200 ring-2 ring-red-400 ring-offset-2' : 'bg-white border-red-200 shadow-sm'}`}
-                                                >
-                                                    <span className={`text-[9px] font-black uppercase tracking-widest mb-1 ${stockQuickFilter === 'SHORTAGE' ? 'text-red-100' : 'text-red-500'}`}>Urgent Shortage</span>
-                                                    <span className={`text-xl font-black leading-none ${stockQuickFilter === 'SHORTAGE' ? 'text-white' : 'text-red-700'}`}>{stockPlanningTotals.shortageQty.toLocaleString()}</span>
-                                                    <span className={`text-[8px] font-bold mt-1 uppercase ${stockQuickFilter === 'SHORTAGE' ? 'text-red-200' : 'text-red-400'}`}>Across {stockPlanningTotals.shortageCount} Items</span>
-                                                </button>
-                                                <button
-                                                    onClick={() => setStockQuickFilter(prev => prev === 'REFILL' ? 'ALL' : 'REFILL')}
-                                                    className={`px-5 py-3 rounded-2xl border transition-all flex flex-col items-end min-w-[140px] hover:scale-[1.02] active:scale-[0.98] ${stockQuickFilter === 'REFILL' ? 'bg-orange-500 border-orange-600 shadow-lg shadow-orange-200 ring-2 ring-orange-300 ring-offset-2' : 'bg-white border-orange-200 shadow-sm'}`}
-                                                >
-                                                    <span className={`text-[9px] font-black uppercase tracking-widest mb-1 ${stockQuickFilter === 'REFILL' ? 'text-orange-100' : 'text-orange-400'}`}>Target Refill</span>
-                                                    <span className={`text-xl font-black leading-none ${stockQuickFilter === 'REFILL' ? 'text-white' : 'text-orange-700'}`}>{stockPlanningTotals.refillQty.toLocaleString()}</span>
-                                                    <span className={`text-[8px] font-bold mt-1 uppercase ${stockQuickFilter === 'REFILL' ? 'text-orange-200' : 'text-orange-400'}`}>Across {stockPlanningTotals.refillCount} Items</span>
-                                                </button>
-                                            </div>
-
-                                            <div className="relative w-96">
-                                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-rose-500" />
-                                                <input
-                                                    type="text"
-                                                    placeholder="SEARCH BY PART NO OR DESCRIPTION..."
-                                                    className="w-full pl-10 pr-4 py-3 bg-white border-2 border-rose-100 rounded-2xl text-xs font-black outline-none focus:ring-2 focus:ring-rose-500 focus:border-rose-500 transition-all shadow-sm uppercase tracking-wider"
-                                                    value={stockSearchTerm}
-                                                    onChange={(e) => setStockSearchTerm(e.target.value)}
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="grid grid-cols-4 gap-4 pt-2 border-t border-gray-50">
-                                            {[
-                                                { label: 'Make', key: 'make', options: ['ALL', ...Array.from(new Set(stockPlanningData.map(d => d.make))).sort()] },
-                                                { label: 'Group', key: 'group', options: ['ALL', ...Array.from(new Set(stockPlanningData.map(d => d.group))).sort()] },
-                                                { label: 'Strategy', key: 'strategy', options: ['ALL', 'GENERAL STOCK', 'MADE TO ORDER', 'AGAINST ORDER'] },
-                                                { label: 'Classification', key: 'class', options: ['ALL', 'FAST RUNNER', 'SLOW RUNNER', 'NON-MOVING'] }
-                                            ].map((s) => (
-                                                <div key={s.key} className="flex flex-col gap-1.5">
-                                                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">{s.label}</label>
-                                                    <select
-                                                        className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-[10px] font-black uppercase outline-none focus:ring-2 focus:ring-rose-500"
-                                                        value={(stockSlicers as any)[s.key]}
-                                                        onChange={(e) => setStockSlicers(prev => ({ ...prev, [s.key]: e.target.value }))}
-                                                    >
-                                                        {s.options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                                                    </select>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    {/* Chart Area for Selected Item */}
-                                    {selectedStockItem && (
-                                        <div className="bg-white p-6 rounded-2xl border border-rose-200 shadow-lg relative animate-fade-in-up">
-                                            <div className="absolute top-4 right-4 flex items-center gap-2">
-                                                <button
-                                                    onClick={() => setSelectedStockItem(null)}
-                                                    className="p-2 text-gray-400 hover:text-rose-600 transition-colors bg-rose-50 rounded-lg flex items-center gap-1.5"
-                                                    title="Close Side Details"
-                                                >
-                                                    <span className="text-[10px] font-black uppercase tracking-widest hidden md:inline">Hide Details</span>
-                                                    <PanelLeftClose className="w-5 h-5" />
-                                                </button>
-                                                <button
-                                                    onClick={() => setSelectedStockItem(null)}
-                                                    className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
-                                                >
-                                                    <X className="w-5 h-5" />
-                                                </button>
-                                            </div>
-                                            {(() => {
-                                                const item = stockPlanningData.find(d => d.uniqueId === selectedStockItem);
-                                                if (!item) return null;
-
+                                    <div className="flex-1 min-h-0">
+                                        {(() => {
+                                            try {
                                                 const today = new Date();
                                                 const currentFYInfo = getFiscalInfo(today);
                                                 const [cyStartYear] = currentFYInfo.fiscalYear.split('-').map(Number);
                                                 const pyStartYear = cyStartYear - 1;
-
-                                                // Aligned Fiscal Months (Apr to Mar)
                                                 const fiscalMonthOffsets = [3, 4, 5, 6, 7, 8, 9, 10, 11, 0, 1, 2];
                                                 const monthNames = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'];
 
-                                                const pyPoints = fiscalMonthOffsets.map(mIdx => {
-                                                    const year = mIdx >= 3 ? pyStartYear : pyStartYear + 1;
-                                                    return item.monthlySales.get(`${year}-${mIdx + 1}`) || 0;
+                                                const aggregatedPY = new Array(12).fill(0);
+                                                const aggregatedCY = new Array(12).fill(0);
+                                                const cyIsFuture = new Array(12).fill(false);
+                                                let totalProj = 0;
+
+                                                filteredStockPlanning.forEach(item => {
+                                                    fiscalMonthOffsets.forEach((mIdx, i) => {
+                                                        const pyYear = mIdx >= 3 ? pyStartYear : pyStartYear + 1;
+                                                        const cyYear = mIdx >= 3 ? cyStartYear : cyStartYear + 1;
+
+                                                        aggregatedPY[i] += (item.monthlySales?.get?.(`${pyYear}-${mIdx + 1}`) || 0);
+
+                                                        const pointDate = new Date(cyYear, mIdx, 1);
+                                                        if (pointDate <= today) {
+                                                            aggregatedCY[i] += (item.monthlySales?.get?.(`${cyYear}-${mIdx + 1}`) || 0);
+                                                        } else {
+                                                            cyIsFuture[i] = true;
+                                                        }
+                                                    });
+                                                    totalProj += item.projection || 0;
                                                 });
 
-                                                const cyPoints = fiscalMonthOffsets.map(mIdx => {
-                                                    const year = mIdx >= 3 ? cyStartYear : cyStartYear + 1;
-                                                    // Only show CY points up to current month
-                                                    const pointDate = new Date(year, mIdx, 1);
-                                                    if (pointDate > today) return NaN;
-                                                    return item.monthlySales.get(`${year}-${mIdx + 1}`) || 0;
-                                                });
+                                                const cleanedCY = aggregatedCY.map((v, i) => cyIsFuture[i] ? NaN : v);
+                                                let lastValidIdx = -1;
+                                                for (let j = cleanedCY.length - 1; j >= 0; j--) {
+                                                    if (!isNaN(cleanedCY[j])) {
+                                                        lastValidIdx = j;
+                                                        break;
+                                                    }
+                                                }
 
-                                                // Projection Logic: Start from last CY value and go 3 months forward
-                                                const lastCYIdx = cyPoints.findIndex(v => isNaN(v)) - 1;
-                                                const startIdx = lastCYIdx >= 0 ? lastCYIdx : 0;
+                                                const forecastSeries = new Array(15).fill(NaN);
+                                                if (lastValidIdx !== -1) {
+                                                    forecastSeries[lastValidIdx] = cleanedCY[lastValidIdx];
+                                                    forecastSeries[12] = totalProj;
+                                                    forecastSeries[13] = totalProj;
+                                                    forecastSeries[14] = totalProj;
+                                                }
 
-                                                const projectionPoints = new Array(12).fill(NaN);
-                                                projectionPoints[startIdx] = cyPoints[startIdx] || 0; // Seamless connection
-
-                                                // Extend projections
-                                                const projLabels = ['Forecast +1', 'Forecast +2', 'Forecast +3'];
-                                                const projData = [item.projection, item.projection, item.projection];
-
-                                                // Combined labels for chart
-                                                const allLabels = [...monthNames, ...projLabels];
-                                                const pySeries = [...pyPoints, NaN, NaN, NaN];
-                                                const cySeries = [...cyPoints, NaN, NaN, NaN];
-                                                const forecastSeries = [...new Array(12).fill(NaN), ...projData];
-
-                                                // Connect projection to last CY point
-                                                forecastSeries[startIdx === -1 ? 11 : startIdx] = cyPoints[startIdx === -1 ? 11 : startIdx] || 0;
+                                                const maxV = Math.max(
+                                                    ...aggregatedPY.filter(v => !isNaN(v)),
+                                                    ...cleanedCY.filter(v => !isNaN(v)),
+                                                    totalProj,
+                                                    1
+                                                );
 
                                                 return (
-                                                    <div key={item.uniqueId} className="flex flex-col lg:flex-row gap-8">
-                                                        <div className="flex-1 min-w-0">
-                                                            <div className="flex items-center justify-between mb-6">
-                                                                <h4 className="text-xs font-black text-gray-900 uppercase flex items-center gap-2">
-                                                                    <Activity className="w-4 h-4 text-rose-600" />
-                                                                    Performance Analysis: <span className="text-rose-600">{item.description}</span>
-                                                                </h4>
-                                                                <div className="flex items-center gap-4">
-                                                                    <div className="flex items-center gap-1.5">
-                                                                        <div className="w-2 h-2 rounded-full bg-slate-300"></div>
-                                                                        <span className="text-[9px] font-bold text-gray-500 uppercase">PY {pyStartYear}-{(pyStartYear + 1).toString().slice(-2)}</span>
-                                                                    </div>
-                                                                    <div className="flex items-center gap-1.5">
-                                                                        <div className="w-2 h-2 rounded-full bg-rose-600"></div>
-                                                                        <span className="text-[9px] font-bold text-gray-500 uppercase">CY {cyStartYear}-{(cyStartYear + 1).toString().slice(-2)}</span>
-                                                                    </div>
-                                                                    <div className="flex items-center gap-1.5">
-                                                                        <div className="w-2 h-0.5 bg-rose-400 border-t border-dashed border-rose-600"></div>
-                                                                        <span className="text-[9px] font-bold text-gray-500 uppercase">3M Forecast</span>
-                                                                    </div>
-                                                                </div>
+                                                    <SalesTrendChart
+                                                        maxVal={isNaN(maxV) ? 1 : maxV}
+                                                        data={{
+                                                            labels: [...monthNames, '+1M', '+2M', '+3M'],
+                                                            series: [
+                                                                { name: 'Prev Year', data: [...aggregatedPY, NaN, NaN, NaN], color: '#CBD5E1', active: true },
+                                                                { name: 'Curr Year', data: [...cleanedCY, NaN, NaN, NaN], color: '#e11d48', active: true },
+                                                                { name: '3M Forecast', data: forecastSeries, color: '#fb7185', active: true, dotted: true }
+                                                            ]
+                                                        }}
+                                                    />
+                                                );
+                                            } catch (err) {
+                                                console.error("Summary Chart Error:", err);
+                                                return <div className="h-full flex items-center justify-center text-[10px] text-gray-400 font-bold uppercase">Preparing Graphical Insights...</div>;
+                                            }
+                                        })()}
+                                    </div>
+                                </div>
+
+                                {/* Stock Health Mix */}
+                                <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col gap-6">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <h4 className="text-[11px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1">Health Distribution</h4>
+                                            <p className="text-sm font-black text-gray-800 uppercase">Stock Adequacy Index</p>
+                                        </div>
+                                        <PieIcon className="w-5 h-5 text-indigo-500" />
+                                    </div>
+                                    <div className="flex-1 min-h-[220px]">
+                                        {(() => {
+                                            const shortage = filteredStockPlanning.filter(i => i.netQty < i.minStock).length;
+                                            const refill = filteredStockPlanning.filter(i => i.netQty >= i.minStock && i.netQty < i.rol).length;
+                                            const healthy = filteredStockPlanning.filter(i => i.netQty >= i.rol).length;
+                                            return (
+                                                <ModernDonutChartDashboard
+                                                    title="STOCK HEALTH"
+                                                    centerColorClass="text-indigo-600"
+                                                    data={[
+                                                        { label: 'CRITICAL', value: shortage, color: '#e11d48' },
+                                                        { label: 'NEED REFILL', value: refill, color: '#f59e0b' },
+                                                        { label: 'HEALTHY', value: healthy, color: '#10b981' }
+                                                    ]}
+                                                />
+                                            );
+                                        })()}
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="bg-rose-50 p-3 rounded-xl border border-rose-100">
+                                            <p className="text-[8px] font-black text-rose-600 uppercase">Procurement Gap</p>
+                                            <p className="text-lg font-black text-rose-800 tracking-tight">{formatLargeValue(stockPlanningTotals.shortageQty)}</p>
+                                        </div>
+                                        <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-100">
+                                            <p className="text-[8px] font-black text-emerald-600 uppercase">Plan Accuracy</p>
+                                            <p className="text-lg font-black text-emerald-800 tracking-tight">
+                                                {filteredStockPlanning.length > 0 ? Math.round(((filteredStockPlanning.length - shortage) / filteredStockPlanning.length) * 100) : 0}%
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Filters & Actions Panel */}
+                            <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex flex-col gap-4">
+                                <div className="flex justify-between items-center bg-gray-50/50 p-4 rounded-2xl border border-gray-100">
+                                    <div className="flex items-center gap-4">
+                                        <div className="bg-rose-600 p-2.5 rounded-xl text-white shadow-lg shadow-rose-200">
+                                            <Search className="w-5 h-5" />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-sm font-black text-gray-800 uppercase leading-none mb-1">Material Intelligence Filters</h3>
+                                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest leading-none">Refine Selection & Search by Part No</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-4">
+                                        <button
+                                            onClick={handleExportStockPlanning}
+                                            className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-3 rounded-2xl shadow-lg shadow-emerald-200 flex flex-col items-center justify-center min-w-[120px] transition-all group"
+                                        >
+                                            <FileText className="w-4 h-4 mb-1 group-hover:scale-110 transition-transform" />
+                                            <span className="text-[10px] font-black uppercase tracking-widest">Export Excel</span>
+                                        </button>
+                                        <button
+                                            onClick={() => setStockQuickFilter(prev => prev === 'SHORTAGE' ? 'ALL' : 'SHORTAGE')}
+                                            className={`px-5 py-3 rounded-2xl border transition-all flex flex-col items-end min-w-[140px] hover:scale-[1.02] active:scale-[0.98] ${stockQuickFilter === 'SHORTAGE' ? 'bg-red-600 border-red-700 shadow-lg shadow-red-200 ring-2 ring-red-400 ring-offset-2' : 'bg-white border-red-200 shadow-sm'}`}
+                                        >
+                                            <span className={`text-[9px] font-black uppercase tracking-widest mb-1 ${stockQuickFilter === 'SHORTAGE' ? 'text-red-100' : 'text-red-500'}`}>Urgent Shortage</span>
+                                            <span className={`text-xl font-black leading-none ${stockQuickFilter === 'SHORTAGE' ? 'text-white' : 'text-red-700'}`}>{stockPlanningTotals.shortageQty.toLocaleString()}</span>
+                                            <span className={`text-[8px] font-bold mt-1 uppercase ${stockQuickFilter === 'SHORTAGE' ? 'text-red-200' : 'text-red-400'}`}>Across {stockPlanningTotals.shortageCount} Items</span>
+                                        </button>
+                                        <button
+                                            onClick={() => setStockQuickFilter(prev => prev === 'REFILL' ? 'ALL' : 'REFILL')}
+                                            className={`px-5 py-3 rounded-2xl border transition-all flex flex-col items-end min-w-[140px] hover:scale-[1.02] active:scale-[0.98] ${stockQuickFilter === 'REFILL' ? 'bg-orange-500 border-orange-600 shadow-lg shadow-orange-200 ring-2 ring-orange-300 ring-offset-2' : 'bg-white border-orange-200 shadow-sm'}`}
+                                        >
+                                            <span className={`text-[9px] font-black uppercase tracking-widest mb-1 ${stockQuickFilter === 'REFILL' ? 'text-orange-100' : 'text-orange-400'}`}>Target Refill</span>
+                                            <span className={`text-xl font-black leading-none ${stockQuickFilter === 'REFILL' ? 'text-white' : 'text-orange-700'}`}>{stockPlanningTotals.refillQty.toLocaleString()}</span>
+                                            <span className={`text-[8px] font-bold mt-1 uppercase ${stockQuickFilter === 'REFILL' ? 'text-orange-200' : 'text-orange-400'}`}>Across {stockPlanningTotals.refillCount} Items</span>
+                                        </button>
+                                    </div>
+
+                                    <div className="relative w-96">
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-rose-500" />
+                                        <input
+                                            type="text"
+                                            placeholder="SEARCH BY PART NO OR DESCRIPTION..."
+                                            className="w-full pl-10 pr-4 py-3 bg-white border-2 border-rose-100 rounded-2xl text-xs font-black outline-none focus:ring-2 focus:ring-rose-500 focus:border-rose-500 transition-all shadow-sm uppercase tracking-wider"
+                                            value={stockSearchTerm}
+                                            onChange={(e) => setStockSearchTerm(e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-4 gap-4 pt-2 border-t border-gray-50">
+                                    {[
+                                        { label: 'Make', key: 'make', options: ['ALL', ...Array.from(new Set(stockPlanningData.map(d => d.make))).sort()] },
+                                        { label: 'Group', key: 'group', options: ['ALL', ...Array.from(new Set(stockPlanningData.map(d => d.group))).sort()] },
+                                        { label: 'Strategy', key: 'strategy', options: ['ALL', 'GENERAL STOCK', 'MADE TO ORDER', 'AGAINST ORDER'] },
+                                        { label: 'Classification', key: 'class', options: ['ALL', 'FAST RUNNER', 'SLOW RUNNER', 'NON-MOVING'] }
+                                    ].map((s) => (
+                                        <div key={s.key} className="flex flex-col gap-1.5">
+                                            <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">{s.label}</label>
+                                            <select
+                                                className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-[10px] font-black uppercase outline-none focus:ring-2 focus:ring-rose-500"
+                                                value={(stockSlicers as any)[s.key]}
+                                                onChange={(e) => setStockSlicers(prev => ({ ...prev, [s.key]: e.target.value }))}
+                                            >
+                                                {s.options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                            </select>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Chart Area for Selected Item */}
+                            {selectedStockItem && (
+                                <div className="bg-white p-6 rounded-2xl border border-rose-200 shadow-lg relative animate-fade-in-up">
+                                    <div className="absolute top-4 right-4 flex items-center gap-2">
+                                        <button
+                                            onClick={() => setSelectedStockItem(null)}
+                                            className="p-2 text-gray-400 hover:text-rose-600 transition-colors bg-rose-50 rounded-lg flex items-center gap-1.5"
+                                            title="Close Side Details"
+                                        >
+                                            <span className="text-[10px] font-black uppercase tracking-widest hidden md:inline">Hide Details</span>
+                                            <PanelLeftClose className="w-5 h-5" />
+                                        </button>
+                                        <button
+                                            onClick={() => setSelectedStockItem(null)}
+                                            className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                                        >
+                                            <X className="w-5 h-5" />
+                                        </button>
+                                    </div>
+                                    {(() => {
+                                        const item = stockPlanningData.find(d => d.uniqueId === selectedStockItem);
+                                        if (!item) return null;
+
+                                        const today = new Date();
+                                        const currentFYInfo = getFiscalInfo(today);
+                                        const [cyStartYear] = currentFYInfo.fiscalYear.split('-').map(Number);
+                                        const pyStartYear = cyStartYear - 1;
+
+                                        // Aligned Fiscal Months (Apr to Mar)
+                                        const fiscalMonthOffsets = [3, 4, 5, 6, 7, 8, 9, 10, 11, 0, 1, 2];
+                                        const monthNames = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'];
+
+                                        const pyPoints = fiscalMonthOffsets.map(mIdx => {
+                                            const year = mIdx >= 3 ? pyStartYear : pyStartYear + 1;
+                                            return item.monthlySales.get(`${year}-${mIdx + 1}`) || 0;
+                                        });
+
+                                        const cyPoints = fiscalMonthOffsets.map(mIdx => {
+                                            const year = mIdx >= 3 ? cyStartYear : cyStartYear + 1;
+                                            // Only show CY points up to current month
+                                            const pointDate = new Date(year, mIdx, 1);
+                                            if (pointDate > today) return NaN;
+                                            return item.monthlySales.get(`${year}-${mIdx + 1}`) || 0;
+                                        });
+
+                                        // Projection Logic: Start from last CY value and go 3 months forward
+                                        const lastCYIdx = cyPoints.findIndex(v => isNaN(v)) - 1;
+                                        const startIdx = lastCYIdx >= 0 ? lastCYIdx : 0;
+
+                                        const projectionPoints = new Array(12).fill(NaN);
+                                        projectionPoints[startIdx] = cyPoints[startIdx] || 0; // Seamless connection
+
+                                        // Extend projections
+                                        const projLabels = ['Forecast +1', 'Forecast +2', 'Forecast +3'];
+                                        const projData = [item.projection, item.projection, item.projection];
+
+                                        // Combined labels for chart
+                                        const allLabels = [...monthNames, ...projLabels];
+                                        const pySeries = [...pyPoints, NaN, NaN, NaN];
+                                        const cySeries = [...cyPoints, NaN, NaN, NaN];
+                                        const forecastSeries = [...new Array(12).fill(NaN), ...projData];
+
+                                        // Connect projection to last CY point
+                                        forecastSeries[startIdx === -1 ? 11 : startIdx] = cyPoints[startIdx === -1 ? 11 : startIdx] || 0;
+
+                                        return (
+                                            <div key={item.uniqueId} className="flex flex-col lg:flex-row gap-8">
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center justify-between mb-6">
+                                                        <h4 className="text-xs font-black text-gray-900 uppercase flex items-center gap-2">
+                                                            <Activity className="w-4 h-4 text-rose-600" />
+                                                            Performance Analysis: <span className="text-rose-600">{item.description}</span>
+                                                        </h4>
+                                                        <div className="flex items-center gap-4">
+                                                            <div className="flex items-center gap-1.5">
+                                                                <div className="w-2 h-2 rounded-full bg-slate-300"></div>
+                                                                <span className="text-[9px] font-bold text-gray-500 uppercase">PY {pyStartYear}-{(pyStartYear + 1).toString().slice(-2)}</span>
                                                             </div>
-                                                            <div className="h-[280px] w-full p-2">
-                                                                <SalesTrendChart
-                                                                    key={item.uniqueId}
-                                                                    maxVal={(() => {
-                                                                        const v = Math.max(
-                                                                            ...pyPoints.filter(v => !isNaN(v)),
-                                                                            ...cyPoints.filter(v => !isNaN(v)),
-                                                                            item.projection,
-                                                                            1
-                                                                        );
-                                                                        return isNaN(v) ? 1 : v;
-                                                                    })()}
-                                                                    data={{
-                                                                        labels: allLabels,
-                                                                        series: [
-                                                                            { name: `FY ${pyStartYear}-${(pyStartYear + 1).toString().slice(-2)} Sales`, data: pySeries, color: '#CBD5E1', active: true },
-                                                                            { name: `FY ${cyStartYear}-${(cyStartYear + 1).toString().slice(-2)} Sales`, data: cySeries, color: '#e11d48', active: true },
-                                                                            { name: '3-Month Projection', data: forecastSeries, color: '#fb7185', active: true, dotted: true }
-                                                                        ]
-                                                                    }}
-                                                                />
+                                                            <div className="flex items-center gap-1.5">
+                                                                <div className="w-2 h-2 rounded-full bg-rose-600"></div>
+                                                                <span className="text-[9px] font-bold text-gray-500 uppercase">CY {cyStartYear}-{(cyStartYear + 1).toString().slice(-2)}</span>
                                                             </div>
-                                                        </div>
-                                                        <div className="bg-rose-50/50 p-5 rounded-2xl border border-rose-100 space-y-4">
-                                                            <h5 className="text-[10px] font-black text-rose-800 uppercase tracking-widest border-b border-rose-200 pb-2">Inventory Control Center</h5>
-                                                            <div className="grid grid-cols-2 gap-4">
-                                                                <div className="bg-white p-3 rounded-xl border border-rose-100 shadow-sm">
-                                                                    <p className="text-[8px] font-bold text-gray-400 uppercase">Min Stock</p>
-                                                                    <p className="text-lg font-black text-gray-900">{item.minStock}</p>
-                                                                </div>
-                                                                <div className="bg-white p-3 rounded-xl border border-rose-100 shadow-sm">
-                                                                    <p className="text-[8px] font-bold text-gray-400 uppercase">Max Stock</p>
-                                                                    <p className="text-lg font-black text-gray-900">{item.maxStock}</p>
-                                                                </div>
-                                                                <div className="bg-white p-3 rounded-xl border border-rose-100 shadow-sm col-span-2 border-l-4 border-l-rose-600">
-                                                                    <p className="text-[8px] font-bold text-gray-400 uppercase">Reorder Level (ROL)</p>
-                                                                    <p className="text-xl font-black text-rose-700">{item.rol}</p>
-                                                                </div>
-                                                                <div className="bg-white p-3 rounded-xl border border-rose-100 shadow-sm col-span-2">
-                                                                    <p className="text-[8px] font-bold text-gray-400 uppercase">Future Projection (Monthly)</p>
-                                                                    <p className="text-lg font-black text-indigo-700">{item.projection}</p>
-                                                                </div>
-                                                                <div className="bg-red-50 p-3 rounded-xl border border-red-100 shadow-sm col-span-2">
-                                                                    <div className="flex justify-between items-center">
-                                                                        <p className="text-[8px] font-black text-red-600 uppercase">Urgent Shortage</p>
-                                                                        <AlertTriangle className="w-3 h-3 text-red-500" />
-                                                                    </div>
-                                                                    <p className="text-xl font-black text-red-700">{item.netQty < item.minStock ? Math.round(item.minStock - item.netQty) : 0}</p>
-                                                                </div>
-                                                                <div className="bg-orange-50 p-3 rounded-xl border border-orange-100 shadow-sm col-span-2">
-                                                                    <div className="flex justify-between items-center">
-                                                                        <p className="text-[8px] font-black text-orange-600 uppercase tracking-tight">Recommended Refill (to Max)</p>
-                                                                        <RefreshCw className="w-3 h-3 text-orange-500" />
-                                                                    </div>
-                                                                    <p className="text-xl font-black text-orange-700">{item.netQty < item.rol ? Math.round(item.maxStock - item.netQty) : 0}</p>
-                                                                </div>
+                                                            <div className="flex items-center gap-1.5">
+                                                                <div className="w-2 h-0.5 bg-rose-400 border-t border-dashed border-rose-600"></div>
+                                                                <span className="text-[9px] font-bold text-gray-500 uppercase">3M Forecast</span>
                                                             </div>
                                                         </div>
                                                     </div>
-                                                );
-                                            })()}
-                                        </div>
-                                    )}
-
-                                    {/* Main Data Grid */}
-                                    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-                                        <div className="overflow-x-auto">
-                                            <table className="w-full text-left border-collapse border border-gray-300">
-                                                <thead>
-                                                    <tr className="bg-gray-100 divide-x divide-gray-300 text-[9px] font-black text-gray-700 uppercase tracking-tighter text-center">
-                                                        <th className="px-2 py-2 border border-gray-300 w-8 bg-gray-100 sticky left-0 z-20">#</th>
-                                                        <th className="px-3 py-2 border border-gray-300 sticky left-8 z-20 bg-gray-100 min-w-[120px] cursor-pointer hover:bg-gray-200" onClick={() => handleStockSort('make')}>
-                                                            <div className="flex items-center justify-center gap-1">Make & Group {stockSortConfig?.key === 'make' && (stockSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
-                                                        </th>
-                                                        <th className="px-3 py-2 border border-gray-300 text-left cursor-pointer hover:bg-gray-200" onClick={() => handleStockSort('description')}>
-                                                            <div className="flex flex-col items-start gap-0.5">
-                                                                <div className="flex items-center gap-1">Description {stockSortConfig?.key === 'description' && (stockSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
-                                                                <span className="text-[7px] text-gray-400 font-mono tracking-widest uppercase">Part Number Index</span>
-                                                            </div>
-                                                        </th>
-                                                        <th className="px-3 py-2 border border-gray-300 bg-emerald-100/50 cursor-pointer hover:bg-emerald-100" onClick={() => handleStockSort('salesCY')}>
-                                                            <div className="flex items-center justify-center gap-1">Qty Sold (CY) {stockSortConfig?.key === 'salesCY' && (stockSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
-                                                        </th>
-                                                        <th className="px-3 py-2 border border-gray-300 cursor-pointer hover:bg-gray-200" onClick={() => handleStockSort('salesPY')}>
-                                                            <div className="flex items-center justify-center gap-1">Qty Sold (PY) {stockSortConfig?.key === 'salesPY' && (stockSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
-                                                        </th>
-                                                        <th className="px-3 py-2 border border-gray-300 bg-gray-50 cursor-pointer hover:bg-gray-200" onClick={() => handleStockSort('growth')}>
-                                                            <div className="flex items-center justify-center gap-1">YoY {stockSortConfig?.key === 'growth' && (stockSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
-                                                        </th>
-                                                        <th className="px-3 py-2 border border-gray-300 bg-blue-100/50 cursor-pointer hover:bg-blue-100" onClick={() => handleStockSort('stock')}>
-                                                            <div className="flex items-center justify-center gap-1">Stock {stockSortConfig?.key === 'stock' && (stockSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
-                                                        </th>
-                                                        <th className="px-3 py-2 border border-gray-300 bg-indigo-100/50 cursor-pointer hover:bg-indigo-100" onClick={() => handleStockSort('soDue')}>
-                                                            <div className="flex items-center justify-center gap-1">SO (D | S) {stockSortConfig?.key === 'soDue' && (stockSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
-                                                        </th>
-                                                        <th className="px-3 py-2 border border-gray-300 bg-orange-100/50 cursor-pointer hover:bg-orange-100" onClick={() => handleStockSort('poDue')}>
-                                                            <div className="flex items-center justify-center gap-1">PO (D | S) {stockSortConfig?.key === 'poDue' && (stockSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
-                                                        </th>
-                                                        <th className="px-3 py-2 border border-gray-300 bg-rose-100/50 cursor-pointer hover:bg-rose-100" onClick={() => handleStockSort('netQty')}>
-                                                            <div className="flex items-center justify-center gap-1">Net Qty {stockSortConfig?.key === 'netQty' && (stockSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
-                                                        </th>
-                                                        <th className="px-2 py-2 border border-gray-300 bg-red-100/30 text-red-700 cursor-pointer hover:bg-red-100" onClick={() => handleStockSort('shortageQty')}>
-                                                            <div className="flex items-center justify-center gap-1">Shortage Qty {stockSortConfig?.key === 'shortageQty' && (stockSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
-                                                        </th>
-                                                        <th className="px-2 py-2 border border-gray-300 bg-orange-100/30 text-orange-700 cursor-pointer hover:bg-orange-100" onClick={() => handleStockSort('refillQty')}>
-                                                            <div className="flex items-center justify-center gap-1">Refill Qty {stockSortConfig?.key === 'refillQty' && (stockSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
-                                                        </th>
-                                                        <th className="px-3 py-2 border border-gray-300 cursor-pointer hover:bg-gray-200" onClick={() => handleStockSort('rol')}>
-                                                            <div className="flex items-center justify-center gap-1">Target Level {stockSortConfig?.key === 'rol' && (stockSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
-                                                        </th>
-                                                        <th className="px-3 py-2 border border-gray-300">Status</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="divide-y divide-gray-200 text-[10px]">
-                                                    {filteredStockPlanning.slice(0, 150).map((item, idx) => (
-                                                        <tr
-                                                            key={item.uniqueId || idx}
-                                                            onClick={() => setSelectedStockItem(item.uniqueId)}
-                                                            className={`hover:bg-rose-50/50 cursor-pointer transition-colors group ${selectedStockItem === item.uniqueId ? 'bg-rose-50' : ''}`}
-                                                        >
-                                                            <td className="px-2 py-1.5 border border-gray-200 text-center text-gray-400 font-mono text-[9px] sticky left-0 z-10 bg-white group-hover:bg-rose-50/5">{idx + 1}</td>
-                                                            <td className="px-3 py-1.5 border border-gray-200 sticky left-8 z-10 bg-white group-hover:bg-rose-50/5 backdrop-blur-md">
-                                                                <span className="font-black text-gray-900 block truncate max-w-[100px]">{item.make}</span>
-                                                                <span className="font-bold text-blue-600 text-[8px] uppercase tracking-tighter">{item.group}</span>
-                                                            </td>
-                                                            <td className="px-3 py-1.5 border border-gray-200">
-                                                                <span className="font-black text-gray-700 block max-w-[250px] truncate" title={item.description}>{item.description}</span>
-                                                                <div className="flex items-center gap-2 mt-0.5">
-                                                                    <span className="text-[9px] font-black text-rose-600 font-mono tracking-tighter bg-rose-50 px-1 rounded border border-rose-100">{item.partNo || 'NO-PART-NO'}</span>
-                                                                    <div className="flex gap-1">
-                                                                        <span className="px-1 py-0.2 rounded bg-gray-100 text-[6.5px] font-black text-gray-500 uppercase">{item.classification}</span>
-                                                                        <span className="px-1 py-0.2 rounded bg-indigo-50 text-[6.5px] font-black text-indigo-500 uppercase">{item.strategy}</span>
-                                                                    </div>
-                                                                </div>
-                                                            </td>
-                                                            <td className="px-3 py-1.5 border border-gray-200 text-right font-black text-emerald-700 bg-emerald-50/10">{item.salesCY.toLocaleString()}</td>
-                                                            <td className="px-3 py-1.5 border border-gray-200 text-right font-bold text-gray-400">{item.salesPY.toLocaleString()}</td>
-                                                            <td className="px-3 py-1.5 border border-gray-200 text-center">
-                                                                {(() => {
-                                                                    const diff = item.salesCY - item.salesPY;
-                                                                    const pct = item.salesPY > 0 ? (diff / item.salesPY) * 100 : item.salesCY > 0 ? 100 : 0;
-                                                                    return (
-                                                                        <div className={`flex items-center justify-center gap-0.5 font-black text-[9px] ${diff >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                                                                            {diff >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                                                                            <span>{Math.abs(Math.round(pct))}%</span>
-                                                                        </div>
-                                                                    );
-                                                                })()}
-                                                            </td>
-                                                            <td className="px-3 py-1.5 border border-gray-200 text-right font-black text-blue-700 bg-blue-50/10">{item.stock.toLocaleString()}</td>
-                                                            <td className="px-3 py-1.5 border border-gray-200 text-right bg-indigo-50/10">
-                                                                <div className="flex items-center justify-end gap-1.5">
-                                                                    <span className="font-black text-rose-600">{item.soDue}</span>
-                                                                    <span className="text-gray-300">|</span>
-                                                                    <span className="font-bold text-indigo-400">{item.soSched}</span>
-                                                                </div>
-                                                            </td>
-                                                            <td className="px-3 py-1.5 border border-gray-200 text-right bg-orange-50/10">
-                                                                <div className="flex items-center justify-end gap-1.5">
-                                                                    <span className="font-black text-orange-600">{item.poDue}</span>
-                                                                    <span className="text-gray-300">|</span>
-                                                                    <span className="font-bold text-orange-400">{item.poSched}</span>
-                                                                </div>
-                                                            </td>
-                                                            <td className={`px-3 py-1.5 border border-gray-200 text-right font-black text-[11px] ${item.netQty < item.rol ? 'text-red-700 bg-red-50' : 'text-emerald-700 bg-emerald-50'}`}>
-                                                                {item.netQty.toLocaleString()}
-                                                            </td>
-                                                            <td className="px-3 py-1.5 border border-gray-200 text-right bg-red-50/20 font-black text-red-600">
-                                                                {item.netQty < item.minStock ? Math.abs(Math.round(item.minStock - item.netQty)).toLocaleString() : 0}
-                                                            </td>
-                                                            <td className="px-3 py-1.5 border border-gray-200 text-right bg-orange-50/20 font-black text-orange-600">
-                                                                {item.netQty < item.rol ? Math.abs(Math.round(item.maxStock - item.netQty)).toLocaleString() : 0}
-                                                            </td>
-                                                            <td className="px-3 py-1.5 border border-gray-200 text-right">
-                                                                <div className="flex flex-col items-end">
-                                                                    <span className="text-[8px] font-black text-gray-400 uppercase">ROL: {item.rol}</span>
-                                                                    <span className="text-[7px] font-bold text-gray-300">MAX: {item.maxStock}</span>
-                                                                </div>
-                                                            </td>
-                                                            <td className="px-3 py-1.5 border border-gray-200 text-center">
-                                                                {item.netQty < item.minStock ? (
-                                                                    <span className="px-2 py-0.5 rounded bg-red-600 text-white font-black text-[8px] uppercase">Shortage</span>
-                                                                ) : item.netQty < item.rol ? (
-                                                                    <span className="px-2 py-0.5 rounded bg-orange-500 text-white font-black text-[8px] uppercase">Refill</span>
-                                                                ) : (
-                                                                    <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 font-black text-[8px] uppercase">Healthy</span>
-                                                                )}
-                                                            </td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                        {/* Excel-Style Status Bar at bottom of table */}
-                                        <div className="bg-rose-700 text-white px-3 py-1 text-[9px] font-black flex justify-between items-center select-none uppercase tracking-widest">
-                                            <div className="flex gap-4 items-center">
-                                                <div className="flex items-center gap-2">
-                                                    <div className={`w-2 h-2 rounded-full bg-white ${filteredStockPlanning.length > 0 ? 'animate-pulse' : 'opacity-50'}`} />
-                                                    <span>Inventory Analysis Engine: Active</span>
+                                                    <div className="h-[280px] w-full p-2">
+                                                        <SalesTrendChart
+                                                            key={item.uniqueId}
+                                                            maxVal={(() => {
+                                                                const v = Math.max(
+                                                                    ...pyPoints.filter(v => !isNaN(v)),
+                                                                    ...cyPoints.filter(v => !isNaN(v)),
+                                                                    item.projection,
+                                                                    1
+                                                                );
+                                                                return isNaN(v) ? 1 : v;
+                                                            })()}
+                                                            data={{
+                                                                labels: allLabels,
+                                                                series: [
+                                                                    { name: `FY ${pyStartYear}-${(pyStartYear + 1).toString().slice(-2)} Sales`, data: pySeries, color: '#CBD5E1', active: true },
+                                                                    { name: `FY ${cyStartYear}-${(cyStartYear + 1).toString().slice(-2)} Sales`, data: cySeries, color: '#e11d48', active: true },
+                                                                    { name: '3-Month Projection', data: forecastSeries, color: '#fb7185', active: true, dotted: true }
+                                                                ]
+                                                            }}
+                                                        />
+                                                    </div>
                                                 </div>
-                                                <span className="text-rose-400 opacity-30">|</span>
-                                                <span>Displaying {Math.min(filteredStockPlanning.length, 150)} of {filteredStockPlanning.length} Records</span>
-                                                <span className="text-rose-400 opacity-30">|</span>
-                                                <span>Filters: {stockSlicers.make !== 'ALL' || stockSlicers.group !== 'ALL' || stockSlicers.strategy !== 'ALL' || stockSlicers.class !== 'ALL' ? 'ACTIVE' : 'NONE'}</span>
+                                                <div className="bg-rose-50/50 p-5 rounded-2xl border border-rose-100 space-y-4">
+                                                    <h5 className="text-[10px] font-black text-rose-800 uppercase tracking-widest border-b border-rose-200 pb-2">Inventory Control Center</h5>
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        <div className="bg-white p-3 rounded-xl border border-rose-100 shadow-sm">
+                                                            <p className="text-[8px] font-bold text-gray-400 uppercase">Min Stock</p>
+                                                            <p className="text-lg font-black text-gray-900">{item.minStock}</p>
+                                                        </div>
+                                                        <div className="bg-white p-3 rounded-xl border border-rose-100 shadow-sm">
+                                                            <p className="text-[8px] font-bold text-gray-400 uppercase">Max Stock</p>
+                                                            <p className="text-lg font-black text-gray-900">{item.maxStock}</p>
+                                                        </div>
+                                                        <div className="bg-white p-3 rounded-xl border border-rose-100 shadow-sm col-span-2 border-l-4 border-l-rose-600">
+                                                            <p className="text-[8px] font-bold text-gray-400 uppercase">Reorder Level (ROL)</p>
+                                                            <p className="text-xl font-black text-rose-700">{item.rol}</p>
+                                                        </div>
+                                                        <div className="bg-white p-3 rounded-xl border border-rose-100 shadow-sm col-span-2">
+                                                            <p className="text-[8px] font-bold text-gray-400 uppercase">Future Projection (Monthly)</p>
+                                                            <p className="text-lg font-black text-indigo-700">{item.projection}</p>
+                                                        </div>
+                                                        <div className="bg-red-50 p-3 rounded-xl border border-red-100 shadow-sm col-span-2">
+                                                            <div className="flex justify-between items-center">
+                                                                <p className="text-[8px] font-black text-red-600 uppercase">Urgent Shortage</p>
+                                                                <AlertTriangle className="w-3 h-3 text-red-500" />
+                                                            </div>
+                                                            <p className="text-xl font-black text-red-700">{item.netQty < item.minStock ? Math.round(item.minStock - item.netQty) : 0}</p>
+                                                        </div>
+                                                        <div className="bg-orange-50 p-3 rounded-xl border border-orange-100 shadow-sm col-span-2">
+                                                            <div className="flex justify-between items-center">
+                                                                <p className="text-[8px] font-black text-orange-600 uppercase tracking-tight">Recommended Refill (to Max)</p>
+                                                                <RefreshCw className="w-3 h-3 text-orange-500" />
+                                                            </div>
+                                                            <p className="text-xl font-black text-orange-700">{item.netQty < item.rol ? Math.round(item.maxStock - item.netQty) : 0}</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <div className="flex items-center gap-4">
-                                                <span className="bg-rose-600 px-2 py-0.5 rounded-full">STOCK PLANNING WORKBOOK</span>
-                                                <span>Scale: 100%</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </>
+                                        );
+                                    })()}
+                                </div>
                             )}
+
+                            {/* Main Data Grid */}
+                            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left border-collapse border border-gray-300">
+                                        <thead>
+                                            <tr className="bg-gray-100 divide-x divide-gray-300 text-[9px] font-black text-gray-700 uppercase tracking-tighter text-center">
+                                                <th className="px-2 py-2 border border-gray-300 w-8 bg-gray-100 sticky left-0 z-20">#</th>
+                                                <th className="px-3 py-2 border border-gray-300 sticky left-8 z-20 bg-gray-100 min-w-[120px] cursor-pointer hover:bg-gray-200" onClick={() => handleStockSort('make')}>
+                                                    <div className="flex items-center justify-center gap-1">Make & Group {stockSortConfig?.key === 'make' && (stockSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
+                                                </th>
+                                                <th className="px-3 py-2 border border-gray-300 text-left cursor-pointer hover:bg-gray-200" onClick={() => handleStockSort('description')}>
+                                                    <div className="flex flex-col items-start gap-0.5">
+                                                        <div className="flex items-center gap-1">Description {stockSortConfig?.key === 'description' && (stockSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
+                                                        <span className="text-[7px] text-gray-400 font-mono tracking-widest uppercase">Part Number Index</span>
+                                                    </div>
+                                                </th>
+                                                <th className="px-3 py-2 border border-gray-300 bg-emerald-100/50 cursor-pointer hover:bg-emerald-100" onClick={() => handleStockSort('salesCY')}>
+                                                    <div className="flex items-center justify-center gap-1">Qty Sold (CY) {stockSortConfig?.key === 'salesCY' && (stockSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
+                                                </th>
+                                                <th className="px-3 py-2 border border-gray-300 cursor-pointer hover:bg-gray-200" onClick={() => handleStockSort('salesPY')}>
+                                                    <div className="flex items-center justify-center gap-1">Qty Sold (PY) {stockSortConfig?.key === 'salesPY' && (stockSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
+                                                </th>
+                                                <th className="px-3 py-2 border border-gray-300 bg-gray-50 cursor-pointer hover:bg-gray-200" onClick={() => handleStockSort('growth')}>
+                                                    <div className="flex items-center justify-center gap-1">YoY {stockSortConfig?.key === 'growth' && (stockSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
+                                                </th>
+                                                <th className="px-3 py-2 border border-gray-300 bg-blue-100/50 cursor-pointer hover:bg-blue-100" onClick={() => handleStockSort('stock')}>
+                                                    <div className="flex items-center justify-center gap-1">Stock {stockSortConfig?.key === 'stock' && (stockSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
+                                                </th>
+                                                <th className="px-3 py-2 border border-gray-300 bg-indigo-100/50 cursor-pointer hover:bg-indigo-100" onClick={() => handleStockSort('soDue')}>
+                                                    <div className="flex items-center justify-center gap-1">SO (D | S) {stockSortConfig?.key === 'soDue' && (stockSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
+                                                </th>
+                                                <th className="px-3 py-2 border border-gray-300 bg-orange-100/50 cursor-pointer hover:bg-orange-100" onClick={() => handleStockSort('poDue')}>
+                                                    <div className="flex items-center justify-center gap-1">PO (D | S) {stockSortConfig?.key === 'poDue' && (stockSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
+                                                </th>
+                                                <th className="px-3 py-2 border border-gray-300 bg-rose-100/50 cursor-pointer hover:bg-rose-100" onClick={() => handleStockSort('netQty')}>
+                                                    <div className="flex items-center justify-center gap-1">Net Qty {stockSortConfig?.key === 'netQty' && (stockSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
+                                                </th>
+                                                <th className="px-2 py-2 border border-gray-300 bg-red-100/30 text-red-700 cursor-pointer hover:bg-red-100" onClick={() => handleStockSort('shortageQty')}>
+                                                    <div className="flex items-center justify-center gap-1">Shortage Qty {stockSortConfig?.key === 'shortageQty' && (stockSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
+                                                </th>
+                                                <th className="px-2 py-2 border border-gray-300 bg-orange-100/30 text-orange-700 cursor-pointer hover:bg-orange-100" onClick={() => handleStockSort('refillQty')}>
+                                                    <div className="flex items-center justify-center gap-1">Refill Qty {stockSortConfig?.key === 'refillQty' && (stockSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
+                                                </th>
+                                                <th className="px-3 py-2 border border-gray-300 cursor-pointer hover:bg-gray-200" onClick={() => handleStockSort('rol')}>
+                                                    <div className="flex items-center justify-center gap-1">Target Level {stockSortConfig?.key === 'rol' && (stockSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
+                                                </th>
+                                                <th className="px-3 py-2 border border-gray-300">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-200 text-[10px]">
+                                            {filteredStockPlanning.slice(0, 150).map((item, idx) => (
+                                                <tr
+                                                    key={item.uniqueId || idx}
+                                                    onClick={() => setSelectedStockItem(item.uniqueId)}
+                                                    className={`hover:bg-rose-50/50 cursor-pointer transition-colors group ${selectedStockItem === item.uniqueId ? 'bg-rose-50' : ''}`}
+                                                >
+                                                    <td className="px-2 py-1.5 border border-gray-200 text-center text-gray-400 font-mono text-[9px] sticky left-0 z-10 bg-white group-hover:bg-rose-50/5">{idx + 1}</td>
+                                                    <td className="px-3 py-1.5 border border-gray-200 sticky left-8 z-10 bg-white group-hover:bg-rose-50/5 backdrop-blur-md">
+                                                        <span className="font-black text-gray-900 block truncate max-w-[100px]">{item.make}</span>
+                                                        <span className="font-bold text-blue-600 text-[8px] uppercase tracking-tighter">{item.group}</span>
+                                                    </td>
+                                                    <td className="px-3 py-1.5 border border-gray-200">
+                                                        <span className="font-black text-gray-700 block max-w-[250px] truncate" title={item.description}>{item.description}</span>
+                                                        <div className="flex items-center gap-2 mt-0.5">
+                                                            <span className="text-[9px] font-black text-rose-600 font-mono tracking-tighter bg-rose-50 px-1 rounded border border-rose-100">{item.partNo || 'NO-PART-NO'}</span>
+                                                            <div className="flex gap-1">
+                                                                <span className="px-1 py-0.2 rounded bg-gray-100 text-[6.5px] font-black text-gray-500 uppercase">{item.classification}</span>
+                                                                <span className="px-1 py-0.2 rounded bg-indigo-50 text-[6.5px] font-black text-indigo-500 uppercase">{item.strategy}</span>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-3 py-1.5 border border-gray-200 text-right font-black text-emerald-700 bg-emerald-50/10">{item.salesCY.toLocaleString()}</td>
+                                                    <td className="px-3 py-1.5 border border-gray-200 text-right font-bold text-gray-400">{item.salesPY.toLocaleString()}</td>
+                                                    <td className="px-3 py-1.5 border border-gray-200 text-center">
+                                                        {(() => {
+                                                            const diff = item.salesCY - item.salesPY;
+                                                            const pct = item.salesPY > 0 ? (diff / item.salesPY) * 100 : item.salesCY > 0 ? 100 : 0;
+                                                            return (
+                                                                <div className={`flex items-center justify-center gap-0.5 font-black text-[9px] ${diff >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                                    {diff >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                                                                    <span>{Math.abs(Math.round(pct))}%</span>
+                                                                </div>
+                                                            );
+                                                        })()}
+                                                    </td>
+                                                    <td className="px-3 py-1.5 border border-gray-200 text-right font-black text-blue-700 bg-blue-50/10">{item.stock.toLocaleString()}</td>
+                                                    <td className="px-3 py-1.5 border border-gray-200 text-right bg-indigo-50/10">
+                                                        <div className="flex items-center justify-end gap-1.5">
+                                                            <span className="font-black text-rose-600">{item.soDue}</span>
+                                                            <span className="text-gray-300">|</span>
+                                                            <span className="font-bold text-indigo-400">{item.soSched}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-3 py-1.5 border border-gray-200 text-right bg-orange-50/10">
+                                                        <div className="flex items-center justify-end gap-1.5">
+                                                            <span className="font-black text-orange-600">{item.poDue}</span>
+                                                            <span className="text-gray-300">|</span>
+                                                            <span className="font-bold text-orange-400">{item.poSched}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className={`px-3 py-1.5 border border-gray-200 text-right font-black text-[11px] ${item.netQty < item.rol ? 'text-red-700 bg-red-50' : 'text-emerald-700 bg-emerald-50'}`}>
+                                                        {item.netQty.toLocaleString()}
+                                                    </td>
+                                                    <td className="px-3 py-1.5 border border-gray-200 text-right bg-red-50/20 font-black text-red-600">
+                                                        {item.netQty < item.minStock ? Math.abs(Math.round(item.minStock - item.netQty)).toLocaleString() : 0}
+                                                    </td>
+                                                    <td className="px-3 py-1.5 border border-gray-200 text-right bg-orange-50/20 font-black text-orange-600">
+                                                        {item.netQty < item.rol ? Math.abs(Math.round(item.maxStock - item.netQty)).toLocaleString() : 0}
+                                                    </td>
+                                                    <td className="px-3 py-1.5 border border-gray-200 text-right">
+                                                        <div className="flex flex-col items-end">
+                                                            <span className="text-[8px] font-black text-gray-400 uppercase">ROL: {item.rol}</span>
+                                                            <span className="text-[7px] font-bold text-gray-300">MAX: {item.maxStock}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-3 py-1.5 border border-gray-200 text-center">
+                                                        {item.netQty < item.minStock ? (
+                                                            <span className="px-2 py-0.5 rounded bg-red-600 text-white font-black text-[8px] uppercase">Shortage</span>
+                                                        ) : item.netQty < item.rol ? (
+                                                            <span className="px-2 py-0.5 rounded bg-orange-500 text-white font-black text-[8px] uppercase">Refill</span>
+                                                        ) : (
+                                                            <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 font-black text-[8px] uppercase">Healthy</span>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                {/* Excel-Style Status Bar at bottom of table */}
+                                <div className="bg-rose-700 text-white px-3 py-1 text-[9px] font-black flex justify-between items-center select-none uppercase tracking-widest">
+                                    <div className="flex gap-4 items-center">
+                                        <div className="flex items-center gap-2">
+                                            <div className={`w-2 h-2 rounded-full bg-white ${filteredStockPlanning.length > 0 ? 'animate-pulse' : 'opacity-50'}`} />
+                                            <span>Inventory Analysis Engine: Active</span>
+                                        </div>
+                                        <span className="text-rose-400 opacity-30">|</span>
+                                        <span>Displaying {Math.min(filteredStockPlanning.length, 150)} of {filteredStockPlanning.length} Records</span>
+                                        <span className="text-rose-400 opacity-30">|</span>
+                                        <span>Filters: {stockSlicers.make !== 'ALL' || stockSlicers.group !== 'ALL' || stockSlicers.strategy !== 'ALL' || stockSlicers.class !== 'ALL' ? 'ACTIVE' : 'NONE'}</span>
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                        <span className="bg-rose-600 px-2 py-0.5 rounded-full">STOCK PLANNING WORKBOOK</span>
+                                        <span>Scale: 100%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                         </div>
                     ) : null}
-                </div>
             </div>
         </div>
+        </div >
     );
 };
 
