@@ -29,6 +29,7 @@ import {
   FileBarChart,
   Users,
   ChevronRight,
+  ChevronRight,
   Menu,
   X,
   HardDrive,
@@ -50,7 +51,8 @@ import {
   FileDown,
   Upload,
   Download,
-  PlusCircle
+  PlusCircle,
+  ArrowLeft
 } from 'lucide-react';
 import { authService, User } from './services/authService';
 import { LoginView } from './components/LoginView';
@@ -223,10 +225,15 @@ const App: React.FC = () => {
       setPendingPOItems(localPO);
       setSalesReportItems(localSales);
 
-      const storedS1Y = localStorage.getItem(STORAGE_KEY_SALES_1Y);
-      if (storedS1Y) setSales1Year(JSON.parse(storedS1Y));
-      const storedS3M = localStorage.getItem(STORAGE_KEY_SALES_3M);
-      if (storedS3M) setSales3Months(JSON.parse(storedS3M));
+      try {
+        const storedS1Y = localStorage.getItem(STORAGE_KEY_SALES_1Y);
+        if (storedS1Y) setSales1Year(JSON.parse(storedS1Y));
+      } catch (e) { console.error("Parse Error (Sales 1Y):", e); }
+
+      try {
+        const storedS3M = localStorage.getItem(STORAGE_KEY_SALES_3M);
+        if (storedS3M) setSales3Months(JSON.parse(storedS3M));
+      } catch (e) { console.error("Parse Error (Sales 3M):", e); }
 
       setIsDataLoaded(true);
       setIsDbLoading(false);
@@ -736,7 +743,7 @@ const App: React.FC = () => {
               className="p-2 hover:bg-gray-100 rounded-xl text-gray-500 hover:text-blue-600 transition-all shadow-sm border border-gray-100 bg-white"
               title={isSidebarOpen ? "Hide Sidebar" : "Show Sidebar"}
             >
-              {isSidebarOpen ? <PanelLeftClose className="w-5 h-5" /> : <PanelLeftOpen className="w-5 h-5" />}
+              {isSidebarOpen ? <ArrowLeft className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
             <div className="h-4 w-[1px] bg-gray-200 mx-2 hidden md:block" />
             <div className="flex items-center gap-2">
