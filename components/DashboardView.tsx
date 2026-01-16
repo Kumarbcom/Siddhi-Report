@@ -2542,8 +2542,119 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                             </div>
                         </div>
                     ) : activeSubTab === 'stockPlanning' ? (
-                        <div className="flex flex-col gap-6">
-                            {/* Header & Slicers */}
+                        <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                            {/* Graphical Summary Dashboard */}
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                {/* Overall Sales Trend (All Filtered Items) */}
+                                <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col gap-4 min-h-[350px]">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <h4 className="text-[11px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1">Overall Movement & Forecast</h4>
+                                            <p className="text-sm font-black text-gray-800 uppercase">Filtered Inventory Trend Analysis</p>
+                                        </div>
+                                        <Activity className="w-5 h-5 text-rose-500" />
+                                    </div>
+                                    <div className="flex-1 min-h-0">
+                                        {(() => {
+                                            const today = new Date();
+                                            const currentFYInfo = getFiscalInfo(today);
+                                            const [cyStartYear] = currentFYInfo.fiscalYear.split('-').map(Number);
+                                            const pyStartYear = cyStartYear - 1;
+                                            const fiscalMonthOffsets = [3, 4, 5, 6, 7, 8, 9, 10, 11, 0, 1, 2];
+                                            const monthNames = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'];
+
+                                            const aggregatedPY = new Array(12).fill(0);
+                                            const aggregatedCY = new Array(12).fill(0);
+                                            let totalProj = 0;
+
+                                            filteredStockPlanning.forEach(item => {
+                                                fiscalMonthOffsets.forEach((mIdx, i) => {
+                                                    const pyYear = mIdx >= 3 ? pyStartYear : pyStartYear + 1;
+                                                    const cyYear = mIdx >= 3 ? cyStartYear : cyStartYear + 1;
+                                                    aggregatedPY[i] += (item.monthlySales.get(`${pyYear}-${mIdx + 1}`) || 0);
+
+                                                    const pointDate = new Date(cyYear, mIdx, 1);
+                                                    if (pointDate <= today) {
+                                                        aggregatedCY[i] += (item.monthlySales.get(`${cyYear}-${mIdx + 1}`) || 0);
+                                                    } else {
+                                                        aggregatedCY[i] = NaN; // Handled later
+                                                    }
+                                                });
+                                                totalProj += item.projection;
+                                            });
+
+                                            // Re-clean CY NaNs for chart
+                                            const cleanedCY = aggregatedCY.map((v, i) => {
+                                                const mIdx = fiscalMonthOffsets[i];
+                                                const year = mIdx >= 3 ? cyStartYear : cyStartYear + 1;
+                                                return new Date(year, mIdx, 1) > today ? NaN : v;
+                                            });
+
+                                            const lastIdx = cleanedCY.findIndex(v => isNaN(v)) - 1;
+                                            const forecast = [totalProj, totalProj, totalProj];
+                                            const fullForecast = [...new Array(12).fill(NaN), ...forecast];
+                                            fullForecast[lastIdx >= 0 ? lastIdx : 0] = cleanedCY[lastIdx >= 0 ? lastIdx : 0] || 0;
+
+                                            return (
+                                                <SalesTrendChart
+                                                    maxVal={Math.max(...aggregatedPY, ...cleanedCY.filter(v => !isNaN(v)), totalProj, 1)}
+                                                    data={{
+                                                        labels: [...monthNames, '+1M', '+2M', '+3M'],
+                                                        series: [
+                                                            { name: 'Prev Year', data: [...aggregatedPY, NaN, NaN, NaN], color: '#CBD5E1', active: true },
+                                                            { name: 'Curr Year', data: [...cleanedCY, NaN, NaN, NaN], color: '#e11d48', active: true },
+                                                            { name: '3M Forecast', data: fullForecast, color: '#fb7185', active: true, dotted: true }
+                                                        ]
+                                                    }}
+                                                />
+                                            );
+                                        })()}
+                                    </div>
+                                </div>
+
+                                {/* Stock Health Mix */}
+                                <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col gap-6">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <h4 className="text-[11px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1">Health Distribution</h4>
+                                            <p className="text-sm font-black text-gray-800 uppercase">Stock Adequacy Index</p>
+                                        </div>
+                                        <PieIcon className="w-5 h-5 text-indigo-500" />
+                                    </div>
+                                    <div className="flex-1 min-h-[220px]">
+                                        {(() => {
+                                            const shortage = filteredStockPlanning.filter(i => i.netQty < i.minStock).length;
+                                            const refill = filteredStockPlanning.filter(i => i.netQty >= i.minStock && i.netQty < i.rol).length;
+                                            const healthy = filteredStockPlanning.filter(i => i.netQty >= i.rol).length;
+                                            return (
+                                                <ModernDonutChartDashboard
+                                                    title="STOCK HEALTH"
+                                                    centerColorClass="text-indigo-600"
+                                                    data={[
+                                                        { label: 'CRITICAL', value: shortage, color: '#e11d48' },
+                                                        { label: 'NEED REFILL', value: refill, color: '#f59e0b' },
+                                                        { label: 'HEALTHY', value: healthy, color: '#10b981' }
+                                                    ]}
+                                                />
+                                            );
+                                        })()}
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="bg-rose-50 p-3 rounded-xl border border-rose-100">
+                                            <p className="text-[8px] font-black text-rose-600 uppercase">Procurement Gap</p>
+                                            <p className="text-lg font-black text-rose-800 tracking-tight">{formatLargeValue(stockPlanningTotals.shortageQty)}</p>
+                                        </div>
+                                        <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-100">
+                                            <p className="text-[8px] font-black text-emerald-600 uppercase">Plan Accuracy</p>
+                                            <p className="text-lg font-black text-emerald-800 tracking-tight">
+                                                {filteredStockPlanning.length > 0 ? Math.round(((filteredStockPlanning.length - shortage) / filteredStockPlanning.length) * 100) : 0}%
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Filters & Actions Panel */}
                             <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex flex-col gap-4">
                                 <div className="flex justify-between items-center bg-gray-50/50 p-4 rounded-2xl border border-gray-100">
                                     <div className="flex items-center gap-4">
