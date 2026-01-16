@@ -26,7 +26,7 @@ export const authService = {
             { username: 'Purushothama', role: 'viewer' },
         ];
 
-        const existingUsers = await this.getUsers();
+        const existingUsers = await dbService.getAll<User>(STORES.USERS || 'users');
         if (existingUsers.length === 0) {
             const usersToCreate: User[] = initialUsers.map(u => ({
                 id: crypto.randomUUID(),
@@ -80,8 +80,18 @@ export const authService = {
         }
 
         if (users.length === 0) {
-            await this.initializeUsers();
-            users = await dbService.getAll<User>(STORES.USERS || 'users');
+            // Failsafe: return initial user list directly if everything is empty
+            const failsafeUsers: User[] = [
+                { id: 'admin-1', username: 'Kumar N', role: 'admin', passwordHash: '123456' },
+                { id: 'viewer-1', username: 'Vanditha', role: 'viewer', passwordHash: '123456' },
+                { id: 'viewer-2', username: 'Gurudatta', role: 'viewer', passwordHash: '123456' },
+                { id: 'viewer-3', username: 'Ranajan', role: 'viewer', passwordHash: '123456' },
+                { id: 'viewer-4', username: 'Mohan', role: 'viewer', passwordHash: '123456' },
+                { id: 'viewer-5', username: 'Geetha', role: 'viewer', passwordHash: '123456' },
+                { id: 'viewer-6', username: 'Rachana', role: 'viewer', passwordHash: '123456' },
+                { id: 'viewer-7', username: 'Purushothama', role: 'viewer', passwordHash: '123456' },
+            ];
+            return failsafeUsers;
         }
 
         return users;

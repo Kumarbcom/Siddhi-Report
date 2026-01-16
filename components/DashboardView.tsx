@@ -141,26 +141,38 @@ const SalesTrendChart = ({ data, maxVal }: { data: { labels: string[], series: a
                     {data.series.map((s: any, i: number) => {
                         if (!s.active) return null;
                         const points: [number, number][] = s.data.map((val: number, idx: number) => [(idx / (labelCount - 1)) * 100, 100 - ((val / chartMax) * 100)]).filter((p: any) => !isNaN(p[1]));
-                        if (points.length < 2) return null;
-                        const pathD = getSmoothPath(points) || `M ${points.map(p => p.join(',')).join(' L ')}`;
+                        if (points.length === 0) return null;
+                        const pathD = points.length >= 2 ? (getSmoothPath(points) || `M ${points.map(p => p.join(',')).join(' L ')}`) : null;
                         return (
                             <g key={i}>
-                                <path d={`${pathD} L 100 100 L 0 100 Z`} fill={`url(#grad-${chartId}-${i})`} className="transition-opacity duration-500" style={{ opacity: hoverIndex !== null ? 0.8 : 0.6 }} />
-                                <path
-                                    d={pathD}
-                                    fill="none"
-                                    stroke={s.color}
-                                    strokeWidth="2.5"
-                                    vectorEffect="non-scaling-stroke"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    filter="url(#glow)"
-                                    className="transition-all duration-300"
-                                    strokeDasharray={s.dotted ? "4 2" : "0"}
-                                />
-                                {points.length === 1 && (
-                                    <circle cx={points[0][0]} cy={points[0][1]} r="2" fill="white" stroke={s.color} strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
+                                {pathD && <path d={`${pathD} L ${points[points.length - 1][0]} 100 L ${points[0][0]} 100 Z`} fill={`url(#grad-${chartId}-${i})`} className="transition-opacity duration-500" style={{ opacity: hoverIndex !== null ? 0.8 : 0.6 }} />}
+                                {pathD && (
+                                    <path
+                                        d={pathD}
+                                        fill="none"
+                                        stroke={s.color}
+                                        strokeWidth="2.5"
+                                        vectorEffect="non-scaling-stroke"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        filter="url(#glow)"
+                                        className="transition-all duration-300"
+                                        strokeDasharray={s.dotted ? "4 2" : "0"}
+                                    />
                                 )}
+                                {points.map((p, pIdx) => (
+                                    <circle
+                                        key={pIdx}
+                                        cx={p[0]}
+                                        cy={p[1]}
+                                        r={points.length === 1 ? "2" : (hoverIndex === pIdx ? "3" : "1.5")}
+                                        fill={hoverIndex === pIdx ? s.color : "white"}
+                                        stroke={s.color}
+                                        strokeWidth="1.5"
+                                        vectorEffect="non-scaling-stroke"
+                                        className="transition-all duration-200"
+                                    />
+                                ))}
                             </g>
                         )
                     })}
@@ -2542,7 +2554,17 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                             </div>
                         </div>
                     ) : activeSubTab === 'stockPlanning' ? (
-                        <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                        <div className="flex flex-col gap-6" style={{ animation: 'fadeInUp 0.7s ease-out' }}>
+                            <style>{`
+                                @keyframes fadeInUp {
+                                    from { opacity: 0; transform: translateY(20px); }
+                                    to { opacity: 1; transform: translateY(0); }
+                                }
+                                @keyframes fadeIn {
+                                    from { opacity: 0; }
+                                    to { opacity: 1; }
+                                }
+                            `}</style>
                             {/* Graphical Summary Dashboard */}
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                                 {/* Overall Sales Trend (All Filtered Items) */}
@@ -2740,7 +2762,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
                             {/* Chart Area for Selected Item */}
                             {selectedStockItem && (
-                                <div className="bg-white p-6 rounded-2xl border border-rose-200 shadow-lg animate-in fade-in slide-in-from-top-4 duration-500 relative">
+                                <div className="bg-white p-6 rounded-2xl border border-rose-200 shadow-lg relative" style={{ animation: 'fadeIn 0.5s ease-out' }}>
                                     <div className="absolute top-4 right-4 flex items-center gap-2">
                                         <button
                                             onClick={() => setSelectedStockItem(null)}
