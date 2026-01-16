@@ -653,8 +653,8 @@ const App: React.FC = () => {
   return (
     <div className="flex h-screen bg-[#f8fafc] text-slate-900 font-sans overflow-hidden">
       {/* Sidebar */}
-      <aside className={`print:hidden fixed inset-y-0 left-0 z-40 bg-white border-r border-gray-200 transition-all duration-300 ease-in-out md:static ${isSidebarOpen ? 'w-64 translate-x-0' : 'w-0 -translate-x-full md:w-0'}`}>
-        <div className={`flex flex-col h-full transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100' : 'opacity-0'}`}>
+      <aside className={`print:hidden fixed inset-y-0 left-0 z-40 bg-white transition-all duration-300 ease-in-out md:static overflow-hidden ${isSidebarOpen ? 'w-64 translate-x-0 border-r border-gray-200 opacity-100' : 'w-0 -translate-x-full md:w-0 opacity-0 border-none'}`}>
+        <div className="flex flex-col h-full w-64">
           <div className="p-6 border-b border-gray-100 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="bg-blue-600 p-2.5 rounded-2xl shadow-lg shadow-blue-200"><ShieldCheck className="w-5 h-5 text-white" /></div>

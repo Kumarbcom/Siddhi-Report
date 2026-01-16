@@ -1061,6 +1061,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             "Net Qty": item.netQty,
             "Shortage": item.netQty < item.minStock ? Math.round(item.minStock - item.netQty) : 0,
             "Refill Qty": item.netQty < item.rol ? Math.round(item.maxStock - item.netQty) : 0,
+            "YoY Growth %": item.salesPY > 0 ? Math.round(((item.salesCY - item.salesPY) / item.salesPY) * 100) : item.salesCY > 0 ? 100 : 0,
             "Min Stock": item.minStock,
             "ROL": item.rol,
             "Max Stock": item.maxStock,
@@ -1075,18 +1076,29 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     };
 
     const stockPlanningTotals = useMemo(() => {
-        return filteredStockPlanning.reduce((acc, item) => {
+        // Calculate totals based on slicers/search but BEFORE the quick filter (Shortage/Refill)
+        // This ensures the top KPI cards stay visible and accurate even when you click them.
+        const baseData = stockPlanningData.filter(d => {
+            const matchesMake = stockSlicers.make === 'ALL' || d.make === stockSlicers.make;
+            const matchesGroup = stockSlicers.group === 'ALL' || d.group === stockSlicers.group;
+            const matchesStrat = stockSlicers.strategy === 'ALL' || d.strategy === stockSlicers.strategy;
+            const matchesClass = stockSlicers.class === 'ALL' || d.classification === stockSlicers.class;
+            const matchesSearch = !stockSearchTerm || d.description.toLowerCase().includes(stockSearchTerm.toLowerCase()) || (d.partNo || '').toLowerCase().includes(stockSearchTerm.toLowerCase());
+            return matchesMake && matchesGroup && matchesStrat && matchesClass && matchesSearch;
+        });
+
+        return baseData.reduce((acc, item) => {
             if (item.netQty < item.minStock) {
-                acc.shortageCount++;
                 acc.shortageQty += Math.round(item.minStock - item.netQty);
+                acc.shortageCount++;
             }
             if (item.netQty < item.rol) {
-                acc.refillCount++;
                 acc.refillQty += Math.round(item.maxStock - item.netQty);
+                acc.refillCount++;
             }
             return acc;
-        }, { shortageCount: 0, shortageQty: 0, refillCount: 0, refillQty: 0 });
-    }, [filteredStockPlanning]);
+        }, { shortageQty: 0, shortageCount: 0, refillQty: 0, refillCount: 0 });
+    }, [stockPlanningData, stockSlicers, stockSearchTerm]);
 
     const inventoryStats = useMemo(() => {
         // Build maps for O(1) matching
@@ -2595,12 +2607,22 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                             {/* Chart Area for Selected Item */}
                             {selectedStockItem && (
                                 <div className="bg-white p-6 rounded-2xl border border-rose-200 shadow-lg animate-in fade-in slide-in-from-top-4 duration-500 relative">
-                                    <button
-                                        onClick={() => setSelectedStockItem(null)}
-                                        className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
-                                    >
-                                        <X className="w-5 h-5" />
-                                    </button>
+                                    <div className="absolute top-4 right-4 flex items-center gap-2">
+                                        <button
+                                            onClick={() => setSelectedStockItem(null)}
+                                            className="p-2 text-gray-400 hover:text-rose-600 transition-colors bg-rose-50 rounded-lg flex items-center gap-1.5"
+                                            title="Close Side Details"
+                                        >
+                                            <span className="text-[10px] font-black uppercase tracking-widest hidden md:inline">Hide Details</span>
+                                            <PanelLeftClose className="w-5 h-5" />
+                                        </button>
+                                        <button
+                                            onClick={() => setSelectedStockItem(null)}
+                                            className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                                        >
+                                            <X className="w-5 h-5" />
+                                        </button>
+                                    </div>
                                     {(() => {
                                         const item = stockPlanningData.find(d => d.uniqueId === selectedStockItem);
                                         if (!item) return null;
