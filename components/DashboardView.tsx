@@ -723,26 +723,53 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         const pyEnd = parseInt(parts[1]) - 1;
         const pyString = `${pyStart}-${pyEnd.toString().padStart(2, '0')}`;
 
+        console.log(`\n=== YoY Debug START ===`);
+        console.log(`Current FY: ${selectedFY}`);
+        console.log(`Looking for Previous FY: ${pyString}`);
+        console.log(`Total enrichedSales records: ${enrichedSales.length}`);
+
+        const availableFYs = Array.from(new Set(enrichedSales.map(i => i.fiscalYear))).sort();
+        console.log(`Available FYs in data:`, availableFYs);
+
         let data = enrichedSales.filter(i => i.fiscalYear === pyString);
-        console.log(`YoY Debug - Current FY: ${selectedFY}, Looking for Previous FY: ${pyString}, Found ${data.length} records`);
-        console.log(`YoY Debug - Available FYs in data:`, Array.from(new Set(enrichedSales.map(i => i.fiscalYear))).sort());
+        console.log(`Records found for ${pyString}: ${data.length}`);
+
+        if (data.length > 0) {
+            console.log(`Sample record:`, data[0]);
+            const sampleTotal = data.slice(0, 5).reduce((acc, i) => acc + (i.value || 0), 0);
+            console.log(`First 5 records total value: ${sampleTotal}`);
+        }
 
         if (timeView === 'MONTH') {
             data = data.filter(i => i.fiscalMonthIndex === selectedMonth);
+            console.log(`After MONTH filter (month ${selectedMonth}): ${data.length} records`);
         } else if (timeView === 'WEEK') {
             data = data.filter(i => i.weekNumber === selectedWeek);
+            console.log(`After WEEK filter (week ${selectedWeek}): ${data.length} records`);
         } else {
             // FY view: Filter previous year to only include months present in currentData (YTD comparison)
             const currentMonths = new Set(currentData.map(i => i.fiscalMonthIndex));
+            console.log(`Current months in view: ${Array.from(currentMonths).sort().join(',')}`);
+            const beforeYTD = data.length;
             data = data.filter(i => currentMonths.has(i.fiscalMonthIndex));
-            console.log(`YoY Debug - After YTD filter: ${data.length} records, Current months: ${Array.from(currentMonths).join(',')}`);
+            console.log(`After YTD filter: ${data.length} records (removed ${beforeYTD - data.length})`);
         }
 
-        if (selectedMake !== 'ALL') data = data.filter(i => i.make === selectedMake);
-        if (selectedMatGroup !== 'ALL') data = data.filter(i => i.matGroup === selectedMatGroup);
+        if (selectedMake !== 'ALL') {
+            const before = data.length;
+            data = data.filter(i => i.make === selectedMake);
+            console.log(`After Make filter (${selectedMake}): ${data.length} records (removed ${before - data.length})`);
+        }
+        if (selectedMatGroup !== 'ALL') {
+            const before = data.length;
+            data = data.filter(i => i.matGroup === selectedMatGroup);
+            console.log(`After MatGroup filter (${selectedMatGroup}): ${data.length} records (removed ${before - data.length})`);
+        }
 
         const totalVal = data.reduce((acc, i) => acc + (i.value || 0), 0);
-        console.log(`YoY Debug - Final: ${data.length} records, Total Value: ${totalVal}`);
+        const totalQty = data.reduce((acc, i) => acc + (i.quantity || 0), 0);
+        console.log(`FINAL YoY Data: ${data.length} records, Total Value: ${totalVal.toFixed(2)}, Total Qty: ${totalQty}`);
+        console.log(`=== YoY Debug END ===\n`);
 
         return data;
     }, [selectedFY, currentData, timeView, selectedMonth, selectedWeek, enrichedSales, selectedMake, selectedMatGroup]);
