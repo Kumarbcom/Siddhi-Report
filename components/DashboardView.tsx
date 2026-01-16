@@ -146,7 +146,18 @@ const SalesTrendChart = ({ data, maxVal }: { data: { labels: string[], series: a
                         return (
                             <g key={i}>
                                 <path d={`${pathD} L 100 100 L 0 100 Z`} fill={`url(#grad-${chartId}-${i})`} className="transition-opacity duration-500" style={{ opacity: hoverIndex !== null ? 0.8 : 0.6 }} />
-                                <path d={pathD} fill="none" stroke={s.color} strokeWidth="2.5" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" filter="url(#glow)" className="transition-all duration-300" />
+                                <path
+                                    d={pathD}
+                                    fill="none"
+                                    stroke={s.color}
+                                    strokeWidth="2.5"
+                                    vectorEffect="non-scaling-stroke"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    filter="url(#glow)"
+                                    className="transition-all duration-300"
+                                    strokeDasharray={s.dotted ? "4 2" : "0"}
+                                />
                                 {points.length === 1 && (
                                     <circle cx={points[0][0]} cy={points[0][1]} r="2" fill="white" stroke={s.color} strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
                                 )}
@@ -2571,12 +2582,12 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                         </button>
                                     </div>
 
-                                    <div className="relative w-80">
-                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                    <div className="relative w-96">
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-rose-500" />
                                         <input
                                             type="text"
-                                            placeholder="Search Description or Part No..."
-                                            className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-rose-500 transition-all shadow-sm"
+                                            placeholder="SEARCH BY PART NO OR DESCRIPTION..."
+                                            className="w-full pl-10 pr-4 py-3 bg-white border-2 border-rose-100 rounded-2xl text-xs font-black outline-none focus:ring-2 focus:ring-rose-500 focus:border-rose-500 transition-all shadow-sm uppercase tracking-wider"
                                             value={stockSearchTerm}
                                             onChange={(e) => setStockSearchTerm(e.target.value)}
                                         />
@@ -2626,38 +2637,86 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                         const item = stockPlanningData.find(d => d.uniqueId === selectedStockItem);
                                         if (!item) return null;
 
-                                        // Prepare Chart Data
-                                        const months = [];
-                                        const d = new Date();
-                                        for (let i = 11; i >= 0; i--) {
-                                            const m = new Date(d.getFullYear(), d.getMonth() - i, 1);
-                                            months.push(`${m.getFullYear()}-${m.getMonth() + 1}`);
-                                        }
+                                        const today = new Date();
+                                        const currentFYInfo = getFiscalInfo(today);
+                                        const [cyStartYear] = currentFYInfo.fiscalYear.split('-').map(Number);
+                                        const pyStartYear = cyStartYear - 1;
 
-                                        const salesPoints = months.map(m => item.monthlySales.get(m) || 0);
-                                        const projectionPoints = [...salesPoints]; // Copy fixed history
+                                        // Aligned Fiscal Months (Apr to Mar)
+                                        const fiscalMonthOffsets = [3, 4, 5, 6, 7, 8, 9, 10, 11, 0, 1, 2];
+                                        const monthNames = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'];
 
-                                        // Projection adds future months (just 12 in the past + 3 in future = 15 points total for labels)
-                                        projectionPoints.push(item.projection, item.projection, item.projection);
+                                        const pyPoints = fiscalMonthOffsets.map(mIdx => {
+                                            const year = mIdx >= 3 ? pyStartYear : pyStartYear + 1;
+                                            return item.monthlySales.get(`${year}-${mIdx + 1}`) || 0;
+                                        });
 
-                                        const extendedLabels = [...months, 'Month +1', 'Month +2', 'Target'];
+                                        const cyPoints = fiscalMonthOffsets.map(mIdx => {
+                                            const year = mIdx >= 3 ? cyStartYear : cyStartYear + 1;
+                                            // Only show CY points up to current month
+                                            const pointDate = new Date(year, mIdx, 1);
+                                            if (pointDate > today) return NaN;
+                                            return item.monthlySales.get(`${year}-${mIdx + 1}`) || 0;
+                                        });
+
+                                        // Projection Logic: Start from last CY value and go 3 months forward
+                                        const lastCYIdx = cyPoints.findIndex(v => isNaN(v)) - 1;
+                                        const startIdx = lastCYIdx >= 0 ? lastCYIdx : 0;
+
+                                        const projectionPoints = new Array(12).fill(NaN);
+                                        projectionPoints[startIdx] = cyPoints[startIdx] || 0; // Seamless connection
+
+                                        // Extend projections
+                                        const projLabels = ['Forecast +1', 'Forecast +2', 'Forecast +3'];
+                                        const projData = [item.projection, item.projection, item.projection];
+
+                                        // Combined labels for chart
+                                        const allLabels = [...monthNames, ...projLabels];
+                                        const pySeries = [...pyPoints, NaN, NaN, NaN];
+                                        const cySeries = [...cyPoints, NaN, NaN, NaN];
+                                        const forecastSeries = [...new Array(12).fill(NaN), ...projData];
+
+                                        // Connect projection to last CY point
+                                        forecastSeries[startIdx === -1 ? 11 : startIdx] = cyPoints[startIdx === -1 ? 11 : startIdx] || 0;
 
                                         return (
                                             <div key={item.uniqueId} className="flex flex-col lg:flex-row gap-8">
                                                 <div className="flex-1 min-w-0">
-                                                    <h4 className="text-xs font-black text-gray-900 uppercase mb-6 flex items-center gap-2">
-                                                        <Activity className="w-4 h-4 text-rose-600" />
-                                                        Movement Trend & Forecast: <span className="text-rose-600">{item.description}</span>
-                                                    </h4>
+                                                    <div className="flex items-center justify-between mb-6">
+                                                        <h4 className="text-xs font-black text-gray-900 uppercase flex items-center gap-2">
+                                                            <Activity className="w-4 h-4 text-rose-600" />
+                                                            Performance Analysis: <span className="text-rose-600">{item.description}</span>
+                                                        </h4>
+                                                        <div className="flex items-center gap-4">
+                                                            <div className="flex items-center gap-1.5">
+                                                                <div className="w-2 h-2 rounded-full bg-slate-300"></div>
+                                                                <span className="text-[9px] font-bold text-gray-500 uppercase">PY {pyStartYear}-{(pyStartYear + 1).toString().slice(-2)}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-1.5">
+                                                                <div className="w-2 h-2 rounded-full bg-rose-600"></div>
+                                                                <span className="text-[9px] font-bold text-gray-500 uppercase">CY {cyStartYear}-{(cyStartYear + 1).toString().slice(-2)}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-1.5">
+                                                                <div className="w-2 h-0.5 bg-rose-400 border-t border-dashed border-rose-600"></div>
+                                                                <span className="text-[9px] font-bold text-gray-500 uppercase">3M Forecast</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
                                                     <div className="h-[280px] w-full p-2">
                                                         <SalesTrendChart
                                                             key={item.uniqueId}
-                                                            maxVal={Math.max(...salesPoints, item.projection, 1)}
+                                                            maxVal={Math.max(
+                                                                ...pyPoints.filter(v => !isNaN(v)),
+                                                                ...cyPoints.filter(v => !isNaN(v)),
+                                                                item.projection,
+                                                                1
+                                                            )}
                                                             data={{
-                                                                labels: extendedLabels,
+                                                                labels: allLabels,
                                                                 series: [
-                                                                    { name: 'Actual Sales', data: salesPoints, color: '#e11d48', active: true },
-                                                                    { name: 'Projection', data: projectionPoints, color: '#fb7185', active: true }
+                                                                    { name: `FY ${pyStartYear}-${(pyStartYear + 1).toString().slice(-2)} Sales`, data: pySeries, color: '#CBD5E1', active: true },
+                                                                    { name: `FY ${cyStartYear}-${(cyStartYear + 1).toString().slice(-2)} Sales`, data: cySeries, color: '#e11d48', active: true },
+                                                                    { name: '3-Month Projection', data: forecastSeries, color: '#fb7185', active: true, dotted: true }
                                                                 ]
                                                             }}
                                                         />
@@ -2715,7 +2774,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                     <div className="flex items-center justify-center gap-1">Make & Group {stockSortConfig?.key === 'make' && (stockSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
                                                 </th>
                                                 <th className="px-3 py-2 border border-gray-300 text-left cursor-pointer hover:bg-gray-200" onClick={() => handleStockSort('description')}>
-                                                    <div className="flex items-center gap-1">Material Description {stockSortConfig?.key === 'description' && (stockSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
+                                                    <div className="flex flex-col items-start gap-0.5">
+                                                        <div className="flex items-center gap-1">Description {stockSortConfig?.key === 'description' && (stockSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
+                                                        <span className="text-[7px] text-gray-400 font-mono tracking-widest uppercase">Part Number Index</span>
+                                                    </div>
                                                 </th>
                                                 <th className="px-3 py-2 border border-gray-300 bg-emerald-100/50 cursor-pointer hover:bg-emerald-100" onClick={() => handleStockSort('salesCY')}>
                                                     <div className="flex items-center justify-center gap-1">Qty Sold (CY) {stockSortConfig?.key === 'salesCY' && (stockSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
@@ -2764,9 +2826,12 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                     </td>
                                                     <td className="px-3 py-1.5 border border-gray-200">
                                                         <span className="font-black text-gray-700 block max-w-[250px] truncate" title={item.description}>{item.description}</span>
-                                                        <div className="flex gap-1 mt-0.5">
-                                                            <span className="px-1 py-0.2 rounded bg-gray-100 text-[7px] font-black text-gray-500 uppercase">{item.classification}</span>
-                                                            <span className="px-1 py-0.2 rounded bg-indigo-50 text-[7px] font-black text-indigo-500 uppercase">{item.strategy}</span>
+                                                        <div className="flex items-center gap-2 mt-0.5">
+                                                            <span className="text-[9px] font-black text-rose-600 font-mono tracking-tighter bg-rose-50 px-1 rounded border border-rose-100">{item.partNo || 'NO-PART-NO'}</span>
+                                                            <div className="flex gap-1">
+                                                                <span className="px-1 py-0.2 rounded bg-gray-100 text-[6.5px] font-black text-gray-500 uppercase">{item.classification}</span>
+                                                                <span className="px-1 py-0.2 rounded bg-indigo-50 text-[6.5px] font-black text-indigo-500 uppercase">{item.strategy}</span>
+                                                            </div>
                                                         </div>
                                                     </td>
                                                     <td className="px-3 py-1.5 border border-gray-200 text-right font-black text-emerald-700 bg-emerald-50/10">{item.salesCY.toLocaleString()}</td>
