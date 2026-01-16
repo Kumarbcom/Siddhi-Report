@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Material, ClosingStockItem, PendingSOItem, PendingPOItem, SalesReportItem, CustomerMasterItem, SalesRecord } from '../types';
-import { TrendingUp, TrendingDown, Package, ClipboardList, ShoppingCart, Calendar, Filter, PieChart as PieIcon, BarChart3, Users, ArrowRight, Activity, DollarSign, ArrowUpRight, ArrowDownRight, RefreshCw, UserCircle, Minus, Plus, ChevronDown, ChevronUp, Link2Off, AlertTriangle, Layers, Clock, CheckCircle2, AlertCircle, User, Factory, Tag, ArrowLeft, BarChart4, Hourglass, History, AlertOctagon, ChevronRight, ListOrdered, Table, X, ArrowUp, ArrowDown, Search, ArrowUpDown, FileText, UserPlus } from 'lucide-react';
+import { TrendingUp, TrendingDown, Package, ClipboardList, ShoppingCart, Calendar, Filter, PieChart as PieIcon, BarChart3, Users, ArrowRight, Activity, DollarSign, ArrowUpRight, ArrowDownRight, RefreshCw, UserCircle, Minus, Plus, ChevronDown, ChevronUp, Link2Off, AlertTriangle, Layers, Clock, CheckCircle2, AlertCircle, User, Factory, Tag, ArrowLeft, BarChart4, Hourglass, History, AlertOctagon, ChevronRight, ListOrdered, Table, X, ArrowUp, ArrowDown, Search, ArrowUpDown, FileText, UserPlus, PanelLeftClose } from 'lucide-react';
 import MOMView from './MOMView';
 import AttendeeMasterView from './AttendeeMasterView';
 import { momService } from '../services/momService';
@@ -887,8 +887,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
         enrichedSales.forEach(item => {
             const desc = (item.particulars || '').toLowerCase().trim();
-            const part = (item.partNo || '').toLowerCase().trim();
-            const target = materialMap.get(part) || materialMap.get(desc);
+            const target = materialMap.get(desc);
 
             if (target) {
                 const itemDate = parseDate(item.date);
@@ -1031,7 +1030,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             data.sort((a, b) => b.salesCY - a.salesCY);
         }
         return data;
-    }, [stockPlanningData, stockSlicers, stockSearchTerm, stockSortConfig]);
+    }, [stockPlanningData, stockSlicers, stockSearchTerm, stockSortConfig, stockQuickFilter]);
 
     const handleStockSort = (key: string) => {
         setStockSortConfig(prev => {
