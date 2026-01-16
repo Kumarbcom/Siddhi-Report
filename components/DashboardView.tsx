@@ -943,10 +943,19 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             const netQty = m.stock + m.poDue + m.poSched - (m.soDue + m.soSched);
 
             // Inventory Levels
-            const safetyStock = Math.ceil(avgMonthly * 1.2);
-            const minStock = safetyStock;
-            const rol = Math.ceil(safetyStock + (avgMonthly * 0.5));
-            const maxStock = Math.ceil(rol + (avgMonthly * 1.5));
+            let safetyStock = Math.ceil(avgMonthly * 1.2);
+            let minStock = safetyStock;
+            let rol = Math.ceil(safetyStock + (avgMonthly * 0.5));
+            let maxStock = Math.ceil(rol + (avgMonthly * 1.5));
+
+            // User request: For Non moving or Against order, no need to plan additional (buffer) stock.
+            // Requirement is strictly based on Sales Orders (SO - (Stock + PO)).
+            if (movementClass === 'NON-MOVING' || m.strategy === 'AGAINST ORDER' || m.strategy === 'MADE TO ORDER') {
+                safetyStock = 0;
+                minStock = 0;
+                rol = 0;
+                maxStock = 0;
+            }
 
             return {
                 ...m,

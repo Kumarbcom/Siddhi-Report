@@ -264,8 +264,14 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
             const growthPct = avg1yQty > 0 ? (diffQty / avg1yQty) * 100 : 0;
 
             // Stock Norms Logic
-            // Only apply norms if Material Group is in the allowed list
+            // Only apply norms if Material Group is in the allowed list AND it's a moving item with enough volume
             const isPlannedStock = PLANNED_STOCK_GROUPS.has(normalizedGroup.toLowerCase());
+            const totalYearlyQty = avg1yQty * 12;
+
+            // Strategy classification for Pivot Report
+            let strategy = 'MADE TO ORDER';
+            if (totalYearlyQty >= 500) strategy = 'GENERAL STOCK';
+            else if (totalYearlyQty > 0) strategy = 'AGAINST ORDER';
 
             let minStock = 0;
             let minStockVal = 0;
@@ -274,7 +280,8 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
             let maxStock = 0;
             let maxStockVal = 0;
 
-            if (isPlannedStock) {
+            // Apply norms only for GENERAL STOCK strategy items within planned groups
+            if (isPlannedStock && strategy === 'GENERAL STOCK') {
                 // Rules: 
                 // 1. Min/Reorder/Max Qty -> Round Up to nearest 10
                 // 2. Min/Reorder/Max Val -> Use Sales Rate (rate1y) to determine value

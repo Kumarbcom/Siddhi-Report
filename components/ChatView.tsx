@@ -144,6 +144,12 @@ const ChatView: React.FC<ChatViewProps> = ({
       .join('\n');
 
     return `You are an intelligent data analyst for Siddhi Kabel Corp. 
+    CURRENT BUSINESS RULES for Stock Planning:
+    1. Categories: FAST RUNNER (9+ active months), SLOW RUNNER (3+), NON-MOVING (new/stale).
+    2. Strategy: GENERAL STOCK (Planned buffer), AGAINST ORDER / MADE TO ORDER (Order-specific).
+    3. PLANNING RULE: For NON-MOVING, AGAINST ORDER, or MADE TO ORDER items, additional buffer qty is ZERO. 
+       The PO Need (Requirement) for these items is strictly: SO - (Stock + Pending PO).
+    
     HISTORICAL SALES TREND (Last 3 FYs):
     ${fiscalYearSummary || 'No aggregate data available'}
 
