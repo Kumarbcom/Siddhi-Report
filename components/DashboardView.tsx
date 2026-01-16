@@ -2556,58 +2556,71 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                     </div>
                                     <div className="flex-1 min-h-0">
                                         {(() => {
-                                            const today = new Date();
-                                            const currentFYInfo = getFiscalInfo(today);
-                                            const [cyStartYear] = currentFYInfo.fiscalYear.split('-').map(Number);
-                                            const pyStartYear = cyStartYear - 1;
-                                            const fiscalMonthOffsets = [3, 4, 5, 6, 7, 8, 9, 10, 11, 0, 1, 2];
-                                            const monthNames = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'];
+                                            try {
+                                                const today = new Date();
+                                                const currentFYInfo = getFiscalInfo(today);
+                                                const [cyStartYear] = currentFYInfo.fiscalYear.split('-').map(Number);
+                                                const pyStartYear = cyStartYear - 1;
+                                                const fiscalMonthOffsets = [3, 4, 5, 6, 7, 8, 9, 10, 11, 0, 1, 2];
+                                                const monthNames = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'];
 
-                                            const aggregatedPY = new Array(12).fill(0);
-                                            const aggregatedCY = new Array(12).fill(0);
-                                            let totalProj = 0;
+                                                const aggregatedPY = new Array(12).fill(0);
+                                                const aggregatedCY = new Array(12).fill(0);
+                                                const cyIsFuture = new Array(12).fill(false);
+                                                let totalProj = 0;
 
-                                            filteredStockPlanning.forEach(item => {
-                                                fiscalMonthOffsets.forEach((mIdx, i) => {
-                                                    const pyYear = mIdx >= 3 ? pyStartYear : pyStartYear + 1;
-                                                    const cyYear = mIdx >= 3 ? cyStartYear : cyStartYear + 1;
-                                                    aggregatedPY[i] += (item.monthlySales.get(`${pyYear}-${mIdx + 1}`) || 0);
+                                                filteredStockPlanning.forEach(item => {
+                                                    fiscalMonthOffsets.forEach((mIdx, i) => {
+                                                        const pyYear = mIdx >= 3 ? pyStartYear : pyStartYear + 1;
+                                                        const cyYear = mIdx >= 3 ? cyStartYear : cyStartYear + 1;
 
-                                                    const pointDate = new Date(cyYear, mIdx, 1);
-                                                    if (pointDate <= today) {
-                                                        aggregatedCY[i] += (item.monthlySales.get(`${cyYear}-${mIdx + 1}`) || 0);
-                                                    } else {
-                                                        aggregatedCY[i] = NaN; // Handled later
-                                                    }
+                                                        aggregatedPY[i] += (item.monthlySales?.get?.(`${pyYear}-${mIdx + 1}`) || 0);
+
+                                                        const pointDate = new Date(cyYear, mIdx, 1);
+                                                        if (pointDate <= today) {
+                                                            aggregatedCY[i] += (item.monthlySales?.get?.(`${cyYear}-${mIdx + 1}`) || 0);
+                                                        } else {
+                                                            cyIsFuture[i] = true;
+                                                        }
+                                                    });
+                                                    totalProj += item.projection || 0;
                                                 });
-                                                totalProj += item.projection;
-                                            });
 
-                                            // Re-clean CY NaNs for chart
-                                            const cleanedCY = aggregatedCY.map((v, i) => {
-                                                const mIdx = fiscalMonthOffsets[i];
-                                                const year = mIdx >= 3 ? cyStartYear : cyStartYear + 1;
-                                                return new Date(year, mIdx, 1) > today ? NaN : v;
-                                            });
+                                                const cleanedCY = aggregatedCY.map((v, i) => cyIsFuture[i] ? NaN : v);
+                                                const lastValidIdx = cleanedCY.findLastIndex(v => !isNaN(v));
 
-                                            const lastIdx = cleanedCY.findIndex(v => isNaN(v)) - 1;
-                                            const forecast = [totalProj, totalProj, totalProj];
-                                            const fullForecast = [...new Array(12).fill(NaN), ...forecast];
-                                            fullForecast[lastIdx >= 0 ? lastIdx : 0] = cleanedCY[lastIdx >= 0 ? lastIdx : 0] || 0;
+                                                const forecastSeries = new Array(15).fill(NaN);
+                                                if (lastValidIdx !== -1) {
+                                                    forecastSeries[lastValidIdx] = cleanedCY[lastValidIdx];
+                                                    forecastSeries[12] = totalProj;
+                                                    forecastSeries[13] = totalProj;
+                                                    forecastSeries[14] = totalProj;
+                                                }
 
-                                            return (
-                                                <SalesTrendChart
-                                                    maxVal={Math.max(...aggregatedPY, ...cleanedCY.filter(v => !isNaN(v)), totalProj, 1)}
-                                                    data={{
-                                                        labels: [...monthNames, '+1M', '+2M', '+3M'],
-                                                        series: [
-                                                            { name: 'Prev Year', data: [...aggregatedPY, NaN, NaN, NaN], color: '#CBD5E1', active: true },
-                                                            { name: 'Curr Year', data: [...cleanedCY, NaN, NaN, NaN], color: '#e11d48', active: true },
-                                                            { name: '3M Forecast', data: fullForecast, color: '#fb7185', active: true, dotted: true }
-                                                        ]
-                                                    }}
-                                                />
-                                            );
+                                                const maxV = Math.max(
+                                                    ...aggregatedPY.filter(v => !isNaN(v)),
+                                                    ...cleanedCY.filter(v => !isNaN(v)),
+                                                    totalProj,
+                                                    1
+                                                );
+
+                                                return (
+                                                    <SalesTrendChart
+                                                        maxVal={isNaN(maxV) ? 1 : maxV}
+                                                        data={{
+                                                            labels: [...monthNames, '+1M', '+2M', '+3M'],
+                                                            series: [
+                                                                { name: 'Prev Year', data: [...aggregatedPY, NaN, NaN, NaN], color: '#CBD5E1', active: true },
+                                                                { name: 'Curr Year', data: [...cleanedCY, NaN, NaN, NaN], color: '#e11d48', active: true },
+                                                                { name: '3M Forecast', data: forecastSeries, color: '#fb7185', active: true, dotted: true }
+                                                            ]
+                                                        }}
+                                                    />
+                                                );
+                                            } catch (err) {
+                                                console.error("Summary Chart Error:", err);
+                                                return <div className="h-full flex items-center justify-center text-[10px] text-gray-400 font-bold uppercase">Preparing Graphical Insights...</div>;
+                                            }
                                         })()}
                                     </div>
                                 </div>
@@ -2659,11 +2672,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                 <div className="flex justify-between items-center bg-gray-50/50 p-4 rounded-2xl border border-gray-100">
                                     <div className="flex items-center gap-4">
                                         <div className="bg-rose-600 p-2.5 rounded-xl text-white shadow-lg shadow-rose-200">
-                                            <Layers className="w-5 h-5" />
+                                            <Search className="w-5 h-5" />
                                         </div>
                                         <div>
-                                            <h3 className="text-sm font-black text-gray-800 uppercase leading-none mb-1">Advanced Stock Planning</h3>
-                                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest leading-none">Inventory Health & Sales Projections</p>
+                                            <h3 className="text-sm font-black text-gray-800 uppercase leading-none mb-1">Material Intelligence Filters</h3>
+                                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest leading-none">Refine Selection & Search by Part No</p>
                                         </div>
                                     </div>
 
@@ -2816,12 +2829,15 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                     <div className="h-[280px] w-full p-2">
                                                         <SalesTrendChart
                                                             key={item.uniqueId}
-                                                            maxVal={Math.max(
-                                                                ...pyPoints.filter(v => !isNaN(v)),
-                                                                ...cyPoints.filter(v => !isNaN(v)),
-                                                                item.projection,
-                                                                1
-                                                            )}
+                                                            maxVal={(() => {
+                                                                const v = Math.max(
+                                                                    ...pyPoints.filter(v => !isNaN(v)),
+                                                                    ...cyPoints.filter(v => !isNaN(v)),
+                                                                    item.projection,
+                                                                    1
+                                                                );
+                                                                return isNaN(v) ? 1 : v;
+                                                            })()}
                                                             data={{
                                                                 labels: allLabels,
                                                                 series: [
