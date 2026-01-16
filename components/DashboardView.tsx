@@ -716,15 +716,16 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         if (selectedMatGroup !== 'ALL') data = data.filter(i => i.matGroup === selectedMatGroup);
         return data;
     }, [selectedFY, timeView, selectedMonth, selectedWeek, enrichedSales, selectedMake, selectedMatGroup]);
-
     const yoyData = useMemo(() => {
         if (!selectedFY) return [];
         const parts = selectedFY.split('-');
         const pyStart = parseInt(parts[0]) - 1;
-        const pyString = `${pyStart}-${pyStart + 1}`;
+        const pyEnd = parseInt(parts[1]) - 1;
+        const pyString = `${pyStart}-${pyEnd.toString().padStart(2, '0')}`;
 
         let data = enrichedSales.filter(i => i.fiscalYear === pyString);
-        console.log(`YoY Debug - Looking for FY: ${pyString}, Found ${data.length} records`);
+        console.log(`YoY Debug - Current FY: ${selectedFY}, Looking for Previous FY: ${pyString}, Found ${data.length} records`);
+        console.log(`YoY Debug - Available FYs in data:`, Array.from(new Set(enrichedSales.map(i => i.fiscalYear))).sort());
 
         if (timeView === 'MONTH') {
             data = data.filter(i => i.fiscalMonthIndex === selectedMonth);
