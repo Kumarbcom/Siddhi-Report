@@ -98,9 +98,11 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
     // Sorting State
     const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
 
-    // Hardcode the FYs for the report
-    const FY_2526 = "2025-26";
-    const FY_2425 = "2024-25";
+    // Dynamically determine FYs for the report
+    const currentFY = getFY(new Date());
+    const [cyStartYear] = currentFY.split('-').map(Number);
+    const FY_CY = currentFY;
+    const FY_PY = `${cyStartYear - 1}-${cyStartYear.toString().slice(-2)}`;
 
     const analyticsData = useMemo(() => {
         const materialMap = new Map<string, any>();
@@ -122,8 +124,8 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
                 distinctCustomers: new Set(),
                 hasProjectOrders: false,
                 fyData: {
-                    [FY_2526]: { qty: 0, projectQty: 0, customers: new Set(), months: new Set(), monthlyCust: new Map(), totalRawQty: 0 },
-                    [FY_2425]: { qty: 0, projectQty: 0, customers: new Set(), months: new Set(), monthlyCust: new Map(), totalRawQty: 0 }
+                    [FY_CY]: { qty: 0, projectQty: 0, customers: new Set(), months: new Set(), monthlyCust: new Map(), totalRawQty: 0 },
+                    [FY_PY]: { qty: 0, projectQty: 0, customers: new Set(), months: new Set(), monthlyCust: new Map(), totalRawQty: 0 }
                 }
             };
 
@@ -166,10 +168,36 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
         // Use a unique set of entries from our map to avoid double-processing (since we mapped by both partNo and desc)
         const uniqueMaterials = Array.from(new Set(materialMap.values()));
 
+        console.log('=== SC ANALYTICS DEBUG ===');
+        console.log('Total sales items:', salesReportItems.length);
+        console.log('Total materials in map:', materialMap.size);
+        console.log('Unique materials:', uniqueMaterials.length);
+
+        // Sample a few sales items to check date parsing and FY
+        if (salesReportItems.length > 0) {
+            const sample = salesReportItems.slice(0, 3);
+            console.log('Sample sales items:');
+            sample.forEach(item => {
+                const fy = getFY(item.date);
+                const key = (item.particulars || '').trim().toLowerCase();
+                const matched = materialMap.has(key);
+                console.log({
+                    date: item.date,
+                    fy: fy,
+                    particulars: item.particulars,
+                    key: key.substring(0, 30),
+                    matched: matched,
+                    qty: item.quantity
+                });
+            });
+        }
+
+        let matchedCount = 0;
         salesReportItems.forEach(item => {
             const key = (item.particulars || '').trim().toLowerCase();
             const m = materialMap.get(key);
             if (m) {
+                matchedCount++;
                 const fy = getFY(item.date);
                 if (m.fyData[fy]) {
                     m.fyData[fy].totalRawQty += (item.quantity || 0);
@@ -177,6 +205,9 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
                 m.sales.push(item);
             }
         });
+
+        console.log('Sales matched to materials:', matchedCount, 'out of', salesReportItems.length);
+        console.log('=== END DEBUG ===');
 
         // Pass 2: Categorize sales into Regular or Project
         uniqueMaterials.forEach(m => {
@@ -213,11 +244,11 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
         // Calculate total regular quantity for Pareto (Top 30%)
         let totalRegularQty = 0;
         uniqueMaterials.forEach(m => {
-            totalRegularQty += (m.fyData[FY_2526].qty + m.fyData[FY_2425].qty);
+            totalRegularQty += (m.fyData[FY_CY].qty + m.fyData[FY_PY].qty);
         });
 
         const sortedByQty = [...uniqueMaterials]
-            .map(m => ({ id: m.description, qty: m.fyData[FY_2526].qty + m.fyData[FY_2425].qty }))
+            .map(m => ({ id: m.description, qty: m.fyData[FY_CY].qty + m.fyData[FY_PY].qty }))
             .sort((a, b) => b.qty - a.qty);
 
         let cumulativeQty = 0;
@@ -275,21 +306,21 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
                 lastSaleDate,
                 netQty: m.stock + m.po - m.so,
                 metrics: {
-                    [FY_2526]: {
-                        activeMonths: m.fyData[FY_2526].months.size,
-                        totalCust: m.fyData[FY_2526].customers.size,
-                        avgCust: calculateAvgMonthlyCust(FY_2526),
-                        totalQty: m.fyData[FY_2526].qty,
-                        projectQty: m.fyData[FY_2526].projectQty,
-                        avgQty: m.fyData[FY_2526].months.size > 0 ? m.fyData[FY_2526].qty / m.fyData[FY_2526].months.size : 0
+                    [FY_CY]: {
+                        activeMonths: m.fyData[FY_CY].months.size,
+                        totalCust: m.fyData[FY_CY].customers.size,
+                        avgCust: calculateAvgMonthlyCust(FY_CY),
+                        totalQty: m.fyData[FY_CY].qty,
+                        projectQty: m.fyData[FY_CY].projectQty,
+                        avgQty: m.fyData[FY_CY].months.size > 0 ? m.fyData[FY_CY].qty / m.fyData[FY_CY].months.size : 0
                     },
-                    [FY_2425]: {
-                        activeMonths: m.fyData[FY_2425].months.size,
-                        totalCust: m.fyData[FY_2425].customers.size,
-                        avgCust: calculateAvgMonthlyCust(FY_2425),
-                        totalQty: m.fyData[FY_2425].qty,
-                        projectQty: m.fyData[FY_2425].projectQty,
-                        avgQty: m.fyData[FY_2425].months.size > 0 ? m.fyData[FY_2425].qty / m.fyData[FY_2425].months.size : 0
+                    [FY_PY]: {
+                        activeMonths: m.fyData[FY_PY].months.size,
+                        totalCust: m.fyData[FY_PY].customers.size,
+                        avgCust: calculateAvgMonthlyCust(FY_PY),
+                        totalQty: m.fyData[FY_PY].qty,
+                        projectQty: m.fyData[FY_PY].projectQty,
+                        avgQty: m.fyData[FY_PY].months.size > 0 ? m.fyData[FY_PY].qty / m.fyData[FY_PY].months.size : 0
                     }
                 }
             };
@@ -359,12 +390,12 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
             "Strategy": d.stockStrategy,
             "Class": d.movementClass,
             "Project Order": d.hasProjectOrders ? "YES" : "NO",
-            "Active Mos (25-26)": d.metrics[FY_2526].activeMonths,
-            "Cust Count (25-26)": d.metrics[FY_2526].totalCust,
-            "Avg Cust (25-26)": d.metrics[FY_2526].avgCust.toFixed(2),
-            "Reg Qty Sold (25-26)": d.metrics[FY_2526].totalQty,
-            "Proj Qty Sold (25-26)": d.metrics[FY_2526].projectQty,
-            "Avg Qty (25-26)": d.metrics[FY_2526].avgQty.toFixed(2)
+            [`Active Mos (${FY_CY})`]: d.metrics[FY_CY].activeMonths,
+            [`Cust Count (${FY_CY})`]: d.metrics[FY_CY].totalCust,
+            [`Avg Cust (${FY_CY})`]: d.metrics[FY_CY].avgCust.toFixed(2),
+            [`Reg Qty Sold (${FY_CY})`]: d.metrics[FY_CY].totalQty,
+            [`Proj Qty Sold (${FY_CY})`]: d.metrics[FY_CY].projectQty,
+            [`Avg Qty (${FY_CY})`]: d.metrics[FY_CY].avgQty.toFixed(2)
         }));
         const ws = utils.json_to_sheet(exportData);
         const wb = utils.book_new();
@@ -498,20 +529,20 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
                         <tr className="text-[9px] font-bold text-gray-600 uppercase">
                             {visibleColumns.activeMonths && (
                                 <>
-                                    <th className="border border-gray-300 px-2 py-1 bg-blue-50/50 text-center">{FY_2526}</th>
-                                    <th className="border border-gray-300 px-2 py-1 bg-blue-50/50 text-center">{FY_2425}</th>
+                                    <th className="border border-gray-300 px-2 py-1 bg-blue-50/50 text-center">{FY_CY}</th>
+                                    <th className="border border-gray-300 px-2 py-1 bg-blue-50/50 text-center">{FY_PY}</th>
                                 </>
                             )}
                             {visibleColumns.customerCount && (
                                 <>
-                                    <th colSpan={2} className="border border-gray-300 px-2 py-1 bg-green-50/50 text-center">{FY_2526}</th>
-                                    <th colSpan={2} className="border border-gray-300 px-2 py-1 bg-green-50/50 text-center">{FY_2425}</th>
+                                    <th colSpan={2} className="border border-gray-300 px-2 py-1 bg-green-50/50 text-center">{FY_CY}</th>
+                                    <th colSpan={2} className="border border-gray-300 px-2 py-1 bg-green-50/50 text-center">{FY_PY}</th>
                                 </>
                             )}
                             {visibleColumns.qtySold && (
                                 <>
-                                    <th colSpan={3} className="border border-gray-300 px-2 py-1 bg-orange-50/50 text-center">{FY_2526}</th>
-                                    <th colSpan={3} className="border border-gray-300 px-2 py-1 bg-orange-50/50 text-center">{FY_2425}</th>
+                                    <th colSpan={3} className="border border-gray-300 px-2 py-1 bg-orange-50/50 text-center">{FY_CY}</th>
+                                    <th colSpan={3} className="border border-gray-300 px-2 py-1 bg-orange-50/50 text-center">{FY_PY}</th>
                                 </>
                             )}
                         </tr>
@@ -519,29 +550,29 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
                         <tr className="text-[8px] font-black text-gray-400 uppercase text-center">
                             {visibleColumns.activeMonths && (
                                 <>
-                                    <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer" onClick={() => handleSort(`metrics.${FY_2526}.activeMonths`)}>Months {renderSortIcon(`metrics.${FY_2526}.activeMonths`)}</th>
-                                    <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer" onClick={() => handleSort(`metrics.${FY_2425}.activeMonths`)}>Months {renderSortIcon(`metrics.${FY_2425}.activeMonths`)}</th>
+                                    <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer" onClick={() => handleSort(`metrics.${FY_CY}.activeMonths`)}>Months {renderSortIcon(`metrics.${FY_CY}.activeMonths`)}</th>
+                                    <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer" onClick={() => handleSort(`metrics.${FY_PY}.activeMonths`)}>Months {renderSortIcon(`metrics.${FY_PY}.activeMonths`)}</th>
                                 </>
                             )}
                             {visibleColumns.customerCount && (
                                 <>
-                                    <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-green-50/30" onClick={() => handleSort(`metrics.${FY_2526}.totalCust`)}>Total Count</th>
-                                    <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-green-50/30" onClick={() => handleSort(`metrics.${FY_2526}.avgCust`)}>Avg / Month</th>
+                                    <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-green-50/30" onClick={() => handleSort(`metrics.${FY_CY}.totalCust`)}>Total Count</th>
+                                    <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-green-50/30" onClick={() => handleSort(`metrics.${FY_CY}.avgCust`)}>Avg / Month</th>
 
-                                    <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-green-50/30" onClick={() => handleSort(`metrics.${FY_2425}.totalCust`)}>Total Count</th>
-                                    <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-green-50/30" onClick={() => handleSort(`metrics.${FY_2425}.avgCust`)}>Avg / Month</th>
+                                    <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-green-50/30" onClick={() => handleSort(`metrics.${FY_PY}.totalCust`)}>Total Count</th>
+                                    <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-green-50/30" onClick={() => handleSort(`metrics.${FY_PY}.avgCust`)}>Avg / Month</th>
                                 </>
                             )}
 
                             {visibleColumns.qtySold && (
                                 <>
-                                    <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-orange-50/30" onClick={() => handleSort(`metrics.${FY_2526}.totalQty`)}>Reg Qty</th>
-                                    <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-orange-50/30 text-purple-700" onClick={() => handleSort(`metrics.${FY_2526}.projectQty`)}>Proj Qty</th>
-                                    <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-orange-50/30" onClick={() => handleSort(`metrics.${FY_2526}.avgQty`)}>Avg / Mo</th>
+                                    <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-orange-50/30" onClick={() => handleSort(`metrics.${FY_CY}.totalQty`)}>Reg Qty</th>
+                                    <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-orange-50/30 text-purple-700" onClick={() => handleSort(`metrics.${FY_CY}.projectQty`)}>Proj Qty</th>
+                                    <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-orange-50/30" onClick={() => handleSort(`metrics.${FY_CY}.avgQty`)}>Avg / Mo</th>
 
-                                    <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-orange-50/30" onClick={() => handleSort(`metrics.${FY_2425}.totalQty`)}>Reg Qty</th>
-                                    <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-orange-50/30 text-purple-700" onClick={() => handleSort(`metrics.${FY_2425}.projectQty`)}>Proj Qty</th>
-                                    <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-orange-50/30" onClick={() => handleSort(`metrics.${FY_2425}.avgQty`)}>Avg / Mo</th>
+                                    <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-orange-50/30" onClick={() => handleSort(`metrics.${FY_PY}.totalQty`)}>Reg Qty</th>
+                                    <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-orange-50/30 text-purple-700" onClick={() => handleSort(`metrics.${FY_PY}.projectQty`)}>Proj Qty</th>
+                                    <th className="border border-gray-300 px-2 py-1 select-none cursor-pointer bg-orange-50/30" onClick={() => handleSort(`metrics.${FY_PY}.avgQty`)}>Avg / Mo</th>
                                 </>
                             )}
                         </tr>
@@ -590,31 +621,31 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
                                 {/* Active Months */}
                                 {visibleColumns.activeMonths && (
                                     <>
-                                        <td className="border border-gray-200 px-2 py-1 text-center font-bold text-blue-700 bg-blue-50/10">{item.metrics[FY_2526].activeMonths}</td>
-                                        <td className="border border-gray-200 px-2 py-1 text-center font-bold text-blue-700 bg-blue-50/10">{item.metrics[FY_2425].activeMonths}</td>
+                                        <td className="border border-gray-200 px-2 py-1 text-center font-bold text-blue-700 bg-blue-50/10">{item.metrics[FY_CY].activeMonths}</td>
+                                        <td className="border border-gray-200 px-2 py-1 text-center font-bold text-blue-700 bg-blue-50/10">{item.metrics[FY_PY].activeMonths}</td>
                                     </>
                                 )}
 
                                 {/* Customer Count */}
                                 {visibleColumns.customerCount && (
                                     <>
-                                        <td className="border border-gray-200 px-2 py-1 text-center font-black text-green-700 bg-green-50/10">{item.metrics[FY_2526].totalCust}</td>
-                                        <td className="border border-gray-200 px-2 py-1 text-center font-mono text-gray-500 bg-green-50/10">{item.metrics[FY_2526].avgCust.toFixed(1)}</td>
-                                        <td className="border border-gray-200 px-2 py-1 text-center font-black text-green-700 bg-green-50/10">{item.metrics[FY_2425].totalCust}</td>
-                                        <td className="border border-gray-200 px-2 py-1 text-center font-mono text-gray-500 bg-green-50/10">{item.metrics[FY_2425].avgCust.toFixed(1)}</td>
+                                        <td className="border border-gray-200 px-2 py-1 text-center font-black text-green-700 bg-green-50/10">{item.metrics[FY_CY].totalCust}</td>
+                                        <td className="border border-gray-200 px-2 py-1 text-center font-mono text-gray-500 bg-green-50/10">{item.metrics[FY_CY].avgCust.toFixed(1)}</td>
+                                        <td className="border border-gray-200 px-2 py-1 text-center font-black text-green-700 bg-green-50/10">{item.metrics[FY_PY].totalCust}</td>
+                                        <td className="border border-gray-200 px-2 py-1 text-center font-mono text-gray-500 bg-green-50/10">{item.metrics[FY_PY].avgCust.toFixed(1)}</td>
                                     </>
                                 )}
 
                                 {/* Qty Sold */}
                                 {visibleColumns.qtySold && (
                                     <>
-                                        <td className="border border-gray-200 px-2 py-1 text-center font-black text-orange-700 bg-orange-50/10">{item.metrics[FY_2526].totalQty}</td>
-                                        <td className="border border-gray-200 px-2 py-1 text-center font-black text-purple-700 bg-purple-50/20">{item.metrics[FY_2526].projectQty || 0}</td>
-                                        <td className="border border-gray-200 px-2 py-1 text-center font-mono text-gray-500 bg-orange-50/10">{item.metrics[FY_2526].avgQty.toFixed(1)}</td>
+                                        <td className="border border-gray-200 px-2 py-1 text-center font-black text-orange-700 bg-orange-50/10">{item.metrics[FY_CY].totalQty}</td>
+                                        <td className="border border-gray-200 px-2 py-1 text-center font-black text-purple-700 bg-purple-50/20">{item.metrics[FY_CY].projectQty || 0}</td>
+                                        <td className="border border-gray-200 px-2 py-1 text-center font-mono text-gray-500 bg-orange-50/10">{item.metrics[FY_CY].avgQty.toFixed(1)}</td>
 
-                                        <td className="border border-gray-200 px-2 py-1 text-center font-black text-orange-700 bg-orange-50/10">{item.metrics[FY_2425].totalQty}</td>
-                                        <td className="border border-gray-200 px-2 py-1 text-center font-black text-purple-700 bg-purple-50/20">{item.metrics[FY_2425].projectQty || 0}</td>
-                                        <td className="border border-gray-200 px-2 py-1 text-center font-mono text-gray-500 bg-orange-50/10">{item.metrics[FY_2425].avgQty.toFixed(1)}</td>
+                                        <td className="border border-gray-200 px-2 py-1 text-center font-black text-orange-700 bg-orange-50/10">{item.metrics[FY_PY].totalQty}</td>
+                                        <td className="border border-gray-200 px-2 py-1 text-center font-black text-purple-700 bg-purple-50/20">{item.metrics[FY_PY].projectQty || 0}</td>
+                                        <td className="border border-gray-200 px-2 py-1 text-center font-mono text-gray-500 bg-orange-50/10">{item.metrics[FY_PY].avgQty.toFixed(1)}</td>
                                     </>
                                 )}
                             </tr>

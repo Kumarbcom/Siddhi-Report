@@ -520,7 +520,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         const month = date.getMonth();
         const year = date.getFullYear();
         const startYear = month >= 3 ? year : year - 1;
-        const fiscalYear = `${startYear}-${startYear + 1}`;
+        const fiscalYear = `${startYear}-${(startYear + 1).toString().slice(-2)}`;
         const fiscalMonthIndex = month >= 3 ? month - 3 : month + 9;
 
         // Define weeks starting on Thursday and ending on Wednesday
@@ -797,6 +797,12 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     }, [currentData, previousDataForComparison, yoyData, timeView]);
 
     const stockPlanningData = useMemo(() => {
+        const today = new Date();
+        const currentFiscalInfo = getFiscalInfo(today);
+        const currentFY = currentFiscalInfo.fiscalYear;
+        const currentYearStart = parseInt(currentFY.split('-')[0]);
+        const previousFY = `${currentYearStart - 1}-${currentYearStart.toString().slice(-2)}`;
+
         const materialMap = new Map<string, any>();
 
         // 1. Initialize with Materials
@@ -875,11 +881,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 const itemDate = parseDate(item.date);
                 const isProject = desc.includes('project') || (item.customerName || '').toLowerCase().includes('project');
 
-                if (item.fiscalYear === '2025-26') {
+                if (item.fiscalYear === currentFY) {
                     m.salesCY += (item.quantity || 0);
                     if (!isProject) m.regSalesCY += (item.quantity || 0);
                 }
-                if (item.fiscalYear === '2024-25') {
+                if (item.fiscalYear === previousFY) {
                     m.salesPY += (item.quantity || 0);
                     if (!isProject) m.regSalesPY += (item.quantity || 0);
                 }
@@ -1386,9 +1392,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         }
 
         const currentSeries = getSeries(selectedFY, i => (timeView === 'FY' || (timeView === 'MONTH' && i.fiscalMonthIndex === selectedMonth) || (timeView === 'WEEK' && i.weekNumber === selectedWeek)));
-        const prevFY = `${startYear - 1}-${startYear}`;
+        const prevFY = `${startYear - 1}-${startYear.toString().slice(-2)}`;
         const prevSeries = getSeries(prevFY, i => (timeView === 'FY' || (timeView === 'MONTH' && i.fiscalMonthIndex === selectedMonth) || (timeView === 'WEEK' && i.weekNumber === selectedWeek)));
-        const ppyFY = `${startYear - 2}-${startYear - 1}`;
+        const ppyFY = `${startYear - 2}-${(startYear - 1).toString().slice(-2)}`;
         const ppySeries = getSeries(ppyFY, i => (timeView === 'FY' || (timeView === 'MONTH' && i.fiscalMonthIndex === selectedMonth) || (timeView === 'WEEK' && i.weekNumber === selectedWeek)));
 
         return {

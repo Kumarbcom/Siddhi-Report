@@ -82,7 +82,7 @@ const ChatView: React.FC<ChatViewProps> = ({
         const month = dateObj.getMonth();
         const year = dateObj.getFullYear();
         const startYear = month >= 3 ? year : year - 1;
-        const fy = `${startYear}-${startYear + 1}`;
+        const fy = `${startYear}-${(startYear + 1).toString().slice(-2)}`;
         fyTotals[fy] = (fyTotals[fy] || 0) + (item.value || 0);
       }
     });

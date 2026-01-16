@@ -158,7 +158,7 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
         const month = date.getMonth();
         const year = date.getFullYear();
         const startYear = month >= 3 ? year : year - 1;
-        const fiscalYear = `${startYear}-${startYear + 1}`;
+        const fiscalYear = `${startYear}-${(startYear + 1).toString().slice(-2)}`;
         const fiscalMonthIndex = month >= 3 ? month - 3 : month + 9;
 
         const fyStart = new Date(startYear, 3, 1);
