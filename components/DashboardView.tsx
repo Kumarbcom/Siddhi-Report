@@ -793,6 +793,12 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         const yoyVouchers = new Set(yoyData.map(i => String(i.voucherNo || ''))).size;
         const yoyAvgOrder = yoyVouchers ? yoyVal / yoyVouchers : 0;
 
+        console.log('KPIs Calculation:', {
+            currVal, currQty, uniqueCusts, avgOrder,
+            prevVal, prevQty, prevCusts, prevAvgOrder,
+            yoyVal, yoyQty, yoyCusts, yoyAvgOrder
+        });
+
         return {
             currVal, currQty, uniqueCusts, avgOrder,
             prevVal, prevQty, prevCusts, prevAvgOrder,
