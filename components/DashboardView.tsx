@@ -2609,7 +2609,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                 });
 
                                                 const cleanedCY = aggregatedCY.map((v, i) => cyIsFuture[i] ? NaN : v);
-                                                const lastValidIdx = cleanedCY.findLastIndex(v => !isNaN(v));
+                                                const lastValidIdx = cleanedCY.map((v, i) => isNaN(v) ? -1 : i).reduce((acc, curr) => Math.max(acc, curr), -1);
 
                                                 const forecastSeries = new Array(15).fill(NaN);
                                                 if (lastValidIdx !== -1) {
