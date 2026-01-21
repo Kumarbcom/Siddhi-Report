@@ -1803,12 +1803,12 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             )}
 
             <div className="bg-white border-b border-gray-200 px-4 py-3 flex flex-col lg:flex-row gap-4 items-center justify-between flex-shrink-0 shadow-sm z-10 sticky top-0 bg-white/90 backdrop-blur-md">
-                <div className="flex bg-gray-200/50 backdrop-blur-sm p-1.5 rounded-xl border border-gray-200 shadow-inner overflow-hidden">
+                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-1 bg-gray-100/80 p-1 rounded-xl border border-gray-200 shadow-inner w-full xl:flex-1">
                     {(['sales', 'inventory', 'so', 'po', 'weekly', 'customer'] as const).map(tab => (
                         <button
                             key={tab}
                             onClick={() => setActiveSubTab(tab)}
-                            className={`px-5 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all duration-500 ease-out transform active:scale-95 ${activeSubTab === tab ? 'bg-white text-indigo-700 shadow-[0_8px_16px_rgba(0,0,0,0.12)] scale-[1.02] translate-y-0' : 'text-gray-500 hover:text-indigo-600 hover:bg-white/40 hover:-translate-y-0.5'}`}
+                            className={`w-full py-2.5 rounded-lg text-[10px] xl:text-xs font-black uppercase tracking-wider transition-all duration-300 transform active:scale-95 flex items-center justify-center ${activeSubTab === tab ? 'bg-white text-indigo-700 shadow-sm scale-[1.02]' : 'text-gray-500 hover:text-indigo-600 hover:bg-white/40'}`}
                         >
                             {tab === 'so' ? 'Pending SO' : tab === 'po' ? 'Pending PO' : tab === 'weekly' ? 'Weekly Report' : tab === 'customer' ? 'Customer Analysis' : tab}
                         </button>
