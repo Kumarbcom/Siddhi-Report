@@ -596,6 +596,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     const [stockQuickFilter, setStockQuickFilter] = useState<'ALL' | 'SHORTAGE' | 'REFILL'>('ALL');
     const [stockSortConfig, setStockSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>({ key: 'salesCY', direction: 'desc' });
 
+    // Customer Analysis Table State
+    const [custSearchTerm, setCustSearchTerm] = useState('');
+    const [custSortConfig, setCustSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' }>({ key: 'fy202526Value', direction: 'desc' });
+
+
 
     const parseDate = (val: any): Date => {
         if (!val) return new Date();
@@ -3401,39 +3406,67 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                         </div>
                                     </div>
                                     <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-                                        <div className="p-3 bg-gray-50 border-b border-gray-200">
+                                        <div className="p-3 bg-gray-50 border-b border-gray-200 flex flex-col md:flex-row md:items-center justify-between gap-3">
                                             <h4 className="text-[10px] font-black text-gray-700 uppercase flex items-center gap-2">
                                                 <Table className="w-3 h-3" /> Detailed Customer Sales Analysis (3-Year Comparison)
                                             </h4>
+                                            <div className="relative w-full md:w-64">
+                                                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                                                <input
+                                                    type="text"
+                                                    placeholder="Search customer..."
+                                                    className="w-full pl-8 pr-3 py-1.5 bg-white border border-gray-200 rounded text-[10px] focus:outline-none focus:ring-2 focus:ring-purple-200 transition-shadow"
+                                                    value={custSearchTerm}
+                                                    onChange={(e) => setCustSearchTerm(e.target.value)}
+                                                />
+                                            </div>
                                         </div>
                                         <div className="overflow-x-auto max-h-[600px] custom-scrollbar">
                                             <table className="w-full text-left border-collapse min-w-[1200px]">
                                                 <thead className="sticky top-0 z-10 bg-gray-100 shadow-sm">
                                                     <tr className="text-[9px] font-black text-gray-700 uppercase">
-                                                        <th className="py-2 px-2 border border-gray-300">Category</th>
-                                                        <th className="py-2 px-2 border border-gray-300">Group</th>
-                                                        <th className="py-2 px-3 border border-gray-300">Customer Name</th>
-                                                        <th className="py-2 px-2 border border-gray-300 text-right" colSpan={2}>FY 2023-24</th>
-                                                        <th className="py-2 px-2 border border-gray-300 text-right" colSpan={2}>FY 2024-25</th>
-                                                        <th className="py-2 px-2 border border-gray-300 text-right" colSpan={2}>FY 2025-26</th>
-                                                        <th className="py-2 px-2 border border-gray-300 text-right">YTD Growth %</th>
+                                                        <th className="py-2 px-2 border border-gray-300 cursor-pointer hover:bg-gray-200" onClick={() => setCustSortConfig({ key: 'category', direction: custSortConfig.key === 'category' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
+                                                            <div className="flex items-center gap-1">Category {custSortConfig.key === 'category' && (custSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
+                                                        </th>
+                                                        <th className="py-2 px-2 border border-gray-300 cursor-pointer hover:bg-gray-200" onClick={() => setCustSortConfig({ key: 'group', direction: custSortConfig.key === 'group' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
+                                                            <div className="flex items-center gap-1">Group {custSortConfig.key === 'group' && (custSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
+                                                        </th>
+                                                        <th className="py-2 px-3 border border-gray-300 cursor-pointer hover:bg-gray-200" onClick={() => setCustSortConfig({ key: 'customerName', direction: custSortConfig.key === 'customerName' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
+                                                            <div className="flex items-center gap-1">Customer Name {custSortConfig.key === 'customerName' && (custSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
+                                                        </th>
+                                                        <th className="py-2 px-2 border border-gray-300 text-right bg-gray-50/50" colSpan={2}>FY 2023-24</th>
+                                                        <th className="py-2 px-2 border border-gray-300 text-right bg-gray-50/50" colSpan={2}>FY 2024-25</th>
+                                                        <th className="py-2 px-2 border border-gray-300 text-right bg-blue-50/10" colSpan={2}>FY 2025-26</th>
+                                                        <th className="py-2 px-2 border border-gray-300 text-right cursor-pointer hover:bg-gray-200" onClick={() => setCustSortConfig({ key: 'ytdGrowth', direction: custSortConfig.key === 'ytdGrowth' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
+                                                            <div className="flex items-center justify-end gap-1">YTD Growth % {custSortConfig.key === 'ytdGrowth' && (custSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
+                                                        </th>
                                                     </tr>
                                                     <tr className="text-[8px] font-bold text-gray-600 uppercase bg-gray-50">
                                                         <th className="py-1 px-2 border border-gray-300"></th>
                                                         <th className="py-1 px-2 border border-gray-300"></th>
                                                         <th className="py-1 px-2 border border-gray-300"></th>
-                                                        <th className="py-1 px-2 border border-gray-300 text-right">Qty</th>
-                                                        <th className="py-1 px-2 border border-gray-300 text-right">Sales</th>
-                                                        <th className="py-1 px-2 border border-gray-300 text-right">Qty</th>
-                                                        <th className="py-1 px-2 border border-gray-300 text-right">Sales</th>
-                                                        <th className="py-1 px-2 border border-gray-300 text-right">Qty</th>
-                                                        <th className="py-1 px-2 border border-gray-300 text-right">Sales</th>
+                                                        <th className="py-1 px-2 border border-gray-300 text-right cursor-pointer hover:bg-gray-200" onClick={() => setCustSortConfig({ key: 'fy202324Qty', direction: custSortConfig.key === 'fy202324Qty' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>Qty</th>
+                                                        <th className="py-1 px-2 border border-gray-300 text-right cursor-pointer hover:bg-gray-200" onClick={() => setCustSortConfig({ key: 'fy202324Value', direction: custSortConfig.key === 'fy202324Value' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>Sales</th>
+                                                        <th className="py-1 px-2 border border-gray-300 text-right cursor-pointer hover:bg-gray-200" onClick={() => setCustSortConfig({ key: 'fy202425Qty', direction: custSortConfig.key === 'fy202425Qty' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>Qty</th>
+                                                        <th className="py-1 px-2 border border-gray-300 text-right cursor-pointer hover:bg-gray-200" onClick={() => setCustSortConfig({ key: 'fy202425Value', direction: custSortConfig.key === 'fy202425Value' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>Sales</th>
+                                                        <th className="py-1 px-2 border border-gray-300 text-right text-blue-600 cursor-pointer hover:bg-blue-50" onClick={() => setCustSortConfig({ key: 'fy202526Qty', direction: custSortConfig.key === 'fy202526Qty' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>Qty</th>
+                                                        <th className="py-1 px-2 border border-gray-300 text-right text-blue-600 cursor-pointer hover:bg-blue-50" onClick={() => setCustSortConfig({ key: 'fy202526Value', direction: custSortConfig.key === 'fy202526Value' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>Sales</th>
                                                         <th className="py-1 px-2 border border-gray-300 text-right">25-26 vs 24-25</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-gray-200 text-[10px]">
                                                     {[...customerCategorization.repeatCustomers, ...customerCategorization.rebuildCustomers, ...customerCategorization.newCustomers, ...customerCategorization.lostCustomers]
-                                                        .filter(c => selectedCustCategory === 'ALL' || c.category === selectedCustCategory)
+                                                        .filter(c => {
+                                                            const matchesCategory = selectedCustCategory === 'ALL' || c.category === selectedCustCategory;
+                                                            const matchesSearch = !custSearchTerm || c.customerName.toLowerCase().includes(custSearchTerm.toLowerCase()) || c.group.toLowerCase().includes(custSearchTerm.toLowerCase());
+                                                            return matchesCategory && matchesSearch;
+                                                        })
+                                                        .sort((a, b) => {
+                                                            const k = custSortConfig.key as keyof typeof a;
+                                                            const dir = custSortConfig.direction === 'asc' ? 1 : -1;
+                                                            if (typeof a[k] === 'string') return (a[k] as string).localeCompare(b[k] as string) * dir;
+                                                            return ((a[k] as number) - (b[k] as number)) * dir;
+                                                        })
                                                         .map((cust, idx) => (
                                                             <tr key={idx} className="hover:bg-blue-50/30 transition-colors">
                                                                 <td className="py-1 px-2 border border-gray-200">
