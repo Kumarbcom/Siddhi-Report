@@ -102,7 +102,9 @@ type SortPath =
     | 'actions.excessStock.qty' | 'actions.excessStock.val'
     | 'actions.excessPO.qty' | 'actions.excessPO.val'
     | 'actions.poNeed.qty' | 'actions.poNeed.val'
-    | 'actions.expedite.qty' | 'actions.expedite.val';
+    | 'actions.expedite.qty' | 'actions.expedite.val'
+    | 'so.curQty' | 'so.schQty'
+    | 'po.curQty' | 'po.schQty';
 
 const PivotReportView: React.FC<PivotReportViewProps> = ({
     materials,
@@ -144,22 +146,78 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
             stockMap.set(key, { qty: existing.qty + (i.quantity || 0), val: existing.val + (i.value || 0) });
         });
 
-        const soMap = new Map<string, { qty: number; val: number }>();
+        const soMap = new Map<string, { qty: number; val: number; curQty: number; curVal: number; schQty: number; schVal: number }>();
         pendingSO.forEach(i => {
             if (!i.itemName) return;
             const key = i.itemName.toLowerCase().trim();
-            const existing = soMap.get(key) || { qty: 0, val: 0 };
+            const existing = soMap.get(key) || { qty: 0, val: 0, curQty: 0, curVal: 0, schQty: 0, schVal: 0 };
             const val = (i.balanceQty || 0) * (i.rate || 0);
-            soMap.set(key, { qty: existing.qty + (i.balanceQty || 0), val: existing.val + val });
+
+            let isCurrent = true;
+            if (i.dueDate) {
+                const due = parseDate(i.dueDate);
+                // "Current" implies Due Date <= Today (Backlog + Due Now)
+                // "Scheduled" implies Due Date > Today
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                if (due > today) {
+                    isCurrent = false;
+                }
+            }
+
+            if (isCurrent) {
+                soMap.set(key, {
+                    ...existing,
+                    qty: existing.qty + (i.balanceQty || 0),
+                    val: existing.val + val,
+                    curQty: existing.curQty + (i.balanceQty || 0),
+                    curVal: existing.curVal + val
+                });
+            } else {
+                soMap.set(key, {
+                    ...existing,
+                    qty: existing.qty + (i.balanceQty || 0),
+                    val: existing.val + val,
+                    schQty: existing.schQty + (i.balanceQty || 0),
+                    schVal: existing.schVal + val
+                });
+            }
         });
 
-        const poMap = new Map<string, { qty: number; val: number }>();
+        const poMap = new Map<string, { qty: number; val: number; curQty: number; curVal: number; schQty: number; schVal: number }>();
         pendingPO.forEach(i => {
             if (!i.itemName) return;
             const key = i.itemName.toLowerCase().trim();
-            const existing = poMap.get(key) || { qty: 0, val: 0 };
+            const existing = poMap.get(key) || { qty: 0, val: 0, curQty: 0, curVal: 0, schQty: 0, schVal: 0 };
             const val = (i.balanceQty || 0) * (i.rate || 0);
-            poMap.set(key, { qty: existing.qty + (i.balanceQty || 0), val: existing.val + val });
+
+            let isCurrent = true;
+            if (i.dueDate) {
+                const due = parseDate(i.dueDate);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                if (due > today) {
+                    isCurrent = false;
+                }
+            }
+
+            if (isCurrent) {
+                poMap.set(key, {
+                    ...existing,
+                    qty: existing.qty + (i.balanceQty || 0),
+                    val: existing.val + val,
+                    curQty: existing.curQty + (i.balanceQty || 0),
+                    curVal: existing.curVal + val
+                });
+            } else {
+                poMap.set(key, {
+                    ...existing,
+                    qty: existing.qty + (i.balanceQty || 0),
+                    val: existing.val + val,
+                    schQty: existing.schQty + (i.balanceQty || 0),
+                    schVal: existing.schVal + val
+                });
+            }
         });
 
         // 2. Date Ranges for Sales
@@ -201,8 +259,8 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
             const normalizedGroup = String(mat.materialGroup || '').trim() || 'Unspecified';
 
             const stock = stockMap.get(descriptionKey) || { qty: 0, val: 0 };
-            const so = soMap.get(descriptionKey) || { qty: 0, val: 0 };
-            const po = poMap.get(descriptionKey) || { qty: 0, val: 0 };
+            const so = soMap.get(descriptionKey) || { qty: 0, val: 0, curQty: 0, curVal: 0, schQty: 0, schVal: 0 };
+            const po = poMap.get(descriptionKey) || { qty: 0, val: 0, curQty: 0, curVal: 0, schQty: 0, schVal: 0 };
 
             const netQty = stock.qty + po.qty - so.qty;
 
@@ -311,8 +369,15 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
             const poNeedQty = deficit > 0 ? deficit : 0;
             const poNeedVal = poNeedQty * avgRate;
 
-            const immediateGap = (so.qty + maxStock) - stock.qty;
-            const expediteQty = (immediateGap > 0 && po.qty > 0) ? Math.min(po.qty, immediateGap) : 0;
+            // Updated Expedite Logic: (Current Due + Max Stock) - Current Stock
+            // Filter: Only if gap > 0
+            const expediteTarget = so.curQty + maxStock;
+            const expediteGap = expediteTarget - stock.qty;
+
+            // We can only expedite what is pending in POs
+            // Should we expedite Current POs or All POs? Usually any PO can be expedited to meet immediate demand.
+            // Logic: Shortage = expediteGap. Available to expedited = po.qty.
+            const expediteQty = (expediteGap > 0 && po.qty > 0) ? Math.min(po.qty, expediteGap) : 0;
             const expediteVal = expediteQty * avgRate;
 
             return {
@@ -427,7 +492,10 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
     // STRICT CALCULATION on filteredData
     const totals = useMemo(() => {
         const initialTotals = {
-            stock: { qty: 0, val: 0 }, so: { qty: 0, val: 0 }, po: { qty: 0, val: 0 }, net: { qty: 0, val: 0 },
+            stock: { qty: 0, val: 0 },
+            so: { qty: 0, val: 0 }, soCur: { qty: 0, val: 0 }, soSch: { qty: 0, val: 0 },
+            po: { qty: 0, val: 0 }, poCur: { qty: 0, val: 0 }, poSch: { qty: 0, val: 0 },
+            net: { qty: 0, val: 0 },
             avg3m: { qty: 0, val: 0 }, avg1y: { qty: 0, val: 0 },
             min: { qty: 0, val: 0 }, reorder: { qty: 0, val: 0 }, max: { qty: 0, val: 0 },
             excessStock: { qty: 0, val: 0 }, excessPO: { qty: 0, val: 0 }, poNeed: { qty: 0, val: 0 }, expedite: { qty: 0, val: 0 }
@@ -436,7 +504,11 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
         return filteredData.reduce((acc, row) => ({
             stock: { qty: acc.stock.qty + (Number(row.stock.qty) || 0), val: acc.stock.val + (Number(row.stock.val) || 0) },
             so: { qty: acc.so.qty + (Number(row.so.qty) || 0), val: acc.so.val + (Number(row.so.val) || 0) },
+            soCur: { qty: (acc as any).soCur.qty + (Number(row.so.curQty) || 0), val: (acc as any).soCur.val + (Number(row.so.curVal) || 0) },
+            soSch: { qty: (acc as any).soSch.qty + (Number(row.so.schQty) || 0), val: (acc as any).soSch.val + (Number(row.so.schVal) || 0) },
             po: { qty: acc.po.qty + (Number(row.po.qty) || 0), val: acc.po.val + (Number(row.po.val) || 0) },
+            poCur: { qty: (acc as any).poCur.qty + (Number(row.po.curQty) || 0), val: (acc as any).poCur.val + (Number(row.po.curVal) || 0) },
+            poSch: { qty: (acc as any).poSch.qty + (Number(row.po.schQty) || 0), val: (acc as any).poSch.val + (Number(row.po.schVal) || 0) },
             net: { qty: acc.net.qty + (Number(row.net.qty) || 0), val: acc.net.val + (Number(row.net.val) || 0) },
             avg3m: { qty: acc.avg3m.qty + (Number(row.avg3m.qty) || 0), val: acc.avg3m.val + (Number(row.avg3m.val) || 0) },
             avg1y: { qty: acc.avg1y.qty + (Number(row.avg1y.qty) || 0), val: acc.avg1y.val + (Number(row.avg1y.val) || 0) },
@@ -457,8 +529,12 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
             "Group": i.materialGroup,
             "Description": i.description,
             "Closing Qty": i.stock.qty, "Closing Val": i.stock.val,
-            "Pending SO Qty": i.so.qty, "Pending SO Val": i.so.val,
-            "Pending PO Qty": i.po.qty, "Pending PO Val": i.po.val,
+            "Pending SO Total Qty": i.so.qty,
+            "Pending SO Cur Qty": i.so.curQty,
+            "Pending SO Sch Qty": i.so.schQty,
+            "Pending PO Total Qty": i.po.qty,
+            "Pending PO Cur Qty": i.po.curQty,
+            "Pending PO Sch Qty": i.po.schQty,
             "Net Stock Qty": i.net.qty, "Net Stock Val": i.net.val,
             "3M Avg Qty": i.avg3m.qty.toFixed(2), "3M Avg Val": i.avg3m.val,
             "1Y Avg Qty": i.avg1y.qty.toFixed(2), "1Y Avg Val": i.avg1y.val,
@@ -585,8 +661,8 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                             <tr className="bg-gray-100 border-b border-gray-200">
                                 <th colSpan={3} className="sticky left-0 z-50 py-1 px-2 text-center border-r border-gray-300 bg-gray-100">Master Data</th>
                                 <th colSpan={2} className="py-1 px-2 text-center border-r border-gray-300 bg-blue-50/50">Current Stock</th>
-                                <th colSpan={2} className="py-1 px-2 text-center border-r border-gray-300 bg-orange-50/50">Pending SO</th>
-                                <th colSpan={2} className="py-1 px-2 text-center border-r border-gray-300 bg-purple-50/50">Pending PO</th>
+                                <th colSpan={3} className="py-1 px-2 text-center border-r border-gray-300 bg-orange-50/50">Pending SO</th>
+                                <th colSpan={3} className="py-1 px-2 text-center border-r border-gray-300 bg-purple-50/50">Pending PO</th>
                                 <th colSpan={2} className="py-1 px-2 text-center border-r border-gray-300 bg-gray-200">Net Position</th>
                                 {showPlanningColumns && (
                                     <>
@@ -608,11 +684,13 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                                 <th onClick={() => handleHeaderSort('stock.qty')} className="py-2 px-2 text-right bg-blue-50/30 hover:bg-blue-100/50 group"><div className="flex items-center justify-end gap-1">Qty {renderSortArrow('stock.qty')}</div></th>
                                 <th onClick={() => handleHeaderSort('stock.val')} className="py-2 px-2 text-right border-r bg-blue-50/30 hover:bg-blue-100/50 group"><div className="flex items-center justify-end gap-1">Val {renderSortArrow('stock.val')}</div></th>
 
-                                <th onClick={() => handleHeaderSort('so.qty')} className="py-2 px-2 text-right bg-orange-50/30 hover:bg-orange-100/50 group"><div className="flex items-center justify-end gap-1">Qty {renderSortArrow('so.qty')}</div></th>
-                                <th onClick={() => handleHeaderSort('so.val')} className="py-2 px-2 text-right border-r bg-orange-50/30 hover:bg-orange-100/50 group"><div className="flex items-center justify-end gap-1">Val {renderSortArrow('so.val')}</div></th>
+                                <th onClick={() => handleHeaderSort('so.curQty' as SortPath)} className="py-2 px-2 text-right bg-orange-50/30 hover:bg-orange-100/50 group"><div className="flex items-center justify-end gap-1">Cur {renderSortArrow('so.curQty' as SortPath)}</div></th>
+                                <th onClick={() => handleHeaderSort('so.schQty' as SortPath)} className="py-2 px-2 text-right bg-orange-50/30 hover:bg-orange-100/50 group"><div className="flex items-center justify-end gap-1">Sch {renderSortArrow('so.schQty' as SortPath)}</div></th>
+                                <th onClick={() => handleHeaderSort('so.qty')} className="py-2 px-2 text-right border-r bg-orange-50/30 hover:bg-orange-100/50 group"><div className="flex items-center justify-end gap-1">Tot {renderSortArrow('so.qty')}</div></th>
 
-                                <th onClick={() => handleHeaderSort('po.qty')} className="py-2 px-2 text-right bg-purple-50/30 hover:bg-purple-100/50 group"><div className="flex items-center justify-end gap-1">Qty {renderSortArrow('po.qty')}</div></th>
-                                <th onClick={() => handleHeaderSort('po.val')} className="py-2 px-2 text-right border-r bg-purple-50/30 hover:bg-purple-100/50 group"><div className="flex items-center justify-end gap-1">Val {renderSortArrow('po.val')}</div></th>
+                                <th onClick={() => handleHeaderSort('po.curQty' as SortPath)} className="py-2 px-2 text-right bg-purple-50/30 hover:bg-purple-100/50 group"><div className="flex items-center justify-end gap-1">Cur {renderSortArrow('po.curQty' as SortPath)}</div></th>
+                                <th onClick={() => handleHeaderSort('po.schQty' as SortPath)} className="py-2 px-2 text-right bg-purple-50/30 hover:bg-purple-100/50 group"><div className="flex items-center justify-end gap-1">Sch {renderSortArrow('po.schQty' as SortPath)}</div></th>
+                                <th onClick={() => handleHeaderSort('po.qty')} className="py-2 px-2 text-right border-r bg-purple-50/30 hover:bg-purple-100/50 group"><div className="flex items-center justify-end gap-1">Tot {renderSortArrow('po.qty')}</div></th>
 
                                 <th onClick={() => handleHeaderSort('net.qty')} className="py-2 px-2 text-right bg-gray-100 font-extrabold hover:bg-gray-200 group"><div className="flex items-center justify-end gap-1">Qty {renderSortArrow('net.qty')}</div></th>
                                 <th onClick={() => handleHeaderSort('net.val')} className="py-2 px-2 text-right border-r bg-gray-100 font-extrabold hover:bg-gray-200 group"><div className="flex items-center justify-end gap-1">Val {renderSortArrow('net.val')}</div></th>
@@ -653,11 +731,13 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                                     <td className="py-2 px-2 text-right bg-blue-100/50 whitespace-nowrap">{formatLargeValue(totals.stock.qty)}</td>
                                     <td className="py-2 px-2 text-right border-r bg-blue-100/50 whitespace-nowrap">{formatLargeValue(totals.stock.val)}</td>
 
-                                    <td className="py-2 px-2 text-right bg-orange-100/50 whitespace-nowrap">{formatLargeValue(totals.so.qty)}</td>
-                                    <td className="py-2 px-2 text-right border-r bg-orange-100/50 whitespace-nowrap">{formatLargeValue(totals.so.val)}</td>
+                                    <td className="py-2 px-2 text-right bg-orange-100/50 whitespace-nowrap">{formatLargeValue((totals as any).soCur.qty)}</td>
+                                    <td className="py-2 px-2 text-right bg-orange-100/50 whitespace-nowrap">{formatLargeValue((totals as any).soSch.qty)}</td>
+                                    <td className="py-2 px-2 text-right border-r bg-orange-100/50 whitespace-nowrap">{formatLargeValue(totals.so.qty)}</td>
 
-                                    <td className="py-2 px-2 text-right bg-purple-100/50 whitespace-nowrap">{formatLargeValue(totals.po.qty)}</td>
-                                    <td className="py-2 px-2 text-right border-r bg-purple-100/50 whitespace-nowrap">{formatLargeValue(totals.po.val)}</td>
+                                    <td className="py-2 px-2 text-right bg-purple-100/50 whitespace-nowrap">{formatLargeValue((totals as any).poCur.qty)}</td>
+                                    <td className="py-2 px-2 text-right bg-purple-100/50 whitespace-nowrap">{formatLargeValue((totals as any).poSch.qty)}</td>
+                                    <td className="py-2 px-2 text-right border-r bg-purple-100/50 whitespace-nowrap">{formatLargeValue(totals.po.qty)}</td>
 
                                     <td className="py-2 px-2 text-right bg-gray-200 whitespace-nowrap">{formatLargeValue(totals.net.qty)}</td>
                                     <td className="py-2 px-2 text-right border-r bg-gray-200 whitespace-nowrap">{formatLargeValue(totals.net.val)}</td>
@@ -705,11 +785,13 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                                         <td className="py-1 px-2 text-right bg-blue-50/10 font-medium">{row.stock.qty || '-'}</td>
                                         <td className="py-1 px-2 text-right border-r bg-blue-50/10 text-gray-500">{row.stock.val ? formatVal(row.stock.val) : '-'}</td>
 
-                                        <td className="py-1 px-2 text-right bg-orange-50/10">{row.so.qty || '-'}</td>
-                                        <td className="py-1 px-2 text-right border-r bg-orange-50/10 text-gray-500">{row.so.val ? formatVal(row.so.val) : '-'}</td>
+                                        <td className="py-1 px-2 text-right bg-orange-50/10 font-medium text-orange-700">{row.so.curQty || '-'}</td>
+                                        <td className="py-1 px-2 text-right bg-orange-50/10 text-orange-600/70">{row.so.schQty || '-'}</td>
+                                        <td className="py-1 px-2 text-right border-r bg-orange-50/10 font-bold">{row.so.qty || '-'}</td>
 
-                                        <td className="py-1 px-2 text-right bg-purple-50/10">{row.po.qty || '-'}</td>
-                                        <td className="py-1 px-2 text-right border-r bg-purple-50/10 text-gray-500">{row.po.val ? formatVal(row.po.val) : '-'}</td>
+                                        <td className="py-1 px-2 text-right bg-purple-50/10 font-medium text-purple-700">{row.po.curQty || '-'}</td>
+                                        <td className="py-1 px-2 text-right bg-purple-50/10 text-purple-600/70">{row.po.schQty || '-'}</td>
+                                        <td className="py-1 px-2 text-right border-r bg-purple-50/10 font-bold">{row.po.qty || '-'}</td>
 
                                         <td className="py-1 px-2 text-right bg-gray-50 font-bold">{row.net.qty}</td>
                                         <td className="py-1 px-2 text-right border-r bg-gray-50 text-gray-600">{formatVal(row.net.val)}</td>
