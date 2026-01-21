@@ -1815,70 +1815,47 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                     ))}
                 </div>
                 {activeSubTab === 'sales' && (
-                    <div className="flex flex-wrap items-center gap-2 lg:gap-3">
-                        <select value={selectedMake} onChange={e => setSelectedMake(e.target.value)} title="Make Slicer" className="bg-white border border-blue-300 text-[10px] rounded-md px-2 py-1.5 font-bold text-blue-700 shadow-sm outline-none focus:ring-2 focus:ring-blue-500 max-w-[100px]">
-                            {uniqueMakes.map(m => (
-                                <option key={m} value={m}>{m === 'ALL' ? 'ALL MAKES' : m}</option>
-                            ))}
-                        </select>
-                        <select value={selectedMatGroup} onChange={e => setSelectedMatGroup(e.target.value)} title="Material Group Slicer" className="bg-white border border-emerald-300 text-[10px] rounded-md px-2 py-1.5 font-bold text-emerald-700 shadow-sm outline-none focus:ring-2 focus:ring-emerald-500 max-w-[120px]">
-                            {uniqueMatGroups.map(mg => (
-                                <option key={mg} value={mg}>{mg === 'ALL' ? 'ALL GROUPS' : mg}</option>
-                            ))}
-                        </select>
-                        <div className="flex bg-gray-100 p-1 rounded-lg">{(['FY', 'MONTH', 'WEEK'] as const).map(v => (<button key={v} onClick={() => setTimeView(v)} className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${timeView === v ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}> {v} </button>))}</div>
-
-                        <div className="flex bg-gray-100 p-1 rounded-lg">
-                            <button
-                                onClick={() => setGroupingMode('MERGED')}
-                                className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${groupingMode === 'MERGED' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
-                                title="Use Merged Groups (Giridhar, Office, Online)"
-                            >
-                                Merged
-                            </button>
-                            <button
-                                onClick={() => setGroupingMode('RAW')}
-                                className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${groupingMode === 'RAW' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
-                                title="Use Raw Customer Groups (OEM, End User, etc.)"
-                            >
-                                Raw
-                            </button>
-                        </div>
-                        <select value={selectedFY} onChange={e => setSelectedFY(e.target.value)} className="bg-white border border-gray-300 text-xs rounded-md px-2 py-1.5 font-medium shadow-sm outline-none focus:ring-2 focus:ring-blue-500">{uniqueFYs.length > 0 ? uniqueFYs.map(fy => <option key={fy} value={fy}>{fy}</option>) : <option value="">No FY Data</option>}</select>
-
-                        {timeView === 'MONTH' && (
-                            <select value={selectedMonth} onChange={e => setSelectedMonth(Number(e.target.value))} className="bg-white border border-gray-300 text-xs rounded-md px-2 py-1.5 font-medium shadow-sm outline-none focus:ring-2 focus:ring-blue-500">
-                                {["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"].map((m, i) => (
-                                    <option key={m} value={i}>{m}</option>
-                                ))}
+                    
+                    <div className="flex flex-col items-end gap-1.5">
+                        {/* Row 1: Filters */}
+                        <div className="flex items-center gap-2">
+                            <select value={selectedMake} onChange={e => setSelectedMake(e.target.value)} title="Make Slicer" className="bg-white border border-blue-300 text-[10px] rounded-md px-2 py-1 font-bold text-blue-700 shadow-sm outline-none focus:ring-2 focus:ring-blue-500 h-7">
+                                {uniqueMakes.map(m => ( <option key={m} value={m}>{m === 'ALL' ? 'ALL MAKES' : m}</option> ))}
                             </select>
-                        )}
+                            <select value={selectedMatGroup} onChange={e => setSelectedMatGroup(e.target.value)} title="Material Group Slicer" className="bg-white border border-emerald-300 text-[10px] rounded-md px-2 py-1 font-bold text-emerald-700 shadow-sm outline-none focus:ring-2 focus:ring-emerald-500 h-7">
+                                {uniqueMatGroups.map(mg => ( <option key={mg} value={mg}>{mg === 'ALL' ? 'ALL GROUPS' : mg}</option> ))}
+                            </select>
+                            <div className="flex bg-gray-100 p-0.5 rounded-md h-7 items-center">
+                                <button onClick={() => setGroupingMode('MERGED')} className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase transition-all ${groupingMode === 'MERGED' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>Merged</button>
+                                <button onClick={() => setGroupingMode('RAW')} className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase transition-all ${groupingMode === 'RAW' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>Raw</button>
+                            </div>
+                        </div>
 
-                        {timeView === 'WEEK' && (
-                            <div className="flex items-center gap-2">
-                                <select value={selectedWeek} onChange={e => setSelectedWeek(Number(e.target.value))} className="bg-white border border-gray-300 text-xs rounded-md px-2 py-1.5 font-medium shadow-sm outline-none focus:ring-2 focus:ring-blue-500">
-                                    {Array.from({ length: 53 }, (_, i) => i + 1).map(w => (
-                                        <option key={w} value={w}>Week {w}</option>
-                                    ))}
-                                </select>
-                                <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded border border-blue-100">
-                                    {(() => {
-                                        if (!selectedFY) return '';
-                                        const startYear = parseInt(selectedFY.split('-')[0]);
-                                        const fyStart = new Date(startYear, 3, 1);
-                                        const day = fyStart.getDay();
-                                        const daysToSubtract = (day >= 4) ? (day - 4) : (day + 3);
-                                        const refThursday = new Date(fyStart);
-                                        refThursday.setDate(fyStart.getDate() - daysToSubtract);
-                                        refThursday.setHours(0, 0, 0, 0);
-                                        const weekStart = new Date(refThursday);
-                                        weekStart.setDate(refThursday.getDate() + (selectedWeek - 1) * 7);
-                                        const weekEnd = new Date(weekStart);
-                                        weekEnd.setDate(weekStart.getDate() + 6);
-                                        const fmt = (d: Date) => d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
-                                        return `${fmt(weekStart)} - ${fmt(weekEnd)}`;
-                                    })()}
-                                </span>
+                        {/* Row 2: Time & FY */}
+                        <div className="flex items-center gap-2">
+                            <div className="flex bg-gray-100 p-0.5 rounded-md h-7 items-center">
+                                {(['FY', 'MONTH', 'WEEK'] as const).map(v => (
+                                    <button key={v} onClick={() => setTimeView(v)} className={`px-2.5 py-0.5 rounded text-[10px] font-bold transition-all ${timeView === v ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>{v}</button>
+                                ))}
+                            </div>
+                            <select value={selectedFY} onChange={e => setSelectedFY(e.target.value)} className="bg-white border border-gray-300 text-[10px] rounded-md px-2 py-1 font-bold shadow-sm outline-none focus:ring-2 focus:ring-blue-500 h-7">
+                                {uniqueFYs.length > 0 ? uniqueFYs.map(fy => <option key={fy} value={fy}>{fy}</option>) : <option value="">No Data</option>}
+                            </select>
+                        </div>
+
+                        {/* Row 3: Detail Selectors */}
+                        {(timeView === 'MONTH' || timeView === 'WEEK') && (
+                            <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-2 duration-300">
+                                {timeView === 'MONTH' && (
+                                    <select value={selectedMonth} onChange={e => setSelectedMonth(Number(e.target.value))} className="bg-white border border-gray-300 text-[10px] rounded-md px-2 py-1 font-bold shadow-sm outline-none focus:ring-2 focus:ring-blue-500 h-7 w-24">
+                                        {["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"].map((m, i) => ( <option key={m} value={i}>{m}</option> ))}
+                                    </select>
+                                )}
+                                {timeView === 'WEEK' && (
+                                    <select value={selectedWeek} onChange={e => setSelectedWeek(Number(e.target.value))} className="bg-white border border-gray-300 text-[10px] rounded-md px-2 py-1 font-bold shadow-sm outline-none focus:ring-2 focus:ring-blue-500 h-7 w-24">
+                                        {Array.from({ length: 53 }, (_, i) => i + 1).map(w => ( <option key={w} value={w}>Week {w}</option> ))}
+                                    </select>
+                                )}
                             </div>
                         )}
                     </div>

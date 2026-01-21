@@ -626,7 +626,7 @@ const App: React.FC = () => {
         onClick(id);
         if (window.innerWidth < 768) setIsSidebarOpen(false);
       }}
-      className={`w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all relative group ${activeTab === id ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'}`}
+      className={`w-full text-left flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all relative group ${activeTab === id ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'}`}
       title={!isSidebarOpen ? label : ''}
     >
       <Icon className={`w-4 h-4 flex-shrink-0 ${activeTab === id ? 'text-white' : 'text-gray-400 group-hover:text-gray-600'}`} />
@@ -680,9 +680,9 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-6 custom-scrollbar">
+          <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-3 custom-scrollbar">
             <div>
-              <div className="px-3 mb-3 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Management</div>
+              <div className="px-3 mb-1 text-[9px] font-black text-gray-400 uppercase tracking-[0.2em]">Management</div>
               <div className="space-y-1">
                 <SidebarItem id="dashboard" label="Dashboard" icon={LayoutDashboard} onClick={setActiveTab} />
                 <SidebarItem id="pivotReport" label="Strategy Report" icon={Table} onClick={setActiveTab} />
@@ -690,14 +690,14 @@ const App: React.FC = () => {
               </div>
             </div>
             <div>
-              <div className="px-3 mb-3 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Masters</div>
+              <div className="px-3 mb-1 text-[9px] font-black text-gray-400 uppercase tracking-[0.2em]">Masters</div>
               <div className="space-y-1">
                 <SidebarItem id="master" label="Material Master" icon={Database} count={materials.length} onClick={setActiveTab} />
                 <SidebarItem id="customerMaster" label="Customer Master" icon={Users} count={customerMasterItems.length} onClick={setActiveTab} />
               </div>
             </div>
             <div>
-              <div className="px-3 mb-3 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Analytics</div>
+              <div className="px-3 mb-1 text-[9px] font-black text-gray-400 uppercase tracking-[0.2em]">Analytics</div>
               <div className="space-y-1">
                 <SidebarItem id="supplyChain" label="SC Planning" icon={LineChart} onClick={setActiveTab} />
                 <SidebarItem id="closingStock" label="Closing Stock" icon={Package} count={closingStockItems.length} onClick={setActiveTab} />
@@ -709,12 +709,12 @@ const App: React.FC = () => {
               </div>
             </div>
             <div>
-              <div className="px-3 mb-3 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Security</div>
+              <div className="px-3 mb-1 text-[9px] font-black text-gray-400 uppercase tracking-[0.2em]">Security</div>
               <div className="space-y-1">
                 {isAdmin && <SidebarItem id="userManagement" label="User Management" icon={ShieldCheck} onClick={setActiveTab} />}
                 <button
                   onClick={() => setShowPasswordChange(true)}
-                  className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all text-gray-500 hover:bg-gray-50 hover:text-gray-900 group"
+                  className="w-full text-left flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all text-gray-500 hover:bg-gray-50 hover:text-gray-900 group"
                 >
                   <Lock className="w-4 h-4 text-gray-400 group-hover:text-gray-600" />
                   <span>Change Password</span>
