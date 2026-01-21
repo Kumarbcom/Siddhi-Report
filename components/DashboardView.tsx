@@ -930,10 +930,22 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 ytdGrowth
             };
 
-            if (has202324 && has202425) { repeatCustomers.push({ ...customerRecord, category: 'Repeat' }); groupCount.repeat++; }
-            else if (has202324 && !has202425 && has202526) { rebuildCustomers.push({ ...customerRecord, category: 'Rebuild' }); groupCount.rebuild++; }
-            else if (!has202324 && !has202425 && has202526) { newCustomers.push({ ...customerRecord, category: 'New' }); groupCount.new++; }
-            if (has202324 || has202425 || has202526) groupCount.total++;
+            // Repeat: Has sales in EITHER 2023-24 OR 2024-25 (or both) AND also in 2025-26
+            if ((has202324 || has202425) && has202526) { 
+                repeatCustomers.push({ ...customerRecord, category: 'Repeat' }); 
+                groupCount.repeat++; 
+            }
+            // Rebuild: Has sales ONLY in 2023-24 AND 2025-26 (NOT in 2024-25)
+            else if (has202324 && !has202425 && has202526) { 
+                rebuildCustomers.push({ ...customerRecord, category: 'Rebuild' }); 
+                groupCount.rebuild++; 
+            }
+            // New: Has sales ONLY in 2025-26 (NOT in 2023-24 or 2024-25)
+            else if (!has202324 && !has202425 && has202526) { 
+                newCustomers.push({ ...customerRecord, category: 'New' }); 
+                groupCount.new++; 
+            }
+                        if (has202324 || has202425 || has202526) groupCount.total++;
         });
 
         repeatCustomers.sort((a, b) => b.fy202526Value - a.fy202526Value);
