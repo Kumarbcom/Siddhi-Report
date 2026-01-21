@@ -3238,7 +3238,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                 <div>
                                                     <p className="text-[9px] font-bold text-green-600 uppercase">Repeat Customers</p>
                                                     <p className="text-2xl font-black text-green-700">{customerCategorization.totalRepeat}</p>
-                                                    <p className="text-[8px] text-gray-500 mt-1">Either 23-24 or 24-25 + 25-26</p>
+                                                    <p className="text-[8px] text-gray-500 mt-1">All 3 years: 23-24, 24-25, 25-26</p>
                                                 </div>
                                                 <RefreshCw className="w-8 h-8 text-green-500 opacity-20" />
                                             </div>
