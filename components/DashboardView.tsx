@@ -598,7 +598,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
     // Customer Analysis Table State
     const [custSearchTerm, setCustSearchTerm] = useState('');
+    const [selectedCustGroup, setSelectedCustGroup] = useState('ALL');
     const [custSortConfig, setCustSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' }>({ key: 'fy202526Value', direction: 'desc' });
+
 
 
 
@@ -3416,30 +3418,43 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                         const filteredCount = [...customerCategorization.repeatCustomers, ...customerCategorization.rebuildCustomers, ...customerCategorization.newCustomers, ...customerCategorization.lostCustomers]
                                                             .filter(c => {
                                                                 const matchesCategory = selectedCustCategory === 'ALL' || c.category === selectedCustCategory;
+                                                                const matchesGroup = selectedCustGroup === 'ALL' || c.group === selectedCustGroup;
                                                                 const matchesSearch = !custSearchTerm || c.customerName.toLowerCase().includes(custSearchTerm.toLowerCase()) || c.group.toLowerCase().includes(custSearchTerm.toLowerCase());
-                                                                return matchesCategory && matchesSearch;
+                                                                return matchesCategory && matchesGroup && matchesSearch;
                                                             }).length;
                                                         return `Showing ${filteredCount} Records`;
                                                     })()}
                                                 </span>
                                             </div>
-                                            <div className="relative w-full md:w-64">
-                                                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-                                                <input
-                                                    type="text"
-                                                    placeholder="Search customer..."
-                                                    className="w-full pl-8 pr-8 py-1.5 bg-white border border-gray-200 rounded text-[10px] focus:outline-none focus:ring-2 focus:ring-purple-200 transition-shadow"
-                                                    value={custSearchTerm}
-                                                    onChange={(e) => setCustSearchTerm(e.target.value)}
-                                                />
-                                                {custSearchTerm && (
-                                                    <button
-                                                        onClick={() => setCustSearchTerm('')}
-                                                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                                                    >
-                                                        <X className="w-3 h-3" />
-                                                    </button>
-                                                )}
+                                            <div className="flex gap-2 w-full md:w-auto">
+                                                <select
+                                                    value={selectedCustGroup}
+                                                    onChange={(e) => setSelectedCustGroup(e.target.value)}
+                                                    className="pl-3 pr-8 py-1.5 bg-white border border-gray-200 rounded text-[10px] focus:outline-none focus:ring-2 focus:ring-purple-200 transition-shadow uppercase font-bold text-gray-600 max-w-[150px]"
+                                                >
+                                                    <option value="ALL">ALL GROUPS</option>
+                                                    {customerCategorization.groupCounts.map(g => (
+                                                        <option key={g.group} value={g.group}>{g.group}</option>
+                                                    ))}
+                                                </select>
+                                                <div className="relative w-full md:w-64">
+                                                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Search customer..."
+                                                        className="w-full pl-8 pr-8 py-1.5 bg-white border border-gray-200 rounded text-[10px] focus:outline-none focus:ring-2 focus:ring-purple-200 transition-shadow"
+                                                        value={custSearchTerm}
+                                                        onChange={(e) => setCustSearchTerm(e.target.value)}
+                                                    />
+                                                    {custSearchTerm && (
+                                                        <button
+                                                            onClick={() => setCustSearchTerm('')}
+                                                            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                                        >
+                                                            <X className="w-3 h-3" />
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                         <div className="overflow-x-auto max-h-[600px] custom-scrollbar">
@@ -3479,8 +3494,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                     {[...customerCategorization.repeatCustomers, ...customerCategorization.rebuildCustomers, ...customerCategorization.newCustomers, ...customerCategorization.lostCustomers]
                                                         .filter(c => {
                                                             const matchesCategory = selectedCustCategory === 'ALL' || c.category === selectedCustCategory;
+                                                            const matchesGroup = selectedCustGroup === 'ALL' || c.group === selectedCustGroup;
                                                             const matchesSearch = !custSearchTerm || c.customerName.toLowerCase().includes(custSearchTerm.toLowerCase()) || c.group.toLowerCase().includes(custSearchTerm.toLowerCase());
-                                                            return matchesCategory && matchesSearch;
+                                                            return matchesCategory && matchesGroup && matchesSearch;
                                                         })
                                                         .sort((a, b) => {
                                                             const k = custSortConfig.key as keyof typeof a;
