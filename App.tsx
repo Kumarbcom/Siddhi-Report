@@ -663,8 +663,7 @@ const App: React.FC = () => {
         <div className="flex flex-col h-full w-full">
           {/* Logo Section */}
           <div className={`h-16 flex items-center ${isSidebarOpen ? 'justify-between px-6' : 'justify-center px-2'} border-b border-gray-100 transition-all`}>
-            <div className={`flex items-center gap-3 overflow-hidden ${!isSidebarOpen && 'justify-center w-full'}`}>
-              <div className="bg-blue-600 p-2 rounded-lg shadow-sm text-white flex-shrink-0"><ShieldCheck className="w-5 h-5" /></div>
+            <div className={`flex items-center gap-3 overflow-hidden ${!isSidebarOpen && 'hidden'}`}>
               <div className={`transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100 min-w-0' : 'opacity-0 w-0 hidden'}`}>
                 <h1 className="text-sm font-bold text-gray-900 tracking-tight uppercase leading-none mb-1">Siddhi Kabel</h1>
                 <span className="text-[10px] font-medium text-slate-500 uppercase tracking-widest whitespace-nowrap">Enterprise Hub</span>
