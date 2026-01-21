@@ -1976,9 +1976,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                 </div>
                             </div>
                         </div>
-                    ) : activeSubTab === 'inventory'
-                        </div>
-                    ) : activeSubTab === \'inventory\' ? (
+                    ) : activeSubTab === 'inventory' ? (
                         <div className="flex flex-col gap-4">
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                 <div className="bg-gradient-to-br from-indigo-600 to-blue-700 p-4 rounded-xl shadow-[0_8px_20px_-4px_rgba(79,70,229,0.3)] border border-indigo-500/30 transform transition-all duration-300 hover:scale-[1.01]">
