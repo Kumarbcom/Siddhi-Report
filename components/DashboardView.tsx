@@ -3359,7 +3359,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                     <Users className="w-4 h-4" /> Customer Categorization Analysis
                                     <span className="text-[10px] font-normal text-purple-600 bg-white px-2 py-0.5 rounded-full">FY 2023-24 to 2025-26</span>
                                 </h3>
-                                <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
+                                <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-4">
                                     <div className="bg-white p-3 rounded-lg border-2 border-green-200 shadow-sm">
                                         <div className="flex items-center justify-between">
                                             <div>
