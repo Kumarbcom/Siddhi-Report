@@ -3407,18 +3407,39 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                     </div>
                                     <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
                                         <div className="p-3 bg-gray-50 border-b border-gray-200 flex flex-col md:flex-row md:items-center justify-between gap-3">
-                                            <h4 className="text-[10px] font-black text-gray-700 uppercase flex items-center gap-2">
-                                                <Table className="w-3 h-3" /> Detailed Customer Sales Analysis (3-Year Comparison)
-                                            </h4>
+                                            <div className="flex items-center gap-4">
+                                                <h4 className="text-[10px] font-black text-gray-700 uppercase flex items-center gap-2">
+                                                    <Table className="w-3 h-3" /> Detailed Customer Sales Analysis (3-Year Comparison)
+                                                </h4>
+                                                <span className="text-[9px] font-bold text-gray-400 bg-white px-2 py-0.5 rounded border border-gray-200">
+                                                    {(() => {
+                                                        const filteredCount = [...customerCategorization.repeatCustomers, ...customerCategorization.rebuildCustomers, ...customerCategorization.newCustomers, ...customerCategorization.lostCustomers]
+                                                            .filter(c => {
+                                                                const matchesCategory = selectedCustCategory === 'ALL' || c.category === selectedCustCategory;
+                                                                const matchesSearch = !custSearchTerm || c.customerName.toLowerCase().includes(custSearchTerm.toLowerCase()) || c.group.toLowerCase().includes(custSearchTerm.toLowerCase());
+                                                                return matchesCategory && matchesSearch;
+                                                            }).length;
+                                                        return `Showing ${filteredCount} Records`;
+                                                    })()}
+                                                </span>
+                                            </div>
                                             <div className="relative w-full md:w-64">
                                                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
                                                 <input
                                                     type="text"
                                                     placeholder="Search customer..."
-                                                    className="w-full pl-8 pr-3 py-1.5 bg-white border border-gray-200 rounded text-[10px] focus:outline-none focus:ring-2 focus:ring-purple-200 transition-shadow"
+                                                    className="w-full pl-8 pr-8 py-1.5 bg-white border border-gray-200 rounded text-[10px] focus:outline-none focus:ring-2 focus:ring-purple-200 transition-shadow"
                                                     value={custSearchTerm}
                                                     onChange={(e) => setCustSearchTerm(e.target.value)}
                                                 />
+                                                {custSearchTerm && (
+                                                    <button
+                                                        onClick={() => setCustSearchTerm('')}
+                                                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                                    >
+                                                        <X className="w-3 h-3" />
+                                                    </button>
+                                                )}
                                             </div>
                                         </div>
                                         <div className="overflow-x-auto max-h-[600px] custom-scrollbar">
