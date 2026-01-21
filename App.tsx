@@ -626,13 +626,13 @@ const App: React.FC = () => {
         onClick(id);
         if (window.innerWidth < 768) setIsSidebarOpen(false);
       }}
-      className={`w-full text-left flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all relative group ${activeTab === id ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'}`}
+      className={`w-full text-left flex items-center gap-2.5 px-3 py-1.5 rounded-md text-[11px] font-medium transition-all relative group ${activeTab === id ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
       title={!isSidebarOpen ? label : ''}
     >
-      <Icon className={`w-4 h-4 flex-shrink-0 ${activeTab === id ? 'text-white' : 'text-gray-400 group-hover:text-gray-600'}`} />
+      <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${activeTab === id ? 'text-white' : 'text-slate-400 group-hover:text-slate-600'}`} />
       <span className={`flex-1 truncate transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 md:hidden'}`}>{label}</span>
       {count !== undefined && isSidebarOpen && (
-        <span className={`text-[9px] px-1.5 py-0.5 rounded-lg font-black ${activeTab === id ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'}`}>
+        <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-bold ${activeTab === id ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'}`}>
           {count > 1000 ? (count / 1000).toFixed(1) + 'k' : count}
         </span>
       )}
@@ -659,45 +659,61 @@ const App: React.FC = () => {
   return (
     <div className="flex h-screen bg-[#f8fafc] text-slate-900 font-sans overflow-hidden">
       {/* Sidebar */}
-      <aside className={`print:hidden fixed inset-y-0 left-0 z-40 bg-white transition-all duration-300 ease-in-out md:static overflow-hidden ${isSidebarOpen ? 'w-64 translate-x-0 border-r border-gray-200 opacity-100' : 'w-0 -translate-x-full md:w-0 opacity-0 border-none'}`}>
-        <div className="flex flex-col h-full w-64">
-          <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="bg-blue-600 p-2.5 rounded-2xl shadow-lg shadow-blue-200"><ShieldCheck className="w-5 h-5 text-white" /></div>
-              <div><h1 className="text-sm font-black text-gray-900 tracking-tight uppercase leading-none mb-1">Siddhi Kabel</h1><span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Enterprise Hub</span></div>
+      <aside className={`print:hidden fixed inset-y-0 left-0 z-40 bg-white transition-all duration-300 ease-in-out md:static overflow-hidden border-r border-gray-200 ${isSidebarOpen ? 'w-64 translate-x-0 shadow-xl md:shadow-none' : 'w-0 -translate-x-full opacity-0 md:opacity-100 md:w-[70px] md:translate-x-0'}`}>
+        <div className="flex flex-col h-full w-full">
+          {/* Logo Section */}
+          <div className={`h-16 flex items-center ${isSidebarOpen ? 'justify-between px-6' : 'justify-center px-2'} border-b border-gray-100 transition-all`}>
+            <div className={`flex items-center gap-3 overflow-hidden ${!isSidebarOpen && 'justify-center w-full'}`}>
+              <div className="bg-blue-600 p-2 rounded-lg shadow-sm text-white flex-shrink-0"><ShieldCheck className="w-5 h-5" /></div>
+              <div className={`transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100 min-w-0' : 'opacity-0 w-0 hidden'}`}>
+                <h1 className="text-sm font-bold text-gray-900 tracking-tight uppercase leading-none mb-1">Siddhi Kabel</h1>
+                <span className="text-[10px] font-medium text-slate-500 uppercase tracking-widest whitespace-nowrap">Enterprise Hub</span>
+              </div>
             </div>
-            <button onClick={() => setIsSidebarOpen(false)} className="p-1.5 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5 text-gray-400" /></button>
+            {isSidebarOpen && (
+              <button onClick={() => setIsSidebarOpen(false)} className="p-1.5 hover:bg-gray-100 rounded-lg md:hidden"><X className="w-5 h-5 text-gray-400" /></button>
+            )}
           </div>
 
-          <div className="px-4 py-4 border-b border-gray-100 bg-gray-50/50">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center font-black shadow-sm">{currentUser.username.charAt(0)}</div>
-              <div className="flex-1 min-w-0"><p className="text-xs font-black text-gray-800 truncate">{currentUser.username}</p><p className="text-[9px] font-bold text-blue-600 uppercase tracking-tighter">{currentUser.role === 'admin' ? '🔥 System Admin' : '👤 Viewer Access'}</p></div>
-              <div className="flex flex-col gap-1">
+          {/* User Profile Section */}
+          <div className={`border-b border-gray-100 bg-gray-50/50 transition-all ${isSidebarOpen ? 'px-4 py-4' : 'p-2 py-4 flex flex-col items-center'}`}>
+            <div className={`flex items-center gap-3 ${!isSidebarOpen && 'justify-center'}`}>
+              <div className="w-9 h-9 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-sm border border-indigo-100 flex-shrink-0" title={currentUser.username}>
+                {currentUser.username.charAt(0)}
+              </div>
+
+              <div className={`flex-1 min-w-0 transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 w-0 hidden'}`}>
+                <p className="text-xs font-bold text-slate-800 truncate">{currentUser.username}</p>
+                <p className="text-[10px] font-medium text-slate-500 uppercase tracking-tight">{currentUser.role === 'admin' ? 'System Admin' : 'Viewer Access'}</p>
+              </div>
+
+              <div className={`flex ${isSidebarOpen ? 'flex-col gap-1' : 'hidden'}`}>
                 <button onClick={() => { authService.logout(); setCurrentUser(null); }} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all" title="Sign Out"><LogOut className="w-4 h-4" /></button>
                 <button onClick={() => setShowPasswordChange(true)} className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-all" title="Change Password"><Lock className="w-4 h-4" /></button>
               </div>
             </div>
           </div>
 
-          <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-3 custom-scrollbar">
-            <div>
-              <div className="px-3 mb-1 text-[9px] font-black text-gray-400 uppercase tracking-[0.2em]">Management</div>
+          <nav className="flex-1 overflow-y-auto py-6 space-y-4 custom-scrollbar">
+            <div className="px-3">
+              {isSidebarOpen && <div className="mb-1.5 px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider animate-fade-in">Management</div>}
               <div className="space-y-1">
                 <SidebarItem id="dashboard" label="Dashboard" icon={LayoutDashboard} onClick={setActiveTab} />
                 <SidebarItem id="pivotReport" label="Strategy Report" icon={Table} onClick={setActiveTab} />
                 <SidebarItem id="chat" label="AI Analyst" icon={MessageSquare} onClick={setActiveTab} />
               </div>
             </div>
-            <div>
-              <div className="px-3 mb-1 text-[9px] font-black text-gray-400 uppercase tracking-[0.2em]">Masters</div>
+
+            <div className="px-3">
+              {isSidebarOpen && <div className="mb-1.5 px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider animate-fade-in">Masters</div>}
               <div className="space-y-1">
                 <SidebarItem id="master" label="Material Master" icon={Database} count={materials.length} onClick={setActiveTab} />
                 <SidebarItem id="customerMaster" label="Customer Master" icon={Users} count={customerMasterItems.length} onClick={setActiveTab} />
               </div>
             </div>
-            <div>
-              <div className="px-3 mb-1 text-[9px] font-black text-gray-400 uppercase tracking-[0.2em]">Analytics</div>
+
+            <div className="px-3">
+              {isSidebarOpen && <div className="mb-1.5 px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider animate-fade-in">Analytics</div>}
               <div className="space-y-1">
                 <SidebarItem id="supplyChain" label="SC Planning" icon={LineChart} onClick={setActiveTab} />
                 <SidebarItem id="closingStock" label="Closing Stock" icon={Package} count={closingStockItems.length} onClick={setActiveTab} />
@@ -708,25 +724,30 @@ const App: React.FC = () => {
                 <SidebarItem id="attendees" label="Attendee Master" icon={UserCircle} onClick={setActiveTab} />
               </div>
             </div>
-            <div>
-              <div className="px-3 mb-1 text-[9px] font-black text-gray-400 uppercase tracking-[0.2em]">Security</div>
+
+            <div className="px-3">
+              {isSidebarOpen && <div className="mb-1.5 px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider animate-fade-in">Security</div>}
               <div className="space-y-1">
                 {isAdmin && <SidebarItem id="userManagement" label="User Management" icon={ShieldCheck} onClick={setActiveTab} />}
-                <button
-                  onClick={() => setShowPasswordChange(true)}
-                  className="w-full text-left flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all text-gray-500 hover:bg-gray-50 hover:text-gray-900 group"
-                >
-                  <Lock className="w-4 h-4 text-gray-400 group-hover:text-gray-600" />
-                  <span>Change Password</span>
-                </button>
+                {!isSidebarOpen ? (
+                  <SidebarItem id="changePass" label="Change Password" icon={Lock} onClick={() => setShowPasswordChange(true)} />
+                ) : (
+                  <button
+                    onClick={() => setShowPasswordChange(true)}
+                    className="w-full text-left flex items-center gap-2.5 px-3 py-1.5 rounded-md text-[11px] font-medium transition-all text-slate-600 hover:bg-slate-50 hover:text-slate-900 group"
+                  >
+                    <Lock className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600" />
+                    <span>Change Password</span>
+                  </button>
+                )}
               </div>
             </div>
           </nav>
 
-          <div className="p-4 border-t border-gray-100 bg-gray-50 flex-shrink-0">
+          <div className={`p-4 border-t border-gray-100 bg-gray-50 transition-all ${isSidebarOpen ? '' : 'flex justify-center'}`}>
             <div className="flex items-center gap-2 text-[10px] font-bold">
-              <div className={`w-2 h-2 rounded-full ${dbStatus === 'connected' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-gray-400'}`}></div>
-              <span className={dbStatus === 'connected' ? 'text-green-700' : 'text-gray-500'}>{dbStatus === 'connected' ? 'CLOUD LINKED' : 'LOCAL ENGINE'}</span>
+              <div className={`w-2 h-2 rounded-full flex-shrink-0 ${dbStatus === 'connected' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-gray-400'}`} title={dbStatus === 'connected' ? 'Cloud Linked' : 'Local Engine'}></div>
+              {isSidebarOpen && <span className={dbStatus === 'connected' ? 'text-green-700' : 'text-gray-500'}>{dbStatus === 'connected' ? 'CLOUD LINKED' : 'LOCAL ENGINE'}</span>}
             </div>
           </div>
         </div>
