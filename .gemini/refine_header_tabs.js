@@ -39,7 +39,7 @@ if (oldTabCont.test(content)) {
 
 const oldBtnClassRegex = /className={`px-5 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all duration-500 ease-out transform active:scale-95 \${activeSubTab === tab \? 'bg-white text-indigo-700 shadow-\[0_8px_16px_rgba\(0,0,0,0\.12\)\] scale-\[1\.02\] translate-y-0' : 'text-gray-500 hover:text-indigo-600 hover:bg-white\/40 hover:-translate-y-0\.5'}`}/;
 
-const newBtnClass = 'className={`w-full py-2.5 rounded-lg text-[10px] xl:text-xs font-black uppercase tracking-wider transition-all duration-300 transform active:scale-95 flex items-center justify-center ${activeSubTab === tab ? 'bg-white text - indigo - 700 shadow - sm scale - [1.02]' : 'text - gray - 500 hover: text - indigo - 600 hover: bg - white / 40'}`}';
+const newBtnClass = "className={`w-full py-2.5 rounded-lg text-[10px] xl:text-xs font-black uppercase tracking-wider transition-all duration-300 transform active:scale-95 flex items-center justify-center ${activeSubTab === tab ? 'bg-white text-indigo-700 shadow-sm scale-[1.02]' : 'text-gray-500 hover:text-indigo-600 hover:bg-white/40'}`}";
 
 if (oldBtnClassRegex.test(content)) {
     content = content.replace(oldBtnClassRegex, newBtnClass);

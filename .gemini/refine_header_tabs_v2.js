@@ -40,7 +40,7 @@ content = replaceBlock(content, oldTabStart, oldTabEnd, newTabCont);
 const oldBtnStart = 'className={`px-5 py-2 rounded-lg';
 const oldBtnEnd = "hover:-translate-y-0.5'}`}";
 
-const newBtnClass = 'className={`w-full py-2.5 rounded-lg text-[10px] xl:text-xs font-black uppercase tracking-wider transition-all duration-300 transform active:scale-95 flex items-center justify-center ${activeSubTab === tab ? 'bg-white text - indigo - 700 shadow - sm scale - [1.02]' : 'text - gray - 500 hover: text - indigo - 600 hover: bg - white / 40'}`}';
+const newBtnClass = "className={`w-full py-2.5 rounded-lg text-[10px] xl:text-xs font-black uppercase tracking-wider transition-all duration-300 transform active:scale-95 flex items-center justify-center ${activeSubTab === tab ? 'bg-white text-indigo-700 shadow-sm scale-[1.02]' : 'text-gray-500 hover:text-indigo-600 hover:bg-white/40'}`}";
 
 content = replaceBlock(content, oldBtnStart, oldBtnEnd, newBtnClass);
 

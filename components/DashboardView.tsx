@@ -351,14 +351,14 @@ const HorizontalBarChart = ({
                                             </div>
                                         )}
                                     </div>
-                                    
+
                                     <div className="flex flex-col items-end min-w-[60px] bg-white pl-1">
                                         <span className="text-xs md:text-sm font-black text-gray-900 tracking-tight leading-none">{formatLargeValue(total, true)}</span>
                                         {item.previous !== undefined && item.previous > 0 && (
                                             <div className="flex items-center gap-1.5 mt-1">
                                                 <span className="text-[9px] md:text-[10px] text-gray-500 font-bold uppercase tracking-tight">LY: {formatLargeValue(item.previous, true)}</span>
-                                                <span className={`text-[9px] px-1 py-0.5 rounded-md font-black ${((total - item.previous)/item.previous) >= 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
-                                                    {((total - item.previous)/item.previous) >= 0 ? '↑' : '↓'}{Math.abs(((total - item.previous)/item.previous) * 100).toFixed(0)}%
+                                                <span className={`text-[9px] px-1 py-0.5 rounded-md font-black ${((total - item.previous) / item.previous) >= 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
+                                                    {((total - item.previous) / item.previous) >= 0 ? '↑' : '↓'}{Math.abs(((total - item.previous) / item.previous) * 100).toFixed(0)}%
                                                 </span>
                                             </div>
                                         )}
@@ -384,12 +384,80 @@ const HorizontalBarChart = ({
 
 const GroupedCustomerAnalysis = ({ data, compareLabel = 'PY' }: { data: { group: string, total: number, totalPrevious: number, customers: { name: string, current: number, previous: number, diff: number }[] }[], compareLabel?: string }) => {
     const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+    const [searchTerm, setSearchTerm] = useState('');
+    const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' }>({ key: 'current', direction: 'desc' });
+
     const toggleGroup = (group: string) => setExpandedGroups(prev => ({ ...prev, [group]: !prev[group] }));
+
+    const handleSort = (key: string) => {
+        setSortConfig(current => ({
+            key,
+            direction: current.key === key && current.direction === 'desc' ? 'asc' : 'desc'
+        }));
+    };
+
+    const processedData = useMemo(() => {
+        return data.map(group => {
+            const filteredCustomers = group.customers.filter(c =>
+                c.name.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+
+            const sortedCustomers = [...filteredCustomers].sort((a, b) => {
+                let valA = 0;
+                let valB = 0;
+
+                switch (sortConfig.key) {
+                    case 'name': return sortConfig.direction === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
+                    case 'current': valA = a.current; valB = b.current; break;
+                    case 'previous': valA = a.previous; valB = b.previous; break;
+                    case 'diff': valA = a.diff; valB = b.diff; break;
+                    case 'growth':
+                        valA = a.previous > 0 ? (a.diff / a.previous) : -999;
+                        valB = b.previous > 0 ? (b.diff / b.previous) : -999;
+                        break;
+                    default: return 0;
+                }
+
+                return sortConfig.direction === 'asc' ? valA - valB : valB - valA;
+            });
+
+            return { ...group, customers: sortedCustomers };
+        }).filter(g => g.customers.length > 0 || (searchTerm && g.group.toLowerCase().includes(searchTerm.toLowerCase())));
+    }, [data, searchTerm, sortConfig]);
+
+    useEffect(() => {
+        if (searchTerm) {
+            const newExpanded: Record<string, boolean> = {};
+            processedData.forEach(g => newExpanded[g.group] = true);
+            setExpandedGroups(newExpanded);
+        }
+    }, [searchTerm]);
+
     return (
         <div className="flex flex-col h-full w-full overflow-hidden">
-            <h4 className="text-[10px] font-black text-gray-500 uppercase mb-2 border-b border-gray-100 pb-1">Analytics (vs {compareLabel})</h4>
+            <div className="flex flex-col gap-2 mb-2 border-b border-gray-100 pb-2">
+                <div className="flex items-center justify-between">
+                    <h4 className="text-[10px] font-black text-gray-500 uppercase">Analytics (vs {compareLabel})</h4>
+                    <div className="flex items-center gap-1 bg-gray-100 rounded p-0.5">
+                        <button onClick={() => handleSort('name')} className={`p-1 rounded ${sortConfig.key === 'name' ? 'bg-white shadow text-blue-600' : 'text-gray-400'}`} title="Sort by Name"><ListOrdered className="w-3 h-3" /></button>
+                        <button onClick={() => handleSort('current')} className={`p-1 rounded ${sortConfig.key === 'current' ? 'bg-white shadow text-blue-600' : 'text-gray-400'}`} title="Sort by Value"><DollarSign className="w-3 h-3" /></button>
+                        <button onClick={() => handleSort('growth')} className={`p-1 rounded ${sortConfig.key === 'growth' ? 'bg-white shadow text-blue-600' : 'text-gray-400'}`} title="Sort by Growth"><TrendingUp className="w-3 h-3" /></button>
+                    </div>
+                </div>
+                <div className="relative">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400" />
+                    <input
+                        type="text"
+                        placeholder="Filter customers..."
+                        className="w-full pl-7 pr-2 py-1 bg-gray-50 border border-gray-200 rounded text-[10px] focus:outline-none focus:border-blue-400 transition-colors"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
+            </div>
+
             <div className="flex-1 overflow-y-auto custom-scrollbar pr-1.5 space-y-1.5">
-                {data.map((groupData) => (
+                {processedData.map((groupData) => (
                     <div key={groupData.group} className="border border-gray-100 rounded-lg overflow-hidden bg-white shadow-sm">
                         <button onClick={() => toggleGroup(groupData.group)} className="w-full flex items-center justify-between p-2 bg-gray-50 hover:bg-blue-50 transition-colors">
                             <div className="flex items-center gap-2">
@@ -409,9 +477,9 @@ const GroupedCustomerAnalysis = ({ data, compareLabel = 'PY' }: { data: { group:
                         {expandedGroups[groupData.group] && (
                             <div className="divide-y divide-gray-50 bg-white">
                                 {groupData.customers.map((cust, idx) => (
-                                    <div key={idx} className="p-2 hover:bg-gray-50 transition-colors">
+                                    <div key={idx} className="p-2 hover:bg-gray-50 transition-colors group">
                                         <div className="flex justify-between items-start mb-1">
-                                            <span className="text-[10px] font-bold text-gray-700 truncate w-3/5" title={cust.name}>{cust.name}</span>
+                                            <span className="text-[10px] font-bold text-gray-700 truncate w-3/5 group-hover:text-blue-700 transition-colors" title={cust.name}>{cust.name}</span>
                                             <span className="text-[10px] font-black text-gray-900">{formatLargeValue(cust.current, true)}</span>
                                         </div>
                                         <div className="flex justify-between items-center">
@@ -431,10 +499,18 @@ const GroupedCustomerAnalysis = ({ data, compareLabel = 'PY' }: { data: { group:
                                         </div>
                                     </div>
                                 ))}
+                                {groupData.customers.length === 0 && (
+                                    <div className="p-4 text-center text-[10px] text-gray-400 italic">No customers match filter</div>
+                                )}
                             </div>
                         )}
                     </div>
                 ))}
+                {processedData.length === 0 && (
+                    <div className="p-4 text-center text-xs text-gray-400 font-bold uppercase mt-4">
+                        No groups found
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -465,7 +541,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     setActiveTab,
     isAdmin = false
 }) => {
-    const [activeSubTab, setActiveSubTab] = useState<'sales' | 'inventory' | 'so' | 'po' | 'weekly' | 'customer'>('sales');
+    const [activeSubTab, setActiveSubTab] = useState<'sales' | 'inventory' | 'so' | 'po' | 'weekly' | 'customer' | 'stockPlanning'>('sales');
     const [relatedMomId, setRelatedMomId] = useState<string | null>(null);
     const [weeklyBenchmarks, setWeeklyBenchmarks] = useState<{ [key: string]: any }>(() => {
         const saved = localStorage.getItem('weeklyBenchmarks');
@@ -602,7 +678,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             const cust = custMap.get(String(item.customerName || '').toLowerCase().trim());
 
             const rawGroup = cust?.customerGroup || 'Unassigned';
-            const mergedGroup = getMergedGroupName(cust?.group || 'Unassigned');
+            const relevantGroup = cust?.group || cust?.customerGroup || 'Unassigned';
+            const mergedGroup = getMergedGroupName(relevantGroup);
             const custGroupName = groupingMode === 'RAW' ? rawGroup : mergedGroup;
 
             const searchKey = String(item.particulars || '').toLowerCase().trim();
@@ -760,16 +837,16 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             console.log(`After WEEK filter (week ${selectedWeek}): ${data.length} records`);
         }
         // FY view: Apply YTD Filter (Same period last year) for YTD Comparison (yoyData)
-            // This ensures YTD Comparison matches "Current YTD" vs "Previous YTD"
-            const today = new Date();
-            const cutoffDate = new Date(today);
-            cutoffDate.setFullYear(today.getFullYear() - 1);
-            
-            data = data.filter(i => i.rawDate <= cutoffDate);
-            console.log(`Applied YTD filter for FY view. Cutoff: ${cutoffDate.toDateString()}. Records: ${data.length}`);
-            
+        // This ensures YTD Comparison matches "Current YTD" vs "Previous YTD"
+        const today = new Date();
+        const cutoffDate = new Date(today);
+        cutoffDate.setFullYear(today.getFullYear() - 1);
+
+        data = data.filter(i => i.rawDate <= cutoffDate);
+        console.log(`Applied YTD filter for FY view. Cutoff: ${cutoffDate.toDateString()}. Records: ${data.length}`);
+
         // This compares current year progress against complete previous year
-        
+
 
         if (selectedMake !== 'ALL') {
             const before = data.length;
@@ -940,7 +1017,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             }
         });
 
-        const repeatCustomers = [], rebuildCustomers = [], newCustomers = [], lostCustomers = [];
+        const repeatCustomers: any[] = [], rebuildCustomers: any[] = [], newCustomers: any[] = [], lostCustomers: any[] = [];
         const groupCounts = new Map();
 
         customerSalesByFY.forEach((data, customerName) => {
@@ -1815,15 +1892,15 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                     ))}
                 </div>
                 {activeSubTab === 'sales' && (
-                    
+
                     <div className="flex flex-col items-end gap-1.5">
                         {/* Row 1: Filters */}
                         <div className="flex items-center gap-2">
                             <select value={selectedMake} onChange={e => setSelectedMake(e.target.value)} title="Make Slicer" className="bg-white border border-blue-300 text-[10px] rounded-md px-2 py-1 font-bold text-blue-700 shadow-sm outline-none focus:ring-2 focus:ring-blue-500 h-7">
-                                {uniqueMakes.map(m => ( <option key={m} value={m}>{m === 'ALL' ? 'ALL MAKES' : m}</option> ))}
+                                {uniqueMakes.map(m => (<option key={m} value={m}>{m === 'ALL' ? 'ALL MAKES' : m}</option>))}
                             </select>
                             <select value={selectedMatGroup} onChange={e => setSelectedMatGroup(e.target.value)} title="Material Group Slicer" className="bg-white border border-emerald-300 text-[10px] rounded-md px-2 py-1 font-bold text-emerald-700 shadow-sm outline-none focus:ring-2 focus:ring-emerald-500 h-7">
-                                {uniqueMatGroups.map(mg => ( <option key={mg} value={mg}>{mg === 'ALL' ? 'ALL GROUPS' : mg}</option> ))}
+                                {uniqueMatGroups.map(mg => (<option key={mg} value={mg}>{mg === 'ALL' ? 'ALL GROUPS' : mg}</option>))}
                             </select>
                             <div className="flex bg-gray-100 p-0.5 rounded-md h-7 items-center">
                                 <button onClick={() => setGroupingMode('MERGED')} className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase transition-all ${groupingMode === 'MERGED' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>Merged</button>
@@ -1848,12 +1925,12 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                             <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-2 duration-300">
                                 {timeView === 'MONTH' && (
                                     <select value={selectedMonth} onChange={e => setSelectedMonth(Number(e.target.value))} className="bg-white border border-gray-300 text-[10px] rounded-md px-2 py-1 font-bold shadow-sm outline-none focus:ring-2 focus:ring-blue-500 h-7 w-24">
-                                        {["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"].map((m, i) => ( <option key={m} value={i}>{m}</option> ))}
+                                        {["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"].map((m, i) => (<option key={m} value={i}>{m}</option>))}
                                     </select>
                                 )}
                                 {timeView === 'WEEK' && (
                                     <select value={selectedWeek} onChange={e => setSelectedWeek(Number(e.target.value))} className="bg-white border border-gray-300 text-[10px] rounded-md px-2 py-1 font-bold shadow-sm outline-none focus:ring-2 focus:ring-blue-500 h-7 w-24">
-                                        {Array.from({ length: 53 }, (_, i) => i + 1).map(w => ( <option key={w} value={w}>Week {w}</option> ))}
+                                        {Array.from({ length: 53 }, (_, i) => i + 1).map(w => (<option key={w} value={w}>Week {w}</option>))}
                                     </select>
                                 )}
                             </div>
@@ -2830,17 +2907,17 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                     </div>
                                     <div className="flex-1 min-h-[220px]">
                                         {(() => {
-                                            const shortage = filteredStockPlanning.filter(i => i.netQty < i.minStock).length;
-                                            const refill = filteredStockPlanning.filter(i => i.netQty >= i.minStock && i.netQty < i.rol).length;
-                                            const healthy = filteredStockPlanning.filter(i => i.netQty >= i.rol).length;
+                                            const shortageCount = filteredStockPlanning.filter(i => i.netQty < i.minStock).length;
+                                            const refillCount = filteredStockPlanning.filter(i => i.netQty >= i.minStock && i.netQty < i.rol).length;
+                                            const healthyCount = filteredStockPlanning.filter(i => i.netQty >= i.rol).length;
                                             return (
                                                 <ModernDonutChartDashboard
                                                     title="STOCK HEALTH"
                                                     centerColorClass="text-indigo-600"
                                                     data={[
-                                                        { label: 'CRITICAL', value: shortage, color: '#e11d48' },
-                                                        { label: 'NEED REFILL', value: refill, color: '#f59e0b' },
-                                                        { label: 'HEALTHY', value: healthy, color: '#10b981' }
+                                                        { label: 'CRITICAL', value: shortageCount, color: '#e11d48' },
+                                                        { label: 'NEED REFILL', value: refillCount, color: '#f59e0b' },
+                                                        { label: 'HEALTHY', value: healthyCount, color: '#10b981' }
                                                     ]}
                                                 />
                                             );
@@ -2854,7 +2931,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                         <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-100">
                                             <p className="text-[8px] font-black text-emerald-600 uppercase">Plan Accuracy</p>
                                             <p className="text-lg font-black text-emerald-800 tracking-tight">
-                                                {filteredStockPlanning.length > 0 ? Math.round(((filteredStockPlanning.length - shortage) / filteredStockPlanning.length) * 100) : 0}%
+                                                {filteredStockPlanning.length > 0 ? Math.round(((filteredStockPlanning.length - filteredStockPlanning.filter(i => i.netQty < i.minStock).length) / filteredStockPlanning.length) * 100) : 0}%
                                             </p>
                                         </div>
                                     </div>
@@ -3239,71 +3316,71 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                         <span className="text-[10px] font-normal text-purple-600 bg-white px-2 py-0.5 rounded-full">FY 2023-24 to 2025-26</span>
                                     </h3>
                                     <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-4">
-                                    <div 
-                                        onClick={() => setSelectedCustCategory('ALL')}
-                                        className={`bg-white p-3 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md ${selectedCustCategory === 'ALL' ? 'border-purple-500 ring-2 ring-purple-200' : 'border-purple-200 shadow-sm'}`}>
-                                        <div className="flex items-center justify-between">
-                                            <div>
-                                                <p className="text-[9px] font-bold text-purple-600 uppercase">Total Customers</p>
-                                                <p className="text-2xl font-black text-purple-700">{customerCategorization.totalCustomers}</p>
-                                                <p className="text-[8px] text-gray-500 mt-1">Click to view all</p>
+                                        <div
+                                            onClick={() => setSelectedCustCategory('ALL')}
+                                            className={`bg-white p-3 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md ${selectedCustCategory === 'ALL' ? 'border-purple-500 ring-2 ring-purple-200' : 'border-purple-200 shadow-sm'}`}>
+                                            <div className="flex items-center justify-between">
+                                                <div>
+                                                    <p className="text-[9px] font-bold text-purple-600 uppercase">Total Customers</p>
+                                                    <p className="text-2xl font-black text-purple-700">{customerCategorization.totalCustomers}</p>
+                                                    <p className="text-[8px] text-gray-500 mt-1">Click to view all</p>
+                                                </div>
+                                                <Users className={`w-8 h-8 text-purple-500 ${selectedCustCategory === 'ALL' ? 'opacity-100' : 'opacity-20'}`} />
                                             </div>
-                                            <Users className={`w-8 h-8 text-purple-500 ${selectedCustCategory === 'ALL' ? 'opacity-100' : 'opacity-20'}`} />
                                         </div>
-                                    </div>
-                                    
-                                    <div 
-                                        onClick={() => setSelectedCustCategory('Repeat')}
-                                        className={`bg-white p-3 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md ${selectedCustCategory === 'Repeat' ? 'border-green-500 ring-2 ring-green-200' : 'border-green-200 shadow-sm'}`}>
-                                        <div className="flex items-center justify-between">
-                                            <div>
-                                                <p className="text-[9px] font-bold text-green-600 uppercase">Repeat Customers</p>
-                                                <p className="text-2xl font-black text-green-700">{customerCategorization.totalRepeat}</p>
-                                                <p className="text-[8px] text-gray-500 mt-1">Continuous (24-25 & 25-26)</p>
-                                            </div>
-                                            <RefreshCw className={`w-8 h-8 text-green-500 ${selectedCustCategory === 'Repeat' ? 'opacity-100' : 'opacity-20'}`} />
-                                        </div>
-                                    </div>
 
-                                    <div 
-                                        onClick={() => setSelectedCustCategory('Rebuild')}
-                                        className={`bg-white p-3 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md ${selectedCustCategory === 'Rebuild' ? 'border-orange-500 ring-2 ring-orange-200' : 'border-orange-200 shadow-sm'}`}>
-                                        <div className="flex items-center justify-between">
-                                            <div>
-                                                <p className="text-[9px] font-bold text-orange-600 uppercase">Rebuild Customers</p>
-                                                <p className="text-2xl font-black text-orange-700">{customerCategorization.totalRebuild}</p>
-                                                <p className="text-[8px] text-gray-500 mt-1">Returned (Gap in 24-25)</p>
+                                        <div
+                                            onClick={() => setSelectedCustCategory('Repeat')}
+                                            className={`bg-white p-3 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md ${selectedCustCategory === 'Repeat' ? 'border-green-500 ring-2 ring-green-200' : 'border-green-200 shadow-sm'}`}>
+                                            <div className="flex items-center justify-between">
+                                                <div>
+                                                    <p className="text-[9px] font-bold text-green-600 uppercase">Repeat Customers</p>
+                                                    <p className="text-2xl font-black text-green-700">{customerCategorization.totalRepeat}</p>
+                                                    <p className="text-[8px] text-gray-500 mt-1">Continuous (24-25 & 25-26)</p>
+                                                </div>
+                                                <RefreshCw className={`w-8 h-8 text-green-500 ${selectedCustCategory === 'Repeat' ? 'opacity-100' : 'opacity-20'}`} />
                                             </div>
-                                            <History className={`w-8 h-8 text-orange-500 ${selectedCustCategory === 'Rebuild' ? 'opacity-100' : 'opacity-20'}`} />
                                         </div>
-                                    </div>
 
-                                    <div 
-                                        onClick={() => setSelectedCustCategory('New')}
-                                        className={`bg-white p-3 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md ${selectedCustCategory === 'New' ? 'border-blue-500 ring-2 ring-blue-200' : 'border-blue-200 shadow-sm'}`}>
-                                        <div className="flex items-center justify-between">
-                                            <div>
-                                                <p className="text-[9px] font-bold text-blue-600 uppercase">New Customers</p>
-                                                <p className="text-2xl font-black text-blue-700">{customerCategorization.totalNew}</p>
-                                                <p className="text-[8px] text-gray-500 mt-1">Only in 25-26</p>
+                                        <div
+                                            onClick={() => setSelectedCustCategory('Rebuild')}
+                                            className={`bg-white p-3 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md ${selectedCustCategory === 'Rebuild' ? 'border-orange-500 ring-2 ring-orange-200' : 'border-orange-200 shadow-sm'}`}>
+                                            <div className="flex items-center justify-between">
+                                                <div>
+                                                    <p className="text-[9px] font-bold text-orange-600 uppercase">Rebuild Customers</p>
+                                                    <p className="text-2xl font-black text-orange-700">{customerCategorization.totalRebuild}</p>
+                                                    <p className="text-[8px] text-gray-500 mt-1">Returned (Gap in 24-25)</p>
+                                                </div>
+                                                <History className={`w-8 h-8 text-orange-500 ${selectedCustCategory === 'Rebuild' ? 'opacity-100' : 'opacity-20'}`} />
                                             </div>
-                                            <UserPlus className={`w-8 h-8 text-blue-500 ${selectedCustCategory === 'New' ? 'opacity-100' : 'opacity-20'}`} />
                                         </div>
-                                    </div>
 
-                                    <div 
-                                        onClick={() => setSelectedCustCategory('Lost')}
-                                        className={`bg-white p-3 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md ${selectedCustCategory === 'Lost' ? 'border-red-500 ring-2 ring-red-200' : 'border-red-200 shadow-sm'}`}>
-                                        <div className="flex items-center justify-between">
-                                            <div>
-                                                <p className="text-[9px] font-bold text-red-600 uppercase">Lost Customers</p>
-                                                <p className="text-2xl font-black text-red-700">{customerCategorization.totalLost}</p>
-                                                <p className="text-[8px] text-gray-500 mt-1">No sales in 25-26</p>
+                                        <div
+                                            onClick={() => setSelectedCustCategory('New')}
+                                            className={`bg-white p-3 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md ${selectedCustCategory === 'New' ? 'border-blue-500 ring-2 ring-blue-200' : 'border-blue-200 shadow-sm'}`}>
+                                            <div className="flex items-center justify-between">
+                                                <div>
+                                                    <p className="text-[9px] font-bold text-blue-600 uppercase">New Customers</p>
+                                                    <p className="text-2xl font-black text-blue-700">{customerCategorization.totalNew}</p>
+                                                    <p className="text-[8px] text-gray-500 mt-1">Only in 25-26</p>
+                                                </div>
+                                                <UserPlus className={`w-8 h-8 text-blue-500 ${selectedCustCategory === 'New' ? 'opacity-100' : 'opacity-20'}`} />
                                             </div>
-                                            <UserMinus className={`w-8 h-8 text-red-500 ${selectedCustCategory === 'Lost' ? 'opacity-100' : 'opacity-20'}`} />
+                                        </div>
+
+                                        <div
+                                            onClick={() => setSelectedCustCategory('Lost')}
+                                            className={`bg-white p-3 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md ${selectedCustCategory === 'Lost' ? 'border-red-500 ring-2 ring-red-200' : 'border-red-200 shadow-sm'}`}>
+                                            <div className="flex items-center justify-between">
+                                                <div>
+                                                    <p className="text-[9px] font-bold text-red-600 uppercase">Lost Customers</p>
+                                                    <p className="text-2xl font-black text-red-700">{customerCategorization.totalLost}</p>
+                                                    <p className="text-[8px] text-gray-500 mt-1">No sales in 25-26</p>
+                                                </div>
+                                                <UserMinus className={`w-8 h-8 text-red-500 ${selectedCustCategory === 'Lost' ? 'opacity-100' : 'opacity-20'}`} />
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
                                     <div className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm mb-4">
                                         <h4 className="text-[10px] font-black text-gray-700 uppercase mb-2 flex items-center gap-2">
                                             <Layers className="w-3 h-3" /> Group-wise Customer Distribution
@@ -3356,25 +3433,25 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                 </thead>
                                                 <tbody className="divide-y divide-gray-200 text-[10px]">
                                                     {[...customerCategorization.repeatCustomers, ...customerCategorization.rebuildCustomers, ...customerCategorization.newCustomers, ...customerCategorization.lostCustomers]
-                                            .filter(c => selectedCustCategory === 'ALL' || c.category === selectedCustCategory)
-                                            .map((cust, idx) => (
-                                                        <tr key={idx} className="hover:bg-blue-50/30 transition-colors">
-                                                            <td className="py-1 px-2 border border-gray-200">
-                                                                <span className={`px-2 py-0.5 rounded-full text-[8px] font-bold ${cust.category === 'Repeat' ? 'bg-green-100 text-green-700' : cust.category === 'Rebuild' ? 'bg-orange-100 text-orange-700' : cust.category === 'Lost' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>{cust.category}</span>
-                                                            </td>
-                                                            <td className="py-1 px-2 border border-gray-200 text-gray-600 text-[9px] font-bold">{cust.group}</td>
-                                                            <td className="py-1 px-3 border border-gray-200 font-bold text-gray-900">{cust.customerName}</td>
-                                                            <td className="py-1 px-2 border border-gray-200 text-right text-gray-600">{cust.fy202324Qty.toLocaleString()}</td>
-                                                            <td className="py-1 px-2 border border-gray-200 text-right font-bold text-gray-700">{formatLargeValue(cust.fy202324Value, true)}</td>
-                                                            <td className="py-1 px-2 border border-gray-200 text-right text-gray-600">{cust.fy202425Qty.toLocaleString()}</td>
-                                                            <td className="py-1 px-2 border border-gray-200 text-right font-bold text-gray-700">{formatLargeValue(cust.fy202425Value, true)}</td>
-                                                            <td className="py-1 px-2 border border-gray-200 text-right text-blue-600 font-bold">{cust.fy202526Qty.toLocaleString()}</td>
-                                                            <td className="py-1 px-2 border border-gray-200 text-right font-black text-blue-700">{formatLargeValue(cust.fy202526Value, true)}</td>
-                                                            <td className="py-1 px-2 border border-gray-200 text-right">
-                                                                <span className={`font-bold ${cust.ytdGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}>{cust.ytdGrowth >= 0 ? '+' : ''}{cust.ytdGrowth.toFixed(1)}%</span>
-                                                            </td>
-                                                        </tr>
-                                                    ))}
+                                                        .filter(c => selectedCustCategory === 'ALL' || c.category === selectedCustCategory)
+                                                        .map((cust, idx) => (
+                                                            <tr key={idx} className="hover:bg-blue-50/30 transition-colors">
+                                                                <td className="py-1 px-2 border border-gray-200">
+                                                                    <span className={`px-2 py-0.5 rounded-full text-[8px] font-bold ${cust.category === 'Repeat' ? 'bg-green-100 text-green-700' : cust.category === 'Rebuild' ? 'bg-orange-100 text-orange-700' : cust.category === 'Lost' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>{cust.category}</span>
+                                                                </td>
+                                                                <td className="py-1 px-2 border border-gray-200 text-gray-600 text-[9px] font-bold">{cust.group}</td>
+                                                                <td className="py-1 px-3 border border-gray-200 font-bold text-gray-900">{cust.customerName}</td>
+                                                                <td className="py-1 px-2 border border-gray-200 text-right text-gray-600">{cust.fy202324Qty.toLocaleString()}</td>
+                                                                <td className="py-1 px-2 border border-gray-200 text-right font-bold text-gray-700">{formatLargeValue(cust.fy202324Value, true)}</td>
+                                                                <td className="py-1 px-2 border border-gray-200 text-right text-gray-600">{cust.fy202425Qty.toLocaleString()}</td>
+                                                                <td className="py-1 px-2 border border-gray-200 text-right font-bold text-gray-700">{formatLargeValue(cust.fy202425Value, true)}</td>
+                                                                <td className="py-1 px-2 border border-gray-200 text-right text-blue-600 font-bold">{cust.fy202526Qty.toLocaleString()}</td>
+                                                                <td className="py-1 px-2 border border-gray-200 text-right font-black text-blue-700">{formatLargeValue(cust.fy202526Value, true)}</td>
+                                                                <td className="py-1 px-2 border border-gray-200 text-right">
+                                                                    <span className={`font-bold ${cust.ytdGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}>{cust.ytdGrowth >= 0 ? '+' : ''}{cust.ytdGrowth.toFixed(1)}%</span>
+                                                                </td>
+                                                            </tr>
+                                                        ))}
                                                 </tbody>
                                             </table>
                                         </div>
@@ -3393,7 +3470,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                 </h3>
                                 {/* Filter Cards */}
                                 <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-4">
-                                    <div 
+                                    <div
                                         onClick={() => setSelectedCustCategory('ALL')}
                                         className={`bg-white p-3 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md ${selectedCustCategory === 'ALL' ? 'border-purple-500 ring-2 ring-purple-200' : 'border-purple-200 shadow-sm'}`}>
                                         <div className="flex items-center justify-between">
@@ -3405,7 +3482,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                             <Users className={`w-8 h-8 text-purple-500 ${selectedCustCategory === 'ALL' ? 'opacity-100' : 'opacity-20'}`} />
                                         </div>
                                     </div>
-                                    <div 
+                                    <div
                                         onClick={() => setSelectedCustCategory('Repeat')}
                                         className={`bg-white p-3 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md ${selectedCustCategory === 'Repeat' ? 'border-green-500 ring-2 ring-green-200' : 'border-green-200 shadow-sm'}`}>
                                         <div className="flex items-center justify-between">
@@ -3417,7 +3494,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                             <RefreshCw className={`w-8 h-8 text-green-500 ${selectedCustCategory === 'Repeat' ? 'opacity-100' : 'opacity-20'}`} />
                                         </div>
                                     </div>
-                                    <div 
+                                    <div
                                         onClick={() => setSelectedCustCategory('Rebuild')}
                                         className={`bg-white p-3 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md ${selectedCustCategory === 'Rebuild' ? 'border-orange-500 ring-2 ring-orange-200' : 'border-orange-200 shadow-sm'}`}>
                                         <div className="flex items-center justify-between">
@@ -3429,7 +3506,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                             <History className={`w-8 h-8 text-orange-500 ${selectedCustCategory === 'Rebuild' ? 'opacity-100' : 'opacity-20'}`} />
                                         </div>
                                     </div>
-                                    <div 
+                                    <div
                                         onClick={() => setSelectedCustCategory('New')}
                                         className={`bg-white p-3 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md ${selectedCustCategory === 'New' ? 'border-blue-500 ring-2 ring-blue-200' : 'border-blue-200 shadow-sm'}`}>
                                         <div className="flex items-center justify-between">
@@ -3441,7 +3518,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                             <UserPlus className={`w-8 h-8 text-blue-500 ${selectedCustCategory === 'New' ? 'opacity-100' : 'opacity-20'}`} />
                                         </div>
                                     </div>
-                                    <div 
+                                    <div
                                         onClick={() => setSelectedCustCategory('Lost')}
                                         className={`bg-white p-3 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md ${selectedCustCategory === 'Lost' ? 'border-red-500 ring-2 ring-red-200' : 'border-red-200 shadow-sm'}`}>
                                         <div className="flex items-center justify-between">
@@ -3498,23 +3575,23 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                 {[...customerCategorization.repeatCustomers, ...customerCategorization.rebuildCustomers, ...customerCategorization.newCustomers, ...customerCategorization.lostCustomers]
                                                     .filter(c => selectedCustCategory === 'ALL' || c.category === selectedCustCategory)
                                                     .map((cust, idx) => (
-                                                    <tr key={idx} className="hover:bg-blue-50/30 transition-colors">
-                                                        <td className="py-1 px-2 border border-gray-200">
-                                                            <span className={`px-2 py-0.5 rounded-full text-[8px] font-bold ${cust.category === 'Repeat' ? 'bg-green-100 text-green-700' : cust.category === 'Rebuild' ? 'bg-orange-100 text-orange-700' : cust.category === 'Lost' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>{cust.category}</span>
-                                                        </td>
-                                                        <td className="py-1 px-2 border border-gray-200 text-gray-600 text-[9px] font-bold">{cust.group}</td>
-                                                        <td className="py-1 px-3 border border-gray-200 font-bold text-gray-900">{cust.customerName}</td>
-                                                        <td className="py-1 px-2 border border-gray-200 text-right text-gray-600">{cust.fy202324Qty.toLocaleString()}</td>
-                                                        <td className="py-1 px-2 border border-gray-200 text-right font-bold text-gray-700">{formatLargeValue(cust.fy202324Value, true)}</td>
-                                                        <td className="py-1 px-2 border border-gray-200 text-right text-gray-600">{cust.fy202425Qty.toLocaleString()}</td>
-                                                        <td className="py-1 px-2 border border-gray-200 text-right font-bold text-gray-700">{formatLargeValue(cust.fy202425Value, true)}</td>
-                                                        <td className="py-1 px-2 border border-gray-200 text-right text-blue-600 font-bold">{cust.fy202526Qty.toLocaleString()}</td>
-                                                        <td className="py-1 px-2 border border-gray-200 text-right font-black text-blue-700">{formatLargeValue(cust.fy202526Value, true)}</td>
-                                                        <td className="py-1 px-2 border border-gray-200 text-right">
-                                                            <span className={`font-bold ${cust.ytdGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}>{cust.ytdGrowth >= 0 ? '+' : ''}{cust.ytdGrowth.toFixed(1)}%</span>
-                                                        </td>
-                                                    </tr>
-                                                ))}
+                                                        <tr key={idx} className="hover:bg-blue-50/30 transition-colors">
+                                                            <td className="py-1 px-2 border border-gray-200">
+                                                                <span className={`px-2 py-0.5 rounded-full text-[8px] font-bold ${cust.category === 'Repeat' ? 'bg-green-100 text-green-700' : cust.category === 'Rebuild' ? 'bg-orange-100 text-orange-700' : cust.category === 'Lost' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>{cust.category}</span>
+                                                            </td>
+                                                            <td className="py-1 px-2 border border-gray-200 text-gray-600 text-[9px] font-bold">{cust.group}</td>
+                                                            <td className="py-1 px-3 border border-gray-200 font-bold text-gray-900">{cust.customerName}</td>
+                                                            <td className="py-1 px-2 border border-gray-200 text-right text-gray-600">{cust.fy202324Qty.toLocaleString()}</td>
+                                                            <td className="py-1 px-2 border border-gray-200 text-right font-bold text-gray-700">{formatLargeValue(cust.fy202324Value, true)}</td>
+                                                            <td className="py-1 px-2 border border-gray-200 text-right text-gray-600">{cust.fy202425Qty.toLocaleString()}</td>
+                                                            <td className="py-1 px-2 border border-gray-200 text-right font-bold text-gray-700">{formatLargeValue(cust.fy202425Value, true)}</td>
+                                                            <td className="py-1 px-2 border border-gray-200 text-right text-blue-600 font-bold">{cust.fy202526Qty.toLocaleString()}</td>
+                                                            <td className="py-1 px-2 border border-gray-200 text-right font-black text-blue-700">{formatLargeValue(cust.fy202526Value, true)}</td>
+                                                            <td className="py-1 px-2 border border-gray-200 text-right">
+                                                                <span className={`font-bold ${cust.ytdGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}>{cust.ytdGrowth >= 0 ? '+' : ''}{cust.ytdGrowth.toFixed(1)}%</span>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
                                             </tbody>
                                         </table>
                                     </div>
