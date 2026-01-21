@@ -696,7 +696,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         if (!selectedFY) return [];
         const parts = selectedFY.split('-');
         const pyStart = parseInt(parts[0]) - 1;
-        const pyString = `${pyStart}-${pyStart + 1}`;
+        const pyString = `${pyStart}-${(parseInt(parts[1]) - 1).toString().padStart(2, '0')}`;
 
         let data = [];
         if (timeView === 'WEEK') {
