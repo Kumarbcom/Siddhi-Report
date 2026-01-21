@@ -1937,7 +1937,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                             {diff >= 0 ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
                                                         </div>
                                                         <p className="text-[8px] font-bold uppercase text-gray-400 tracking-tighter pl-1">
-                                                            {timeView === 'WEEK' ? 'vs Prev Wk' : timeView === 'MONTH' ? 'vs Prev Mo' : 'vs Total Prev FY'}
+                                                            {timeView === 'WEEK' ? 'vs Prev Week' : timeView === 'MONTH' ? 'vs Prev Month' : 'vs Total Prev FY'}
                                                         </p>
                                                     </div>
 
@@ -1948,7 +1948,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                             {yoyDiff >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
                                                         </div>
                                                         <p className="text-[8px] font-bold uppercase text-gray-400 tracking-tighter pl-1">
-                                                            {timeView === 'FY' ? 'YTD Comp' : 'YoY Comp'}
+                                                            'vs Last Year'
                                                         </p>
                                                     </div>
                                                 </div>
