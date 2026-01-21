@@ -353,11 +353,11 @@ const HorizontalBarChart = ({
                                     </div>
                                     
                                     <div className="flex flex-col items-end min-w-[60px] bg-white pl-1">
-                                        <span className="font-bold text-gray-900 leading-none">{formatLargeValue(total, true)}</span>
+                                        <span className="text-xs md:text-sm font-black text-gray-900 tracking-tight leading-none">{formatLargeValue(total, true)}</span>
                                         {item.previous !== undefined && item.previous > 0 && (
-                                            <div className="flex items-center gap-1 mt-0.5">
-                                                <span className="text-[7px] text-gray-400 font-medium tracking-tight">LY: {formatLargeValue(item.previous, true)}</span>
-                                                <span className={`text-[7px] font-bold ${((total - item.previous)/item.previous) >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                            <div className="flex items-center gap-1.5 mt-1">
+                                                <span className="text-[9px] md:text-[10px] text-gray-500 font-bold uppercase tracking-tight">LY: {formatLargeValue(item.previous, true)}</span>
+                                                <span className={`text-[9px] px-1 py-0.5 rounded-md font-black ${((total - item.previous)/item.previous) >= 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
                                                     {((total - item.previous)/item.previous) >= 0 ? '↑' : '↓'}{Math.abs(((total - item.previous)/item.previous) * 100).toFixed(0)}%
                                                 </span>
                                             </div>
