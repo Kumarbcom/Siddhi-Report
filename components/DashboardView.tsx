@@ -1882,7 +1882,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                         <div className="flex flex-col gap-2">
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
                                 {[
-                                    { label: 'Current Sales', val: kpis.currVal, prev: kpis.prevVal, yoy: kpis.yoyVal, isCurr: true, text: 'text-blue-700', bg: 'bg-blue-50', border: 'border-blue-100', icon: DollarSign },
+                                    { label: 'Current Sales FY', val: kpis.currValFY, prev: kpis.prevVal, yoy: kpis.yoyVal, isCurr: true, text: 'text-blue-700', bg: 'bg-blue-50', border: 'border-blue-100', icon: DollarSign },
                                     { label: 'Quantity', val: kpis.currQty, prev: kpis.prevQty, yoy: kpis.yoyQty, isCurr: false, text: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-100', icon: Package },
                                     { label: 'Unique Customers', val: kpis.uniqueCusts, prev: kpis.prevCusts, yoy: kpis.yoyCusts, isCurr: false, text: 'text-violet-700', bg: 'bg-violet-50', border: 'border-violet-100', icon: Users },
                                     { label: 'Avg. Order', val: kpis.avgOrder, prev: kpis.prevAvgOrder, yoy: kpis.yoyAvgOrder, isCurr: true, text: 'text-rose-700', bg: 'bg-rose-50', border: 'border-rose-100', icon: Activity }
