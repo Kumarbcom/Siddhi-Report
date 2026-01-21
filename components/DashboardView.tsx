@@ -492,6 +492,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     }, [activeSubTab]);
     const [timeView, setTimeView] = useState<'FY' | 'MONTH' | 'WEEK'>('FY');
     const [selectedFY, setSelectedFY] = useState<string>('');
+    const [selectedCustCategory, setSelectedCustCategory] = useState<string>('ALL');
     const [invGroupMetric, setInvGroupMetric] = useState<Metric>('value');
     const [selectedMonth, setSelectedMonth] = useState<number>(0);
     const [selectedWeek, setSelectedWeek] = useState<number>(1);
@@ -771,6 +772,15 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     }, [selectedFY, timeView, selectedMonth, selectedWeek, enrichedSales, selectedMake, selectedMatGroup]);
 
     const kpis = useMemo(() => {
+        // Calculate FULL FY values (not filtered by month/week) for "Current Sales FY"
+        const fullFYData = enrichedSales.filter(i => {
+            if (i.fiscalYear !== selectedFY) return false;
+            if (selectedMake !== 'ALL' && i.make !== selectedMake) return false;
+            if (selectedMatGroup !== 'ALL' && i.matGroup !== selectedMatGroup) return false;
+            return true;
+        });
+        const currValFY = fullFYData.reduce((acc, i) => acc + (i.value || 0), 0);
+
         const currVal = currentData.reduce((acc, i) => acc + (i.value || 0), 0);
         const currQty = currentData.reduce((acc, i) => acc + (i.quantity || 0), 0);
         const uniqueCusts = new Set(currentData.map(i => String(i.customerName || ''))).size;
@@ -796,11 +806,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         });
 
         return {
-            currVal, currQty, uniqueCusts, avgOrder,
+            currVal, currValFY, currQty, uniqueCusts, avgOrder,
             prevVal, prevQty, prevCusts, prevAvgOrder,
             yoyVal, yoyQty, yoyCusts, yoyAvgOrder
         };
-    }, [currentData, previousDataForComparison, yoyData]);
+    }, [currentData, previousDataForComparison, yoyData, enrichedSales, selectedFY, selectedMake, selectedMatGroup]);
 
     const groupedCustomerData = useMemo(() => {
         const groupMap = new Map<string, { total: number, totalPrevious: number, customers: Map<string, { current: number, previous: number }> }>();
@@ -930,22 +940,22 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 ytdGrowth
             };
 
-            // Repeat: Has sales in EITHER 2023-24 OR 2024-25 (or both) AND also in 2025-26
-            if ((has202324 || has202425) && has202526) {
-                repeatCustomers.push({ ...customerRecord, category: 'Repeat' });
-                groupCount.repeat++;
-            }
-            // Rebuild: Has sales ONLY in 2023-24 AND 2025-26 (NOT in 2024-25)
-            else if (has202324 && !has202425 && has202526) {
+            // 1. Rebuild: Sales in 23-24 & 25-26 (Gap in 24-25)
+            if (has202324 && !has202425 && has202526) {
                 rebuildCustomers.push({ ...customerRecord, category: 'Rebuild' });
                 groupCount.rebuild++;
             }
-            // New: Has sales ONLY in 2025-26 (NOT in 2023-24 or 2024-25)
+            // 2. New: Sales ONLY in 25-26
             else if (!has202324 && !has202425 && has202526) {
                 newCustomers.push({ ...customerRecord, category: 'New' });
                 groupCount.new++;
             }
-            // Lost: Has sales in 2023-24 or 2024-25 BUT NO sales in 2025-26
+            // 3. Repeat: Sales in 24-25 & 25-26 (Continuous) - Covers both 2-year and 3-year repeats
+            else if (has202425 && has202526) {
+                repeatCustomers.push({ ...customerRecord, category: 'Repeat' });
+                groupCount.repeat++;
+            }
+            // 4. Lost: Sales in previous years but NO sales in 25-26
             else if ((has202324 || has202425) && !has202526) {
                 lostCustomers.push({ ...customerRecord, category: 'Lost' });
                 groupCount.lost++;
@@ -3233,47 +3243,71 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                         <span className="text-[10px] font-normal text-purple-600 bg-white px-2 py-0.5 rounded-full">FY 2023-24 to 2025-26</span>
                                     </h3>
                                     <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-4">
-                                        <div className="bg-white p-3 rounded-lg border-2 border-green-200 shadow-sm">
-                                            <div className="flex items-center justify-between">
-                                                <div>
-                                                    <p className="text-[9px] font-bold text-green-600 uppercase">Repeat Customers</p>
-                                                    <p className="text-2xl font-black text-green-700">{customerCategorization.totalRepeat}</p>
-                                                    <p className="text-[8px] text-gray-500 mt-1">All 3 years: 23-24, 24-25, 25-26</p>
-                                                </div>
-                                                <RefreshCw className="w-8 h-8 text-green-500 opacity-20" />
+                                    <div 
+                                        onClick={() => setSelectedCustCategory('ALL')}
+                                        className={`bg-white p-3 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md ${selectedCustCategory === 'ALL' ? 'border-purple-500 ring-2 ring-purple-200' : 'border-purple-200 shadow-sm'}`}>
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-[9px] font-bold text-purple-600 uppercase">Total Customers</p>
+                                                <p className="text-2xl font-black text-purple-700">{customerCategorization.totalCustomers}</p>
+                                                <p className="text-[8px] text-gray-500 mt-1">Click to view all</p>
                                             </div>
-                                        </div>
-                                        <div className="bg-white p-3 rounded-lg border-2 border-orange-200 shadow-sm">
-                                            <div className="flex items-center justify-between">
-                                                <div>
-                                                    <p className="text-[9px] font-bold text-orange-600 uppercase">Rebuild Customers</p>
-                                                    <p className="text-2xl font-black text-orange-700">{customerCategorization.totalRebuild}</p>
-                                                    <p className="text-[8px] text-gray-500 mt-1">Re-engaged in 25-26</p>
-                                                </div>
-                                                <History className="w-8 h-8 text-orange-500 opacity-20" />
-                                            </div>
-                                        </div>
-                                        <div className="bg-white p-3 rounded-lg border-2 border-blue-200 shadow-sm">
-                                            <div className="flex items-center justify-between">
-                                                <div>
-                                                    <p className="text-[9px] font-bold text-blue-600 uppercase">New Customers</p>
-                                                    <p className="text-2xl font-black text-blue-700">{customerCategorization.totalNew}</p>
-                                                    <p className="text-[8px] text-gray-500 mt-1">Only in 25-26</p>
-                                                </div>
-                                                <UserPlus className="w-8 h-8 text-blue-500 opacity-20" />
-                                            </div>
-                                        </div>
-                                        <div className="bg-white p-3 rounded-lg border-2 border-purple-200 shadow-sm">
-                                            <div className="flex items-center justify-between">
-                                                <div>
-                                                    <p className="text-[9px] font-bold text-purple-600 uppercase">Total Customers</p>
-                                                    <p className="text-2xl font-black text-purple-700">{customerCategorization.totalCustomers}</p>
-                                                    <p className="text-[8px] text-gray-500 mt-1">All Categories</p>
-                                                </div>
-                                                <Users className="w-8 h-8 text-purple-500 opacity-20" />
-                                            </div>
+                                            <Users className={`w-8 h-8 text-purple-500 ${selectedCustCategory === 'ALL' ? 'opacity-100' : 'opacity-20'}`} />
                                         </div>
                                     </div>
+                                    
+                                    <div 
+                                        onClick={() => setSelectedCustCategory('Repeat')}
+                                        className={`bg-white p-3 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md ${selectedCustCategory === 'Repeat' ? 'border-green-500 ring-2 ring-green-200' : 'border-green-200 shadow-sm'}`}>
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-[9px] font-bold text-green-600 uppercase">Repeat Customers</p>
+                                                <p className="text-2xl font-black text-green-700">{customerCategorization.totalRepeat}</p>
+                                                <p className="text-[8px] text-gray-500 mt-1">Continuous (24-25 & 25-26)</p>
+                                            </div>
+                                            <RefreshCw className={`w-8 h-8 text-green-500 ${selectedCustCategory === 'Repeat' ? 'opacity-100' : 'opacity-20'}`} />
+                                        </div>
+                                    </div>
+
+                                    <div 
+                                        onClick={() => setSelectedCustCategory('Rebuild')}
+                                        className={`bg-white p-3 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md ${selectedCustCategory === 'Rebuild' ? 'border-orange-500 ring-2 ring-orange-200' : 'border-orange-200 shadow-sm'}`}>
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-[9px] font-bold text-orange-600 uppercase">Rebuild Customers</p>
+                                                <p className="text-2xl font-black text-orange-700">{customerCategorization.totalRebuild}</p>
+                                                <p className="text-[8px] text-gray-500 mt-1">Returned (Gap in 24-25)</p>
+                                            </div>
+                                            <History className={`w-8 h-8 text-orange-500 ${selectedCustCategory === 'Rebuild' ? 'opacity-100' : 'opacity-20'}`} />
+                                        </div>
+                                    </div>
+
+                                    <div 
+                                        onClick={() => setSelectedCustCategory('New')}
+                                        className={`bg-white p-3 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md ${selectedCustCategory === 'New' ? 'border-blue-500 ring-2 ring-blue-200' : 'border-blue-200 shadow-sm'}`}>
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-[9px] font-bold text-blue-600 uppercase">New Customers</p>
+                                                <p className="text-2xl font-black text-blue-700">{customerCategorization.totalNew}</p>
+                                                <p className="text-[8px] text-gray-500 mt-1">Only in 25-26</p>
+                                            </div>
+                                            <UserPlus className={`w-8 h-8 text-blue-500 ${selectedCustCategory === 'New' ? 'opacity-100' : 'opacity-20'}`} />
+                                        </div>
+                                    </div>
+
+                                    <div 
+                                        onClick={() => setSelectedCustCategory('Lost')}
+                                        className={`bg-white p-3 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md ${selectedCustCategory === 'Lost' ? 'border-red-500 ring-2 ring-red-200' : 'border-red-200 shadow-sm'}`}>
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-[9px] font-bold text-red-600 uppercase">Lost Customers</p>
+                                                <p className="text-2xl font-black text-red-700">{customerCategorization.totalLost}</p>
+                                                <p className="text-[8px] text-gray-500 mt-1">No sales in 25-26</p>
+                                            </div>
+                                            <UserMinus className={`w-8 h-8 text-red-500 ${selectedCustCategory === 'Lost' ? 'opacity-100' : 'opacity-20'}`} />
+                                        </div>
+                                    </div>
+                                </div>
                                     <div className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm mb-4">
                                         <h4 className="text-[10px] font-black text-gray-700 uppercase mb-2 flex items-center gap-2">
                                             <Layers className="w-3 h-3" /> Group-wise Customer Distribution
@@ -3325,7 +3359,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-gray-200 text-[10px]">
-                                                    {[...customerCategorization.repeatCustomers, ...customerCategorization.rebuildCustomers, ...customerCategorization.newCustomers, ...customerCategorization.lostCustomers].map((cust, idx) => (
+                                                    {[...customerCategorization.repeatCustomers, ...customerCategorization.rebuildCustomers, ...customerCategorization.newCustomers, ...customerCategorization.lostCustomers]
+                                            .filter(c => selectedCustCategory === 'ALL' || c.category === selectedCustCategory)
+                                            .map((cust, idx) => (
                                                         <tr key={idx} className="hover:bg-blue-50/30 transition-colors">
                                                             <td className="py-1 px-2 border border-gray-200">
                                                                 <span className={`px-2 py-0.5 rounded-full text-[8px] font-bold ${cust.category === 'Repeat' ? 'bg-green-100 text-green-700' : cust.category === 'Rebuild' ? 'bg-orange-100 text-orange-700' : cust.category === 'Lost' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>{cust.category}</span>
