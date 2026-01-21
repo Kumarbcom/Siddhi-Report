@@ -29,7 +29,6 @@ import {
   FileBarChart,
   Users,
   ChevronRight,
-  ChevronRight,
   Menu,
   X,
   HardDrive,
