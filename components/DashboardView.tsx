@@ -351,7 +351,18 @@ const HorizontalBarChart = ({
                                             </div>
                                         )}
                                     </div>
-                                    <span className="font-bold text-gray-900 flex-shrink-0 bg-white pl-1">{formatLargeValue(total, true)}</span>
+                                    
+                                    <div className="flex flex-col items-end min-w-[60px] bg-white pl-1">
+                                        <span className="font-bold text-gray-900 leading-none">{formatLargeValue(total, true)}</span>
+                                        {item.previous !== undefined && item.previous > 0 && (
+                                            <div className="flex items-center gap-1 mt-0.5">
+                                                <span className="text-[7px] text-gray-400 font-medium tracking-tight">LY: {formatLargeValue(item.previous, true)}</span>
+                                                <span className={`text-[7px] font-bold ${((total - item.previous)/item.previous) >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                                    {((total - item.previous)/item.previous) >= 0 ? '↑' : '↓'}{Math.abs(((total - item.previous)/item.previous) * 100).toFixed(0)}%
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                                 <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden relative flex">
                                     {item.previous !== undefined && (
@@ -1791,7 +1802,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
             )}
 
-            <div className="bg-white border-b border-gray-200 px-4 py-3 flex flex-col xl:flex-row gap-4 items-start xl:items-center justify-between flex-shrink-0 shadow-sm z-10">
+            <div className="bg-white border-b border-gray-200 px-4 py-3 flex flex-col lg:flex-row gap-4 items-center justify-between flex-shrink-0 shadow-sm z-10 sticky top-0 bg-white/90 backdrop-blur-md">
                 <div className="flex bg-gray-200/50 backdrop-blur-sm p-1.5 rounded-xl border border-gray-200 shadow-inner overflow-hidden">
                     {(['sales', 'inventory', 'so', 'po', 'weekly', 'customer'] as const).map(tab => (
                         <button
@@ -1804,7 +1815,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                     ))}
                 </div>
                 {activeSubTab === 'sales' && (
-                    <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-2 lg:gap-3">
                         <select value={selectedMake} onChange={e => setSelectedMake(e.target.value)} title="Make Slicer" className="bg-white border border-blue-300 text-[10px] rounded-md px-2 py-1.5 font-bold text-blue-700 shadow-sm outline-none focus:ring-2 focus:ring-blue-500 max-w-[100px]">
                             {uniqueMakes.map(m => (
                                 <option key={m} value={m}>{m === 'ALL' ? 'ALL MAKES' : m}</option>
