@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Material, ClosingStockItem, PendingSOItem, PendingPOItem, SalesReportItem, CustomerMasterItem, SalesRecord } from '../types';
-import { TrendingUp, TrendingDown, Package, ClipboardList, ShoppingCart, Calendar, Filter, PieChart as PieIcon, BarChart3, Users, ArrowRight, Activity, DollarSign, ArrowUpRight, ArrowDownRight, RefreshCw, UserCircle, Minus, Plus, ChevronDown, ChevronUp, Link2Off, AlertTriangle, Layers, Clock, CheckCircle2, AlertCircle, User, Factory, Tag, ArrowLeft, BarChart4, Hourglass, History, AlertOctagon, ChevronRight, ListOrdered, Table, X, ArrowUp, ArrowDown, Search, ArrowUpDown, FileText, UserPlus, UserMinus, PanelLeftClose } from 'lucide-react';
+import { TrendingUp, TrendingDown, Package, ClipboardList, ShoppingCart, Calendar, Filter, PieChart as PieIcon, BarChart3, Users, ArrowRight, Activity, DollarSign, ArrowUpRight, ArrowDownRight, RefreshCw, UserCircle, Minus, Plus, ChevronDown, ChevronUp, Link2Off, AlertTriangle, Layers, Clock, CheckCircle2, AlertCircle, User, Factory, Tag, ArrowLeft, BarChart4, Hourglass, History, AlertOctagon, ChevronRight, ListOrdered, Table, X, ArrowUp, ArrowDown, Search, ArrowUpDown, FileText, UserPlus, UserMinus, PanelLeftClose, RotateCcw } from 'lucide-react';
 import MOMView from './MOMView';
 import AttendeeMasterView from './AttendeeMasterView';
 import { momService } from '../services/momService';
@@ -599,7 +599,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     // Customer Analysis Table State
     const [custSearchTerm, setCustSearchTerm] = useState('');
     const [selectedCustGroup, setSelectedCustGroup] = useState('ALL');
+    const [growthFilter, setGrowthFilter] = useState<'ALL' | 'POSITIVE' | 'NEGATIVE'>('ALL');
     const [custSortConfig, setCustSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' }>({ key: 'fy202526Value', direction: 'desc' });
+    const filterActive = custSearchTerm !== '' || selectedCustGroup !== 'ALL' || growthFilter !== 'ALL';
 
 
 
@@ -3408,53 +3410,99 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                         </div>
                                     </div>
                                     <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-                                        <div className="p-3 bg-gray-50 border-b border-gray-200 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                                        <div className="p-4 bg-indigo-50/50 border-b border-indigo-100 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
                                             <div className="flex items-center gap-4">
-                                                <h4 className="text-[10px] font-black text-gray-700 uppercase flex items-center gap-2">
-                                                    <Table className="w-3 h-3" /> Detailed Customer Sales Analysis (3-Year Comparison)
+                                                <h4 className="text-[10px] font-black text-indigo-900 uppercase flex items-center gap-2">
+                                                    <Table className="w-4 h-4 text-indigo-600" /> Detailed Customer Analysis
                                                 </h4>
-                                                <span className="text-[9px] font-bold text-gray-400 bg-white px-2 py-0.5 rounded border border-gray-200">
+                                                <span className="text-[9px] font-bold text-indigo-600 bg-white px-2 py-1 rounded-md border border-indigo-200 shadow-sm">
                                                     {(() => {
                                                         const filteredCount = [...customerCategorization.repeatCustomers, ...customerCategorization.rebuildCustomers, ...customerCategorization.newCustomers, ...customerCategorization.lostCustomers]
                                                             .filter(c => {
                                                                 const matchesCategory = selectedCustCategory === 'ALL' || c.category === selectedCustCategory;
                                                                 const matchesGroup = selectedCustGroup === 'ALL' || c.group === selectedCustGroup;
+                                                                const matchesGrowth = growthFilter === 'ALL' ? true : growthFilter === 'POSITIVE' ? c.ytdGrowth >= 0 : c.ytdGrowth < 0;
                                                                 const matchesSearch = !custSearchTerm || c.customerName.toLowerCase().includes(custSearchTerm.toLowerCase()) || c.group.toLowerCase().includes(custSearchTerm.toLowerCase());
-                                                                return matchesCategory && matchesGroup && matchesSearch;
+                                                                return matchesCategory && matchesGroup && matchesGrowth && matchesSearch;
                                                             }).length;
-                                                        return `Showing ${filteredCount} Records`;
+                                                        return `${filteredCount} Records Found`;
                                                     })()}
                                                 </span>
                                             </div>
-                                            <div className="flex gap-2 w-full md:w-auto">
-                                                <select
-                                                    value={selectedCustGroup}
-                                                    onChange={(e) => setSelectedCustGroup(e.target.value)}
-                                                    className="pl-3 pr-8 py-1.5 bg-white border border-gray-200 rounded text-[10px] focus:outline-none focus:ring-2 focus:ring-purple-200 transition-shadow uppercase font-bold text-gray-600 max-w-[150px]"
-                                                >
-                                                    <option value="ALL">ALL GROUPS</option>
-                                                    {customerCategorization.groupCounts.map(g => (
-                                                        <option key={g.group} value={g.group}>{g.group}</option>
-                                                    ))}
-                                                </select>
-                                                <div className="relative w-full md:w-64">
-                                                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+
+                                            <div className="flex flex-col md:flex-row gap-2 w-full xl:w-auto items-center">
+                                                <div className="flex flex-wrap gap-2 items-center">
+                                                    <span className="text-[9px] font-black text-indigo-400 uppercase tracking-wider mr-1">Filers:</span>
+                                                    <select
+                                                        value={`${custSortConfig.key}-${custSortConfig.direction}`}
+                                                        onChange={(e) => {
+                                                            const [key, direction] = e.target.value.split('-');
+                                                            setCustSortConfig({ key, direction: direction as 'asc' | 'desc' });
+                                                        }}
+                                                        className="pl-2 pr-6 py-1.5 bg-white border border-indigo-200 rounded text-[9px] focus:outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-indigo-800 cursor-pointer shadow-sm hover:border-indigo-400 transition-colors"
+                                                    >
+                                                        <option value="fy202526Value-desc">Sort: Sales (High)</option>
+                                                        <option value="fy202526Value-asc">Sort: Sales (Low)</option>
+                                                        <option value="ytdGrowth-desc">Sort: Growth (High)</option>
+                                                        <option value="ytdGrowth-asc">Sort: Growth (Low)</option>
+                                                        <option value="customerName-asc">Sort: Name (A-Z)</option>
+                                                    </select>
+
+                                                    <select
+                                                        value={growthFilter}
+                                                        onChange={(e) => setGrowthFilter(e.target.value as any)}
+                                                        className="pl-2 pr-6 py-1.5 bg-white border border-indigo-200 rounded text-[9px] focus:outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-indigo-800 cursor-pointer shadow-sm hover:border-indigo-400 transition-colors"
+                                                    >
+                                                        <option value="ALL">Growth: All</option>
+                                                        <option value="POSITIVE">Growth: Positive (+)</option>
+                                                        <option value="NEGATIVE">Growth: Negative (-)</option>
+                                                    </select>
+
+                                                    <select
+                                                        value={selectedCustGroup}
+                                                        onChange={(e) => setSelectedCustGroup(e.target.value)}
+                                                        className="pl-2 pr-6 py-1.5 bg-white border border-indigo-200 rounded text-[9px] focus:outline-none focus:ring-2 focus:ring-indigo-500 uppercase font-bold text-indigo-800 max-w-[140px] cursor-pointer shadow-sm hover:border-indigo-400 transition-colors"
+                                                    >
+                                                        <option value="ALL">Group: All</option>
+                                                        {customerCategorization.groupCounts.map(g => (
+                                                            <option key={g.group} value={g.group}>{g.group}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+
+                                                <div className="relative w-full md:w-48 ml-2">
+                                                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-indigo-400" />
                                                     <input
                                                         type="text"
-                                                        placeholder="Search customer..."
-                                                        className="w-full pl-8 pr-8 py-1.5 bg-white border border-gray-200 rounded text-[10px] focus:outline-none focus:ring-2 focus:ring-purple-200 transition-shadow"
+                                                        placeholder="Search..."
+                                                        className="w-full pl-8 pr-8 py-1.5 bg-white border border-indigo-200 rounded text-[10px] focus:outline-none focus:ring-2 focus:ring-indigo-500 text-indigo-900 placeholder-indigo-300 font-medium shadow-sm transition-shadow"
                                                         value={custSearchTerm}
                                                         onChange={(e) => setCustSearchTerm(e.target.value)}
                                                     />
                                                     {custSearchTerm && (
                                                         <button
                                                             onClick={() => setCustSearchTerm('')}
-                                                            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                                            className="absolute right-2 top-1/2 -translate-y-1/2 text-indigo-400 hover:text-indigo-700"
                                                         >
                                                             <X className="w-3 h-3" />
                                                         </button>
                                                     )}
                                                 </div>
+
+                                                {(filterActive || custSortConfig.key !== 'fy202526Value') && (
+                                                    <button
+                                                        onClick={() => {
+                                                            setCustSearchTerm('');
+                                                            setSelectedCustGroup('ALL');
+                                                            setGrowthFilter('ALL');
+                                                            setCustSortConfig({ key: 'fy202526Value', direction: 'desc' });
+                                                        }}
+                                                        className="p-1.5 bg-white border border-red-200 text-red-500 rounded hover:bg-red-50 hover:text-red-700 transition-colors shadow-sm ml-1"
+                                                        title="Reset Filters"
+                                                    >
+                                                        <RotateCcw className="w-3.5 h-3.5" />
+                                                    </button>
+                                                )}
                                             </div>
                                         </div>
                                         <div className="overflow-x-auto max-h-[600px] custom-scrollbar">
@@ -3495,8 +3543,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                         .filter(c => {
                                                             const matchesCategory = selectedCustCategory === 'ALL' || c.category === selectedCustCategory;
                                                             const matchesGroup = selectedCustGroup === 'ALL' || c.group === selectedCustGroup;
+                                                            const matchesGrowth = growthFilter === 'ALL' ? true : growthFilter === 'POSITIVE' ? c.ytdGrowth >= 0 : c.ytdGrowth < 0;
                                                             const matchesSearch = !custSearchTerm || c.customerName.toLowerCase().includes(custSearchTerm.toLowerCase()) || c.group.toLowerCase().includes(custSearchTerm.toLowerCase());
-                                                            return matchesCategory && matchesGroup && matchesSearch;
+                                                            return matchesCategory && matchesGroup && matchesGrowth && matchesSearch;
                                                         })
                                                         .sort((a, b) => {
                                                             const k = custSortConfig.key as keyof typeof a;
