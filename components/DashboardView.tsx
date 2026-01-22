@@ -3430,112 +3430,137 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                 </span>
                                             </div>
 
-                                            <div className="flex flex-col md:flex-row gap-2 w-full xl:w-auto items-center">
-                                                <div className="flex flex-wrap gap-2 items-center">
-                                                    <span className="text-[9px] font-black text-indigo-400 uppercase tracking-wider mr-1">Filers:</span>
-                                                    <select
-                                                        value={`${custSortConfig.key}-${custSortConfig.direction}`}
-                                                        onChange={(e) => {
-                                                            const [key, direction] = e.target.value.split('-');
-                                                            setCustSortConfig({ key, direction: direction as 'asc' | 'desc' });
-                                                        }}
-                                                        className="pl-2 pr-6 py-1.5 bg-white border border-indigo-200 rounded text-[9px] focus:outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-indigo-800 cursor-pointer shadow-sm hover:border-indigo-400 transition-colors"
-                                                    >
-                                                        <option value="fy202526Value-desc">Sort: Sales (High)</option>
-                                                        <option value="fy202526Value-asc">Sort: Sales (Low)</option>
-                                                        <option value="ytdGrowth-desc">Sort: Growth (High)</option>
-                                                        <option value="ytdGrowth-asc">Sort: Growth (Low)</option>
-                                                        <option value="customerName-asc">Sort: Name (A-Z)</option>
-                                                    </select>
-
-                                                    <select
-                                                        value={growthFilter}
-                                                        onChange={(e) => setGrowthFilter(e.target.value as any)}
-                                                        className="pl-2 pr-6 py-1.5 bg-white border border-indigo-200 rounded text-[9px] focus:outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-indigo-800 cursor-pointer shadow-sm hover:border-indigo-400 transition-colors"
-                                                    >
-                                                        <option value="ALL">Growth: All</option>
-                                                        <option value="POSITIVE">Growth: Positive (+)</option>
-                                                        <option value="NEGATIVE">Growth: Negative (-)</option>
-                                                    </select>
-
-                                                    <select
-                                                        value={selectedCustGroup}
-                                                        onChange={(e) => setSelectedCustGroup(e.target.value)}
-                                                        className="pl-2 pr-6 py-1.5 bg-white border border-indigo-200 rounded text-[9px] focus:outline-none focus:ring-2 focus:ring-indigo-500 uppercase font-bold text-indigo-800 max-w-[140px] cursor-pointer shadow-sm hover:border-indigo-400 transition-colors"
-                                                    >
-                                                        <option value="ALL">Group: All</option>
-                                                        {customerCategorization.groupCounts.map(g => (
-                                                            <option key={g.group} value={g.group}>{g.group}</option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-
-                                                <div className="relative w-full md:w-48 ml-2">
-                                                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-indigo-400" />
-                                                    <input
-                                                        type="text"
-                                                        placeholder="Search..."
-                                                        className="w-full pl-8 pr-8 py-1.5 bg-white border border-indigo-200 rounded text-[10px] focus:outline-none focus:ring-2 focus:ring-indigo-500 text-indigo-900 placeholder-indigo-300 font-medium shadow-sm transition-shadow"
-                                                        value={custSearchTerm}
-                                                        onChange={(e) => setCustSearchTerm(e.target.value)}
-                                                    />
-                                                    {custSearchTerm && (
-                                                        <button
-                                                            onClick={() => setCustSearchTerm('')}
-                                                            className="absolute right-2 top-1/2 -translate-y-1/2 text-indigo-400 hover:text-indigo-700"
-                                                        >
-                                                            <X className="w-3 h-3" />
-                                                        </button>
-                                                    )}
-                                                </div>
-
+                                            <div className="flex items-center">
                                                 {(filterActive || custSortConfig.key !== 'fy202526Value') && (
                                                     <button
                                                         onClick={() => {
                                                             setCustSearchTerm('');
                                                             setSelectedCustGroup('ALL');
+                                                            setSelectedCustCategory('ALL');
                                                             setGrowthFilter('ALL');
                                                             setCustSortConfig({ key: 'fy202526Value', direction: 'desc' });
                                                         }}
-                                                        className="p-1.5 bg-white border border-red-200 text-red-500 rounded hover:bg-red-50 hover:text-red-700 transition-colors shadow-sm ml-1"
+                                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-red-200 text-red-600 rounded text-[10px] font-bold hover:bg-red-50 hover:text-red-700 transition-colors shadow-sm"
                                                         title="Reset Filters"
                                                     >
-                                                        <RotateCcw className="w-3.5 h-3.5" />
+                                                        <RotateCcw className="w-3.5 h-3.5" /> Reset Filters
                                                     </button>
                                                 )}
                                             </div>
                                         </div>
                                         <div className="overflow-x-auto max-h-[600px] custom-scrollbar">
                                             <table className="w-full text-left border-collapse min-w-[1200px]">
-                                                <thead className="sticky top-0 z-10 bg-gray-100 shadow-sm">
-                                                    <tr className="text-[9px] font-black text-gray-700 uppercase">
-                                                        <th className="py-2 px-2 border border-gray-300 cursor-pointer hover:bg-gray-200" onClick={() => setCustSortConfig({ key: 'category', direction: custSortConfig.key === 'category' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
-                                                            <div className="flex items-center gap-1">Category {custSortConfig.key === 'category' && (custSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
+                                                <thead className="sticky top-0 z-10 bg-gray-50 shadow-sm font-sans">
+                                                    <tr className="text-[9px] font-black text-gray-700 uppercase bg-gray-100 border-b border-gray-200">
+                                                        <th className="py-2 px-2 border-r border-gray-200 cursor-pointer hover:bg-gray-200 transition-colors" onClick={() => setCustSortConfig({ key: 'category', direction: custSortConfig.key === 'category' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
+                                                            <div className="flex items-center justify-between gap-1">
+                                                                Cat
+                                                                <div className="flex flex-col">
+                                                                    <ChevronUp className={`w-2 h-2 ${custSortConfig.key === 'category' && custSortConfig.direction === 'asc' ? 'text-blue-600' : 'text-gray-300'}`} />
+                                                                    <ChevronDown className={`w-2 h-2 ${custSortConfig.key === 'category' && custSortConfig.direction === 'desc' ? 'text-blue-600' : 'text-gray-300'}`} />
+                                                                </div>
+                                                            </div>
                                                         </th>
-                                                        <th className="py-2 px-2 border border-gray-300 cursor-pointer hover:bg-gray-200" onClick={() => setCustSortConfig({ key: 'group', direction: custSortConfig.key === 'group' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
-                                                            <div className="flex items-center gap-1">Group {custSortConfig.key === 'group' && (custSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
+                                                        <th className="py-2 px-2 border-r border-gray-200 cursor-pointer hover:bg-gray-200 transition-colors" onClick={() => setCustSortConfig({ key: 'group', direction: custSortConfig.key === 'group' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
+                                                            <div className="flex items-center justify-between gap-1">
+                                                                Group
+                                                                <div className="flex flex-col">
+                                                                    <ChevronUp className={`w-2 h-2 ${custSortConfig.key === 'group' && custSortConfig.direction === 'asc' ? 'text-blue-600' : 'text-gray-300'}`} />
+                                                                    <ChevronDown className={`w-2 h-2 ${custSortConfig.key === 'group' && custSortConfig.direction === 'desc' ? 'text-blue-600' : 'text-gray-300'}`} />
+                                                                </div>
+                                                            </div>
                                                         </th>
-                                                        <th className="py-2 px-3 border border-gray-300 cursor-pointer hover:bg-gray-200" onClick={() => setCustSortConfig({ key: 'customerName', direction: custSortConfig.key === 'customerName' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
-                                                            <div className="flex items-center gap-1">Customer Name {custSortConfig.key === 'customerName' && (custSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
+                                                        <th className="py-2 px-3 border-r border-gray-200 cursor-pointer hover:bg-gray-200 transition-colors min-w-[200px]" onClick={() => setCustSortConfig({ key: 'customerName', direction: custSortConfig.key === 'customerName' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
+                                                            <div className="flex items-center justify-between gap-1">
+                                                                Customer Name
+                                                                <div className="flex flex-col">
+                                                                    <ChevronUp className={`w-2 h-2 ${custSortConfig.key === 'customerName' && custSortConfig.direction === 'asc' ? 'text-blue-600' : 'text-gray-300'}`} />
+                                                                    <ChevronDown className={`w-2 h-2 ${custSortConfig.key === 'customerName' && custSortConfig.direction === 'desc' ? 'text-blue-600' : 'text-gray-300'}`} />
+                                                                </div>
+                                                            </div>
                                                         </th>
-                                                        <th className="py-2 px-2 border border-gray-300 text-right bg-gray-50/50" colSpan={2}>FY 2023-24</th>
-                                                        <th className="py-2 px-2 border border-gray-300 text-right bg-gray-50/50" colSpan={2}>FY 2024-25</th>
-                                                        <th className="py-2 px-2 border border-gray-300 text-right bg-blue-50/10" colSpan={2}>FY 2025-26</th>
-                                                        <th className="py-2 px-2 border border-gray-300 text-right cursor-pointer hover:bg-gray-200" onClick={() => setCustSortConfig({ key: 'ytdGrowth', direction: custSortConfig.key === 'ytdGrowth' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
-                                                            <div className="flex items-center justify-end gap-1">YTD Growth % {custSortConfig.key === 'ytdGrowth' && (custSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
+                                                        <th className="py-2 px-2 border-r border-gray-200 text-right bg-white/50" colSpan={2}>FY 23-24</th>
+                                                        <th className="py-2 px-2 border-r border-gray-200 text-right bg-white/50" colSpan={2}>FY 24-25</th>
+                                                        <th className="py-2 px-2 border-r border-gray-200 text-right bg-blue-50/30" colSpan={2}>FY 25-26</th>
+                                                        <th className="py-2 px-2 border-r border-gray-200 text-right cursor-pointer hover:bg-gray-200 transition-colors" onClick={() => setCustSortConfig({ key: 'ytdGrowth', direction: custSortConfig.key === 'ytdGrowth' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
+                                                            <div className="flex items-center justify-end gap-1">
+                                                                Growth %
+                                                                <div className="flex flex-col">
+                                                                    <ChevronUp className={`w-2 h-2 ${custSortConfig.key === 'ytdGrowth' && custSortConfig.direction === 'asc' ? 'text-blue-600' : 'text-gray-300'}`} />
+                                                                    <ChevronDown className={`w-2 h-2 ${custSortConfig.key === 'ytdGrowth' && custSortConfig.direction === 'desc' ? 'text-blue-600' : 'text-gray-300'}`} />
+                                                                </div>
+                                                            </div>
                                                         </th>
                                                     </tr>
-                                                    <tr className="text-[8px] font-bold text-gray-600 uppercase bg-gray-50">
-                                                        <th className="py-1 px-2 border border-gray-300"></th>
-                                                        <th className="py-1 px-2 border border-gray-300"></th>
-                                                        <th className="py-1 px-2 border border-gray-300"></th>
-                                                        <th className="py-1 px-2 border border-gray-300 text-right cursor-pointer hover:bg-gray-200" onClick={() => setCustSortConfig({ key: 'fy202324Qty', direction: custSortConfig.key === 'fy202324Qty' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>Qty</th>
-                                                        <th className="py-1 px-2 border border-gray-300 text-right cursor-pointer hover:bg-gray-200" onClick={() => setCustSortConfig({ key: 'fy202324Value', direction: custSortConfig.key === 'fy202324Value' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>Sales</th>
-                                                        <th className="py-1 px-2 border border-gray-300 text-right cursor-pointer hover:bg-gray-200" onClick={() => setCustSortConfig({ key: 'fy202425Qty', direction: custSortConfig.key === 'fy202425Qty' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>Qty</th>
-                                                        <th className="py-1 px-2 border border-gray-300 text-right cursor-pointer hover:bg-gray-200" onClick={() => setCustSortConfig({ key: 'fy202425Value', direction: custSortConfig.key === 'fy202425Value' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>Sales</th>
-                                                        <th className="py-1 px-2 border border-gray-300 text-right text-blue-600 cursor-pointer hover:bg-blue-50" onClick={() => setCustSortConfig({ key: 'fy202526Qty', direction: custSortConfig.key === 'fy202526Qty' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>Qty</th>
-                                                        <th className="py-1 px-2 border border-gray-300 text-right text-blue-600 cursor-pointer hover:bg-blue-50" onClick={() => setCustSortConfig({ key: 'fy202526Value', direction: custSortConfig.key === 'fy202526Value' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>Sales</th>
-                                                        <th className="py-1 px-2 border border-gray-300 text-right">25-26 vs 24-25</th>
+                                                    {/* Filter Row */}
+                                                    <tr className="bg-gray-50 border-b border-gray-200">
+                                                        <th className="p-1 border-r border-gray-200">
+                                                            <select
+                                                                value={selectedCustCategory}
+                                                                onChange={(e) => { setSelectedCustCategory(e.target.value); }}
+                                                                className="w-full bg-white border border-gray-300 text-[8px] rounded px-1 py-0.5 focus:ring-1 focus:ring-blue-500 outline-none text-gray-700 font-normal"
+                                                            >
+                                                                <option value="ALL">All</option>
+                                                                <option value="Repeat">Repeat</option>
+                                                                <option value="Rebuild">Rebuild</option>
+                                                                <option value="New">New</option>
+                                                                <option value="Lost">Lost</option>
+                                                            </select>
+                                                        </th>
+                                                        <th className="p-1 border-r border-gray-200">
+                                                            <select
+                                                                value={selectedCustGroup}
+                                                                onChange={(e) => setSelectedCustGroup(e.target.value)}
+                                                                className="w-full bg-white border border-gray-300 text-[8px] rounded px-1 py-0.5 focus:ring-1 focus:ring-blue-500 outline-none text-gray-700 font-normal max-w-[100px]"
+                                                            >
+                                                                <option value="ALL">All Groups</option>
+                                                                {customerCategorization.groupCounts.map(g => (
+                                                                    <option key={g.group} value={g.group}>{g.group}</option>
+                                                                ))}
+                                                            </select>
+                                                        </th>
+                                                        <th className="p-1 border-r border-gray-200">
+                                                            <div className="relative">
+                                                                <input
+                                                                    type="text"
+                                                                    placeholder="Filter Name..."
+                                                                    className="w-full bg-white border border-gray-300 text-[8px] rounded px-2 py-0.5 pl-5 focus:ring-1 focus:ring-blue-500 outline-none text-gray-700 font-normal placeholder-gray-400"
+                                                                    value={custSearchTerm}
+                                                                    onChange={(e) => setCustSearchTerm(e.target.value)}
+                                                                />
+                                                                <Filter className="absolute left-1 top-1/2 -translate-y-1/2 w-2.5 h-2.5 text-gray-400" />
+                                                            </div>
+                                                        </th>
+                                                        <th className="p-1 border-r border-gray-200 bg-white/50"></th>
+                                                        <th className="p-1 border-r border-gray-200 bg-white/50"></th>
+                                                        <th className="p-1 border-r border-gray-200 bg-white/50"></th>
+                                                        <th className="p-1 border-r border-gray-200 bg-white/50"></th>
+                                                        <th className="p-1 border-r border-gray-200 bg-blue-50/10"></th>
+                                                        <th className="p-1 border-r border-gray-200 bg-blue-50/10"></th>
+                                                        <th className="p-1 border-r border-gray-200">
+                                                            <select
+                                                                value={growthFilter}
+                                                                onChange={(e) => setGrowthFilter(e.target.value as any)}
+                                                                className="w-full bg-white border border-gray-300 text-[8px] rounded px-1 py-0.5 focus:ring-1 focus:ring-blue-500 outline-none text-gray-700 font-normal"
+                                                            >
+                                                                <option value="ALL">All</option>
+                                                                <option value="POSITIVE">Positive</option>
+                                                                <option value="NEGATIVE">Negative</option>
+                                                            </select>
+                                                        </th>
+                                                    </tr>
+                                                    {/* Sub-Header Row for Qty/Sales */}
+                                                    <tr className="text-[8px] font-bold text-gray-500 uppercase bg-gray-50">
+                                                        <th className="py-1 px-2 border-r border-gray-200"></th>
+                                                        <th className="py-1 px-2 border-r border-gray-200"></th>
+                                                        <th className="py-1 px-2 border-r border-gray-200"></th>
+                                                        <th className="py-1 px-2 border-r border-gray-200 text-right cursor-pointer hover:bg-gray-100" onClick={() => setCustSortConfig({ key: 'fy202324Qty', direction: custSortConfig.key === 'fy202324Qty' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>Qty</th>
+                                                        <th className="py-1 px-2 border-r border-gray-200 text-right cursor-pointer hover:bg-gray-100" onClick={() => setCustSortConfig({ key: 'fy202324Value', direction: custSortConfig.key === 'fy202324Value' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>Sales</th>
+                                                        <th className="py-1 px-2 border-r border-gray-200 text-right cursor-pointer hover:bg-gray-100" onClick={() => setCustSortConfig({ key: 'fy202425Qty', direction: custSortConfig.key === 'fy202425Qty' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>Qty</th>
+                                                        <th className="py-1 px-2 border-r border-gray-200 text-right cursor-pointer hover:bg-gray-100" onClick={() => setCustSortConfig({ key: 'fy202425Value', direction: custSortConfig.key === 'fy202425Value' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>Sales</th>
+                                                        <th className="py-1 px-2 border-r border-gray-200 text-right text-blue-600 cursor-pointer hover:bg-blue-50" onClick={() => setCustSortConfig({ key: 'fy202526Qty', direction: custSortConfig.key === 'fy202526Qty' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>Qty</th>
+                                                        <th className="py-1 px-2 border-r border-gray-200 text-right text-blue-600 cursor-pointer hover:bg-blue-50" onClick={() => setCustSortConfig({ key: 'fy202526Value', direction: custSortConfig.key === 'fy202526Value' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>Sales</th>
+                                                        <th className="py-1 px-2 border-r border-gray-200 text-right">Var %</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-gray-200 text-[10px]">
