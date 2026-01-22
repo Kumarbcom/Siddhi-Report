@@ -3452,122 +3452,119 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                             <table className="w-full text-left border-collapse min-w-[1200px]">
                                                 <thead className="sticky top-0 z-10 bg-gray-50 shadow-sm font-sans">
                                                     <tr className="text-[9px] font-black text-gray-700 uppercase bg-gray-100 border-b border-gray-200">
-                                                        <th className="py-2 px-2 border-r border-gray-200 cursor-pointer hover:bg-gray-200 transition-colors" onClick={() => setCustSortConfig({ key: 'category', direction: custSortConfig.key === 'category' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
-                                                            <div className="flex items-center justify-between gap-1">
-                                                                Category
-                                                                <ArrowUpDown className={`w-3 h-3 ${custSortConfig.key === 'category' ? 'text-blue-600' : 'text-gray-300'}`} />
+                                                        <th className="py-2 px-2 border-r border-gray-200 cursor-pointer hover:bg-gray-200 transition-colors align-top" onClick={() => setCustSortConfig({ key: 'category', direction: custSortConfig.key === 'category' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
+                                                            <div className="flex flex-col gap-1.5 w-full">
+                                                                <div className="flex items-center justify-between gap-1">
+                                                                    Category
+                                                                    <ArrowUpDown className={`w-3 h-3 ${custSortConfig.key === 'category' ? 'text-blue-600' : 'text-gray-300'}`} />
+                                                                </div>
+                                                                <div onClick={(e) => e.stopPropagation()}>
+                                                                    <select
+                                                                        value={selectedCustCategory}
+                                                                        onChange={(e) => { setSelectedCustCategory(e.target.value); }}
+                                                                        className="w-full bg-white border border-gray-300 text-[8px] rounded px-1 py-0.5 focus:ring-1 focus:ring-blue-500 outline-none text-gray-700 font-medium"
+                                                                    >
+                                                                        <option value="ALL">All</option>
+                                                                        <option value="Repeat">Repeat</option>
+                                                                        <option value="Rebuild">Rebuild</option>
+                                                                        <option value="New">New</option>
+                                                                        <option value="Lost">Lost</option>
+                                                                    </select>
+                                                                </div>
                                                             </div>
                                                         </th>
-                                                        <th className="py-2 px-2 border-r border-gray-200 cursor-pointer hover:bg-gray-200 transition-colors" onClick={() => setCustSortConfig({ key: 'group', direction: custSortConfig.key === 'group' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
-                                                            <div className="flex items-center justify-between gap-1">
-                                                                Group
-                                                                <ArrowUpDown className={`w-3 h-3 ${custSortConfig.key === 'group' ? 'text-blue-600' : 'text-gray-300'}`} />
+                                                        <th className="py-2 px-2 border-r border-gray-200 cursor-pointer hover:bg-gray-200 transition-colors align-top" onClick={() => setCustSortConfig({ key: 'group', direction: custSortConfig.key === 'group' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
+                                                            <div className="flex flex-col gap-1.5 w-full">
+                                                                <div className="flex items-center justify-between gap-1">
+                                                                    Group
+                                                                    <ArrowUpDown className={`w-3 h-3 ${custSortConfig.key === 'group' ? 'text-blue-600' : 'text-gray-300'}`} />
+                                                                </div>
+                                                                <div onClick={(e) => e.stopPropagation()}>
+                                                                    <select
+                                                                        value={selectedCustGroup}
+                                                                        onChange={(e) => setSelectedCustGroup(e.target.value)}
+                                                                        className="w-full bg-white border border-gray-300 text-[8px] rounded px-1 py-0.5 focus:ring-1 focus:ring-blue-500 outline-none text-gray-700 font-medium max-w-[100px]"
+                                                                    >
+                                                                        <option value="ALL">All Groups</option>
+                                                                        {customerCategorization.groupCounts.map(g => (
+                                                                            <option key={g.group} value={g.group}>{g.group}</option>
+                                                                        ))}
+                                                                    </select>
+                                                                </div>
                                                             </div>
                                                         </th>
-                                                        <th className="py-2 px-3 border-r border-gray-200 cursor-pointer hover:bg-gray-200 transition-colors min-w-[200px]" onClick={() => setCustSortConfig({ key: 'customerName', direction: custSortConfig.key === 'customerName' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
-                                                            <div className="flex items-center justify-between gap-1">
-                                                                Customer Name
-                                                                <ArrowUpDown className={`w-3 h-3 ${custSortConfig.key === 'customerName' ? 'text-blue-600' : 'text-gray-300'}`} />
+                                                        <th className="py-2 px-3 border-r border-gray-200 cursor-pointer hover:bg-gray-200 transition-colors min-w-[200px] align-top" onClick={() => setCustSortConfig({ key: 'customerName', direction: custSortConfig.key === 'customerName' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
+                                                            <div className="flex flex-col gap-1.5 w-full">
+                                                                <div className="flex items-center justify-between gap-1">
+                                                                    Customer Name
+                                                                    <ArrowUpDown className={`w-3 h-3 ${custSortConfig.key === 'customerName' ? 'text-blue-600' : 'text-gray-300'}`} />
+                                                                </div>
+                                                                <div onClick={(e) => e.stopPropagation()} className="relative">
+                                                                    <input
+                                                                        type="text"
+                                                                        placeholder="Search..."
+                                                                        className="w-full bg-white border border-gray-300 text-[8px] rounded px-2 py-0.5 pl-5 focus:ring-1 focus:ring-blue-500 outline-none text-gray-700 font-medium placeholder-gray-400"
+                                                                        value={custSearchTerm}
+                                                                        onChange={(e) => setCustSearchTerm(e.target.value)}
+                                                                    />
+                                                                    <Search className="absolute left-1 top-1/2 -translate-y-1/2 w-2.5 h-2.5 text-gray-400" />
+                                                                </div>
                                                             </div>
                                                         </th>
-                                                        <th className="py-2 px-2 border-r border-gray-200 text-right cursor-pointer hover:bg-gray-200" onClick={() => setCustSortConfig({ key: 'fy202324Qty', direction: custSortConfig.key === 'fy202324Qty' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
-                                                            <div className="flex items-center justify-end gap-1">
+                                                        <th className="py-2 px-2 border-r border-gray-200 text-right cursor-pointer hover:bg-gray-200 align-top" onClick={() => setCustSortConfig({ key: 'fy202324Qty', direction: custSortConfig.key === 'fy202324Qty' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
+                                                            <div className="flex items-center justify-end gap-1 h-full pt-1">
                                                                 23-24 Qty
                                                                 <ArrowUpDown className={`w-3 h-3 ${custSortConfig.key === 'fy202324Qty' ? 'text-blue-600' : 'text-gray-300'}`} />
                                                             </div>
                                                         </th>
-                                                        <th className="py-2 px-2 border-r border-gray-200 text-right cursor-pointer hover:bg-gray-200" onClick={() => setCustSortConfig({ key: 'fy202324Value', direction: custSortConfig.key === 'fy202324Value' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
-                                                            <div className="flex items-center justify-end gap-1">
+                                                        <th className="py-2 px-2 border-r border-gray-200 text-right cursor-pointer hover:bg-gray-200 align-top" onClick={() => setCustSortConfig({ key: 'fy202324Value', direction: custSortConfig.key === 'fy202324Value' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
+                                                            <div className="flex items-center justify-end gap-1 h-full pt-1">
                                                                 23-24 Val
                                                                 <ArrowUpDown className={`w-3 h-3 ${custSortConfig.key === 'fy202324Value' ? 'text-blue-600' : 'text-gray-300'}`} />
                                                             </div>
                                                         </th>
-                                                        <th className="py-2 px-2 border-r border-gray-200 text-right cursor-pointer hover:bg-gray-200" onClick={() => setCustSortConfig({ key: 'fy202425Qty', direction: custSortConfig.key === 'fy202425Qty' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
-                                                            <div className="flex items-center justify-end gap-1">
+                                                        <th className="py-2 px-2 border-r border-gray-200 text-right cursor-pointer hover:bg-gray-200 align-top" onClick={() => setCustSortConfig({ key: 'fy202425Qty', direction: custSortConfig.key === 'fy202425Qty' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
+                                                            <div className="flex items-center justify-end gap-1 h-full pt-1">
                                                                 24-25 Qty
                                                                 <ArrowUpDown className={`w-3 h-3 ${custSortConfig.key === 'fy202425Qty' ? 'text-blue-600' : 'text-gray-300'}`} />
                                                             </div>
                                                         </th>
-                                                        <th className="py-2 px-2 border-r border-gray-200 text-right cursor-pointer hover:bg-gray-200" onClick={() => setCustSortConfig({ key: 'fy202425Value', direction: custSortConfig.key === 'fy202425Value' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
-                                                            <div className="flex items-center justify-end gap-1">
+                                                        <th className="py-2 px-2 border-r border-gray-200 text-right cursor-pointer hover:bg-gray-200 align-top" onClick={() => setCustSortConfig({ key: 'fy202425Value', direction: custSortConfig.key === 'fy202425Value' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
+                                                            <div className="flex items-center justify-end gap-1 h-full pt-1">
                                                                 24-25 Val
                                                                 <ArrowUpDown className={`w-3 h-3 ${custSortConfig.key === 'fy202425Value' ? 'text-blue-600' : 'text-gray-300'}`} />
                                                             </div>
                                                         </th>
-                                                        <th className="py-2 px-2 border-r border-gray-200 text-right text-blue-600 cursor-pointer hover:bg-blue-50" onClick={() => setCustSortConfig({ key: 'fy202526Qty', direction: custSortConfig.key === 'fy202526Qty' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
-                                                            <div className="flex items-center justify-end gap-1">
+                                                        <th className="py-2 px-2 border-r border-gray-200 text-right text-blue-600 cursor-pointer hover:bg-blue-50 align-top" onClick={() => setCustSortConfig({ key: 'fy202526Qty', direction: custSortConfig.key === 'fy202526Qty' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
+                                                            <div className="flex items-center justify-end gap-1 h-full pt-1">
                                                                 25-26 Qty
                                                                 <ArrowUpDown className={`w-3 h-3 ${custSortConfig.key === 'fy202526Qty' ? 'text-blue-600' : 'text-blue-200'}`} />
                                                             </div>
                                                         </th>
-                                                        <th className="py-2 px-2 border-r border-gray-200 text-right text-blue-600 cursor-pointer hover:bg-blue-50" onClick={() => setCustSortConfig({ key: 'fy202526Value', direction: custSortConfig.key === 'fy202526Value' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
-                                                            <div className="flex items-center justify-end gap-1">
+                                                        <th className="py-2 px-2 border-r border-gray-200 text-right text-blue-600 cursor-pointer hover:bg-blue-50 align-top" onClick={() => setCustSortConfig({ key: 'fy202526Value', direction: custSortConfig.key === 'fy202526Value' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
+                                                            <div className="flex items-center justify-end gap-1 h-full pt-1">
                                                                 25-26 Val
                                                                 <ArrowUpDown className={`w-3 h-3 ${custSortConfig.key === 'fy202526Value' ? 'text-blue-600' : 'text-blue-200'}`} />
                                                             </div>
                                                         </th>
-                                                        <th className="py-2 px-2 border-r border-gray-200 text-right cursor-pointer hover:bg-gray-200 transition-colors" onClick={() => setCustSortConfig({ key: 'ytdGrowth', direction: custSortConfig.key === 'ytdGrowth' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
-                                                            <div className="flex items-center justify-end gap-1">
-                                                                YTD Comparison
-                                                                <ArrowUpDown className={`w-3 h-3 ${custSortConfig.key === 'ytdGrowth' ? 'text-blue-600' : 'text-gray-300'}`} />
+                                                        <th className="py-2 px-2 border-r border-gray-200 text-right cursor-pointer hover:bg-gray-200 transition-colors align-top" onClick={() => setCustSortConfig({ key: 'ytdGrowth', direction: custSortConfig.key === 'ytdGrowth' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
+                                                            <div className="flex flex-col gap-1.5 w-full">
+                                                                <div className="flex items-center justify-end gap-1">
+                                                                    YTD Comparison
+                                                                    <ArrowUpDown className={`w-3 h-3 ${custSortConfig.key === 'ytdGrowth' ? 'text-blue-600' : 'text-gray-300'}`} />
+                                                                </div>
+                                                                <div onClick={(e) => e.stopPropagation()}>
+                                                                    <select
+                                                                        value={growthFilter}
+                                                                        onChange={(e) => setGrowthFilter(e.target.value as any)}
+                                                                        className="w-full bg-white border border-gray-300 text-[8px] rounded px-1 py-0.5 focus:ring-1 focus:ring-blue-500 outline-none text-gray-700 font-medium"
+                                                                    >
+                                                                        <option value="ALL">All</option>
+                                                                        <option value="POSITIVE">Positive</option>
+                                                                        <option value="NEGATIVE">Negative</option>
+                                                                    </select>
+                                                                </div>
                                                             </div>
-                                                        </th>
-                                                    </tr>
-                                                    {/* Filter Row */}
-                                                    <tr className="bg-gray-50 border-b border-gray-200">
-                                                        <th className="p-1 border-r border-gray-200">
-                                                            <select
-                                                                value={selectedCustCategory}
-                                                                onChange={(e) => { setSelectedCustCategory(e.target.value); }}
-                                                                className="w-full bg-white border border-gray-300 text-[8px] rounded px-1 py-0.5 focus:ring-1 focus:ring-blue-500 outline-none text-gray-700 font-normal"
-                                                            >
-                                                                <option value="ALL">All</option>
-                                                                <option value="Repeat">Repeat</option>
-                                                                <option value="Rebuild">Rebuild</option>
-                                                                <option value="New">New</option>
-                                                                <option value="Lost">Lost</option>
-                                                            </select>
-                                                        </th>
-                                                        <th className="p-1 border-r border-gray-200">
-                                                            <select
-                                                                value={selectedCustGroup}
-                                                                onChange={(e) => setSelectedCustGroup(e.target.value)}
-                                                                className="w-full bg-white border border-gray-300 text-[8px] rounded px-1 py-0.5 focus:ring-1 focus:ring-blue-500 outline-none text-gray-700 font-normal max-w-[100px]"
-                                                            >
-                                                                <option value="ALL">All Groups</option>
-                                                                {customerCategorization.groupCounts.map(g => (
-                                                                    <option key={g.group} value={g.group}>{g.group}</option>
-                                                                ))}
-                                                            </select>
-                                                        </th>
-                                                        <th className="p-1 border-r border-gray-200">
-                                                            <div className="relative">
-                                                                <input
-                                                                    type="text"
-                                                                    placeholder="Filter Name..."
-                                                                    className="w-full bg-white border border-gray-300 text-[8px] rounded px-2 py-0.5 pl-5 focus:ring-1 focus:ring-blue-500 outline-none text-gray-700 font-normal placeholder-gray-400"
-                                                                    value={custSearchTerm}
-                                                                    onChange={(e) => setCustSearchTerm(e.target.value)}
-                                                                />
-                                                                <Filter className="absolute left-1 top-1/2 -translate-y-1/2 w-2.5 h-2.5 text-gray-400" />
-                                                            </div>
-                                                        </th>
-                                                        <th className="p-1 border-r border-gray-200 bg-white/50"></th>
-                                                        <th className="p-1 border-r border-gray-200 bg-white/50"></th>
-                                                        <th className="p-1 border-r border-gray-200 bg-white/50"></th>
-                                                        <th className="p-1 border-r border-gray-200 bg-white/50"></th>
-                                                        <th className="p-1 border-r border-gray-200 bg-blue-50/10"></th>
-                                                        <th className="p-1 border-r border-gray-200 bg-blue-50/10"></th>
-                                                        <th className="p-1 border-r border-gray-200">
-                                                            <select
-                                                                value={growthFilter}
-                                                                onChange={(e) => setGrowthFilter(e.target.value as any)}
-                                                                className="w-full bg-white border border-gray-300 text-[8px] rounded px-1 py-0.5 focus:ring-1 focus:ring-blue-500 outline-none text-gray-700 font-normal"
-                                                            >
-                                                                <option value="ALL">All</option>
-                                                                <option value="POSITIVE">Positive</option>
-                                                                <option value="NEGATIVE">Negative</option>
-                                                            </select>
                                                         </th>
                                                     </tr>
                                                 </thead>

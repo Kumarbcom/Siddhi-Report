@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     ArrowUp, ArrowDown, Search, Filter, Download,
-    ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
-    Loader2, AlertCircle
+    ChevronLeft, ChevronRight, Loader2
 } from 'lucide-react';
 import { customerAnalysisService, CustomerAnalysisRecord } from '../services/customerAnalysisService';
 import * as XLSX from 'xlsx';
@@ -244,9 +243,9 @@ export const CustomerAnalysisTable: React.FC = () => {
                                 <tr key={record.id} className="hover:bg-blue-50/50 transition-colors group">
                                     <td className="py-2 px-3 border-r border-gray-100">
                                         <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${record.category === 'Repeat' ? 'bg-green-100 text-green-700' :
-                                                record.category === 'Rebuild' ? 'bg-orange-100 text-orange-700' :
-                                                    record.category === 'Lost' ? 'bg-red-100 text-red-700' :
-                                                        'bg-blue-100 text-blue-700'
+                                            record.category === 'Rebuild' ? 'bg-orange-100 text-orange-700' :
+                                                record.category === 'Lost' ? 'bg-red-100 text-red-700' :
+                                                    'bg-blue-100 text-blue-700'
                                             }`}>
                                             {record.category}
                                         </span>
