@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+﻿import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Material, ClosingStockItem, PendingSOItem, PendingPOItem, SalesReportItem, CustomerMasterItem, SalesRecord } from '../types';
 import { TrendingUp, TrendingDown, Package, ClipboardList, ShoppingCart, Calendar, Filter, PieChart as PieIcon, BarChart3, Users, ArrowRight, Activity, DollarSign, ArrowUpRight, ArrowDownRight, RefreshCw, UserCircle, Minus, Plus, ChevronDown, ChevronUp, Link2Off, AlertTriangle, Layers, Clock, CheckCircle2, AlertCircle, User, Factory, Tag, ArrowLeft, BarChart4, Hourglass, History, AlertOctagon, ChevronRight, ListOrdered, Table, X, ArrowUp, ArrowDown, Search, ArrowUpDown, FileText, UserPlus, UserMinus, PanelLeftClose, RotateCcw } from 'lucide-react';
 import MOMView from './MOMView';
@@ -358,7 +358,7 @@ const HorizontalBarChart = ({
                                             <div className="flex items-center gap-1.5 mt-1">
                                                 <span className="text-[9px] md:text-[10px] text-gray-500 font-bold uppercase tracking-tight">LY: {formatLargeValue(item.previous, true)}</span>
                                                 <span className={`text-[9px] px-1 py-0.5 rounded-md font-black ${((total - item.previous) / item.previous) >= 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
-                                                    {((total - item.previous) / item.previous) >= 0 ? '↑' : '↓'}{Math.abs(((total - item.previous) / item.previous) * 100).toFixed(0)}%
+                                                    {((total - item.previous) / item.previous) >= 0 ? 'â†‘' : 'â†“'}{Math.abs(((total - item.previous) / item.previous) * 100).toFixed(0)}%
                                                 </span>
                                             </div>
                                         )}
@@ -541,7 +541,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     setActiveTab,
     isAdmin = false
 }) => {
-    const [activeSubTab, setActiveSubTab] = useState<'sales' | 'inventory' | 'so' | 'po' | 'weekly' | 'customer' | 'stockPlanning'>('sales');
+    const [activeSubTab, setActiveSubTab] = useState<'sales' | 'inventory' | 'so' | 'po' | 'weekly' | 'stockPlanning'>('sales');
     const [relatedMomId, setRelatedMomId] = useState<string | null>(null);
     const [weeklyBenchmarks, setWeeklyBenchmarks] = useState<{ [key: string]: any }>(() => {
         const saved = localStorage.getItem('weeklyBenchmarks');
@@ -579,7 +579,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     }, [activeSubTab]);
     const [timeView, setTimeView] = useState<'FY' | 'MONTH' | 'WEEK'>('FY');
     const [selectedFY, setSelectedFY] = useState<string>('');
-    const [selectedCustCategory, setSelectedCustCategory] = useState<string>('ALL');
+
     const [invGroupMetric, setInvGroupMetric] = useState<Metric>('value');
     const [selectedMonth, setSelectedMonth] = useState<number>(0);
     const [selectedWeek, setSelectedWeek] = useState<number>(1);
@@ -596,12 +596,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     const [stockQuickFilter, setStockQuickFilter] = useState<'ALL' | 'SHORTAGE' | 'REFILL'>('ALL');
     const [stockSortConfig, setStockSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>({ key: 'salesCY', direction: 'desc' });
 
-    // Customer Analysis Table State
-    const [custSearchTerm, setCustSearchTerm] = useState('');
-    const [selectedCustGroup, setSelectedCustGroup] = useState('ALL');
-    const [growthFilter, setGrowthFilter] = useState<'ALL' | 'POSITIVE' | 'NEGATIVE'>('ALL');
-    const [custSortConfig, setCustSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' }>({ key: 'fy202526Value', direction: 'desc' });
-    const filterActive = custSearchTerm !== '' || selectedCustGroup !== 'ALL' || growthFilter !== 'ALL';
 
 
 
@@ -984,102 +978,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         return trimmed;
     };
 
-    const customerCategorization = useMemo(() => {
-        const today = new Date();
-        const fy202526 = '2025-26';
-        const fy202425 = '2024-25';
-        const fy202324 = '2023-24';
 
-        const customerSalesByFY = new Map();
-        const ytdCutoffCurrent = new Date(today);
-        const ytdCutoffPrevious = new Date(today);
-        ytdCutoffPrevious.setFullYear(today.getFullYear() - 1);
-
-        enrichedSales.forEach(sale => {
-            const rawName = String(sale.customerName || 'Unknown');
-            const normalizedName = normalizeCustomerName(rawName);
-            const fy = sale.fiscalYear;
-            const saleDate = parseDate(sale.date);
-
-            if (!customerSalesByFY.has(normalizedName)) {
-                const cust = customers.find(c => normalizeCustomerName(String(c.customerName || '')) === normalizedName);
-                const group = getMergedGroupName(cust?.group || 'Unassigned');
-                customerSalesByFY.set(normalizedName, {
-                    group, displayName: normalizedName,
-                    fy202324: { qty: 0, value: 0 }, fy202425: { qty: 0, value: 0 }, fy202526: { qty: 0, value: 0 },
-                    fy202526YTD: { qty: 0, value: 0 }, fy202425YTD: { qty: 0, value: 0 }
-                });
-            }
-
-            const custData = customerSalesByFY.get(normalizedName);
-            const qty = sale.quantity || 0;
-            const value = sale.value || 0;
-
-            if (fy === fy202324) { custData.fy202324.qty += qty; custData.fy202324.value += value; }
-            else if (fy === fy202425) {
-                custData.fy202425.qty += qty; custData.fy202425.value += value;
-                if (saleDate <= ytdCutoffPrevious) { custData.fy202425YTD.qty += qty; custData.fy202425YTD.value += value; }
-            }
-            else if (fy === fy202526) {
-                custData.fy202526.qty += qty; custData.fy202526.value += value;
-                if (saleDate <= ytdCutoffCurrent) { custData.fy202526YTD.qty += qty; custData.fy202526YTD.value += value; }
-            }
-        });
-
-        const repeatCustomers: any[] = [], rebuildCustomers: any[] = [], newCustomers: any[] = [], lostCustomers: any[] = [];
-        const groupCounts = new Map();
-
-        customerSalesByFY.forEach((data, customerName) => {
-            const has202324 = data.fy202324.value > 0, has202425 = data.fy202425.value > 0, has202526 = data.fy202526.value > 0;
-            if (!groupCounts.has(data.group)) groupCounts.set(data.group, { repeat: 0, rebuild: 0, new: 0, lost: 0, total: 0 });
-            const groupCount = groupCounts.get(data.group);
-            const ytdGrowth = data.fy202425YTD.value > 0 ? ((data.fy202526YTD.value - data.fy202425YTD.value) / data.fy202425YTD.value) * 100 : (data.fy202526YTD.value > 0 ? 100 : 0);
-
-            const customerRecord = {
-                customerName: data.displayName, group: data.group,
-                fy202324Qty: Math.round(data.fy202324.qty), fy202324Value: data.fy202324.value,
-                fy202425Qty: Math.round(data.fy202425.qty), fy202425Value: data.fy202425.value,
-                fy202526Qty: Math.round(data.fy202526.qty), fy202526Value: data.fy202526.value,
-                fy202526YTDQty: Math.round(data.fy202526YTD.qty), fy202526YTDValue: data.fy202526YTD.value,
-                fy202425YTDQty: Math.round(data.fy202425YTD.qty), fy202425YTDValue: data.fy202425YTD.value,
-                ytdGrowth
-            };
-
-            // 1. Rebuild: Sales in 23-24 & 25-26 (Gap in 24-25)
-            if (has202324 && !has202425 && has202526) {
-                rebuildCustomers.push({ ...customerRecord, category: 'Rebuild' });
-                groupCount.rebuild++;
-            }
-            // 2. New: Sales ONLY in 25-26
-            else if (!has202324 && !has202425 && has202526) {
-                newCustomers.push({ ...customerRecord, category: 'New' });
-                groupCount.new++;
-            }
-            // 3. Repeat: Sales in 24-25 & 25-26 (Continuous) - Covers both 2-year and 3-year repeats
-            else if (has202425 && has202526) {
-                repeatCustomers.push({ ...customerRecord, category: 'Repeat' });
-                groupCount.repeat++;
-            }
-            // 4. Lost: Sales in previous years but NO sales in 25-26
-            else if ((has202324 || has202425) && !has202526) {
-                lostCustomers.push({ ...customerRecord, category: 'Lost' });
-                groupCount.lost++;
-            }
-            if (has202324 || has202425 || has202526) groupCount.total++;
-        });
-
-        repeatCustomers.sort((a, b) => b.fy202526Value - a.fy202526Value);
-        rebuildCustomers.sort((a, b) => b.fy202526Value - a.fy202526Value);
-        newCustomers.sort((a, b) => b.fy202526Value - a.fy202526Value);
-        lostCustomers.sort((a, b) => b.fy202425Value - a.fy202425Value);
-        const groupCountsArray = Array.from(groupCounts.entries()).map(([group, counts]) => ({ group, ...counts })).sort((a, b) => b.total - a.total);
-
-        return {
-            repeatCustomers, rebuildCustomers, newCustomers, lostCustomers, groupCounts: groupCountsArray,
-            totalRepeat: repeatCustomers.length, totalRebuild: rebuildCustomers.length,
-            totalNew: newCustomers.length, totalLost: lostCustomers.length, totalCustomers: repeatCustomers.length + rebuildCustomers.length + newCustomers.length + lostCustomers.length
-        };
-    }, [enrichedSales, customers]);
 
     const stockPlanningData = useMemo(() => {
         const today = new Date();
@@ -1890,13 +1789,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
             <div className="bg-white border-b border-gray-200 px-4 py-3 flex flex-col lg:flex-row gap-4 items-center justify-between flex-shrink-0 shadow-sm z-10 sticky top-0 bg-white/90 backdrop-blur-md">
                 <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-1 bg-gray-100/80 p-1 rounded-xl border border-gray-200 shadow-inner w-full xl:flex-1">
-                    {(['sales', 'inventory', 'so', 'po', 'weekly', 'customer'] as const).map(tab => (
+                    {(['sales', 'inventory', 'so', 'po', 'weekly'] as const).map(tab => (
                         <button
                             key={tab}
                             onClick={() => setActiveSubTab(tab)}
                             className={`w-full py-2.5 rounded-lg text-[10px] xl:text-xs font-black uppercase tracking-wider transition-all duration-300 transform active:scale-95 flex items-center justify-center ${activeSubTab === tab ? 'bg-white text-indigo-700 shadow-sm scale-[1.02]' : 'text-gray-500 hover:text-indigo-600 hover:bg-white/40'}`}
                         >
-                            {tab === 'so' ? 'Pending SO' : tab === 'po' ? 'Pending PO' : tab === 'weekly' ? 'Weekly Report' : tab === 'customer' ? 'Customer Analysis' : tab}
+                            {tab === 'so' ? 'Pending SO' : tab === 'po' ? 'Pending PO' : tab === 'weekly' ? 'Weekly Report' : tab}
                         </button>
                     ))}
                 </div>
@@ -2647,9 +2546,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                 <tr className="bg-gray-50 text-[9px] font-bold text-gray-500 uppercase">
                                                     <th className="p-2 border">Hierarchy</th>
                                                     <th className="p-2 border text-right bg-blue-50/30">Qty</th>
-                                                    <th className="p-2 border text-right bg-blue-50/30">Value (₹)</th>
+                                                    <th className="p-2 border text-right bg-blue-50/30">Value (â‚¹)</th>
                                                     <th className="p-2 border text-right bg-indigo-50/30">Qty</th>
-                                                    <th className="p-2 border text-right bg-indigo-50/30">Value (₹)</th>
+                                                    <th className="p-2 border text-right bg-indigo-50/30">Value (â‚¹)</th>
                                                     <th className="p-2 border text-right">Qty Diff</th>
                                                     <th className="p-2 border text-right">Val Diff</th>
                                                     <th className="p-2 border text-right">% Val Chg</th>
@@ -3316,437 +3215,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                         <span>Scale: 100%</span>
                                     </div>
                                 </div>
-                            </div>                    ) : activeSubTab === 'customer' ? (
-                            <div className="flex flex-col gap-4">
-                                {/* Customer Categorization Dashboard */}
-                                <div className="bg-gradient-to-br from-purple-50 to-blue-50 p-4 rounded-xl border border-purple-200 shadow-sm">
-                                    <h3 className="text-sm font-black text-purple-900 mb-3 flex items-center gap-2">
-                                        <Users className="w-4 h-4" /> Customer Categorization Analysis
-                                        <span className="text-[10px] font-normal text-purple-600 bg-white px-2 py-0.5 rounded-full">FY 2023-24 to 2025-26</span>
-                                    </h3>
-                                    <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-4">
-                                        <div
-                                            onClick={() => setSelectedCustCategory('ALL')}
-                                            className={`bg-white p-3 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md ${selectedCustCategory === 'ALL' ? 'border-purple-500 ring-2 ring-purple-200' : 'border-purple-200 shadow-sm'}`}>
-                                            <div className="flex items-center justify-between">
-                                                <div>
-                                                    <p className="text-[9px] font-bold text-purple-600 uppercase">Total Customers</p>
-                                                    <p className="text-2xl font-black text-purple-700">{customerCategorization.totalCustomers}</p>
-                                                    <p className="text-[8px] text-gray-500 mt-1">Click to view all</p>
-                                                </div>
-                                                <Users className={`w-8 h-8 text-purple-500 ${selectedCustCategory === 'ALL' ? 'opacity-100' : 'opacity-20'}`} />
-                                            </div>
-                                        </div>
-
-                                        <div
-                                            onClick={() => setSelectedCustCategory('Repeat')}
-                                            className={`bg-white p-3 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md ${selectedCustCategory === 'Repeat' ? 'border-green-500 ring-2 ring-green-200' : 'border-green-200 shadow-sm'}`}>
-                                            <div className="flex items-center justify-between">
-                                                <div>
-                                                    <p className="text-[9px] font-bold text-green-600 uppercase">Repeat Customers</p>
-                                                    <p className="text-2xl font-black text-green-700">{customerCategorization.totalRepeat}</p>
-                                                    <p className="text-[8px] text-gray-500 mt-1">Continuous (24-25 & 25-26)</p>
-                                                </div>
-                                                <RefreshCw className={`w-8 h-8 text-green-500 ${selectedCustCategory === 'Repeat' ? 'opacity-100' : 'opacity-20'}`} />
-                                            </div>
-                                        </div>
-
-                                        <div
-                                            onClick={() => setSelectedCustCategory('Rebuild')}
-                                            className={`bg-white p-3 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md ${selectedCustCategory === 'Rebuild' ? 'border-orange-500 ring-2 ring-orange-200' : 'border-orange-200 shadow-sm'}`}>
-                                            <div className="flex items-center justify-between">
-                                                <div>
-                                                    <p className="text-[9px] font-bold text-orange-600 uppercase">Rebuild Customers</p>
-                                                    <p className="text-2xl font-black text-orange-700">{customerCategorization.totalRebuild}</p>
-                                                    <p className="text-[8px] text-gray-500 mt-1">Returned (Gap in 24-25)</p>
-                                                </div>
-                                                <History className={`w-8 h-8 text-orange-500 ${selectedCustCategory === 'Rebuild' ? 'opacity-100' : 'opacity-20'}`} />
-                                            </div>
-                                        </div>
-
-                                        <div
-                                            onClick={() => setSelectedCustCategory('New')}
-                                            className={`bg-white p-3 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md ${selectedCustCategory === 'New' ? 'border-blue-500 ring-2 ring-blue-200' : 'border-blue-200 shadow-sm'}`}>
-                                            <div className="flex items-center justify-between">
-                                                <div>
-                                                    <p className="text-[9px] font-bold text-blue-600 uppercase">New Customers</p>
-                                                    <p className="text-2xl font-black text-blue-700">{customerCategorization.totalNew}</p>
-                                                    <p className="text-[8px] text-gray-500 mt-1">Only in 25-26</p>
-                                                </div>
-                                                <UserPlus className={`w-8 h-8 text-blue-500 ${selectedCustCategory === 'New' ? 'opacity-100' : 'opacity-20'}`} />
-                                            </div>
-                                        </div>
-
-                                        <div
-                                            onClick={() => setSelectedCustCategory('Lost')}
-                                            className={`bg-white p-3 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md ${selectedCustCategory === 'Lost' ? 'border-red-500 ring-2 ring-red-200' : 'border-red-200 shadow-sm'}`}>
-                                            <div className="flex items-center justify-between">
-                                                <div>
-                                                    <p className="text-[9px] font-bold text-red-600 uppercase">Lost Customers</p>
-                                                    <p className="text-2xl font-black text-red-700">{customerCategorization.totalLost}</p>
-                                                    <p className="text-[8px] text-gray-500 mt-1">No sales in 25-26</p>
-                                                </div>
-                                                <UserMinus className={`w-8 h-8 text-red-500 ${selectedCustCategory === 'Lost' ? 'opacity-100' : 'opacity-20'}`} />
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm mb-4">
-                                        <h4 className="text-[10px] font-black text-gray-700 uppercase mb-2 flex items-center gap-2">
-                                            <Layers className="w-3 h-3" /> Group-wise Customer Distribution
-                                        </h4>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-                                            {customerCategorization.groupCounts.map((gc, idx) => (
-                                                <div key={idx} className="bg-gray-50 p-2 rounded border border-gray-100">
-                                                    <p className="text-[10px] font-bold text-gray-800 mb-1">{gc.group}</p>
-                                                    <div className="flex gap-2 text-[9px]">
-                                                        <span className="text-green-600 font-bold">R: {gc.repeat}</span>
-                                                        <span className="text-orange-600 font-bold">Rb: {gc.rebuild}</span>
-                                                        <span className="text-blue-600 font-bold">N: {gc.new}</span>
-                                                        <span className="text-red-600 font-bold">L: {gc.lost}</span>
-                                                        <span className="text-gray-600 font-bold ml-auto">Σ: {gc.total}</span>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                    <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-                                        <div className="p-4 bg-indigo-50/50 border-b border-indigo-100 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
-                                            <div className="flex items-center gap-4">
-                                                <h4 className="text-[10px] font-black text-indigo-900 uppercase flex items-center gap-2">
-                                                    <Table className="w-4 h-4 text-indigo-600" /> Detailed Customer Analysis
-                                                </h4>
-                                                <span className="text-[9px] font-bold text-indigo-600 bg-white px-2 py-1 rounded-md border border-indigo-200 shadow-sm">
-                                                    {(() => {
-                                                        const filteredCount = [...customerCategorization.repeatCustomers, ...customerCategorization.rebuildCustomers, ...customerCategorization.newCustomers, ...customerCategorization.lostCustomers]
-                                                            .filter(c => {
-                                                                const matchesCategory = selectedCustCategory === 'ALL' || c.category === selectedCustCategory;
-                                                                const matchesGroup = selectedCustGroup === 'ALL' || c.group === selectedCustGroup;
-                                                                const matchesGrowth = growthFilter === 'ALL' ? true : growthFilter === 'POSITIVE' ? c.ytdGrowth >= 0 : c.ytdGrowth < 0;
-                                                                const matchesSearch = !custSearchTerm || c.customerName.toLowerCase().includes(custSearchTerm.toLowerCase()) || c.group.toLowerCase().includes(custSearchTerm.toLowerCase());
-                                                                return matchesCategory && matchesGroup && matchesGrowth && matchesSearch;
-                                                            }).length;
-                                                        return `${filteredCount} Records Found`;
-                                                    })()}
-                                                </span>
-                                            </div>
-
-                                            <div className="flex items-center">
-                                                {(filterActive || custSortConfig.key !== 'fy202526Value') && (
-                                                    <button
-                                                        onClick={() => {
-                                                            setCustSearchTerm('');
-                                                            setSelectedCustGroup('ALL');
-                                                            setSelectedCustCategory('ALL');
-                                                            setGrowthFilter('ALL');
-                                                            setCustSortConfig({ key: 'fy202526Value', direction: 'desc' });
-                                                        }}
-                                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-red-200 text-red-600 rounded text-[10px] font-bold hover:bg-red-50 hover:text-red-700 transition-colors shadow-sm"
-                                                        title="Reset Filters"
-                                                    >
-                                                        <RotateCcw className="w-3.5 h-3.5" /> Reset Filters
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </div>
-                                        <div className="overflow-x-auto max-h-[600px] custom-scrollbar">
-                                            <table className="w-full text-left border-collapse min-w-[1200px]">
-                                                <thead className="sticky top-0 z-10 bg-gray-50 shadow-sm font-sans">
-                                                    <tr className="text-[9px] font-black text-gray-700 uppercase bg-gray-100 border-b border-gray-200">
-                                                        <th className="py-2 px-2 border-r border-gray-200 cursor-pointer hover:bg-gray-200 transition-colors align-top" onClick={() => setCustSortConfig({ key: 'category', direction: custSortConfig.key === 'category' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
-                                                            <div className="flex flex-col gap-1.5 w-full">
-                                                                <div className="flex items-center justify-between gap-1">
-                                                                    Category
-                                                                    <ArrowUpDown className={`w-3 h-3 ${custSortConfig.key === 'category' ? 'text-blue-600' : 'text-gray-300'}`} />
-                                                                </div>
-                                                                <div onClick={(e) => e.stopPropagation()}>
-                                                                    <select
-                                                                        value={selectedCustCategory}
-                                                                        onChange={(e) => { setSelectedCustCategory(e.target.value); }}
-                                                                        className="w-full bg-white border border-gray-300 text-[8px] rounded px-1 py-0.5 focus:ring-1 focus:ring-blue-500 outline-none text-gray-700 font-medium"
-                                                                    >
-                                                                        <option value="ALL">All</option>
-                                                                        <option value="Repeat">Repeat</option>
-                                                                        <option value="Rebuild">Rebuild</option>
-                                                                        <option value="New">New</option>
-                                                                        <option value="Lost">Lost</option>
-                                                                    </select>
-                                                                </div>
-                                                            </div>
-                                                        </th>
-                                                        <th className="py-2 px-2 border-r border-gray-200 cursor-pointer hover:bg-gray-200 transition-colors align-top" onClick={() => setCustSortConfig({ key: 'group', direction: custSortConfig.key === 'group' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
-                                                            <div className="flex flex-col gap-1.5 w-full">
-                                                                <div className="flex items-center justify-between gap-1">
-                                                                    Group
-                                                                    <ArrowUpDown className={`w-3 h-3 ${custSortConfig.key === 'group' ? 'text-blue-600' : 'text-gray-300'}`} />
-                                                                </div>
-                                                                <div onClick={(e) => e.stopPropagation()}>
-                                                                    <select
-                                                                        value={selectedCustGroup}
-                                                                        onChange={(e) => setSelectedCustGroup(e.target.value)}
-                                                                        className="w-full bg-white border border-gray-300 text-[8px] rounded px-1 py-0.5 focus:ring-1 focus:ring-blue-500 outline-none text-gray-700 font-medium max-w-[100px]"
-                                                                    >
-                                                                        <option value="ALL">All Groups</option>
-                                                                        {customerCategorization.groupCounts.map(g => (
-                                                                            <option key={g.group} value={g.group}>{g.group}</option>
-                                                                        ))}
-                                                                    </select>
-                                                                </div>
-                                                            </div>
-                                                        </th>
-                                                        <th className="py-2 px-3 border-r border-gray-200 cursor-pointer hover:bg-gray-200 transition-colors min-w-[200px] align-top" onClick={() => setCustSortConfig({ key: 'customerName', direction: custSortConfig.key === 'customerName' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
-                                                            <div className="flex flex-col gap-1.5 w-full">
-                                                                <div className="flex items-center justify-between gap-1">
-                                                                    Customer Name
-                                                                    <ArrowUpDown className={`w-3 h-3 ${custSortConfig.key === 'customerName' ? 'text-blue-600' : 'text-gray-300'}`} />
-                                                                </div>
-                                                                <div onClick={(e) => e.stopPropagation()} className="relative">
-                                                                    <input
-                                                                        type="text"
-                                                                        placeholder="Search..."
-                                                                        className="w-full bg-white border border-gray-300 text-[8px] rounded px-2 py-0.5 pl-5 focus:ring-1 focus:ring-blue-500 outline-none text-gray-700 font-medium placeholder-gray-400"
-                                                                        value={custSearchTerm}
-                                                                        onChange={(e) => setCustSearchTerm(e.target.value)}
-                                                                    />
-                                                                    <Search className="absolute left-1 top-1/2 -translate-y-1/2 w-2.5 h-2.5 text-gray-400" />
-                                                                </div>
-                                                            </div>
-                                                        </th>
-                                                        <th className="py-2 px-2 border-r border-gray-200 text-right cursor-pointer hover:bg-gray-200 align-top" onClick={() => setCustSortConfig({ key: 'fy202324Qty', direction: custSortConfig.key === 'fy202324Qty' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
-                                                            <div className="flex items-center justify-end gap-1 h-full pt-1">
-                                                                23-24 Qty
-                                                                <ArrowUpDown className={`w-3 h-3 ${custSortConfig.key === 'fy202324Qty' ? 'text-blue-600' : 'text-gray-300'}`} />
-                                                            </div>
-                                                        </th>
-                                                        <th className="py-2 px-2 border-r border-gray-200 text-right cursor-pointer hover:bg-gray-200 align-top" onClick={() => setCustSortConfig({ key: 'fy202324Value', direction: custSortConfig.key === 'fy202324Value' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
-                                                            <div className="flex items-center justify-end gap-1 h-full pt-1">
-                                                                23-24 Val
-                                                                <ArrowUpDown className={`w-3 h-3 ${custSortConfig.key === 'fy202324Value' ? 'text-blue-600' : 'text-gray-300'}`} />
-                                                            </div>
-                                                        </th>
-                                                        <th className="py-2 px-2 border-r border-gray-200 text-right cursor-pointer hover:bg-gray-200 align-top" onClick={() => setCustSortConfig({ key: 'fy202425Qty', direction: custSortConfig.key === 'fy202425Qty' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
-                                                            <div className="flex items-center justify-end gap-1 h-full pt-1">
-                                                                24-25 Qty
-                                                                <ArrowUpDown className={`w-3 h-3 ${custSortConfig.key === 'fy202425Qty' ? 'text-blue-600' : 'text-gray-300'}`} />
-                                                            </div>
-                                                        </th>
-                                                        <th className="py-2 px-2 border-r border-gray-200 text-right cursor-pointer hover:bg-gray-200 align-top" onClick={() => setCustSortConfig({ key: 'fy202425Value', direction: custSortConfig.key === 'fy202425Value' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
-                                                            <div className="flex items-center justify-end gap-1 h-full pt-1">
-                                                                24-25 Val
-                                                                <ArrowUpDown className={`w-3 h-3 ${custSortConfig.key === 'fy202425Value' ? 'text-blue-600' : 'text-gray-300'}`} />
-                                                            </div>
-                                                        </th>
-                                                        <th className="py-2 px-2 border-r border-gray-200 text-right text-blue-600 cursor-pointer hover:bg-blue-50 align-top" onClick={() => setCustSortConfig({ key: 'fy202526Qty', direction: custSortConfig.key === 'fy202526Qty' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
-                                                            <div className="flex items-center justify-end gap-1 h-full pt-1">
-                                                                25-26 Qty
-                                                                <ArrowUpDown className={`w-3 h-3 ${custSortConfig.key === 'fy202526Qty' ? 'text-blue-600' : 'text-blue-200'}`} />
-                                                            </div>
-                                                        </th>
-                                                        <th className="py-2 px-2 border-r border-gray-200 text-right text-blue-600 cursor-pointer hover:bg-blue-50 align-top" onClick={() => setCustSortConfig({ key: 'fy202526Value', direction: custSortConfig.key === 'fy202526Value' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
-                                                            <div className="flex items-center justify-end gap-1 h-full pt-1">
-                                                                25-26 Val
-                                                                <ArrowUpDown className={`w-3 h-3 ${custSortConfig.key === 'fy202526Value' ? 'text-blue-600' : 'text-blue-200'}`} />
-                                                            </div>
-                                                        </th>
-                                                        <th className="py-2 px-2 border-r border-gray-200 text-right cursor-pointer hover:bg-gray-200 transition-colors align-top" onClick={() => setCustSortConfig({ key: 'ytdGrowth', direction: custSortConfig.key === 'ytdGrowth' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
-                                                            <div className="flex flex-col gap-1.5 w-full">
-                                                                <div className="flex items-center justify-end gap-1">
-                                                                    YTD Comparison
-                                                                    <ArrowUpDown className={`w-3 h-3 ${custSortConfig.key === 'ytdGrowth' ? 'text-blue-600' : 'text-gray-300'}`} />
-                                                                </div>
-                                                                <div onClick={(e) => e.stopPropagation()}>
-                                                                    <select
-                                                                        value={growthFilter}
-                                                                        onChange={(e) => setGrowthFilter(e.target.value as any)}
-                                                                        className="w-full bg-white border border-gray-300 text-[8px] rounded px-1 py-0.5 focus:ring-1 focus:ring-blue-500 outline-none text-gray-700 font-medium"
-                                                                    >
-                                                                        <option value="ALL">All</option>
-                                                                        <option value="POSITIVE">Positive</option>
-                                                                        <option value="NEGATIVE">Negative</option>
-                                                                    </select>
-                                                                </div>
-                                                            </div>
-                                                        </th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="divide-y divide-gray-200 text-[10px]">
-                                                    {[...customerCategorization.repeatCustomers, ...customerCategorization.rebuildCustomers, ...customerCategorization.newCustomers, ...customerCategorization.lostCustomers]
-                                                        .filter(c => {
-                                                            const matchesCategory = selectedCustCategory === 'ALL' || c.category === selectedCustCategory;
-                                                            const matchesGroup = selectedCustGroup === 'ALL' || c.group === selectedCustGroup;
-                                                            const matchesGrowth = growthFilter === 'ALL' ? true : growthFilter === 'POSITIVE' ? c.ytdGrowth >= 0 : c.ytdGrowth < 0;
-                                                            const matchesSearch = !custSearchTerm || c.customerName.toLowerCase().includes(custSearchTerm.toLowerCase()) || c.group.toLowerCase().includes(custSearchTerm.toLowerCase());
-                                                            return matchesCategory && matchesGroup && matchesGrowth && matchesSearch;
-                                                        })
-                                                        .sort((a, b) => {
-                                                            const k = custSortConfig.key as keyof typeof a;
-                                                            const dir = custSortConfig.direction === 'asc' ? 1 : -1;
-                                                            if (typeof a[k] === 'string') return (a[k] as string).localeCompare(b[k] as string) * dir;
-                                                            return ((a[k] as number) - (b[k] as number)) * dir;
-                                                        })
-                                                        .map((cust, idx) => (
-                                                            <tr key={idx} className="hover:bg-blue-50/30 transition-colors">
-                                                                <td className="py-1 px-2 border border-gray-200">
-                                                                    <span className={`px-2 py-0.5 rounded-full text-[8px] font-bold ${cust.category === 'Repeat' ? 'bg-green-100 text-green-700' : cust.category === 'Rebuild' ? 'bg-orange-100 text-orange-700' : cust.category === 'Lost' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>{cust.category}</span>
-                                                                </td>
-                                                                <td className="py-1 px-2 border border-gray-200 text-gray-600 text-[9px] font-bold">{cust.group}</td>
-                                                                <td className="py-1 px-3 border border-gray-200 font-bold text-gray-900">{cust.customerName}</td>
-                                                                <td className="py-1 px-2 border border-gray-200 text-right text-gray-600">{cust.fy202324Qty.toLocaleString()}</td>
-                                                                <td className="py-1 px-2 border border-gray-200 text-right font-bold text-gray-700">{formatLargeValue(cust.fy202324Value, true)}</td>
-                                                                <td className="py-1 px-2 border border-gray-200 text-right text-gray-600">{cust.fy202425Qty.toLocaleString()}</td>
-                                                                <td className="py-1 px-2 border border-gray-200 text-right font-bold text-gray-700">{formatLargeValue(cust.fy202425Value, true)}</td>
-                                                                <td className="py-1 px-2 border border-gray-200 text-right text-blue-600 font-bold">{cust.fy202526Qty.toLocaleString()}</td>
-                                                                <td className="py-1 px-2 border border-gray-200 text-right font-black text-blue-700">{formatLargeValue(cust.fy202526Value, true)}</td>
-                                                                <td className="py-1 px-2 border border-gray-200 text-right">
-                                                                    <span className={`font-bold ${cust.ytdGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}>{cust.ytdGrowth >= 0 ? '+' : ''}{cust.ytdGrowth.toFixed(1)}%</span>
-                                                                </td>
-                                                            </tr>
-                                                        ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                            </div>                    ) : null}
 
                         </div>
-                    ) : activeSubTab === 'customer' ? (
-                        <div className="flex flex-col gap-4">
-                            {/* Customer Categorization Section */}
-                            <div className="bg-gradient-to-br from-purple-50 to-blue-50 p-4 rounded-xl border border-purple-200 shadow-sm">
-                                <h3 className="text-sm font-black text-purple-900 mb-3 flex items-center gap-2">
-                                    <Users className="w-4 h-4" /> Customer Categorization Analysis
-                                    <span className="text-[10px] font-normal text-purple-600 bg-white px-2 py-0.5 rounded-full">FY 2023-24 to 2025-26</span>
-                                </h3>
-                                {/* Filter Cards */}
-                                <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-4">
-                                    <div
-                                        onClick={() => setSelectedCustCategory('ALL')}
-                                        className={`bg-white p-3 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md ${selectedCustCategory === 'ALL' ? 'border-purple-500 ring-2 ring-purple-200' : 'border-purple-200 shadow-sm'}`}>
-                                        <div className="flex items-center justify-between">
-                                            <div>
-                                                <p className="text-[9px] font-bold text-purple-600 uppercase">Total Customers</p>
-                                                <p className="text-2xl font-black text-purple-700">{customerCategorization.totalCustomers}</p>
-                                                <p className="text-[8px] text-gray-500 mt-1">Click to view all</p>
-                                            </div>
-                                            <Users className={`w-8 h-8 text-purple-500 ${selectedCustCategory === 'ALL' ? 'opacity-100' : 'opacity-20'}`} />
-                                        </div>
-                                    </div>
-                                    <div
-                                        onClick={() => setSelectedCustCategory('Repeat')}
-                                        className={`bg-white p-3 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md ${selectedCustCategory === 'Repeat' ? 'border-green-500 ring-2 ring-green-200' : 'border-green-200 shadow-sm'}`}>
-                                        <div className="flex items-center justify-between">
-                                            <div>
-                                                <p className="text-[9px] font-bold text-green-600 uppercase">Repeat Customers</p>
-                                                <p className="text-2xl font-black text-green-700">{customerCategorization.totalRepeat}</p>
-                                                <p className="text-[8px] text-gray-500 mt-1">Continuous (24-25 & 25-26)</p>
-                                            </div>
-                                            <RefreshCw className={`w-8 h-8 text-green-500 ${selectedCustCategory === 'Repeat' ? 'opacity-100' : 'opacity-20'}`} />
-                                        </div>
-                                    </div>
-                                    <div
-                                        onClick={() => setSelectedCustCategory('Rebuild')}
-                                        className={`bg-white p-3 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md ${selectedCustCategory === 'Rebuild' ? 'border-orange-500 ring-2 ring-orange-200' : 'border-orange-200 shadow-sm'}`}>
-                                        <div className="flex items-center justify-between">
-                                            <div>
-                                                <p className="text-[9px] font-bold text-orange-600 uppercase">Rebuild Customers</p>
-                                                <p className="text-2xl font-black text-orange-700">{customerCategorization.totalRebuild}</p>
-                                                <p className="text-[8px] text-gray-500 mt-1">Returned (Gap in 24-25)</p>
-                                            </div>
-                                            <History className={`w-8 h-8 text-orange-500 ${selectedCustCategory === 'Rebuild' ? 'opacity-100' : 'opacity-20'}`} />
-                                        </div>
-                                    </div>
-                                    <div
-                                        onClick={() => setSelectedCustCategory('New')}
-                                        className={`bg-white p-3 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md ${selectedCustCategory === 'New' ? 'border-blue-500 ring-2 ring-blue-200' : 'border-blue-200 shadow-sm'}`}>
-                                        <div className="flex items-center justify-between">
-                                            <div>
-                                                <p className="text-[9px] font-bold text-blue-600 uppercase">New Customers</p>
-                                                <p className="text-2xl font-black text-blue-700">{customerCategorization.totalNew}</p>
-                                                <p className="text-[8px] text-gray-500 mt-1">Only in 25-26</p>
-                                            </div>
-                                            <UserPlus className={`w-8 h-8 text-blue-500 ${selectedCustCategory === 'New' ? 'opacity-100' : 'opacity-20'}`} />
-                                        </div>
-                                    </div>
-                                    <div
-                                        onClick={() => setSelectedCustCategory('Lost')}
-                                        className={`bg-white p-3 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md ${selectedCustCategory === 'Lost' ? 'border-red-500 ring-2 ring-red-200' : 'border-red-200 shadow-sm'}`}>
-                                        <div className="flex items-center justify-between">
-                                            <div>
-                                                <p className="text-[9px] font-bold text-red-600 uppercase">Lost Customers</p>
-                                                <p className="text-2xl font-black text-red-700">{customerCategorization.totalLost}</p>
-                                                <p className="text-[8px] text-gray-500 mt-1">No sales in 25-26</p>
-                                            </div>
-                                            <UserMinus className={`w-8 h-8 text-red-500 ${selectedCustCategory === 'Lost' ? 'opacity-100' : 'opacity-20'}`} />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm mb-4">
-                                    <h4 className="text-[10px] font-black text-gray-700 uppercase mb-2 flex items-center gap-2">
-                                        <Layers className="w-3 h-3" /> Group-wise Customer Distribution
-                                    </h4>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-                                        {customerCategorization.groupCounts.map((gc, idx) => (
-                                            <div key={idx} className="bg-gray-50 p-2 rounded border border-gray-100">
-                                                <div className="flex justify-between items-center mb-1">
-                                                    <span className="font-bold text-[10px] text-gray-700 max-w-[120px] truncate" title={gc.group}>{gc.group}</span>
-                                                    <span className="bg-purple-100 text-purple-700 text-[9px] font-bold px-1.5 py-0.5 rounded">Σ {gc.total}</span>
-                                                </div>
-                                                <div className="flex gap-2 text-[8px] text-gray-500">
-                                                    <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>R:{gc.repeat}</span>
-                                                    <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-orange-500"></span>Rb:{gc.rebuild}</span>
-                                                    <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>N:{gc.new}</span>
-                                                    <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>L:{gc.lost}</span>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-                                    <div className="overflow-x-auto">
-                                        <table className="w-full text-left border-collapse">
-                                            <thead>
-                                                <tr className="bg-gray-50 border-b border-gray-200 text-[9px] font-bold text-gray-500 uppercase tracking-wider">
-                                                    <th className="py-2 px-2 border-r border-gray-200">Category</th>
-                                                    <th className="py-2 px-2 border-r border-gray-200">Group</th>
-                                                    <th className="py-2 px-3 border-r border-gray-200">Customer Name</th>
-                                                    <th className="py-2 px-2 border-r border-gray-200 text-right text-gray-400">23-24 Qty</th>
-                                                    <th className="py-2 px-2 border-r border-gray-200 text-right text-gray-400">23-24 Val</th>
-                                                    <th className="py-2 px-2 border-r border-gray-200 text-right text-gray-400">24-25 Qty</th>
-                                                    <th className="py-2 px-2 border-r border-gray-200 text-right text-gray-400">24-25 Val</th>
-                                                    <th className="py-2 px-2 border-r border-gray-200 text-right text-blue-600 bg-blue-50/50">25-26 Qty</th>
-                                                    <th className="py-2 px-2 border-r border-gray-200 text-right text-blue-700 bg-blue-50/50">25-26 Val</th>
-                                                    <th className="py-2 px-2 text-right">YTD Comparison</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-gray-200 text-[10px]">
-                                                {[...customerCategorization.repeatCustomers, ...customerCategorization.rebuildCustomers, ...customerCategorization.newCustomers, ...customerCategorization.lostCustomers]
-                                                    .filter(c => selectedCustCategory === 'ALL' || c.category === selectedCustCategory)
-                                                    .map((cust, idx) => (
-                                                        <tr key={idx} className="hover:bg-blue-50/30 transition-colors">
-                                                            <td className="py-1 px-2 border border-gray-200">
-                                                                <span className={`px-2 py-0.5 rounded-full text-[8px] font-bold ${cust.category === 'Repeat' ? 'bg-green-100 text-green-700' : cust.category === 'Rebuild' ? 'bg-orange-100 text-orange-700' : cust.category === 'Lost' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>{cust.category}</span>
-                                                            </td>
-                                                            <td className="py-1 px-2 border border-gray-200 text-gray-600 text-[9px] font-bold">{cust.group}</td>
-                                                            <td className="py-1 px-3 border border-gray-200 font-bold text-gray-900">{cust.customerName}</td>
-                                                            <td className="py-1 px-2 border border-gray-200 text-right text-gray-600">{cust.fy202324Qty.toLocaleString()}</td>
-                                                            <td className="py-1 px-2 border border-gray-200 text-right font-bold text-gray-700">{formatLargeValue(cust.fy202324Value, true)}</td>
-                                                            <td className="py-1 px-2 border border-gray-200 text-right text-gray-600">{cust.fy202425Qty.toLocaleString()}</td>
-                                                            <td className="py-1 px-2 border border-gray-200 text-right font-bold text-gray-700">{formatLargeValue(cust.fy202425Value, true)}</td>
-                                                            <td className="py-1 px-2 border border-gray-200 text-right text-blue-600 font-bold">{cust.fy202526Qty.toLocaleString()}</td>
-                                                            <td className="py-1 px-2 border border-gray-200 text-right font-black text-blue-700">{formatLargeValue(cust.fy202526Value, true)}</td>
-                                                            <td className="py-1 px-2 border border-gray-200 text-right">
-                                                                <span className={`font-bold ${cust.ytdGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}>{cust.ytdGrowth >= 0 ? '+' : ''}{cust.ytdGrowth.toFixed(1)}%</span>
-                                                            </td>
-                                                        </tr>
-                                                    ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>) : null}
                 </div>
             </div>
         </div >
