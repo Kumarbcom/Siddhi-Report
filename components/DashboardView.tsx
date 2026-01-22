@@ -3454,41 +3454,62 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                     <tr className="text-[9px] font-black text-gray-700 uppercase bg-gray-100 border-b border-gray-200">
                                                         <th className="py-2 px-2 border-r border-gray-200 cursor-pointer hover:bg-gray-200 transition-colors" onClick={() => setCustSortConfig({ key: 'category', direction: custSortConfig.key === 'category' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
                                                             <div className="flex items-center justify-between gap-1">
-                                                                Cat
-                                                                <div className="flex flex-col">
-                                                                    <ChevronUp className={`w-2 h-2 ${custSortConfig.key === 'category' && custSortConfig.direction === 'asc' ? 'text-blue-600' : 'text-gray-300'}`} />
-                                                                    <ChevronDown className={`w-2 h-2 ${custSortConfig.key === 'category' && custSortConfig.direction === 'desc' ? 'text-blue-600' : 'text-gray-300'}`} />
-                                                                </div>
+                                                                Category
+                                                                <ArrowUpDown className={`w-3 h-3 ${custSortConfig.key === 'category' ? 'text-blue-600' : 'text-gray-300'}`} />
                                                             </div>
                                                         </th>
                                                         <th className="py-2 px-2 border-r border-gray-200 cursor-pointer hover:bg-gray-200 transition-colors" onClick={() => setCustSortConfig({ key: 'group', direction: custSortConfig.key === 'group' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
                                                             <div className="flex items-center justify-between gap-1">
                                                                 Group
-                                                                <div className="flex flex-col">
-                                                                    <ChevronUp className={`w-2 h-2 ${custSortConfig.key === 'group' && custSortConfig.direction === 'asc' ? 'text-blue-600' : 'text-gray-300'}`} />
-                                                                    <ChevronDown className={`w-2 h-2 ${custSortConfig.key === 'group' && custSortConfig.direction === 'desc' ? 'text-blue-600' : 'text-gray-300'}`} />
-                                                                </div>
+                                                                <ArrowUpDown className={`w-3 h-3 ${custSortConfig.key === 'group' ? 'text-blue-600' : 'text-gray-300'}`} />
                                                             </div>
                                                         </th>
                                                         <th className="py-2 px-3 border-r border-gray-200 cursor-pointer hover:bg-gray-200 transition-colors min-w-[200px]" onClick={() => setCustSortConfig({ key: 'customerName', direction: custSortConfig.key === 'customerName' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
                                                             <div className="flex items-center justify-between gap-1">
                                                                 Customer Name
-                                                                <div className="flex flex-col">
-                                                                    <ChevronUp className={`w-2 h-2 ${custSortConfig.key === 'customerName' && custSortConfig.direction === 'asc' ? 'text-blue-600' : 'text-gray-300'}`} />
-                                                                    <ChevronDown className={`w-2 h-2 ${custSortConfig.key === 'customerName' && custSortConfig.direction === 'desc' ? 'text-blue-600' : 'text-gray-300'}`} />
-                                                                </div>
+                                                                <ArrowUpDown className={`w-3 h-3 ${custSortConfig.key === 'customerName' ? 'text-blue-600' : 'text-gray-300'}`} />
                                                             </div>
                                                         </th>
-                                                        <th className="py-2 px-2 border-r border-gray-200 text-right bg-white/50" colSpan={2}>FY 23-24</th>
-                                                        <th className="py-2 px-2 border-r border-gray-200 text-right bg-white/50" colSpan={2}>FY 24-25</th>
-                                                        <th className="py-2 px-2 border-r border-gray-200 text-right bg-blue-50/30" colSpan={2}>FY 25-26</th>
+                                                        <th className="py-2 px-2 border-r border-gray-200 text-right cursor-pointer hover:bg-gray-200" onClick={() => setCustSortConfig({ key: 'fy202324Qty', direction: custSortConfig.key === 'fy202324Qty' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
+                                                            <div className="flex items-center justify-end gap-1">
+                                                                23-24 Qty
+                                                                <ArrowUpDown className={`w-3 h-3 ${custSortConfig.key === 'fy202324Qty' ? 'text-blue-600' : 'text-gray-300'}`} />
+                                                            </div>
+                                                        </th>
+                                                        <th className="py-2 px-2 border-r border-gray-200 text-right cursor-pointer hover:bg-gray-200" onClick={() => setCustSortConfig({ key: 'fy202324Value', direction: custSortConfig.key === 'fy202324Value' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
+                                                            <div className="flex items-center justify-end gap-1">
+                                                                23-24 Val
+                                                                <ArrowUpDown className={`w-3 h-3 ${custSortConfig.key === 'fy202324Value' ? 'text-blue-600' : 'text-gray-300'}`} />
+                                                            </div>
+                                                        </th>
+                                                        <th className="py-2 px-2 border-r border-gray-200 text-right cursor-pointer hover:bg-gray-200" onClick={() => setCustSortConfig({ key: 'fy202425Qty', direction: custSortConfig.key === 'fy202425Qty' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
+                                                            <div className="flex items-center justify-end gap-1">
+                                                                24-25 Qty
+                                                                <ArrowUpDown className={`w-3 h-3 ${custSortConfig.key === 'fy202425Qty' ? 'text-blue-600' : 'text-gray-300'}`} />
+                                                            </div>
+                                                        </th>
+                                                        <th className="py-2 px-2 border-r border-gray-200 text-right cursor-pointer hover:bg-gray-200" onClick={() => setCustSortConfig({ key: 'fy202425Value', direction: custSortConfig.key === 'fy202425Value' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
+                                                            <div className="flex items-center justify-end gap-1">
+                                                                24-25 Val
+                                                                <ArrowUpDown className={`w-3 h-3 ${custSortConfig.key === 'fy202425Value' ? 'text-blue-600' : 'text-gray-300'}`} />
+                                                            </div>
+                                                        </th>
+                                                        <th className="py-2 px-2 border-r border-gray-200 text-right text-blue-600 cursor-pointer hover:bg-blue-50" onClick={() => setCustSortConfig({ key: 'fy202526Qty', direction: custSortConfig.key === 'fy202526Qty' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
+                                                            <div className="flex items-center justify-end gap-1">
+                                                                25-26 Qty
+                                                                <ArrowUpDown className={`w-3 h-3 ${custSortConfig.key === 'fy202526Qty' ? 'text-blue-600' : 'text-blue-200'}`} />
+                                                            </div>
+                                                        </th>
+                                                        <th className="py-2 px-2 border-r border-gray-200 text-right text-blue-600 cursor-pointer hover:bg-blue-50" onClick={() => setCustSortConfig({ key: 'fy202526Value', direction: custSortConfig.key === 'fy202526Value' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
+                                                            <div className="flex items-center justify-end gap-1">
+                                                                25-26 Val
+                                                                <ArrowUpDown className={`w-3 h-3 ${custSortConfig.key === 'fy202526Value' ? 'text-blue-600' : 'text-blue-200'}`} />
+                                                            </div>
+                                                        </th>
                                                         <th className="py-2 px-2 border-r border-gray-200 text-right cursor-pointer hover:bg-gray-200 transition-colors" onClick={() => setCustSortConfig({ key: 'ytdGrowth', direction: custSortConfig.key === 'ytdGrowth' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
                                                             <div className="flex items-center justify-end gap-1">
-                                                                Growth %
-                                                                <div className="flex flex-col">
-                                                                    <ChevronUp className={`w-2 h-2 ${custSortConfig.key === 'ytdGrowth' && custSortConfig.direction === 'asc' ? 'text-blue-600' : 'text-gray-300'}`} />
-                                                                    <ChevronDown className={`w-2 h-2 ${custSortConfig.key === 'ytdGrowth' && custSortConfig.direction === 'desc' ? 'text-blue-600' : 'text-gray-300'}`} />
-                                                                </div>
+                                                                YTD Comparison
+                                                                <ArrowUpDown className={`w-3 h-3 ${custSortConfig.key === 'ytdGrowth' ? 'text-blue-600' : 'text-gray-300'}`} />
                                                             </div>
                                                         </th>
                                                     </tr>
@@ -3548,19 +3569,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                                 <option value="NEGATIVE">Negative</option>
                                                             </select>
                                                         </th>
-                                                    </tr>
-                                                    {/* Sub-Header Row for Qty/Sales */}
-                                                    <tr className="text-[8px] font-bold text-gray-500 uppercase bg-gray-50">
-                                                        <th className="py-1 px-2 border-r border-gray-200"></th>
-                                                        <th className="py-1 px-2 border-r border-gray-200"></th>
-                                                        <th className="py-1 px-2 border-r border-gray-200"></th>
-                                                        <th className="py-1 px-2 border-r border-gray-200 text-right cursor-pointer hover:bg-gray-100" onClick={() => setCustSortConfig({ key: 'fy202324Qty', direction: custSortConfig.key === 'fy202324Qty' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>Qty</th>
-                                                        <th className="py-1 px-2 border-r border-gray-200 text-right cursor-pointer hover:bg-gray-100" onClick={() => setCustSortConfig({ key: 'fy202324Value', direction: custSortConfig.key === 'fy202324Value' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>Sales</th>
-                                                        <th className="py-1 px-2 border-r border-gray-200 text-right cursor-pointer hover:bg-gray-100" onClick={() => setCustSortConfig({ key: 'fy202425Qty', direction: custSortConfig.key === 'fy202425Qty' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>Qty</th>
-                                                        <th className="py-1 px-2 border-r border-gray-200 text-right cursor-pointer hover:bg-gray-100" onClick={() => setCustSortConfig({ key: 'fy202425Value', direction: custSortConfig.key === 'fy202425Value' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>Sales</th>
-                                                        <th className="py-1 px-2 border-r border-gray-200 text-right text-blue-600 cursor-pointer hover:bg-blue-50" onClick={() => setCustSortConfig({ key: 'fy202526Qty', direction: custSortConfig.key === 'fy202526Qty' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>Qty</th>
-                                                        <th className="py-1 px-2 border-r border-gray-200 text-right text-blue-600 cursor-pointer hover:bg-blue-50" onClick={() => setCustSortConfig({ key: 'fy202526Value', direction: custSortConfig.key === 'fy202526Value' && custSortConfig.direction === 'asc' ? 'desc' : 'asc' })}>Sales</th>
-                                                        <th className="py-1 px-2 border-r border-gray-200 text-right">Var %</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-gray-200 text-[10px]">
