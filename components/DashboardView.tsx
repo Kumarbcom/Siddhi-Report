@@ -389,6 +389,13 @@ const GroupedCustomerAnalysis = ({ data, compareLabel = 'PY' }: { data: { group:
 
     const toggleGroup = (group: string) => setExpandedGroups(prev => ({ ...prev, [group]: !prev[group] }));
 
+    const expandAll = () => {
+        const newExpanded: Record<string, boolean> = {};
+        data.forEach(g => newExpanded[g.group] = true);
+        setExpandedGroups(newExpanded);
+    };
+    const collapseAll = () => setExpandedGroups({});
+
     const handleSort = (key: string) => {
         setSortConfig(current => ({
             key,
@@ -434,83 +441,113 @@ const GroupedCustomerAnalysis = ({ data, compareLabel = 'PY' }: { data: { group:
     }, [searchTerm]);
 
     return (
-        <div className="flex flex-col h-full w-full overflow-hidden">
-            <div className="flex flex-col gap-2 mb-2 border-b border-gray-100 pb-2">
+        <div className="flex flex-col h-full w-full overflow-hidden bg-white rounded-xl border border-gray-200 shadow-sm">
+            <div className="p-3 border-b border-gray-200 flex flex-col gap-3 bg-gray-50/50">
                 <div className="flex items-center justify-between">
-                    <h4 className="text-[10px] font-black text-gray-500 uppercase">Analytics (vs {compareLabel})</h4>
-                    <div className="flex items-center gap-1 bg-gray-100 rounded p-0.5">
-                        <button onClick={() => handleSort('name')} className={`p-1 rounded ${sortConfig.key === 'name' ? 'bg-white shadow text-blue-600' : 'text-gray-400'}`} title="Sort by Name"><ListOrdered className="w-3 h-3" /></button>
-                        <button onClick={() => handleSort('current')} className={`p-1 rounded ${sortConfig.key === 'current' ? 'bg-white shadow text-blue-600' : 'text-gray-400'}`} title="Sort by Value"><DollarSign className="w-3 h-3" /></button>
-                        <button onClick={() => handleSort('growth')} className={`p-1 rounded ${sortConfig.key === 'growth' ? 'bg-white shadow text-blue-600' : 'text-gray-400'}`} title="Sort by Growth"><TrendingUp className="w-3 h-3" /></button>
+                    <h4 className="text-xs font-black text-gray-700 uppercase flex items-center gap-2 tracking-wide">
+                        <Table className="w-3.5 h-3.5 text-blue-600" />
+                        Customer Pivot Analysis
+                    </h4>
+                    <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-lg p-0.5 shadow-sm">
+                        <button onClick={expandAll} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all" title="Expand All"><Plus className="w-3 h-3" /></button>
+                        <div className="w-px h-3 bg-gray-200"></div>
+                        <button onClick={collapseAll} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all" title="Collapse All"><Minus className="w-3 h-3" /></button>
                     </div>
                 </div>
-                <div className="relative">
-                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400" />
+                <div className="relative group">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
                     <input
                         type="text"
-                        placeholder="Filter customers..."
-                        className="w-full pl-7 pr-2 py-1 bg-gray-50 border border-gray-200 rounded text-[10px] focus:outline-none focus:border-blue-400 transition-colors"
+                        placeholder="Search customers or groups..."
+                        className="w-full pl-8 pr-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all outline-none"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto custom-scrollbar pr-1.5 space-y-1.5">
-                {processedData.map((groupData) => (
-                    <div key={groupData.group} className="border border-gray-100 rounded-lg overflow-hidden bg-white shadow-sm">
-                        <button onClick={() => toggleGroup(groupData.group)} className="w-full flex items-center justify-between p-2 bg-gray-50 hover:bg-blue-50 transition-colors">
-                            <div className="flex items-center gap-2">
-                                {expandedGroups[groupData.group] ? <ChevronDown className="w-4 h-4 text-blue-600" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
-                                <span className="text-xs font-bold text-gray-800 uppercase tracking-tight">{groupData.group}</span>
-                            </div>
-                            <div className="flex flex-col items-end">
-                                <span className="text-xs font-black text-blue-700">{formatLargeValue(groupData.total, true)}</span>
-                                <div className="flex items-center gap-1.5 leading-none">
-                                    <span className="text-[8px] text-gray-400 uppercase font-medium">{compareLabel}: {formatLargeValue(groupData.totalPrevious, true)}</span>
-                                    <span className={`text-[8px] font-bold px-1 rounded-sm ${groupData.total >= groupData.totalPrevious ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
-                                        {groupData.totalPrevious > 0 ? (((groupData.total - groupData.totalPrevious) / groupData.totalPrevious) * 100).toFixed(0) : '100'}%
-                                    </span>
-                                </div>
-                            </div>
-                        </button>
-                        {expandedGroups[groupData.group] && (
-                            <div className="divide-y divide-gray-50 bg-white">
-                                {groupData.customers.map((cust, idx) => (
-                                    <div key={idx} className="p-2 hover:bg-gray-50 transition-colors group">
-                                        <div className="flex justify-between items-start mb-1">
-                                            <span className="text-[10px] font-bold text-gray-700 truncate w-3/5 group-hover:text-blue-700 transition-colors" title={cust.name}>{cust.name}</span>
-                                            <span className="text-[10px] font-black text-gray-900">{formatLargeValue(cust.current, true)}</span>
+            <div className="flex-1 overflow-auto custom-scrollbar">
+                <table className="w-full border-collapse text-left min-w-[300px]">
+                    <thead className="sticky top-0 z-10 bg-gray-50/95 backdrop-blur-sm text-[9px] font-black text-gray-500 uppercase tracking-wider border-b border-gray-200">
+                        <tr>
+                            <th className="py-2.5 px-3 text-left w-[45%] cursor-pointer hover:bg-gray-100 transition-colors group" onClick={() => handleSort('name')}>
+                                <div className="flex items-center gap-1">Group / Customer <ArrowUpDown className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity text-blue-500" /></div>
+                            </th>
+                            <th className="py-2.5 px-2 text-right cursor-pointer hover:bg-gray-100 transition-colors group" onClick={() => handleSort('current')}>
+                                <div className="flex items-center justify-end gap-1">Current <ArrowUpDown className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity text-blue-500" /></div>
+                            </th>
+                            <th className="py-2.5 px-2 text-right cursor-pointer hover:bg-gray-100 transition-colors group" onClick={() => handleSort('previous')}>
+                                <div className="flex items-center justify-end gap-1">{compareLabel} <ArrowUpDown className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity text-blue-500" /></div>
+                            </th>
+                            <th className="py-2.5 px-2 text-right hidden sm:table-cell cursor-pointer hover:bg-gray-100 transition-colors group" onClick={() => handleSort('diff')}>
+                                <div className="flex items-center justify-end gap-1">Diff <ArrowUpDown className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity text-blue-500" /></div>
+                            </th>
+                            <th className="py-2.5 px-2 text-right cursor-pointer hover:bg-gray-100 transition-colors group" onClick={() => handleSort('growth')}>
+                                <div className="flex items-center justify-end gap-1">Growth <ArrowUpDown className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity text-blue-500" /></div>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 text-[10px]">
+                        {processedData.map((group) => (
+                            <React.Fragment key={group.group}>
+                                <tr className="bg-gray-50/50 hover:bg-blue-50/30 transition-colors cursor-pointer group border-b border-white" onClick={() => toggleGroup(group.group)}>
+                                    <td className="py-2 px-2 border-l-2 border-transparent group-hover:border-blue-500 transition-colors">
+                                        <div className="flex items-center gap-2 font-black text-gray-800 tracking-tight">
+                                            {expandedGroups[group.group] ? <ChevronDown className="w-3.5 h-3.5 text-blue-600" /> : <ChevronRight className="w-3.5 h-3.5 text-gray-400 group-hover:text-blue-500" />}
+                                            {group.group}
+                                            <span className="bg-gray-200 text-gray-600 px-1.5 rounded-full text-[8px] font-bold">{group.customers.length}</span>
                                         </div>
-                                        <div className="flex justify-between items-center">
-                                            <div className="flex items-center gap-1">
-                                                <span className="text-[9px] text-gray-400 uppercase font-medium">{compareLabel}:</span>
-                                                <span className="text-[9px] text-gray-500 font-mono">{formatLargeValue(cust.previous, true)}</span>
+                                    </td>
+                                    <td className="py-2 px-2 text-right font-black text-gray-900">{formatLargeValue(group.total, true)}</td>
+                                    <td className="py-2 px-2 text-right font-medium text-gray-500 font-mono">{formatLargeValue(group.totalPrevious, true)}</td>
+                                    <td className="py-2 px-2 text-right font-bold hidden sm:table-cell">
+                                        <span className={group.total - group.totalPrevious >= 0 ? "text-emerald-600" : "text-rose-600"}>
+                                            {formatLargeValue(group.total - group.totalPrevious, true)}
+                                        </span>
+                                    </td>
+                                    <td className="py-2 px-2 text-right font-bold">
+                                        <span className={`px-1.5 py-0.5 rounded ${group.total >= group.totalPrevious ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                                            {group.totalPrevious > 0 ? (((group.total - group.totalPrevious) / group.totalPrevious) * 100).toFixed(0) : '100'}%
+                                        </span>
+                                    </td>
+                                </tr>
+                                {expandedGroups[group.group] && group.customers.map((cust, idx) => (
+                                    <tr key={`${group.group}-${idx}`} className="hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0">
+                                        <td className="py-1.5 px-2 pl-9 border-l border-dashed border-gray-200">
+                                            <div className="truncate max-w-[140px] text-gray-600 font-medium" title={cust.name}>{cust.name}</div>
+                                        </td>
+                                        <td className="py-1.5 px-2 text-right font-bold text-gray-700">{formatLargeValue(cust.current, true)}</td>
+                                        <td className="py-1.5 px-2 text-right font-mono text-gray-400">{formatLargeValue(cust.previous, true)}</td>
+                                        <td className="py-1.5 px-2 text-right font-medium hidden sm:table-cell">
+                                            <span className={cust.diff >= 0 ? "text-emerald-600" : "text-rose-500"}>
+                                                {formatLargeValue(cust.diff, true)}
+                                            </span>
+                                        </td>
+                                        <td className="py-1.5 px-2 text-right">
+                                            <div className={`flex items-center justify-end gap-0.5 font-bold ${cust.diff >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
+                                                {cust.diff >= 0 ? <ArrowUpRight className="w-2.5 h-2.5" /> : <ArrowDownRight className="w-2.5 h-2.5" />}
+                                                {cust.previous > 0 ? ((Math.abs(cust.diff) / cust.previous) * 100).toFixed(0) : '100'}%
                                             </div>
-                                            <div className="flex flex-col items-end">
-                                                <div className={`flex items-center gap-0.5 text-[9px] font-bold ${cust.diff >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                                    {cust.diff >= 0 ? <ArrowUpRight className="w-2.5 h-2.5" /> : <ArrowDownRight className="w-2.5 h-2.5" />}
-                                                    <span>{formatLargeValue(Math.abs(cust.diff), true)}</span>
-                                                </div>
-                                                <span className={`text-[8px] font-bold ${cust.diff >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                                    {cust.previous > 0 ? ((cust.diff / cust.previous) * 100).toFixed(0) : '100'}%
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
+                                        </td>
+                                    </tr>
                                 ))}
-                                {groupData.customers.length === 0 && (
-                                    <div className="p-4 text-center text-[10px] text-gray-400 italic">No customers match filter</div>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                ))}
+                            </React.Fragment>
+                        ))}
+                    </tbody>
+                </table>
                 {processedData.length === 0 && (
-                    <div className="p-4 text-center text-xs text-gray-400 font-bold uppercase mt-4">
-                        No groups found
+                    <div className="flex flex-col items-center justify-center p-8 text-gray-400 gap-2">
+                        <Filter className="w-8 h-8 opacity-20" />
+                        <span className="text-xs font-bold uppercase opacity-60">No matching data found</span>
                     </div>
                 )}
+            </div>
+            <div className="bg-gray-50 border-t border-gray-200 p-2 text-[9px] text-gray-500 flex justify-between items-center rounded-b-xl">
+                <span className="font-bold uppercase tracking-wider">{processedData.length} Groups Active</span>
+                <div className="flex gap-4 font-mono font-bold">
+                    <span className="text-gray-400">PREV: {formatLargeValue(processedData.reduce((acc, g) => acc + g.totalPrevious, 0), true)}</span>
+                    <span className="text-blue-700">CURR: {formatLargeValue(processedData.reduce((acc, g) => acc + g.total, 0), true)}</span>
+                </div>
             </div>
         </div>
     );
