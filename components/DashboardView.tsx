@@ -3252,7 +3252,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                         <span>Scale: 100%</span>
                                     </div>
                                 </div>
-                            </div>                    ) : null}
+                            </div>
+                        )) : null}
 
                         </div>
                 </div>
