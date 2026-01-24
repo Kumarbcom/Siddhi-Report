@@ -391,37 +391,47 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
                                     <th onClick={() => handleSort('fy202526_value')} className="py-2 px-2 text-right border-r bg-purple-50/30 hover:bg-purple-100/50 group"><div className="flex items-center justify-end gap-1">Val {sortConfig?.key === 'fy202526_value' && (sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 text-indigo-600" /> : <ArrowDown className="w-3 h-3 text-indigo-600" />)}</div></th>
 
                                     <th className="py-2 px-2 text-center bg-gray-100 font-extrabold hover:bg-gray-200 group">vs PY</th>
+                                    <th className="py-2 px-2 text-center bg-yellow-50/50 font-extrabold hover:bg-yellow-100/50 group" title="Contribution to FY 25-26 Sales">Share %</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 text-[10px] text-gray-700">
-                                {filteredData.slice(0, 150).map((cust, idx) => {
-                                    const growth = cust.fy202425.value > 0
-                                        ? ((cust.fy202526.value - cust.fy202425.value) / cust.fy202425.value) * 100
-                                        : cust.fy202526.value > 0 ? 100 : 0;
+                                {(() => {
+                                    const totalFY2526 = filteredData.reduce((acc, c) => acc + c.fy202526.value, 0);
 
-                                    return (
-                                        <tr key={idx} className="hover:bg-gray-50 transition-colors group text-[10px]">
-                                            <td className="sticky left-0 z-10 py-1 px-2 border-r truncate max-w-[250px] font-medium text-gray-900 bg-white group-hover:bg-gray-50 border-b border-gray-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" title={cust.customerName}>{cust.customerName}</td>
-                                            <td className="py-1 px-2 border-r truncate max-w-[150px] text-gray-500">{cust.group}</td>
+                                    return filteredData.slice(0, 150).map((cust, idx) => {
+                                        const growth = cust.fy202425.value > 0
+                                            ? ((cust.fy202526.value - cust.fy202425.value) / cust.fy202425.value) * 100
+                                            : cust.fy202526.value > 0 ? 100 : 0;
 
-                                            <td className="py-1 px-2 text-right bg-blue-50/10 font-medium">{Math.round(cust.fy202324.qty).toLocaleString()}</td>
-                                            <td className="py-1 px-2 text-right border-r bg-blue-50/10 text-gray-500">{Math.round(cust.fy202324.value).toLocaleString()}</td>
+                                        const share = totalFY2526 > 0 ? (cust.fy202526.value / totalFY2526) * 100 : 0;
 
-                                            <td className="py-1 px-2 text-right bg-indigo-50/10 font-medium text-indigo-700">{Math.round(cust.fy202425.qty).toLocaleString()}</td>
-                                            <td className="py-1 px-2 text-right border-r bg-indigo-50/10 text-indigo-600/70">{Math.round(cust.fy202425.value).toLocaleString()}</td>
+                                        return (
+                                            <tr key={idx} className="hover:bg-gray-50 transition-colors group text-[10px]">
+                                                <td className="sticky left-0 z-10 py-1 px-2 border-r truncate max-w-[250px] font-medium text-gray-900 bg-white group-hover:bg-gray-50 border-b border-gray-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" title={cust.customerName}>{cust.customerName}</td>
+                                                <td className="py-1 px-2 border-r truncate max-w-[150px] text-gray-500">{cust.group}</td>
 
-                                            <td className="py-1 px-2 text-right bg-purple-50/10 font-bold text-purple-700">{Math.round(cust.fy202526.qty).toLocaleString()}</td>
-                                            <td className="py-1 px-2 text-right border-r bg-purple-50/10 font-black text-purple-900">{Math.round(cust.fy202526.value).toLocaleString()}</td>
+                                                <td className="py-1 px-2 text-right bg-blue-50/10 font-medium">{Math.round(cust.fy202324.qty).toLocaleString()}</td>
+                                                <td className="py-1 px-2 text-right border-r bg-blue-50/10 text-gray-500">{Math.round(cust.fy202324.value).toLocaleString()}</td>
 
-                                            <td className="py-1 px-2 text-center">
-                                                <div className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-bold ${growth >= 0 ? 'text-green-700 bg-green-50' : 'text-red-700 bg-red-50'}`}>
-                                                    {growth >= 0 ? <TrendingUp className="w-2.5 h-2.5" /> : <TrendingDown className="w-2.5 h-2.5" />}
-                                                    {Math.abs(growth).toFixed(0)}%
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
+                                                <td className="py-1 px-2 text-right bg-indigo-50/10 font-medium text-indigo-700">{Math.round(cust.fy202425.qty).toLocaleString()}</td>
+                                                <td className="py-1 px-2 text-right border-r bg-indigo-50/10 text-indigo-600/70">{Math.round(cust.fy202425.value).toLocaleString()}</td>
+
+                                                <td className="py-1 px-2 text-right bg-purple-50/10 font-bold text-purple-700">{Math.round(cust.fy202526.qty).toLocaleString()}</td>
+                                                <td className="py-1 px-2 text-right border-r bg-purple-50/10 font-black text-purple-900">{Math.round(cust.fy202526.value).toLocaleString()}</td>
+
+                                                <td className="py-1 px-2 text-center">
+                                                    <div className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-bold ${growth >= 0 ? 'text-green-700 bg-green-50' : 'text-red-700 bg-red-50'}`}>
+                                                        {growth >= 0 ? <TrendingUp className="w-2.5 h-2.5" /> : <TrendingDown className="w-2.5 h-2.5" />}
+                                                        {Math.abs(growth).toFixed(0)}%
+                                                    </div>
+                                                </td>
+                                                <td className="py-1 px-2 text-center bg-yellow-50/10 font-bold text-yellow-700 border-l border-gray-100">
+                                                    {share > 0 ? share.toFixed(1) + '%' : '-'}
+                                                </td>
+                                            </tr>
+                                        );
+                                    });
+                                })()}
                             </tbody>
                         </table>
                     </div>
