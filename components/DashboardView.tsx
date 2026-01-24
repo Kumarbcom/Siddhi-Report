@@ -1,4 +1,4 @@
-﻿import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Material, ClosingStockItem, PendingSOItem, PendingPOItem, SalesReportItem, CustomerMasterItem, SalesRecord } from '../types';
 import { TrendingUp, TrendingDown, Package, ClipboardList, ShoppingCart, Calendar, Filter, PieChart as PieIcon, BarChart3, Users, ArrowRight, Activity, DollarSign, ArrowUpRight, ArrowDownRight, RefreshCw, UserCircle, Minus, Plus, ChevronDown, ChevronUp, Link2Off, AlertTriangle, Layers, Clock, CheckCircle2, AlertCircle, User, Factory, Tag, ArrowLeft, BarChart4, Hourglass, History, AlertOctagon, ChevronRight, ListOrdered, Table, X, ArrowUp, ArrowDown, Search, ArrowUpDown, FileText, UserPlus, UserMinus, PanelLeftClose, RotateCcw } from 'lucide-react';
 import MOMView from './MOMView';
@@ -114,7 +114,7 @@ const SalesTrendChart = ({ data, maxVal }: { data: { labels: string[], series: a
                                         <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: s.color }}></div>
                                         <span className="text-gray-300 font-medium whitespace-nowrap">{s.name}</span>
                                     </div>
-                                    <span className="font-mono font-bold text-white text-xs">{formatLargeValue(s.data[hoverIndex], true)}</span>
+                                    <span className=" font-bold text-white text-xs">{formatLargeValue(s.data[hoverIndex], true)}</span>
                                 </div>
                             ))}
                         </div>
@@ -359,7 +359,7 @@ const HorizontalBarChart = ({
                                             <div className="flex items-center gap-1.5 mt-1">
                                                 <span className="text-[9px] md:text-[10px] text-gray-500 font-bold uppercase tracking-tight">LY: {formatLargeValue(item.previous, true)}</span>
                                                 <span className={`text-[9px] px-1 py-0.5 rounded-md font-black ${((total - item.previous) / item.previous) >= 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
-                                                    {((total - item.previous) / item.previous) >= 0 ? 'â†‘' : 'â†“'}{Math.abs(((total - item.previous) / item.previous) * 100).toFixed(0)}%
+                                                    {((total - item.previous) / item.previous) >= 0 ? '↑' : '↓'}{Math.abs(((total - item.previous) / item.previous) * 100).toFixed(0)}%
                                                 </span>
                                             </div>
                                         )}
@@ -383,7 +383,19 @@ const HorizontalBarChart = ({
     );
 };
 
-const GroupedCustomerAnalysis = ({ data, compareLabel = 'PY' }: { data: { group: string, total: number, totalPrevious: number, customers: { name: string, current: number, previous: number, diff: number }[] }[], compareLabel?: string }) => {
+interface GroupedCustomerAnalysisProps {
+    data: { group: string, total: number, totalPrevious: number, customers: { name: string, current: number, previous: number, diff: number }[] }[];
+    compareLabel?: string;
+    groupingMode: 'RAW' | 'MERGED';
+    setGroupingMode: (mode: 'RAW' | 'MERGED') => void;
+}
+
+const GroupedCustomerAnalysis: React.FC<GroupedCustomerAnalysisProps> = ({
+    data,
+    compareLabel = 'PY',
+    groupingMode,
+    setGroupingMode
+}) => {
     const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
     const [searchTerm, setSearchTerm] = useState('');
     const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' }>({ key: 'current', direction: 'desc' });
@@ -471,8 +483,26 @@ const GroupedCustomerAnalysis = ({ data, compareLabel = 'PY' }: { data: { group:
                 <table className="w-full border-collapse text-left min-w-[300px]">
                     <thead className="sticky top-0 z-10 bg-gray-50/95 backdrop-blur-sm text-[9px] font-black text-gray-500 uppercase tracking-wider border-b border-gray-200">
                         <tr>
-                            <th className="py-2.5 px-3 text-left w-[45%] cursor-pointer hover:bg-gray-100 transition-colors group" onClick={() => handleSort('name')}>
-                                <div className="flex items-center gap-1">Group / Customer <ArrowUpDown className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity text-blue-500" /></div>
+                            <th className="py-2.5 px-3 text-left w-[45%] border-r border-gray-100 bg-gray-100/50">
+                                <div className="flex flex-col gap-1">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-1.5 cursor-pointer hover:text-blue-600 transition-colors" onClick={() => handleSort('name')}>
+                                            <Layers className="w-3 h-3" />
+                                            {groupingMode === 'MERGED' ? 'Group / Customer' : 'Cust Group / Customer'}
+                                            <ArrowUpDown className="w-2.5 h-2.5 opacity-50" />
+                                        </div>
+                                        <div className="flex bg-white rounded-md p-0.5 border border-gray-200 shadow-sm">
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); setGroupingMode('MERGED'); }}
+                                                className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase transition-all ${groupingMode === 'MERGED' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                                            >G</button>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); setGroupingMode('RAW'); }}
+                                                className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase transition-all ${groupingMode === 'RAW' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                                            >CG</button>
+                                        </div>
+                                    </div>
+                                </div>
                             </th>
                             <th className="py-2.5 px-2 text-right cursor-pointer hover:bg-gray-100 transition-colors group" onClick={() => handleSort('current')}>
                                 <div className="flex items-center justify-end gap-1">Current <ArrowUpDown className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity text-blue-500" /></div>
@@ -500,7 +530,7 @@ const GroupedCustomerAnalysis = ({ data, compareLabel = 'PY' }: { data: { group:
                                         </div>
                                     </td>
                                     <td className="py-2 px-2 text-right font-black text-gray-900">{formatLargeValue(group.total, true)}</td>
-                                    <td className="py-2 px-2 text-right font-medium text-gray-500 font-mono">{formatLargeValue(group.totalPrevious, true)}</td>
+                                    <td className="py-2 px-2 text-right font-medium text-gray-500 ">{formatLargeValue(group.totalPrevious, true)}</td>
                                     <td className="py-2 px-2 text-right font-bold hidden sm:table-cell">
                                         <span className={group.total - group.totalPrevious >= 0 ? "text-emerald-600" : "text-rose-600"}>
                                             {formatLargeValue(group.total - group.totalPrevious, true)}
@@ -518,7 +548,7 @@ const GroupedCustomerAnalysis = ({ data, compareLabel = 'PY' }: { data: { group:
                                             <div className="truncate max-w-[140px] text-gray-600 font-medium" title={cust.name}>{cust.name}</div>
                                         </td>
                                         <td className="py-1.5 px-2 text-right font-bold text-gray-700">{formatLargeValue(cust.current, true)}</td>
-                                        <td className="py-1.5 px-2 text-right font-mono text-gray-400">{formatLargeValue(cust.previous, true)}</td>
+                                        <td className="py-1.5 px-2 text-right  text-gray-400">{formatLargeValue(cust.previous, true)}</td>
                                         <td className="py-1.5 px-2 text-right font-medium hidden sm:table-cell">
                                             <span className={cust.diff >= 0 ? "text-emerald-600" : "text-rose-500"}>
                                                 {formatLargeValue(cust.diff, true)}
@@ -545,7 +575,7 @@ const GroupedCustomerAnalysis = ({ data, compareLabel = 'PY' }: { data: { group:
             </div>
             <div className="bg-gray-50 border-t border-gray-200 p-2 text-[9px] text-gray-500 flex justify-between items-center rounded-b-xl">
                 <span className="font-bold uppercase tracking-wider">{processedData.length} Groups Active</span>
-                <div className="flex gap-4 font-mono font-bold">
+                <div className="flex gap-4  font-bold">
                     <span className="text-gray-400">PREV: {formatLargeValue(processedData.reduce((acc, g) => acc + g.totalPrevious, 0), true)}</span>
                     <span className="text-blue-700">CURR: {formatLargeValue(processedData.reduce((acc, g) => acc + g.total, 0), true)}</span>
                 </div>
@@ -1802,7 +1832,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                             <div className="border-t border-gray-100 pt-4">
                                 <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Item Details</p>
                                 <p className="text-sm font-bold text-gray-800 leading-tight">{selectedSoItem.itemName}</p>
-                                <p className="text-[10px] text-gray-500 font-mono mt-1">Part No: {selectedSoItem.partNo || '-'}</p>
+                                <p className="text-[10px] text-gray-500  mt-1">Part No: {selectedSoItem.partNo || '-'}</p>
                             </div>
                             <div className="grid grid-cols-3 gap-4 border-t border-gray-100 pt-4">
                                 <div><p className="text-[10px] font-bold text-gray-400 uppercase">Pending Qty</p><p className="text-base font-black text-purple-700">{selectedSoItem.balanceQty}</p></div>
@@ -2014,12 +2044,12 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                         </h3>
                                         <span className="text-[8px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full uppercase">All Groups</span>
                                     </div>
-                                    <div className="flex-1 overflow-hidden">
-                                        <GroupedCustomerAnalysis
-                                            data={groupedCustomerData}
-                                            compareLabel={timeView === 'WEEK' ? 'PW' : timeView === 'MONTH' ? 'PM' : 'LY (YTD)'}
-                                        />
-                                    </div>
+                                    <GroupedCustomerAnalysis
+                                        data={groupedCustomerData}
+                                        compareLabel={timeView === 'WEEK' ? 'PW' : timeView === 'MONTH' ? 'PM' : 'LY (YTD)'}
+                                        groupingMode={groupingMode}
+                                        setGroupingMode={setGroupingMode}
+                                    />
                                 </div>
                             </div>
                         </div>
@@ -2130,12 +2160,12 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                             ) : (
                                                 processedInventoryItems.map((item, idx) => (
                                                     <tr key={idx} className="hover:bg-emerald-50/30 even:bg-gray-50/20 transition-colors group">
-                                                        <td className="py-1 px-2 border border-gray-200 text-center text-gray-400 font-mono text-[9px] select-none">{idx + 1}</td>
+                                                        <td className="py-1 px-2 border border-gray-200 text-center text-gray-400  text-[9px] select-none">{idx + 1}</td>
                                                         <td className="py-1 px-3 border border-gray-200 font-black text-gray-700 truncate max-w-[300px]" title={item.description}>{item.description}</td>
                                                         <td className="py-1 px-3 border border-gray-200 font-bold text-gray-500 uppercase">{item.make}</td>
                                                         <td className="py-1 px-3 border border-gray-200 font-bold text-blue-600 uppercase tracking-tighter">{item.group}</td>
                                                         <td className="py-1 px-3 border border-gray-200 text-right font-black text-emerald-700">{item.quantity.toLocaleString()}</td>
-                                                        <td className="py-1 px-3 border border-gray-200 text-right font-mono text-[9px] text-gray-400">{item.rate.toLocaleString()}</td>
+                                                        <td className="py-1 px-3 border border-gray-200 text-right  text-[9px] text-gray-400">{item.rate.toLocaleString()}</td>
                                                         <td className="py-1 px-3 border border-gray-200 text-right font-black text-gray-900 bg-gray-50/30">{item.value.toLocaleString()}</td>
                                                     </tr>
                                                 ))
@@ -2261,7 +2291,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                     <tr key={i.id} className="hover:bg-purple-50 group cursor-default">
                                                         <td className="py-1.5 px-3 text-gray-400 font-medium">{i.date}</td>
                                                         <td className="py-1.5 px-3 font-bold text-gray-800 truncate max-w-[120px]">{i.partyName}</td>
-                                                        <td className="py-1.5 px-3 font-mono text-gray-500">{i.orderNo}</td>
+                                                        <td className="py-1.5 px-3  text-gray-500">{i.orderNo}</td>
                                                         <td className="py-1.5 px-3 text-right">
                                                             <div className="flex flex-col items-end">
                                                                 <button
@@ -2386,8 +2416,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                     {/* Total Sales Row */}
                                                     <tr className="hover:bg-gray-50 transition-colors">
                                                         <td className="px-4 py-3 font-semibold text-gray-600">Total Sales</td>
-                                                        <td className="px-4 py-3 text-right font-mono font-bold text-gray-700">{Math.round(weeklyStats.sales.mtdPrev).toLocaleString('en-IN')}</td>
-                                                        <td className="px-4 py-3 text-right font-mono font-black text-indigo-900">{Math.round(weeklyStats.sales.mtdCurr).toLocaleString('en-IN')}</td>
+                                                        <td className="px-4 py-3 text-right  font-bold text-gray-700">{Math.round(weeklyStats.sales.mtdPrev).toLocaleString('en-IN')}</td>
+                                                        <td className="px-4 py-3 text-right  font-black text-indigo-900">{Math.round(weeklyStats.sales.mtdCurr).toLocaleString('en-IN')}</td>
                                                         <td className={`px-4 py-3 text-right font-bold ${weeklyStats.sales.mtdDiff >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                                                             {weeklyStats.sales.mtdDiff >= 0 ? '+' : ''}{Math.round(weeklyStats.sales.mtdDiff).toLocaleString('en-IN')}
                                                         </td>
@@ -2398,8 +2428,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                     {/* Online Sales Row */}
                                                     <tr className="bg-emerald-50/20">
                                                         <td className="px-4 py-3 font-bold text-emerald-700">Online Sales</td>
-                                                        <td className="px-4 py-3 text-right font-mono font-bold text-emerald-600">{Math.round(weeklyStats.sales.mtdPrevOnline).toLocaleString('en-IN')}</td>
-                                                        <td className="px-4 py-3 text-right font-mono font-black text-emerald-900">{Math.round(weeklyStats.sales.mtdCurrOnline).toLocaleString('en-IN')}</td>
+                                                        <td className="px-4 py-3 text-right  font-bold text-emerald-600">{Math.round(weeklyStats.sales.mtdPrevOnline).toLocaleString('en-IN')}</td>
+                                                        <td className="px-4 py-3 text-right  font-black text-emerald-900">{Math.round(weeklyStats.sales.mtdCurrOnline).toLocaleString('en-IN')}</td>
                                                         <td className={`px-4 py-3 text-right font-bold ${weeklyStats.sales.mtdDiffOnline >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                                                             {weeklyStats.sales.mtdDiffOnline >= 0 ? '+' : ''}{Math.round(weeklyStats.sales.mtdDiffOnline).toLocaleString('en-IN')}
                                                         </td>
@@ -2430,8 +2460,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                     {/* Total Sales Row */}
                                                     <tr className="hover:bg-gray-50 transition-colors">
                                                         <td className="px-4 py-3 font-semibold text-gray-600">Total Sales</td>
-                                                        <td className="px-4 py-3 text-right font-mono font-bold text-gray-700">{Math.round(weeklyStats.sales.ytdPrev).toLocaleString('en-IN')}</td>
-                                                        <td className="px-4 py-3 text-right font-mono font-black text-teal-900">{Math.round(weeklyStats.sales.ytdCurr).toLocaleString('en-IN')}</td>
+                                                        <td className="px-4 py-3 text-right  font-bold text-gray-700">{Math.round(weeklyStats.sales.ytdPrev).toLocaleString('en-IN')}</td>
+                                                        <td className="px-4 py-3 text-right  font-black text-teal-900">{Math.round(weeklyStats.sales.ytdCurr).toLocaleString('en-IN')}</td>
                                                         <td className={`px-4 py-3 text-right font-bold ${weeklyStats.sales.ytdDiff >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                                                             {weeklyStats.sales.ytdDiff >= 0 ? '+' : ''}{Math.round(weeklyStats.sales.ytdDiff).toLocaleString('en-IN')}
                                                         </td>
@@ -2442,8 +2472,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                     {/* Online Sales Row */}
                                                     <tr className="bg-teal-50/20">
                                                         <td className="px-4 py-3 font-bold text-teal-700">Online Sales</td>
-                                                        <td className="px-4 py-3 text-right font-mono font-bold text-teal-600">{Math.round(weeklyStats.sales.ytdPrevOnline).toLocaleString('en-IN')}</td>
-                                                        <td className="px-4 py-3 text-right font-mono font-black text-teal-900">{Math.round(weeklyStats.sales.ytdCurrOnline).toLocaleString('en-IN')}</td>
+                                                        <td className="px-4 py-3 text-right  font-bold text-teal-600">{Math.round(weeklyStats.sales.ytdPrevOnline).toLocaleString('en-IN')}</td>
+                                                        <td className="px-4 py-3 text-right  font-black text-teal-900">{Math.round(weeklyStats.sales.ytdCurrOnline).toLocaleString('en-IN')}</td>
                                                         <td className={`px-4 py-3 text-right font-bold ${weeklyStats.sales.ytdDiffOnline >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                                                             {weeklyStats.sales.ytdDiffOnline >= 0 ? '+' : ''}{Math.round(weeklyStats.sales.ytdDiffOnline).toLocaleString('en-IN')}
                                                         </td>
@@ -2508,7 +2538,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                                 <td className="p-2 border bg-blue-50/10">
                                                                     <input
                                                                         type="text"
-                                                                        className="w-full bg-transparent text-right outline-none focus:ring-1 focus:ring-blue-300 rounded px-1 text-[10px] font-mono font-bold text-indigo-700"
+                                                                        className="w-full bg-transparent text-right outline-none focus:ring-1 focus:ring-blue-300 rounded px-1 text-[10px]  font-bold text-indigo-700"
                                                                         value={weeklyBenchmarks[`${table.id}_${make}_Ready`] ? Math.round(parseFloat(weeklyBenchmarks[`${table.id}_${make}_Ready`])).toLocaleString('en-IN') : ""}
                                                                         placeholder="0"
                                                                         onChange={(e) => {
@@ -2522,7 +2552,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                                 <td className="p-2 border bg-blue-50/10">
                                                                     <input
                                                                         type="text"
-                                                                        className="w-full bg-transparent text-right outline-none focus:ring-1 focus:ring-blue-300 rounded px-1 text-[10px] font-mono font-bold text-indigo-900"
+                                                                        className="w-full bg-transparent text-right outline-none focus:ring-1 focus:ring-blue-300 rounded px-1 text-[10px]  font-bold text-indigo-900"
                                                                         value={weeklyBenchmarks[`${table.id}_${make}_Shortage`] ? Math.round(parseFloat(weeklyBenchmarks[`${table.id}_${make}_Shortage`])).toLocaleString('en-IN') : ""}
                                                                         placeholder="0"
                                                                         onChange={(e) => {
@@ -2534,9 +2564,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                                     />
                                                                 </td>
                                                                 <td className="p-2 border bg-blue-50/20 text-right font-bold text-gray-500">{Math.round(prevTotal).toLocaleString("en-IN")}</td>
-                                                                <td className="p-2 border text-right font-mono font-bold text-emerald-600 bg-indigo-50/5">{Math.round(curr.ready).toLocaleString("en-IN")}</td>
-                                                                <td className="p-2 border text-right font-mono font-bold text-rose-600 bg-indigo-50/5">{Math.round(curr.shortage).toLocaleString("en-IN")}</td>
-                                                                <td className="p-2 border text-right font-mono font-black text-indigo-900 bg-indigo-50/10">{Math.round(curr.total).toLocaleString("en-IN")}</td>
+                                                                <td className="p-2 border text-right  font-bold text-emerald-600 bg-indigo-50/5">{Math.round(curr.ready).toLocaleString("en-IN")}</td>
+                                                                <td className="p-2 border text-right  font-bold text-rose-600 bg-indigo-50/5">{Math.round(curr.shortage).toLocaleString("en-IN")}</td>
+                                                                <td className="p-2 border text-right  font-black text-indigo-900 bg-indigo-50/10">{Math.round(curr.total).toLocaleString("en-IN")}</td>
                                                                 <td className={`p-2 border text-right font-bold ${diffReady >= 0 ? "text-emerald-500" : "text-rose-500"}`}>{diffReady !== 0 ? Math.round(diffReady).toLocaleString("en-IN") : "-"}</td>
                                                                 <td className={`p-2 border text-right font-bold ${diffShortage >= 0 ? "text-rose-500" : "text-emerald-500"}`}>{diffShortage !== 0 ? Math.round(diffShortage).toLocaleString("en-IN") : "-"}</td>
                                                                 <td className={`p-2 border text-right font-black ${pctChange >= 0 ? "text-emerald-700" : "text-rose-700"}`}>{pctChange !== 0 ? `${pctChange.toFixed(0)}%` : "-"}</td>
@@ -2594,9 +2624,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                 <tr className="bg-gray-50 text-[9px] font-bold text-gray-500 uppercase">
                                                     <th className="p-2 border">Hierarchy</th>
                                                     <th className="p-2 border text-right bg-blue-50/30">Qty</th>
-                                                    <th className="p-2 border text-right bg-blue-50/30">Value (â‚¹)</th>
+                                                    <th className="p-2 border text-right bg-blue-50/30">Value (₹)</th>
                                                     <th className="p-2 border text-right bg-indigo-50/30">Qty</th>
-                                                    <th className="p-2 border text-right bg-indigo-50/30">Value (â‚¹)</th>
+                                                    <th className="p-2 border text-right bg-indigo-50/30">Value (₹)</th>
                                                     <th className="p-2 border text-right">Qty Diff</th>
                                                     <th className="p-2 border text-right">Val Diff</th>
                                                     <th className="p-2 border text-right">% Val Chg</th>
@@ -2701,16 +2731,16 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                 })}
                                                 <tr className="bg-emerald-800 text-white font-black text-xs">
                                                     <td className="p-3 border uppercase tracking-widest text-[10px]">Grand Total Stock</td>
-                                                    <td className="p-3 border text-right bg-blue-900/10 font-mono">
+                                                    <td className="p-3 border text-right bg-blue-900/10 ">
                                                         {Math.round(weeklyStats.stock.reduce((acc, m) => acc + parseFloat(weeklyBenchmarks[`STOCK_${m.make}_Qty`] || 0), 0)).toLocaleString('en-IN')}
                                                     </td>
-                                                    <td className="p-3 border text-right bg-blue-900/10 font-mono">
+                                                    <td className="p-3 border text-right bg-blue-900/10 ">
                                                         {Math.round(weeklyStats.stock.reduce((acc, m) => acc + parseFloat(weeklyBenchmarks[`STOCK_${m.make}_Value`] || 0), 0)).toLocaleString('en-IN')}
                                                     </td>
-                                                    <td className="p-3 border text-right font-mono">
+                                                    <td className="p-3 border text-right ">
                                                         {Math.round(weeklyStats.stock.reduce((acc, m) => acc + m.groups.reduce((a, g) => a + g.qty, 0), 0)).toLocaleString('en-IN')}
                                                     </td>
-                                                    <td className="p-3 border text-right bg-emerald-600 font-mono">
+                                                    <td className="p-3 border text-right bg-emerald-600 ">
                                                         {Math.round(weeklyStats.stock.reduce((acc, m) => acc + m.groups.reduce((a, g) => a + g.value, 0), 0)).toLocaleString('en-IN')}
                                                     </td>
                                                     {(() => {
@@ -2723,8 +2753,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                         const pctVal = totPrevVal > 0 ? (diffVal / totPrevVal) * 100 : 0;
                                                         return (
                                                             <>
-                                                                <td className={`p-3 border text-right font-mono ${diffQty >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{Math.round(diffQty).toLocaleString('en-IN')}</td>
-                                                                <td className={`p-3 border text-right font-mono ${diffVal >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{Math.round(diffVal).toLocaleString('en-IN')}</td>
+                                                                <td className={`p-3 border text-right  ${diffQty >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{Math.round(diffQty).toLocaleString('en-IN')}</td>
+                                                                <td className={`p-3 border text-right  ${diffVal >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{Math.round(diffVal).toLocaleString('en-IN')}</td>
                                                                 <td className={`p-3 border text-right font-black ${pctVal >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{pctVal !== 0 ? `${pctVal.toFixed(0)}%` : '-'}</td>
                                                             </>
                                                         );
@@ -3130,7 +3160,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                 <th className="px-3 py-2 border border-gray-300 text-left cursor-pointer hover:bg-gray-200" onClick={() => handleStockSort('description')}>
                                                     <div className="flex flex-col items-start gap-0.5">
                                                         <div className="flex items-center gap-1">Description {stockSortConfig?.key === 'description' && (stockSortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}</div>
-                                                        <span className="text-[7px] text-gray-400 font-mono tracking-widest uppercase">Part Number Index</span>
+                                                        <span className="text-[7px] text-gray-400  tracking-widest uppercase">Part Number Index</span>
                                                     </div>
                                                 </th>
                                                 <th className="px-3 py-2 border border-gray-300 bg-emerald-100/50 cursor-pointer hover:bg-emerald-100" onClick={() => handleStockSort('salesCY')}>
@@ -3173,7 +3203,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                     onClick={() => setSelectedStockItem(item.uniqueId)}
                                                     className={`hover:bg-rose-50/50 cursor-pointer transition-colors group ${selectedStockItem === item.uniqueId ? 'bg-rose-50' : ''}`}
                                                 >
-                                                    <td className="px-2 py-1.5 border border-gray-200 text-center text-gray-400 font-mono text-[9px] sticky left-0 z-10 bg-white group-hover:bg-rose-50/5">{idx + 1}</td>
+                                                    <td className="px-2 py-1.5 border border-gray-200 text-center text-gray-400  text-[9px] sticky left-0 z-10 bg-white group-hover:bg-rose-50/5">{idx + 1}</td>
                                                     <td className="px-3 py-1.5 border border-gray-200 sticky left-8 z-10 bg-white group-hover:bg-rose-50/5 backdrop-blur-md">
                                                         <span className="font-black text-gray-900 block truncate max-w-[100px]">{item.make}</span>
                                                         <span className="font-bold text-blue-600 text-[8px] uppercase tracking-tighter">{item.group}</span>
@@ -3181,7 +3211,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                     <td className="px-3 py-1.5 border border-gray-200">
                                                         <span className="font-black text-gray-700 block max-w-[250px] truncate" title={item.description}>{item.description}</span>
                                                         <div className="flex items-center gap-2 mt-0.5">
-                                                            <span className="text-[9px] font-black text-rose-600 font-mono tracking-tighter bg-rose-50 px-1 rounded border border-rose-100">{item.partNo || 'NO-PART-NO'}</span>
+                                                            <span className="text-[9px] font-black text-rose-600  tracking-tighter bg-rose-50 px-1 rounded border border-rose-100">{item.partNo || 'NO-PART-NO'}</span>
                                                             <div className="flex gap-1">
                                                                 <span className="px-1 py-0.2 rounded bg-gray-100 text-[6.5px] font-black text-gray-500 uppercase">{item.classification}</span>
                                                                 <span className="px-1 py-0.2 rounded bg-indigo-50 text-[6.5px] font-black text-indigo-500 uppercase">{item.strategy}</span>

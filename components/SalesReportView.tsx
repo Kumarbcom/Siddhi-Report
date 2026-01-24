@@ -552,8 +552,8 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                             {paginatedItems.map(item => (
                                 <tr key={item.id} className="hover:bg-blue-50/10 transition-colors">
                                     <td className="py-2 px-3 text-gray-500 whitespace-nowrap">{formatDateDisplay(item.date)}</td>
-                                    <td className="py-2 px-3 font-mono text-[10px] text-gray-700 whitespace-nowrap">{item.voucherNo}</td>
-                                    <td className="py-2 px-3 font-mono text-[10px] text-gray-400 whitespace-nowrap">{item.voucherRefNo || '-'}</td>
+                                    <td className="py-2 px-3 text-[10px] text-gray-700 whitespace-nowrap">{item.voucherNo}</td>
+                                    <td className="py-2 px-3 text-[10px] text-gray-400 whitespace-nowrap">{item.voucherRefNo || '-'}</td>
                                     <td className="py-2 px-3 whitespace-nowrap">
                                         <div className="flex items-center gap-2">
                                             <span className="font-bold text-gray-900 truncate max-w-[200px]">{item.customerName}</span>
