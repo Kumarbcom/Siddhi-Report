@@ -3,6 +3,7 @@ import { Material, ClosingStockItem, PendingSOItem, PendingPOItem, SalesReportIt
 import { TrendingUp, TrendingDown, Package, ClipboardList, ShoppingCart, Calendar, Filter, PieChart as PieIcon, BarChart3, Users, ArrowRight, Activity, DollarSign, ArrowUpRight, ArrowDownRight, RefreshCw, UserCircle, Minus, Plus, ChevronDown, ChevronUp, Link2Off, AlertTriangle, Layers, Clock, CheckCircle2, AlertCircle, User, Factory, Tag, ArrowLeft, BarChart4, Hourglass, History, AlertOctagon, ChevronRight, ListOrdered, Table, X, ArrowUp, ArrowDown, Search, ArrowUpDown, FileText, UserPlus, UserMinus, PanelLeftClose, RotateCcw } from 'lucide-react';
 import MOMView from './MOMView';
 import AttendeeMasterView from './AttendeeMasterView';
+import CustomerFYAnalysisView from './CustomerFYAnalysisView';
 import { momService } from '../services/momService';
 import { utils, writeFile } from 'xlsx';
 
@@ -578,7 +579,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     setActiveTab,
     isAdmin = false
 }) => {
-    const [activeSubTab, setActiveSubTab] = useState<'sales' | 'inventory' | 'so' | 'po' | 'weekly' | 'stockPlanning'>('sales');
+    const [activeSubTab, setActiveSubTab] = useState<'sales' | 'inventory' | 'so' | 'po' | 'weekly' | 'stockPlanning' | 'customerAnalysis'>('sales');
     const [relatedMomId, setRelatedMomId] = useState<string | null>(null);
     const [weeklyBenchmarks, setWeeklyBenchmarks] = useState<{ [key: string]: any }>(() => {
         const saved = localStorage.getItem('weeklyBenchmarks');
@@ -1825,14 +1826,14 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             )}
 
             <div className="bg-white border-b border-gray-200 px-4 py-3 flex flex-col lg:flex-row gap-4 items-center justify-between flex-shrink-0 shadow-sm z-10 sticky top-0 bg-white/90 backdrop-blur-md">
-                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-1 bg-gray-100/80 p-1 rounded-xl border border-gray-200 shadow-inner w-full xl:flex-1">
-                    {(['sales', 'inventory', 'so', 'po', 'weekly'] as const).map(tab => (
+                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-7 gap-1 bg-gray-100/80 p-1 rounded-xl border border-gray-200 shadow-inner w-full xl:flex-1">
+                    {(['sales', 'inventory', 'so', 'po', 'weekly', 'customerAnalysis'] as const).map(tab => (
                         <button
                             key={tab}
                             onClick={() => setActiveSubTab(tab)}
                             className={`w-full py-2.5 rounded-lg text-[10px] xl:text-xs font-black uppercase tracking-wider transition-all duration-300 transform active:scale-95 flex items-center justify-center ${activeSubTab === tab ? 'bg-white text-indigo-700 shadow-sm scale-[1.02]' : 'text-gray-500 hover:text-indigo-600 hover:bg-white/40'}`}
                         >
-                            {tab === 'so' ? 'Pending SO' : tab === 'po' ? 'Pending PO' : tab === 'weekly' ? 'Weekly Report' : tab}
+                            {tab === 'so' ? 'Pending SO' : tab === 'po' ? 'Pending PO' : tab === 'weekly' ? 'Weekly Report' : tab === 'customerAnalysis' ? 'Cust Analysis' : tab}
                         </button>
                     ))}
                 </div>
@@ -3263,6 +3264,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                    ) : activeSubTab === 'customerAnalysis' ? (
+                        <div className="h-full flex flex-col -m-2">
+                            <CustomerFYAnalysisView salesReportItems={salesReportItems} customers={customers} />
                         </div>
                     ) : null}
                 </div>

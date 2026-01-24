@@ -40,7 +40,7 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
     const [viewMode, setViewMode] = useState<'count' | 'value'>('value');
     const [comparisonMode, setComparisonMode] = useState<'ytd' | 'full'>('full');
     const [searchTerm, setSearchTerm] = useState('');
-    const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+    const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>({ key: 'fy202526_value', direction: 'desc' });
 
     // Calculate max date from sales data to determine YTD cutoff
     const lastSalesDate = useMemo(() => {
@@ -61,6 +61,7 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
         const data: Record<string, {
             customerName: string;
             group: string;
+            customerGroup: string;
             fy202324: { qty: number; value: number };
             fy202425: { qty: number; value: number };
             fy202526: { qty: number; value: number };
@@ -91,6 +92,7 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
                 data[custName] = {
                     customerName: custName,
                     group: custInfo?.group || 'Ungrouped',
+                    customerGroup: custInfo?.customerGroup || 'Unspecified',
                     fy202324: { qty: 0, value: 0 },
                     fy202425: { qty: 0, value: 0 },
                     fy202526: { qty: 0, value: 0 },
@@ -183,16 +185,17 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
         const currentTotal = currentData.filter(c => c.value > 0).length;
         const previousTotal = previousData.filter(c => c.value > 0).length;
 
-        const repeatCurrent = Array.from(customerCategories.repeat).filter(name =>
-            currentData.find(c => c.name === name && c.value > 0)
+        const repeatCurrent = customerSalesByFY.filter(c =>
+            c.fy202425.value > 0 && (comparisonMode === 'full' ? c.fy202526.value > 0 : c.ytd202526.value > 0)
         ).length;
-        const repeatPrevious = Array.from(customerCategories.repeat).filter(name =>
-            previousData.find(c => c.name === name && c.value > 0)
+
+        const repeatPrevious = customerSalesByFY.filter(c =>
+            c.fy202324.value > 0 && c.fy202425.value > 0
         ).length;
 
         const newCurrent = customerCategories.newCust.size;
         const newPrevious = customerSalesByFY.filter(c =>
-            !c.fy202324.value && !c.fy202425.value && c.fy202425.value > 0
+            !c.fy202324.value && c.fy202425.value > 0
         ).length;
 
         const rebuildCurrent = customerCategories.rebuild.size;
@@ -228,10 +231,19 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
                 } else if (sortConfig.key === 'group') {
                     aVal = a.group;
                     bVal = b.group;
+                } else if (sortConfig.key === 'customerGroup') {
+                    aVal = a.customerGroup;
+                    bVal = b.customerGroup;
                 } else if (sortConfig.key.includes('qty') || sortConfig.key.includes('value')) {
                     const [fy, metric] = sortConfig.key.split('_');
                     aVal = (a as any)[fy][metric];
                     bVal = (b as any)[fy][metric];
+                } else if (sortConfig.key === 'trend') {
+                    aVal = a.fy202425.value > 0 ? ((a.fy202526.value - a.fy202425.value) / a.fy202425.value) * 100 : (a.fy202526.value > 0 ? 100 : 0);
+                    bVal = b.fy202425.value > 0 ? ((b.fy202526.value - b.fy202425.value) / b.fy202425.value) * 100 : (b.fy202526.value > 0 ? 100 : 0);
+                } else if (sortConfig.key === 'contribution') {
+                    aVal = a.fy202526.value;
+                    bVal = b.fy202526.value;
                 }
 
                 if (typeof aVal === 'string') {
@@ -321,7 +333,7 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
                                     FY 25-26
                                 </div>
                             </div>
-                            <div className="text-3xl font-black text-gray-900 mb-2">{kpi.data.current.toLocaleString()}</div>
+                            <div className="text-3xl font-black text-gray-900 mb-2">{kpi.data.current.toLocaleString('en-IN')}</div>
                             <div className="text-xs font-bold text-gray-400 uppercase mb-3">{kpi.label}</div>
 
                             {kpi.label !== 'Lost Customers' && (
@@ -329,7 +341,7 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between text-xs">
                                             <span className="text-gray-400 font-bold uppercase text-[9px]">Previous Period</span>
-                                            <span className="font-bold text-gray-600">{kpi.data.previous.toLocaleString()}</span>
+                                            <span className="font-bold text-gray-600">{kpi.data.previous.toLocaleString('en-IN')}</span>
                                         </div>
                                         <div className="flex items-center justify-between text-xs">
                                             <span className="text-gray-400 font-bold uppercase text-[9px]">Difference</span>
@@ -367,18 +379,21 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
                         <table className="w-full text-left border-collapse">
                             <thead className="sticky top-0 z-50 bg-gray-50 shadow-sm text-[9px] font-bold text-gray-600 uppercase tracking-tight select-none">
                                 <tr className="bg-gray-100 border-b border-gray-200">
-                                    <th colSpan={2} className="sticky left-0 z-50 py-1 px-2 text-center border-r border-gray-300 bg-gray-100">Customer Details</th>
+                                    <th colSpan={3} className="sticky left-0 z-50 py-1 px-2 text-center border-r border-gray-300 bg-gray-100">Customer Details</th>
                                     <th colSpan={2} className="py-1 px-2 text-center border-r border-gray-300 bg-blue-50/50">FY 2023-24</th>
                                     <th colSpan={2} className="py-1 px-2 text-center border-r border-gray-300 bg-indigo-50/50">FY 2024-25</th>
                                     <th colSpan={2} className="py-1 px-2 text-center border-r border-gray-300 bg-purple-50/50">FY 2025-26</th>
                                     <th className="py-1 px-2 text-center bg-gray-200">Trend</th>
                                 </tr>
                                 <tr className="border-b border-gray-200 cursor-pointer">
-                                    <th onClick={() => handleSort('customerName')} className="sticky left-0 z-50 py-2 px-2 border-r whitespace-nowrap bg-gray-50 hover:bg-gray-200 group border-b border-gray-200 min-w-[200px]">
-                                        <div className="flex items-center gap-1">Customer {sortConfig?.key === 'customerName' && (sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 text-indigo-600" /> : <ArrowDown className="w-3 h-3 text-indigo-600" />)}</div>
-                                    </th>
-                                    <th onClick={() => handleSort('group')} className="py-2 px-2 border-r whitespace-nowrap bg-gray-50 hover:bg-gray-200 group border-b border-gray-200 min-w-[120px]">
+                                    <th onClick={() => handleSort('group')} className="sticky left-0 z-50 py-2 px-2 border-r whitespace-nowrap bg-gray-50 hover:bg-gray-200 group border-b border-gray-200 min-w-[120px]">
                                         <div className="flex items-center gap-1">Group {sortConfig?.key === 'group' && (sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 text-indigo-600" /> : <ArrowDown className="w-3 h-3 text-indigo-600" />)}</div>
+                                    </th>
+                                    <th onClick={() => handleSort('customerGroup')} className="sticky left-[120px] z-50 py-2 px-2 border-r whitespace-nowrap bg-gray-50 hover:bg-gray-200 group border-b border-gray-200 min-w-[150px]">
+                                        <div className="flex items-center gap-1">Cust Group {sortConfig?.key === 'customerGroup' && (sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 text-indigo-600" /> : <ArrowDown className="w-3 h-3 text-indigo-600" />)}</div>
+                                    </th>
+                                    <th onClick={() => handleSort('customerName')} className="sticky left-[270px] z-50 py-2 px-2 border-r whitespace-nowrap bg-gray-50 hover:bg-gray-200 group border-b border-gray-200 min-w-[250px]">
+                                        <div className="flex items-center gap-1">Customer {sortConfig?.key === 'customerName' && (sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 text-indigo-600" /> : <ArrowDown className="w-3 h-3 text-indigo-600" />)}</div>
                                     </th>
 
                                     <th onClick={() => handleSort('fy202324_qty')} className="py-2 px-2 text-right bg-blue-50/30 hover:bg-blue-100/50 group"><div className="flex items-center justify-end gap-1">Qty {sortConfig?.key === 'fy202324_qty' && (sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 text-indigo-600" /> : <ArrowDown className="w-3 h-3 text-indigo-600" />)}</div></th>
@@ -390,8 +405,12 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
                                     <th onClick={() => handleSort('fy202526_qty')} className="py-2 px-2 text-right bg-purple-50/30 hover:bg-purple-100/50 group"><div className="flex items-center justify-end gap-1">Qty {sortConfig?.key === 'fy202526_qty' && (sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 text-indigo-600" /> : <ArrowDown className="w-3 h-3 text-indigo-600" />)}</div></th>
                                     <th onClick={() => handleSort('fy202526_value')} className="py-2 px-2 text-right border-r bg-purple-50/30 hover:bg-purple-100/50 group"><div className="flex items-center justify-end gap-1">Val {sortConfig?.key === 'fy202526_value' && (sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 text-indigo-600" /> : <ArrowDown className="w-3 h-3 text-indigo-600" />)}</div></th>
 
-                                    <th className="py-2 px-2 text-center bg-gray-100 font-extrabold hover:bg-gray-200 group">vs PY</th>
-                                    <th className="py-2 px-2 text-center bg-yellow-50/50 font-extrabold hover:bg-yellow-100/50 group" title="Contribution to FY 25-26 Sales">Share %</th>
+                                    <th onClick={() => handleSort('trend')} className="py-2 px-2 text-center bg-gray-100 font-extrabold hover:bg-gray-200 group cursor-pointer">
+                                        <div className="flex items-center justify-center gap-1">Trend {sortConfig?.key === 'trend' && (sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 text-indigo-600" /> : <ArrowDown className="w-3 h-3 text-indigo-600" />)}</div>
+                                    </th>
+                                    <th onClick={() => handleSort('contribution')} className="py-2 px-2 text-center bg-yellow-50/50 font-extrabold hover:bg-yellow-100/50 group cursor-pointer" title="Contribution to FY 25-26 Sales">
+                                        <div className="flex items-center justify-center gap-1">Share % {sortConfig?.key === 'contribution' && (sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 text-indigo-600" /> : <ArrowDown className="w-3 h-3 text-indigo-600" />)}</div>
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 text-[10px] text-gray-700">
@@ -424,22 +443,23 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
 
                                         return (
                                             <tr key={idx} className="hover:bg-gray-50 transition-colors group text-[10px]">
-                                                <td className="sticky left-0 z-10 py-1 px-2 border-r truncate max-w-[250px] font-medium bg-white group-hover:bg-gray-50 border-b border-gray-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" title={cust.customerName}>
+                                                <td className="sticky left-0 z-10 py-1 px-2 border-r truncate max-w-[120px] text-gray-500 bg-white group-hover:bg-gray-50 border-b border-gray-100">{cust.group}</td>
+                                                <td className="sticky left-[120px] z-10 py-1 px-2 border-r truncate max-w-[150px] text-gray-500 bg-white group-hover:bg-gray-50 border-b border-gray-100">{cust.customerGroup}</td>
+                                                <td className="sticky left-[270px] z-10 py-1 px-2 border-r truncate max-w-[250px] font-medium bg-white group-hover:bg-gray-50 border-b border-gray-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" title={cust.customerName}>
                                                     <div className="flex items-center justify-between">
                                                         <span className={`truncate ${nameColorClass}`}>{cust.customerName}</span>
                                                         {badgeLink}
                                                     </div>
                                                 </td>
-                                                <td className="py-1 px-2 border-r truncate max-w-[150px] text-gray-500">{cust.group}</td>
 
-                                                <td className="py-1 px-2 text-right bg-blue-50/10 font-medium">{Math.round(cust.fy202324.qty).toLocaleString()}</td>
-                                                <td className="py-1 px-2 text-right border-r bg-blue-50/10 text-gray-500">{Math.round(cust.fy202324.value).toLocaleString()}</td>
+                                                <td className="py-1 px-2 text-right bg-blue-50/10 font-medium">{Math.round(cust.fy202324.qty).toLocaleString('en-IN')}</td>
+                                                <td className="py-1 px-2 text-right border-r bg-blue-50/10 text-gray-500">{Math.round(cust.fy202324.value).toLocaleString('en-IN')}</td>
 
-                                                <td className="py-1 px-2 text-right bg-indigo-50/10 font-medium text-indigo-700">{Math.round(cust.fy202425.qty).toLocaleString()}</td>
-                                                <td className="py-1 px-2 text-right border-r bg-indigo-50/10 text-indigo-600/70">{Math.round(cust.fy202425.value).toLocaleString()}</td>
+                                                <td className="py-1 px-2 text-right bg-indigo-50/10 font-medium text-indigo-700">{Math.round(cust.fy202425.qty).toLocaleString('en-IN')}</td>
+                                                <td className="py-1 px-2 text-right border-r bg-indigo-50/10 text-indigo-600/70">{Math.round(cust.fy202425.value).toLocaleString('en-IN')}</td>
 
-                                                <td className="py-1 px-2 text-right bg-purple-50/10 font-bold text-purple-700">{Math.round(cust.fy202526.qty).toLocaleString()}</td>
-                                                <td className="py-1 px-2 text-right border-r bg-purple-50/10 font-black text-purple-900">{Math.round(cust.fy202526.value).toLocaleString()}</td>
+                                                <td className="py-1 px-2 text-right bg-purple-50/10 font-bold text-purple-700">{Math.round(cust.fy202526.qty).toLocaleString('en-IN')}</td>
+                                                <td className="py-1 px-2 text-right border-r bg-purple-50/10 font-black text-purple-900">{Math.round(cust.fy202526.value).toLocaleString('en-IN')}</td>
 
                                                 <td className="py-1 px-2 text-center">
                                                     <div className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-bold ${growth >= 0 ? 'text-green-700 bg-green-50' : 'text-red-700 bg-red-50'}`}>
