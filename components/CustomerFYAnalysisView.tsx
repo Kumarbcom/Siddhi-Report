@@ -336,7 +336,7 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
                             <div className="text-3xl font-black text-gray-900 mb-2">{kpi.data.current.toLocaleString('en-IN')}</div>
                             <div className="text-xs font-bold text-gray-400 uppercase mb-3">{kpi.label}</div>
 
-                            {kpi.label !== 'Lost Customers' && (
+                            {kpi.label !== 'Lost Customers' && kpi.label !== 'Rebuild Customers' && (
                                 <div className="space-y-2 pt-3 border-t border-gray-100">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between text-xs">
