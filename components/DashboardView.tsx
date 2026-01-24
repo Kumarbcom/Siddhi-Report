@@ -1953,8 +1953,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                         <div className="flex flex-col gap-2">
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
                                 {[
-                                    { label: timeView === 'FY' ? 'Current Sales FY' : 'Current Sales', val: timeView === 'FY' ? kpis.currValFY : kpis.currVal, prev: kpis.prevVal, yoy: kpis.yoyVal, isCurr: true, text: 'text-blue-700', bg: 'bg-blue-50', border: 'border-blue-100', icon: DollarSign },
-                                    { label: 'Quantity', val: kpis.currQty, prev: kpis.prevQty, yoy: kpis.yoyQty, isCurr: false, text: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-100', icon: Package },
+                                    { label: timeView === 'FY' ? 'YTD Sales' : 'Current Sales', val: kpis.currVal, prev: kpis.prevVal, yoy: kpis.yoyVal, isCurr: true, text: 'text-blue-700', bg: 'bg-blue-50', border: 'border-blue-100', icon: DollarSign },
+                                    { label: timeView === 'FY' ? 'YTD Quantity' : 'Quantity', val: kpis.currQty, prev: kpis.prevQty, yoy: kpis.yoyQty, isCurr: false, text: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-100', icon: Package },
                                     { label: 'Unique Customers', val: kpis.uniqueCusts, prev: kpis.prevCusts, yoy: kpis.yoyCusts, isCurr: false, text: 'text-violet-700', bg: 'bg-violet-50', border: 'border-violet-100', icon: Users },
                                     { label: 'Avg. Order', val: kpis.avgOrder, prev: kpis.prevAvgOrder, yoy: kpis.yoyAvgOrder, isCurr: true, text: 'text-rose-700', bg: 'bg-rose-50', border: 'border-rose-100', icon: Activity }
                                 ].map((k, i) => {
@@ -1990,18 +1990,18 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                             {diff >= 0 ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
                                                         </div>
                                                         <p className="text-[8px] font-bold uppercase text-gray-400 tracking-tighter pl-1">
-                                                            {timeView === 'WEEK' ? 'vs Prev Week' : timeView === 'MONTH' ? 'vs Prev Month' : 'vs Prev FY (Full)'}
+                                                            {timeView === 'WEEK' ? 'vs Prev Week' : timeView === 'MONTH' ? 'vs Prev Month' : 'vs Previous FY'}
                                                         </p>
                                                     </div>
 
                                                     {/* YoY Comparison Badge */}
                                                     <div className="flex flex-col gap-1">
-                                                        <div className={`flex items-center justify-between px-2 py-1 rounded-lg border shadow-sm transition-all group-hover:shadow duration-300 ${yoyDiff >= 0 ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-orange-50 text-orange-700 border-orange-200'}`}>
+                                                        <div className={`flex items-center justify-between px-2 py-1 rounded-lg border shadow-sm transition-all group-hover:shadow duration-300 ${yoyDiff >= 0 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>
                                                             <span className="text-[11px] font-extrabold">{Math.abs(yoyPct).toFixed(0)}%</span>
-                                                            {yoyDiff >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                                                            {yoyDiff >= 0 ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
                                                         </div>
                                                         <p className="text-[8px] font-bold uppercase text-gray-400 tracking-tighter pl-1">
-                                                            {timeView === 'FY' ? 'vs Same Period LY' : 'vs Last Year'}
+                                                            {timeView === 'FY' ? 'vs Same Period LY (YTD)' : 'vs Same Period LY'}
                                                         </p>
                                                     </div>
                                                 </div>
@@ -2058,7 +2058,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                     </div>
                                     <GroupedCustomerAnalysis
                                         data={groupedCustomerData}
-                                        compareLabel={timeView === 'WEEK' ? 'Prev Week' : timeView === 'MONTH' ? 'Prev Month' : 'LY (YTD)'}
+                                        compareLabel={timeView === 'FY' ? 'Same Period LY (YTD)' : (timeView === 'WEEK' ? 'Prev Week' : 'Prev Month')}
                                         groupingMode={groupingMode}
                                         setGroupingMode={setGroupingMode}
                                     />

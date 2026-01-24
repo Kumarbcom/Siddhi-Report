@@ -228,16 +228,27 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
 
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                     {[
-                        { label: 'Total Customers', icon: Users, data: kpis.total, color: 'blue' },
-                        { label: 'Repeat Customers', icon: UserCheck, data: kpis.repeat, color: 'green' },
-                        { label: 'New Customers', icon: UserPlus, data: kpis.new, color: 'purple' },
-                        { label: 'Rebuild Customers', icon: RefreshCw, data: kpis.rebuild, color: 'orange' },
-                        { label: 'Lost Customers', icon: UserMinus, data: kpis.lost, color: 'red' }
+                        { label: 'Total Customers', icon: Users, data: kpis.total, colorClass: 'text-blue-600', bgClass: 'bg-blue-50', borderClass: 'border-blue-100', accent: 'blue' },
+                        { label: 'Repeat Customers', icon: UserCheck, data: kpis.repeat, colorClass: 'text-emerald-600', bgClass: 'bg-emerald-50', borderClass: 'border-emerald-100', accent: 'emerald' },
+                        { label: 'New Customers', icon: UserPlus, data: kpis.new, colorClass: 'text-blue-600', bgClass: 'bg-blue-50', borderClass: 'border-blue-100', accent: 'blue' },
+                        { label: 'Rebuild Customers', icon: RefreshCw, data: kpis.rebuild, colorClass: 'text-orange-600', bgClass: 'bg-orange-50', borderClass: 'border-orange-100', accent: 'orange' },
+                        { label: 'Lost Customers', icon: UserMinus, data: kpis.lost, colorClass: 'text-rose-600', bgClass: 'bg-rose-50', borderClass: 'border-rose-100', accent: 'rose' }
                     ].map((kpi, idx) => (
-                        <div key={idx} className={`bg-white rounded-2xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-shadow`}>
-                            <div className="flex items-center justify-between mb-3"><kpi.icon className={`w-5 h-5 text-gray-600`} /><div className={`text-xs font-bold px-2 py-1 rounded-lg bg-gray-50 text-gray-700`}>FY 25-26</div></div>
-                            <div className="text-3xl font-black text-gray-900 mb-2">{kpi.data.current.toLocaleString('en-IN')}</div>
-                            <div className="text-xs font-bold text-gray-400 uppercase mb-3">{kpi.label}</div>
+                        <div key={idx} className={`bg-white rounded-2xl shadow-sm border ${kpi.borderClass} p-5 hover:shadow-md transition-all hover:-translate-y-1 group`}>
+                            <div className="flex items-center justify-between mb-3">
+                                <div className={`p-2 rounded-xl ${kpi.bgClass}`}>
+                                    <kpi.icon className={`w-5 h-5 ${kpi.colorClass}`} />
+                                </div>
+                                <div className={`text-[10px] font-black px-2 py-1 rounded-lg ${kpi.data.pct >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'} flex items-center gap-1`}>
+                                    {kpi.data.pct >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                                    {Math.abs(kpi.data.pct).toFixed(0)}%
+                                </div>
+                            </div>
+                            <div className="text-3xl font-black text-gray-900 mb-2 tabular-nums">{kpi.data.current.toLocaleString('en-IN')}</div>
+                            <div className="flex items-center justify-between">
+                                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{kpi.label}</div>
+                                <div className="text-[9px] font-bold text-gray-400">vs {comparisonMode === 'full' ? 'LY' : 'LY (YTD)'}</div>
+                            </div>
                         </div>
                     ))}
                 </div>
