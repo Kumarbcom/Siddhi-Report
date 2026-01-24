@@ -416,6 +416,8 @@ const GroupedCustomerAnalysis: React.FC<GroupedCustomerAnalysisProps> = ({
         }));
     };
 
+    const grandTotal = useMemo(() => data.reduce((acc, g) => acc + g.total, 0), [data]);
+
     const processedData = useMemo(() => {
         return data.map(group => {
             const filteredCustomers = group.customers.filter(c =>
@@ -516,6 +518,7 @@ const GroupedCustomerAnalysis: React.FC<GroupedCustomerAnalysisProps> = ({
                             <th className="py-2.5 px-2 text-right cursor-pointer hover:bg-gray-100 transition-colors group" onClick={() => handleSort('growth')}>
                                 <div className="flex items-center justify-end gap-1">Growth <ArrowUpDown className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity text-blue-500" /></div>
                             </th>
+                            <th className="py-2.5 px-2 text-right bg-yellow-50/50 text-yellow-800">Share</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 text-[10px]">
@@ -541,6 +544,9 @@ const GroupedCustomerAnalysis: React.FC<GroupedCustomerAnalysisProps> = ({
                                             {group.totalPrevious > 0 ? (((group.total - group.totalPrevious) / group.totalPrevious) * 100).toFixed(0) : '100'}%
                                         </span>
                                     </td>
+                                    <td className="py-2 px-2 text-right font-black text-yellow-700 bg-yellow-50/30">
+                                        {grandTotal > 0 ? ((group.total / grandTotal) * 100).toFixed(1) : 0}%
+                                    </td>
                                 </tr>
                                 {expandedGroups[group.group] && group.customers.map((cust, idx) => (
                                     <tr key={`${group.group}-${idx}`} className="hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0">
@@ -548,7 +554,7 @@ const GroupedCustomerAnalysis: React.FC<GroupedCustomerAnalysisProps> = ({
                                             <div className="truncate max-w-[140px] text-gray-600 font-medium" title={cust.name}>{cust.name}</div>
                                         </td>
                                         <td className="py-1.5 px-2 text-right font-bold text-gray-700">{formatLargeValue(cust.current, true)}</td>
-                                        <td className="py-1.5 px-2 text-right  text-gray-400">{formatLargeValue(cust.previous, true)}</td>
+                                        <td className="py-1.5 px-2 text-right text-gray-400">{formatLargeValue(cust.previous, true)}</td>
                                         <td className="py-1.5 px-2 text-right font-medium hidden sm:table-cell">
                                             <span className={cust.diff >= 0 ? "text-emerald-600" : "text-rose-500"}>
                                                 {formatLargeValue(cust.diff, true)}
@@ -560,19 +566,24 @@ const GroupedCustomerAnalysis: React.FC<GroupedCustomerAnalysisProps> = ({
                                                 {cust.previous > 0 ? ((Math.abs(cust.diff) / cust.previous) * 100).toFixed(0) : '100'}%
                                             </div>
                                         </td>
+                                        <td className="py-1.5 px-2 text-right text-gray-400 border-l border-gray-50">
+                                            {grandTotal > 0 ? ((cust.current / grandTotal) * 100).toFixed(1) : 0}%
+                                        </td>
                                     </tr>
                                 ))}
                             </React.Fragment>
                         ))}
                     </tbody>
-                </table>
-                {processedData.length === 0 && (
-                    <div className="flex flex-col items-center justify-center p-8 text-gray-400 gap-2">
-                        <Filter className="w-8 h-8 opacity-20" />
-                        <span className="text-xs font-bold uppercase opacity-60">No matching data found</span>
-                    </div>
-                )}
-            </div>
+                </table >
+                {
+                    processedData.length === 0 && (
+                        <div className="flex flex-col items-center justify-center p-8 text-gray-400 gap-2">
+                            <Filter className="w-8 h-8 opacity-20" />
+                            <span className="text-xs font-bold uppercase opacity-60">No matching data found</span>
+                        </div>
+                    )
+                }
+            </div >
             <div className="bg-gray-50 border-t border-gray-200 p-2 text-[9px] text-gray-500 flex justify-between items-center rounded-b-xl">
                 <span className="font-bold uppercase tracking-wider">{processedData.length} Groups Active</span>
                 <div className="flex gap-4  font-bold">
@@ -580,7 +591,7 @@ const GroupedCustomerAnalysis: React.FC<GroupedCustomerAnalysisProps> = ({
                     <span className="text-blue-700">CURR: {formatLargeValue(processedData.reduce((acc, g) => acc + g.total, 0), true)}</span>
                 </div>
             </div>
-        </div>
+        </div >
     );
 };
 
@@ -1978,7 +1989,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                             {diff >= 0 ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
                                                         </div>
                                                         <p className="text-[8px] font-bold uppercase text-gray-400 tracking-tighter pl-1">
-                                                            {timeView === 'WEEK' ? 'vs Prev Week' : timeView === 'MONTH' ? 'vs Prev Month' : 'vs Total Prev FY'}
+                                                            {timeView === 'WEEK' ? 'vs Prev Week' : timeView === 'MONTH' ? 'vs Prev Month' : 'vs Prev FY (Full)'}
                                                         </p>
                                                     </div>
 
@@ -1989,7 +2000,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                             {yoyDiff >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
                                                         </div>
                                                         <p className="text-[8px] font-bold uppercase text-gray-400 tracking-tighter pl-1">
-                                                            'vs Last Year'
+                                                            {timeView === 'FY' ? 'vs Same Period LY' : 'vs Last Year'}
                                                         </p>
                                                     </div>
                                                 </div>
@@ -2033,7 +2044,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                         data={topTenCustomers}
                                         title="Universal Top 10 Customers"
                                         color="emerald"
-                                        compareLabel={timeView === 'WEEK' ? 'PW' : timeView === 'MONTH' ? 'PM' : 'LY (YTD)'}
+                                        compareLabel={timeView === 'WEEK' ? 'Prev Week' : timeView === 'MONTH' ? 'Prev Month' : 'LY (YTD)'}
                                     />
                                 </div>
                                 <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm h-[380px] flex flex-col overflow-hidden transition-all hover:shadow-md">
@@ -2046,7 +2057,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                     </div>
                                     <GroupedCustomerAnalysis
                                         data={groupedCustomerData}
-                                        compareLabel={timeView === 'WEEK' ? 'PW' : timeView === 'MONTH' ? 'PM' : 'LY (YTD)'}
+                                        compareLabel={timeView === 'WEEK' ? 'Prev Week' : timeView === 'MONTH' ? 'Prev Month' : 'LY (YTD)'}
                                         groupingMode={groupingMode}
                                         setGroupingMode={setGroupingMode}
                                     />

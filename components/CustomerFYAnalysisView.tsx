@@ -171,10 +171,10 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
     const calculateTotals = (items: any[]) => items.reduce((acc, curr) => ({
         fy2324_qty: acc.fy2324_qty + curr.fy202324.qty,
         fy2324_val: acc.fy2324_val + curr.fy202324.value,
-        fy2425_qty: acc.fy2425_qty + curr.fy202425.qty,
-        fy2425_val: acc.fy2425_val + curr.fy202425.value,
-        fy2526_qty: acc.fy2526_qty + curr.fy202526.qty,
-        fy2526_val: acc.fy2526_val + curr.fy202526.value,
+        fy2425_qty: acc.fy2425_qty + (comparisonMode === 'full' ? curr.fy202425.qty : curr.ytd202425.qty),
+        fy2425_val: acc.fy2425_val + (comparisonMode === 'full' ? curr.fy202425.value : curr.ytd202425.value),
+        fy2526_qty: acc.fy2526_qty + (comparisonMode === 'full' ? curr.fy202526.qty : curr.ytd202526.qty),
+        fy2526_val: acc.fy2526_val + (comparisonMode === 'full' ? curr.fy202526.value : curr.ytd202526.value),
     }), { fy2324_qty: 0, fy2324_val: 0, fy2425_qty: 0, fy2425_val: 0, fy2526_qty: 0, fy2526_val: 0 });
 
     const handleSort = (key: string) => setSortConfig(prev => ({ key, direction: prev?.key === key && prev.direction === 'asc' ? 'desc' : 'asc' }));
@@ -260,6 +260,7 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
                                     <th colSpan={2} className="py-1 px-2 text-center border-r border-gray-300 bg-indigo-50/50">FY 24-25</th>
                                     <th colSpan={2} className="py-1 px-2 text-center border-r border-gray-300 bg-purple-50/50">FY 25-26</th>
                                     <th className="py-1 px-2 text-center bg-gray-200">Growth</th>
+                                    <th className="py-1 px-2 text-center bg-yellow-50/50 text-yellow-800">Share %</th>
                                 </tr>
                                 <tr className="border-b border-gray-200">
                                     <th onClick={() => handleSort('group')} className="sticky left-0 z-50 py-2 px-4 border-r whitespace-nowrap bg-gray-50 cursor-pointer">Hierarchy</th>
@@ -267,11 +268,14 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
                                     <th className="py-2 px-2 text-right bg-indigo-50/30">Qty</th><th className="py-2 px-2 text-right border-r bg-indigo-50/30">Value</th>
                                     <th className="py-2 px-2 text-right bg-purple-50/30">Qty</th><th className="py-2 px-2 text-right border-r bg-purple-50/30">Value</th>
                                     <th className="py-2 px-2 text-center bg-gray-100">%</th>
+                                    <th className="py-2 px-2 text-center bg-yellow-50/30">%</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 text-[10px] text-gray-700">
                                 {(() => {
-                                    const totalFY2526 = filteredData.reduce((acc, c) => acc + c.fy202526.value, 0);
+                                    const totalFY2526 = comparisonMode === 'full' ?
+                                        filteredData.reduce((acc, c) => acc + c.fy202526.value, 0) :
+                                        filteredData.reduce((acc, c) => acc + c.ytd202526.value, 0);
                                     return Object.entries(groupedData).map(([groupName, subGroups]) => {
                                         const groupItems = Object.values(subGroups).flat(), gTotal = calculateTotals(groupItems), isExpanded = expandedGroups[groupName], gGrowth = gTotal.fy2425_val > 0 ? ((gTotal.fy2526_val - gTotal.fy2425_val) / gTotal.fy2425_val) * 100 : 0;
                                         return (
@@ -282,6 +286,7 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
                                                     <td className="py-2 px-2 text-right font-bold">{Math.round(gTotal.fy2425_qty).toLocaleString('en-IN')}</td><td className="py-2 px-2 text-right border-r font-bold">{Math.round(gTotal.fy2425_val).toLocaleString('en-IN')}</td>
                                                     <td className="py-2 px-2 text-right font-black">{Math.round(gTotal.fy2526_qty).toLocaleString('en-IN')}</td><td className="py-2 px-2 text-right border-r font-black">{Math.round(gTotal.fy2526_val).toLocaleString('en-IN')}</td>
                                                     <td className="py-2 px-2 text-center font-bold text-blue-600">{Math.round(gGrowth)}%</td>
+                                                    <td className="py-2 px-2 text-center font-bold bg-yellow-50/50 text-yellow-800">{totalFY2526 > 0 ? ((gTotal.fy2526_val / totalFY2526) * 100).toFixed(1) : 0}%</td>
                                                 </tr>
                                                 {isExpanded && Object.entries(subGroups).map(([subGroupName, customers]) => {
                                                     const subKey = `${groupName}-${subGroupName}`, sgTotal = calculateTotals(customers), isSgExpanded = expandedSubGroups[subKey], sgGrowth = sgTotal.fy2425_val > 0 ? ((sgTotal.fy2526_val - sgTotal.fy2425_val) / sgTotal.fy2425_val) * 100 : 0;
@@ -293,16 +298,26 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
                                                                 <td className="py-1.5 px-2 text-right text-indigo-600">{Math.round(sgTotal.fy2425_qty).toLocaleString('en-IN')}</td><td className="py-1.5 px-2 text-right border-r text-indigo-600">{Math.round(sgTotal.fy2425_val).toLocaleString('en-IN')}</td>
                                                                 <td className="py-1.5 px-2 text-right text-purple-700 font-bold">{Math.round(sgTotal.fy2526_qty).toLocaleString('en-IN')}</td><td className="py-1.5 px-2 text-right border-r text-purple-700 font-bold">{Math.round(sgTotal.fy2526_val).toLocaleString('en-IN')}</td>
                                                                 <td className="py-1.5 px-2 text-center text-emerald-600">{Math.round(sgGrowth)}%</td>
+                                                                <td className="py-1.5 px-2 text-center text-yellow-700 font-medium">{totalFY2526 > 0 ? ((sgTotal.fy2526_val / totalFY2526) * 100).toFixed(1) : 0}%</td>
                                                             </tr>
                                                             {isSgExpanded && customers.map(cust => {
-                                                                const growth = cust.fy202425.value > 0 ? ((cust.fy202526.value - cust.fy202425.value) / cust.fy202425.value) * 100 : 0;
+                                                                const valCurr = comparisonMode === 'full' ? cust.fy202526.value : cust.ytd202526.value;
+                                                                const valPrev = comparisonMode === 'full' ? cust.fy202425.value : cust.ytd202425.value;
+                                                                const qtyCurr = comparisonMode === 'full' ? cust.fy202526.qty : cust.ytd202526.qty;
+                                                                const qtyPrev = comparisonMode === 'full' ? cust.fy202425.qty : cust.ytd202425.qty;
+                                                                const growth = valPrev > 0 ? ((valCurr - valPrev) / valPrev) * 100 : 0;
+                                                                const totalSalesForContrib = comparisonMode === 'full' ?
+                                                                    customerSalesByFY.reduce((acc, c) => acc + c.fy202526.value, 0) :
+                                                                    customerSalesByFY.reduce((acc, c) => acc + c.ytd202526.value, 0);
+
                                                                 return (
                                                                     <tr key={cust.customerName} className="hover:bg-blue-50/20 border-b border-gray-50">
                                                                         <td className="sticky left-0 z-10 py-1 px-4 pl-12 border-r truncate text-gray-600 bg-white">{cust.customerName}</td>
                                                                         <td className="py-1 px-2 text-right text-gray-400">{Math.round(cust.fy202324.qty).toLocaleString('en-IN')}</td><td className="py-1 px-2 text-right border-r text-gray-400">{Math.round(cust.fy202324.value).toLocaleString('en-IN')}</td>
-                                                                        <td className="py-1 px-2 text-right text-indigo-600/70">{Math.round(cust.fy202425.qty).toLocaleString('en-IN')}</td><td className="py-1 px-2 text-right border-r text-indigo-600/70">{Math.round(cust.fy202425.value).toLocaleString('en-IN')}</td>
-                                                                        <td className="py-1 px-2 text-right text-purple-700 font-bold">{Math.round(cust.fy202526.qty).toLocaleString('en-IN')}</td><td className="py-1 px-2 text-right border-r text-purple-700 font-black">{Math.round(cust.fy202526.value).toLocaleString('en-IN')}</td>
+                                                                        <td className="py-1 px-2 text-right text-indigo-600/70">{Math.round(qtyPrev).toLocaleString('en-IN')}</td><td className="py-1 px-2 text-right border-r text-indigo-600/70">{Math.round(valPrev).toLocaleString('en-IN')}</td>
+                                                                        <td className="py-1 px-2 text-right text-purple-700 font-bold">{Math.round(qtyCurr).toLocaleString('en-IN')}</td><td className="py-1 px-2 text-right border-r text-purple-700 font-black">{Math.round(valCurr).toLocaleString('en-IN')}</td>
                                                                         <td className="py-1 px-2 text-center">{Math.round(growth)}%</td>
+                                                                        <td className="py-1 px-2 text-center text-gray-500">{totalSalesForContrib > 0 ? ((valCurr / totalSalesForContrib) * 100).toFixed(1) : 0}%</td>
                                                                     </tr>
                                                                 );
                                                             })}
