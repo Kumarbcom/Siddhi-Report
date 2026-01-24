@@ -326,13 +326,19 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
 
                             {kpi.label !== 'Lost Customers' && (
                                 <div className="space-y-2 pt-3 border-t border-gray-100">
-                                    <div className="flex items-center justify-between text-xs">
-                                        <span className="text-gray-500 font-medium">vs Previous:</span>
-                                        <div className="flex items-center gap-1">
-                                            {kpi.data.diff >= 0 ? <ArrowUp className="w-3 h-3 text-green-600" /> : <ArrowDown className="w-3 h-3 text-red-600" />}
-                                            <span className={`font-bold ${kpi.data.diff >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                                {Math.abs(kpi.data.diff)} ({Math.abs(kpi.data.pct).toFixed(1)}%)
-                                            </span>
+                                    <div className="flex flex-col gap-1">
+                                        <div className="flex items-center justify-between text-xs">
+                                            <span className="text-gray-400 font-bold uppercase text-[9px]">Previous Period</span>
+                                            <span className="font-bold text-gray-600">{kpi.data.previous.toLocaleString()}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between text-xs">
+                                            <span className="text-gray-400 font-bold uppercase text-[9px]">Difference</span>
+                                            <div className="flex items-center gap-1">
+                                                {kpi.data.diff >= 0 ? <ArrowUp className="w-3 h-3 text-green-600" /> : <ArrowDown className="w-3 h-3 text-red-600" />}
+                                                <span className={`font-bold ${kpi.data.diff >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                    {Math.abs(kpi.data.diff)} ({Math.abs(kpi.data.pct).toFixed(1)}%)
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
