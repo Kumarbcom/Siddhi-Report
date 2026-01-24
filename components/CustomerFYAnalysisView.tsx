@@ -1,0 +1,406 @@
+import React, { useState, useMemo } from 'react';
+import { SalesReportItem, CustomerMasterItem } from '../types';
+import {
+    Users, TrendingUp, TrendingDown, UserPlus, UserCheck, UserMinus, RefreshCw,
+    ArrowUp, ArrowDown, PieChart as PieIcon, DollarSign, Hash, Calendar,
+    Filter, Search, ChevronDown, ChevronUp, BarChart3
+} from 'lucide-react';
+
+interface CustomerFYAnalysisViewProps {
+    salesReportItems: SalesReportItem[];
+    customers: CustomerMasterItem[];
+}
+
+// Fiscal Year Helper Functions
+const getFiscalYear = (date: Date): string => {
+    const month = date.getMonth(); // 0-indexed
+    const year = date.getFullYear();
+    if (month >= 3) { // April (3) to December (11)
+        return `${year}-${(year + 1).toString().slice(-2)}`;
+    } else { // January (0) to March (2)
+        return `${year - 1}-${year.toString().slice(-2)}`;
+    }
+};
+
+const parseDate = (val: any): Date | null => {
+    if (!val) return null;
+    if (val instanceof Date) return val;
+    if (typeof val === 'number') {
+        const excelEpoch = new Date(1899, 11, 30);
+        return new Date(excelEpoch.getTime() + val * 86400000);
+    }
+    const parsed = new Date(val);
+    return isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
+    salesReportItems,
+    customers
+}) => {
+    const [viewMode, setViewMode] = useState<'count' | 'value'>('value');
+    const [comparisonMode, setComparisonMode] = useState<'ytd' | 'full'>('full');
+    const [searchTerm, setSearchTerm] = useState('');
+    const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+
+    const today = new Date();
+    const currentFY = getFiscalYear(today);
+    const currentFYStart = new Date(parseInt(currentFY.split('-')[0]), 3, 1); // April 1
+
+    // Calculate YTD end date (today)
+    const ytdEnd = today;
+
+    // Customer sales data by FY
+    const customerSalesByFY = useMemo(() => {
+        const data: Record<string, {
+            customerCode: string;
+            customerName: string;
+            group: string;
+            fy202324: { qty: number; value: number };
+            fy202425: { qty: number; value: number };
+            fy202526: { qty: number; value: number };
+            ytd202425: { qty: number; value: number };
+            ytd202526: { qty: number; value: number };
+        }> = {};
+
+        // Get customer info from master
+        const customerMap = new Map(customers.map(c => [c.customerCode, c]));
+
+        salesReportItems.forEach(sale => {
+            const invoiceDate = parseDate(sale.invoiceDate);
+            if (!invoiceDate) return;
+
+            const fy = getFiscalYear(invoiceDate);
+            const custCode = sale.customerCode || 'UNKNOWN';
+            const custInfo = customerMap.get(custCode);
+
+            if (!data[custCode]) {
+                data[custCode] = {
+                    customerCode: custCode,
+                    customerName: custInfo?.customerName || sale.customerName || 'Unknown Customer',
+                    group: custInfo?.group || 'Ungrouped',
+                    fy202324: { qty: 0, value: 0 },
+                    fy202425: { qty: 0, value: 0 },
+                    fy202526: { qty: 0, value: 0 },
+                    ytd202425: { qty: 0, value: 0 },
+                    ytd202526: { qty: 0, value: 0 }
+                };
+            }
+
+            const qty = parseFloat(String(sale.quantity || 0));
+            const value = parseFloat(String(sale.salesValue || 0));
+
+            // Full FY data
+            if (fy === '2023-24') {
+                data[custCode].fy202324.qty += qty;
+                data[custCode].fy202324.value += value;
+            } else if (fy === '2024-25') {
+                data[custCode].fy202425.qty += qty;
+                data[custCode].fy202425.value += value;
+            } else if (fy === '2025-26') {
+                data[custCode].fy202526.qty += qty;
+                data[custCode].fy202526.value += value;
+            }
+
+            // YTD data (April to today's date)
+            const fy2425Start = new Date(2024, 3, 1);
+            const fy2425YTDEnd = new Date(2024, ytdEnd.getMonth(), ytdEnd.getDate());
+            if (invoiceDate >= fy2425Start && invoiceDate <= fy2425YTDEnd) {
+                data[custCode].ytd202425.qty += qty;
+                data[custCode].ytd202425.value += value;
+            }
+
+            const fy2526Start = new Date(2025, 3, 1);
+            if (invoiceDate >= fy2526Start && invoiceDate <= ytdEnd) {
+                data[custCode].ytd202526.qty += qty;
+                data[custCode].ytd202526.value += value;
+            }
+        });
+
+        return Object.values(data);
+    }, [salesReportItems, customers]);
+
+    // Customer categorization
+    const customerCategories = useMemo(() => {
+        const total = new Set<string>();
+        const repeat = new Set<string>();
+        const newCust = new Set<string>();
+        const rebuild = new Set<string>();
+        const lost = new Set<string>();
+
+        customerSalesByFY.forEach(cust => {
+            const has2324 = cust.fy202324.value > 0;
+            const has2425 = cust.fy202425.value > 0;
+            const has2526 = cust.fy202526.value > 0;
+
+            if (has2526) {
+                total.add(cust.customerCode);
+
+                // Repeat: purchased in all 3 years OR in 2425 and 2526
+                if ((has2324 && has2425 && has2526) || (has2425 && has2526)) {
+                    repeat.add(cust.customerCode);
+                }
+                // New: only in 2526
+                else if (!has2324 && !has2425 && has2526) {
+                    newCust.add(cust.customerCode);
+                }
+                // Rebuild: in 2324, not in 2425, back in 2526
+                else if (has2324 && !has2425 && has2526) {
+                    rebuild.add(cust.customerCode);
+                }
+            }
+
+            // Lost: in 2324 and 2425, but not in 2526
+            if (has2324 && has2425 && !has2526) {
+                lost.add(cust.customerCode);
+            }
+        });
+
+        return { total, repeat, newCust, rebuild, lost };
+    }, [customerSalesByFY]);
+
+    // KPI Calculations
+    const kpis = useMemo(() => {
+        const currentData = comparisonMode === 'full'
+            ? customerSalesByFY.map(c => ({ code: c.customerCode, ...c.fy202526 }))
+            : customerSalesByFY.map(c => ({ code: c.customerCode, ...c.ytd202526 }));
+
+        const previousData = comparisonMode === 'full'
+            ? customerSalesByFY.map(c => ({ code: c.customerCode, ...c.fy202425 }))
+            : customerSalesByFY.map(c => ({ code: c.customerCode, ...c.ytd202425 }));
+
+        const currentTotal = currentData.filter(c => c.value > 0).length;
+        const previousTotal = previousData.filter(c => c.value > 0).length;
+
+        const repeatCurrent = Array.from(customerCategories.repeat).filter(code =>
+            currentData.find(c => c.code === code && c.value > 0)
+        ).length;
+        const repeatPrevious = Array.from(customerCategories.repeat).filter(code =>
+            previousData.find(c => c.code === code && c.value > 0)
+        ).length;
+
+        const newCurrent = customerCategories.newCust.size;
+        const newPrevious = customerSalesByFY.filter(c =>
+            !c.fy202324.value && !c.fy202425.value && c.fy202425.value > 0
+        ).length;
+
+        const rebuildCurrent = customerCategories.rebuild.size;
+        const rebuildPrevious = customerSalesByFY.filter(c =>
+            c.fy202324.value > 0 && !c.fy202425.value && c.fy202425.value > 0
+        ).length;
+
+        const lostCurrent = customerCategories.lost.size;
+
+        return {
+            total: { current: currentTotal, previous: previousTotal, diff: currentTotal - previousTotal, pct: previousTotal > 0 ? ((currentTotal - previousTotal) / previousTotal) * 100 : 0 },
+            repeat: { current: repeatCurrent, previous: repeatPrevious, diff: repeatCurrent - repeatPrevious, pct: repeatPrevious > 0 ? ((repeatCurrent - repeatPrevious) / repeatPrevious) * 100 : 0 },
+            new: { current: newCurrent, previous: newPrevious, diff: newCurrent - newPrevious, pct: newPrevious > 0 ? ((newCurrent - newPrevious) / newPrevious) * 100 : 0 },
+            rebuild: { current: rebuildCurrent, previous: rebuildPrevious, diff: rebuildCurrent - rebuildPrevious, pct: rebuildPrevious > 0 ? ((rebuildCurrent - rebuildPrevious) / rebuildPrevious) * 100 : 0 },
+            lost: { current: lostCurrent, previous: 0, diff: 0, pct: 0 }
+        };
+    }, [customerSalesByFY, customerCategories, comparisonMode]);
+
+    // Filtered and sorted data
+    const filteredData = useMemo(() => {
+        let filtered = customerSalesByFY.filter(c =>
+            c.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            c.customerCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            c.group.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+
+        if (sortConfig) {
+            filtered.sort((a, b) => {
+                let aVal: any, bVal: any;
+
+                if (sortConfig.key === 'customerName') {
+                    aVal = a.customerName;
+                    bVal = b.customerName;
+                } else if (sortConfig.key === 'group') {
+                    aVal = a.group;
+                    bVal = b.group;
+                } else if (sortConfig.key.includes('qty') || sortConfig.key.includes('value')) {
+                    const [fy, metric] = sortConfig.key.split('_');
+                    aVal = (a as any)[fy][metric];
+                    bVal = (b as any)[fy][metric];
+                }
+
+                if (typeof aVal === 'string') {
+                    return sortConfig.direction === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+                }
+                return sortConfig.direction === 'asc' ? aVal - bVal : bVal - aVal;
+            });
+        }
+
+        return filtered;
+    }, [customerSalesByFY, searchTerm, sortConfig]);
+
+    const handleSort = (key: string) => {
+        setSortConfig(prev => ({
+            key,
+            direction: prev?.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+        }));
+    };
+
+    return (
+        <div className="h-full overflow-y-auto custom-scrollbar bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+            <div className="max-w-[1800px] mx-auto p-6 space-y-6">
+                {/* Header */}
+                <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h1 className="text-2xl font-black text-gray-900 uppercase tracking-tight">Customer Sales – FY Analysis</h1>
+                            <p className="text-sm text-gray-500 font-medium mt-1">Comprehensive customer performance tracking across fiscal years</p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2 bg-blue-50 px-4 py-2 rounded-xl border border-blue-100">
+                                <Calendar className="w-4 h-4 text-blue-600" />
+                                <span className="text-xs font-bold text-blue-900">FY {currentFY}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Toggle Controls */}
+                    <div className="mt-6 flex gap-4">
+                        <div className="flex gap-2 bg-gray-100 p-1 rounded-xl">
+                            <button
+                                onClick={() => setViewMode('count')}
+                                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${viewMode === 'count' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600'}`}
+                            >
+                                <Hash className="w-4 h-4 inline mr-1" />
+                                Customer Count
+                            </button>
+                            <button
+                                onClick={() => setViewMode('value')}
+                                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${viewMode === 'value' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600'}`}
+                            >
+                                <DollarSign className="w-4 h-4 inline mr-1" />
+                                Sales Value
+                            </button>
+                        </div>
+
+                        <div className="flex gap-2 bg-gray-100 p-1 rounded-xl">
+                            <button
+                                onClick={() => setComparisonMode('ytd')}
+                                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${comparisonMode === 'ytd' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-600'}`}
+                            >
+                                YTD Comparison
+                            </button>
+                            <button
+                                onClick={() => setComparisonMode('full')}
+                                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${comparisonMode === 'full' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-600'}`}
+                            >
+                                Full FY Comparison
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* KPI Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                    {[
+                        { label: 'Total Customers', icon: Users, data: kpis.total, color: 'blue' },
+                        { label: 'Repeat Customers', icon: UserCheck, data: kpis.repeat, color: 'green' },
+                        { label: 'New Customers', icon: UserPlus, data: kpis.new, color: 'purple' },
+                        { label: 'Rebuild Customers', icon: RefreshCw, data: kpis.rebuild, color: 'orange' },
+                        { label: 'Lost Customers', icon: UserMinus, data: kpis.lost, color: 'red' }
+                    ].map((kpi, idx) => (
+                        <div key={idx} className={`bg-white rounded-2xl shadow-sm border border-${kpi.color}-100 p-5 hover:shadow-md transition-shadow`}>
+                            <div className="flex items-center justify-between mb-3">
+                                <kpi.icon className={`w-5 h-5 text-${kpi.color}-600`} />
+                                <div className={`text-xs font-bold px-2 py-1 rounded-lg bg-${kpi.color}-50 text-${kpi.color}-700`}>
+                                    FY 25-26
+                                </div>
+                            </div>
+                            <div className="text-3xl font-black text-gray-900 mb-2">{kpi.data.current.toLocaleString()}</div>
+                            <div className="text-xs font-bold text-gray-400 uppercase mb-3">{kpi.label}</div>
+
+                            {kpi.label !== 'Lost Customers' && (
+                                <div className="space-y-2 pt-3 border-t border-gray-100">
+                                    <div className="flex items-center justify-between text-xs">
+                                        <span className="text-gray-500 font-medium">vs Previous:</span>
+                                        <div className="flex items-center gap-1">
+                                            {kpi.data.diff >= 0 ? <ArrowUp className="w-3 h-3 text-green-600" /> : <ArrowDown className="w-3 h-3 text-red-600" />}
+                                            <span className={`font-bold ${kpi.data.diff >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                {Math.abs(kpi.data.diff)} ({Math.abs(kpi.data.pct).toFixed(1)}%)
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
+
+                {/* Search Bar */}
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
+                    <div className="relative">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                        <input
+                            type="text"
+                            placeholder="Search by customer name, code, or group..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl text-sm font-medium focus:outline-none focus:border-blue-500 transition-colors"
+                        />
+                    </div>
+                </div>
+
+                {/* Customer Performance Table */}
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-black uppercase">
+                                    <th className="px-4 py-3 border-r border-blue-500">Customer</th>
+                                    <th className="px-4 py-3 border-r border-blue-500">Group</th>
+                                    <th className="px-4 py-3 text-center border-r border-blue-500" colSpan={2}>FY 2023-24</th>
+                                    <th className="px-4 py-3 text-center border-r border-blue-500" colSpan={2}>FY 2024-25</th>
+                                    <th className="px-4 py-3 text-center border-r border-blue-500" colSpan={2}>FY 2025-26</th>
+                                    <th className="px-4 py-3 text-center">Growth %</th>
+                                </tr>
+                                <tr className="bg-blue-50 text-gray-700 text-[10px] font-bold uppercase">
+                                    <th className="px-4 py-2 border-r border-gray-200"></th>
+                                    <th className="px-4 py-2 border-r border-gray-200"></th>
+                                    <th className="px-4 py-2 text-right border-r border-gray-200">Qty</th>
+                                    <th className="px-4 py-2 text-right border-r border-gray-200">Value (₹)</th>
+                                    <th className="px-4 py-2 text-right border-r border-gray-200">Qty</th>
+                                    <th className="px-4 py-2 text-right border-r border-gray-200">Value (₹)</th>
+                                    <th className="px-4 py-2 text-right border-r border-gray-200">Qty</th>
+                                    <th className="px-4 py-2 text-right border-r border-gray-200">Value (₹)</th>
+                                    <th className="px-4 py-2 text-center">vs PY</th>
+                                </tr>
+                            </thead>
+                            <tbody className="text-xs">
+                                {filteredData.slice(0, 100).map((cust, idx) => {
+                                    const growth = cust.fy202425.value > 0
+                                        ? ((cust.fy202526.value - cust.fy202425.value) / cust.fy202425.value) * 100
+                                        : cust.fy202526.value > 0 ? 100 : 0;
+
+                                    return (
+                                        <tr key={idx} className="border-b border-gray-100 hover:bg-blue-50/30 transition-colors">
+                                            <td className="px-4 py-3 font-bold text-gray-900">{cust.customerName}</td>
+                                            <td className="px-4 py-3 text-gray-600">{cust.group}</td>
+                                            <td className="px-4 py-3 text-right font-mono text-gray-700">{Math.round(cust.fy202324.qty).toLocaleString()}</td>
+                                            <td className="px-4 py-3 text-right font-mono font-bold text-gray-900">{Math.round(cust.fy202324.value).toLocaleString()}</td>
+                                            <td className="px-4 py-3 text-right font-mono text-gray-700">{Math.round(cust.fy202425.qty).toLocaleString()}</td>
+                                            <td className="px-4 py-3 text-right font-mono font-bold text-gray-900">{Math.round(cust.fy202425.value).toLocaleString()}</td>
+                                            <td className="px-4 py-3 text-right font-mono text-blue-700 font-bold">{Math.round(cust.fy202526.qty).toLocaleString()}</td>
+                                            <td className="px-4 py-3 text-right font-mono font-black text-blue-900">{Math.round(cust.fy202526.value).toLocaleString()}</td>
+                                            <td className="px-4 py-3 text-center">
+                                                <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg font-bold ${growth >= 0 ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                                                    {growth >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                                                    {Math.abs(growth).toFixed(1)}%
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default CustomerFYAnalysisView;

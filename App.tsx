@@ -16,6 +16,7 @@ import AttendeeMasterView from './components/AttendeeMasterView';
 import ChatView from './components/ChatView';
 import UserManagementView from './components/UserManagementView';
 import SupplyChainAnalyticsView from './components/SupplyChainAnalyticsView';
+import CustomerFYAnalysisView from './components/CustomerFYAnalysisView';
 import ConfirmationModal from './components/ConfirmationModal';
 import {
   Database,
@@ -77,7 +78,7 @@ const getMergedMakeName = (makeName: string) => {
   return m;
 };
 
-type ActiveTab = 'dashboard' | 'chat' | 'master' | 'customerMaster' | 'closingStock' | 'pendingSO' | 'pendingPO' | 'salesHistory' | 'salesReport' | 'pivotReport' | 'mom' | 'attendees' | 'userManagement' | 'supplyChain';
+type ActiveTab = 'dashboard' | 'chat' | 'master' | 'customerMaster' | 'closingStock' | 'pendingSO' | 'pendingPO' | 'salesHistory' | 'salesReport' | 'pivotReport' | 'customerFYAnalysis' | 'mom' | 'attendees' | 'userManagement' | 'supplyChain';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(authService.getCurrentUser());
@@ -719,6 +720,7 @@ const App: React.FC = () => {
                 <SidebarItem id="pendingSO" label="Pending SO" icon={ClipboardList} count={pendingSOItems.length} onClick={setActiveTab} />
                 <SidebarItem id="pendingPO" label="Pending PO" icon={ShoppingCart} count={pendingPOItems.length} onClick={setActiveTab} />
                 <SidebarItem id="salesReport" label="Sales Report" icon={FileBarChart} count={salesReportItems.length} onClick={setActiveTab} />
+                <SidebarItem id="customerFYAnalysis" label="Customer FY Analysis" icon={TrendingUp} onClick={setActiveTab} />
                 <SidebarItem id="mom" label="Weekly MOM" icon={ClipboardList} onClick={setActiveTab} />
                 <SidebarItem id="attendees" label="Attendee Master" icon={UserCircle} onClick={setActiveTab} />
               </div>
@@ -839,6 +841,7 @@ const App: React.FC = () => {
             {activeTab === 'pendingSO' && <div className="h-full w-full"><PendingSOView isAdmin={isAdmin} items={pendingSOItems} materials={materials} closingStockItems={closingStockItems} onBulkAdd={handleBulkAddSO} onUpdate={handleUpdateSO} onDelete={handleDeleteSO} onClear={handleClearSO} onAddMaterial={handleAddMaterial} /></div>}
             {activeTab === 'pendingPO' && <div className="h-full w-full"><PendingPOView isAdmin={isAdmin} items={pendingPOItems} materials={materials} closingStockItems={closingStockItems} pendingSOItems={pendingSOItems} salesReportItems={salesReportItems} onBulkAdd={handleBulkAddPO} onUpdate={handleUpdatePO} onDelete={handleDeletePO} onClear={handleClearPO} onAddMaterial={handleAddMaterial} /></div>}
             {activeTab === 'salesReport' && <div className="h-full w-full"><SalesReportView isAdmin={isAdmin} items={salesReportItems} materials={materials} customers={customerMasterItems} onBulkAdd={handleBulkAddSales} onUpdate={handleUpdateSales} onDelete={handleDeleteSales} onClear={handleClearSales} onAddMaterial={handleAddMaterial} onAddCustomer={handleAddCustomer} /></div>}
+            {activeTab === 'customerFYAnalysis' && <div className="h-full w-full"><CustomerFYAnalysisView salesReportItems={salesReportItems} customers={customerMasterItems} /></div>}
             {activeTab === 'mom' && <div className="h-full w-full"><MOMView isAdmin={isAdmin} materials={materials} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} salesReportItems={salesReportItems} customers={customerMasterItems} /></div>}
             {activeTab === 'attendees' && <div className="h-full w-full"><AttendeeMasterView isAdmin={isAdmin} /></div>}
             {activeTab === 'userManagement' && isAdmin && <div className="h-full w-full"><UserManagementView /></div>}
