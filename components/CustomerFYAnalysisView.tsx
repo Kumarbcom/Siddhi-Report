@@ -405,9 +405,31 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
 
                                         const share = totalFY2526 > 0 ? (cust.fy202526.value / totalFY2526) * 100 : 0;
 
+                                        let nameColorClass = "text-gray-900";
+                                        let badgeLink = null;
+
+                                        if (customerCategories.repeat.has(cust.customerName)) {
+                                            nameColorClass = "text-emerald-700 font-bold";
+                                            badgeLink = <span className="ml-2 px-1.5 py-0.5 rounded text-[8px] bg-emerald-50 text-emerald-700 border border-emerald-100 uppercase tracking-wider">Repeat</span>;
+                                        } else if (customerCategories.newCust.has(cust.customerName)) {
+                                            nameColorClass = "text-blue-700 font-bold";
+                                            badgeLink = <span className="ml-2 px-1.5 py-0.5 rounded text-[8px] bg-blue-50 text-blue-700 border border-blue-100 uppercase tracking-wider">New</span>;
+                                        } else if (customerCategories.rebuild.has(cust.customerName)) {
+                                            nameColorClass = "text-orange-700 font-bold";
+                                            badgeLink = <span className="ml-2 px-1.5 py-0.5 rounded text-[8px] bg-orange-50 text-orange-700 border border-orange-100 uppercase tracking-wider">Rebuild</span>;
+                                        } else if (customerCategories.lost.has(cust.customerName)) {
+                                            nameColorClass = "text-red-700 font-bold";
+                                            badgeLink = <span className="ml-2 px-1.5 py-0.5 rounded text-[8px] bg-red-50 text-red-700 border border-red-100 uppercase tracking-wider">Lost</span>;
+                                        }
+
                                         return (
                                             <tr key={idx} className="hover:bg-gray-50 transition-colors group text-[10px]">
-                                                <td className="sticky left-0 z-10 py-1 px-2 border-r truncate max-w-[250px] font-medium text-gray-900 bg-white group-hover:bg-gray-50 border-b border-gray-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" title={cust.customerName}>{cust.customerName}</td>
+                                                <td className="sticky left-0 z-10 py-1 px-2 border-r truncate max-w-[250px] font-medium bg-white group-hover:bg-gray-50 border-b border-gray-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" title={cust.customerName}>
+                                                    <div className="flex items-center justify-between">
+                                                        <span className={`truncate ${nameColorClass}`}>{cust.customerName}</span>
+                                                        {badgeLink}
+                                                    </div>
+                                                </td>
                                                 <td className="py-1 px-2 border-r truncate max-w-[150px] text-gray-500">{cust.group}</td>
 
                                                 <td className="py-1 px-2 text-right bg-blue-50/10 font-medium">{Math.round(cust.fy202324.qty).toLocaleString()}</td>
