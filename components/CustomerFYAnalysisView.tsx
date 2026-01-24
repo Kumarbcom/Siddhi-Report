@@ -572,9 +572,7 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
                     </table>
                 </div>
             </div>
-        </div>
-        </div >
-    );
+            );
 };
 
-export default CustomerFYAnalysisView;
+            export default CustomerFYAnalysisView;
