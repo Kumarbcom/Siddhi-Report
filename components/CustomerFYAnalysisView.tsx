@@ -52,7 +52,6 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
     // Customer sales data by FY
     const customerSalesByFY = useMemo(() => {
         const data: Record<string, {
-            customerCode: string;
             customerName: string;
             group: string;
             fy202324: { qty: number; value: number };
@@ -63,20 +62,19 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
         }> = {};
 
         // Get customer info from master
-        const customerMap = new Map(customers.map(c => [c.customerCode, c]));
+        const customerMap = new Map(customers.map(c => [c.customerName, c]));
 
         salesReportItems.forEach(sale => {
-            const invoiceDate = parseDate(sale.invoiceDate);
+            const invoiceDate = parseDate(sale.date);
             if (!invoiceDate) return;
 
             const fy = getFiscalYear(invoiceDate);
-            const custCode = sale.customerCode || 'UNKNOWN';
-            const custInfo = customerMap.get(custCode);
+            const custName = sale.customerName || 'Unknown Customer';
+            const custInfo = customerMap.get(custName);
 
-            if (!data[custCode]) {
-                data[custCode] = {
-                    customerCode: custCode,
-                    customerName: custInfo?.customerName || sale.customerName || 'Unknown Customer',
+            if (!data[custName]) {
+                data[custName] = {
+                    customerName: custName,
                     group: custInfo?.group || 'Ungrouped',
                     fy202324: { qty: 0, value: 0 },
                     fy202425: { qty: 0, value: 0 },
@@ -87,32 +85,32 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
             }
 
             const qty = parseFloat(String(sale.quantity || 0));
-            const value = parseFloat(String(sale.salesValue || 0));
+            const value = parseFloat(String(sale.value || 0));
 
             // Full FY data
             if (fy === '2023-24') {
-                data[custCode].fy202324.qty += qty;
-                data[custCode].fy202324.value += value;
+                data[custName].fy202324.qty += qty;
+                data[custName].fy202324.value += value;
             } else if (fy === '2024-25') {
-                data[custCode].fy202425.qty += qty;
-                data[custCode].fy202425.value += value;
+                data[custName].fy202425.qty += qty;
+                data[custName].fy202425.value += value;
             } else if (fy === '2025-26') {
-                data[custCode].fy202526.qty += qty;
-                data[custCode].fy202526.value += value;
+                data[custName].fy202526.qty += qty;
+                data[custName].fy202526.value += value;
             }
 
             // YTD data (April to today's date)
             const fy2425Start = new Date(2024, 3, 1);
             const fy2425YTDEnd = new Date(2024, ytdEnd.getMonth(), ytdEnd.getDate());
             if (invoiceDate >= fy2425Start && invoiceDate <= fy2425YTDEnd) {
-                data[custCode].ytd202425.qty += qty;
-                data[custCode].ytd202425.value += value;
+                data[custName].ytd202425.qty += qty;
+                data[custName].ytd202425.value += value;
             }
 
             const fy2526Start = new Date(2025, 3, 1);
             if (invoiceDate >= fy2526Start && invoiceDate <= ytdEnd) {
-                data[custCode].ytd202526.qty += qty;
-                data[custCode].ytd202526.value += value;
+                data[custName].ytd202526.qty += qty;
+                data[custName].ytd202526.value += value;
             }
         });
 
@@ -133,25 +131,25 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
             const has2526 = cust.fy202526.value > 0;
 
             if (has2526) {
-                total.add(cust.customerCode);
+                total.add(cust.customerName);
 
                 // Repeat: purchased in all 3 years OR in 2425 and 2526
                 if ((has2324 && has2425 && has2526) || (has2425 && has2526)) {
-                    repeat.add(cust.customerCode);
+                    repeat.add(cust.customerName);
                 }
                 // New: only in 2526
                 else if (!has2324 && !has2425 && has2526) {
-                    newCust.add(cust.customerCode);
+                    newCust.add(cust.customerName);
                 }
                 // Rebuild: in 2324, not in 2425, back in 2526
                 else if (has2324 && !has2425 && has2526) {
-                    rebuild.add(cust.customerCode);
+                    rebuild.add(cust.customerName);
                 }
             }
 
             // Lost: in 2324 and 2425, but not in 2526
             if (has2324 && has2425 && !has2526) {
-                lost.add(cust.customerCode);
+                lost.add(cust.customerName);
             }
         });
 
@@ -161,21 +159,21 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
     // KPI Calculations
     const kpis = useMemo(() => {
         const currentData = comparisonMode === 'full'
-            ? customerSalesByFY.map(c => ({ code: c.customerCode, ...c.fy202526 }))
-            : customerSalesByFY.map(c => ({ code: c.customerCode, ...c.ytd202526 }));
+            ? customerSalesByFY.map(c => ({ name: c.customerName, ...c.fy202526 }))
+            : customerSalesByFY.map(c => ({ name: c.customerName, ...c.ytd202526 }));
 
         const previousData = comparisonMode === 'full'
-            ? customerSalesByFY.map(c => ({ code: c.customerCode, ...c.fy202425 }))
-            : customerSalesByFY.map(c => ({ code: c.customerCode, ...c.ytd202425 }));
+            ? customerSalesByFY.map(c => ({ name: c.customerName, ...c.fy202425 }))
+            : customerSalesByFY.map(c => ({ name: c.customerName, ...c.ytd202425 }));
 
         const currentTotal = currentData.filter(c => c.value > 0).length;
         const previousTotal = previousData.filter(c => c.value > 0).length;
 
-        const repeatCurrent = Array.from(customerCategories.repeat).filter(code =>
-            currentData.find(c => c.code === code && c.value > 0)
+        const repeatCurrent = Array.from(customerCategories.repeat).filter(name =>
+            currentData.find(c => c.name === name && c.value > 0)
         ).length;
-        const repeatPrevious = Array.from(customerCategories.repeat).filter(code =>
-            previousData.find(c => c.code === code && c.value > 0)
+        const repeatPrevious = Array.from(customerCategories.repeat).filter(name =>
+            previousData.find(c => c.name === name && c.value > 0)
         ).length;
 
         const newCurrent = customerCategories.newCust.size;
@@ -203,7 +201,6 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
     const filteredData = useMemo(() => {
         let filtered = customerSalesByFY.filter(c =>
             c.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            c.customerCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
             c.group.toLowerCase().includes(searchTerm.toLowerCase())
         );
 
