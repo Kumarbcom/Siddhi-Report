@@ -2506,20 +2506,30 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                                                 <td className="p-2 border font-bold text-gray-700">{make}</td>
                                                                 <td className="p-2 border bg-blue-50/10">
                                                                     <input
-                                                                        type="number"
-                                                                        className="w-full bg-transparent text-right outline-none focus:ring-1 focus:ring-blue-300 rounded px-1 text-[10px]"
-                                                                        value={weeklyBenchmarks[`${table.id}_${make}_Ready`] ? Math.round(parseFloat(weeklyBenchmarks[`${table.id}_${make}_Ready`])).toString() : ""}
+                                                                        type="text"
+                                                                        className="w-full bg-transparent text-right outline-none focus:ring-1 focus:ring-blue-300 rounded px-1 text-[10px] font-mono font-bold text-indigo-700"
+                                                                        value={weeklyBenchmarks[`${table.id}_${make}_Ready`] ? Math.round(parseFloat(weeklyBenchmarks[`${table.id}_${make}_Ready`])).toLocaleString('en-IN') : ""}
                                                                         placeholder="0"
-                                                                        onChange={(e) => setWeeklyBenchmarks(prev => ({ ...prev, [`${table.id}_${make}_Ready`]: e.target.value }))}
+                                                                        onChange={(e) => {
+                                                                            const val = e.target.value.replace(/,/g, '');
+                                                                            if (!isNaN(Number(val))) {
+                                                                                setWeeklyBenchmarks(prev => ({ ...prev, [`${table.id}_${make}_Ready`]: val }));
+                                                                            }
+                                                                        }}
                                                                     />
                                                                 </td>
                                                                 <td className="p-2 border bg-blue-50/10">
                                                                     <input
-                                                                        type="number"
-                                                                        className="w-full bg-transparent text-right outline-none focus:ring-1 focus:ring-blue-300 rounded px-1 text-[10px]"
-                                                                        value={weeklyBenchmarks[`${table.id}_${make}_Shortage`] ? Math.round(parseFloat(weeklyBenchmarks[`${table.id}_${make}_Shortage`])).toString() : ""}
+                                                                        type="text"
+                                                                        className="w-full bg-transparent text-right outline-none focus:ring-1 focus:ring-blue-300 rounded px-1 text-[10px] font-mono font-bold text-indigo-900"
+                                                                        value={weeklyBenchmarks[`${table.id}_${make}_Shortage`] ? Math.round(parseFloat(weeklyBenchmarks[`${table.id}_${make}_Shortage`])).toLocaleString('en-IN') : ""}
                                                                         placeholder="0"
-                                                                        onChange={(e) => setWeeklyBenchmarks(prev => ({ ...prev, [`${table.id}_${make}_Shortage`]: e.target.value }))}
+                                                                        onChange={(e) => {
+                                                                            const val = e.target.value.replace(/,/g, '');
+                                                                            if (!isNaN(Number(val))) {
+                                                                                setWeeklyBenchmarks(prev => ({ ...prev, [`${table.id}_${make}_Shortage`]: val }));
+                                                                            }
+                                                                        }}
                                                                     />
                                                                 </td>
                                                                 <td className="p-2 border bg-blue-50/20 text-right font-bold text-gray-500">{Math.round(prevTotal).toLocaleString("en-IN")}</td>
