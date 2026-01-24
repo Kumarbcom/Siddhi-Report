@@ -518,7 +518,7 @@ const GroupedCustomerAnalysis: React.FC<GroupedCustomerAnalysisProps> = ({
                             <th className="py-2.5 px-2 text-right cursor-pointer hover:bg-gray-100 transition-colors group" onClick={() => handleSort('growth')}>
                                 <div className="flex items-center justify-end gap-1">Growth <ArrowUpDown className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity text-blue-500" /></div>
                             </th>
-                            <th className="py-2.5 px-2 text-right bg-yellow-50/50 text-yellow-800">Share</th>
+                            <th className="py-2.5 px-2 text-right bg-yellow-50/50 text-yellow-800">Share %</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 text-[10px]">
@@ -540,9 +540,10 @@ const GroupedCustomerAnalysis: React.FC<GroupedCustomerAnalysisProps> = ({
                                         </span>
                                     </td>
                                     <td className="py-2 px-2 text-right font-bold">
-                                        <span className={`px-1.5 py-0.5 rounded ${group.total >= group.totalPrevious ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                                        <div className={`flex items-center justify-end gap-1 px-1.5 py-0.5 rounded ${group.total >= group.totalPrevious ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                                            {group.total >= group.totalPrevious ? <ArrowUpRight className="w-2.5 h-2.5" /> : <ArrowDownRight className="w-2.5 h-2.5" />}
                                             {group.totalPrevious > 0 ? (((group.total - group.totalPrevious) / group.totalPrevious) * 100).toFixed(0) : '100'}%
-                                        </span>
+                                        </div>
                                     </td>
                                     <td className="py-2 px-2 text-right font-black text-yellow-700 bg-yellow-50/30">
                                         {grandTotal > 0 ? ((group.total / grandTotal) * 100).toFixed(1) : 0}%

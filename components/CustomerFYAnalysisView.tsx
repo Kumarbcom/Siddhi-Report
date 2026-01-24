@@ -256,10 +256,10 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
                             <thead className="sticky top-0 z-50 bg-gray-50 shadow-sm text-[9px] font-bold text-gray-600 uppercase tracking-tight">
                                 <tr className="bg-gray-100 border-b border-gray-200">
                                     <th className="sticky left-0 z-50 py-1 px-4 text-left border-r border-gray-300 bg-gray-100 w-[300px]"><div className="flex items-center gap-2"><Layers className="w-3 h-3 text-gray-400" />{pivotBy === 'group' ? 'Group / Customer Group / Customer' : 'Customer Group / Group / Customer'}</div></th>
-                                    <th colSpan={2} className="py-1 px-2 text-center border-r border-gray-300 bg-blue-50/50">FY 23-24</th>
-                                    <th colSpan={2} className="py-1 px-2 text-center border-r border-gray-300 bg-indigo-50/50">FY 24-25</th>
-                                    <th colSpan={2} className="py-1 px-2 text-center border-r border-gray-300 bg-purple-50/50">FY 25-26</th>
-                                    <th className="py-1 px-2 text-center bg-gray-200">Growth</th>
+                                    <th colSpan={2} className="py-1 px-2 text-center border-r border-gray-300 bg-blue-50/50">FY 23-24 (Full)</th>
+                                    <th colSpan={2} className="py-1 px-2 text-center border-r border-gray-300 bg-indigo-50/50">FY 24-25 {comparisonMode === 'ytd' ? '(YTD)' : '(Full)'}</th>
+                                    <th colSpan={2} className="py-1 px-2 text-center border-r border-gray-300 bg-purple-50/50">FY 25-26 {comparisonMode === 'ytd' ? '(YTD)' : '(Full)'}</th>
+                                    <th className="py-1 px-2 text-center bg-gray-200">Growth vs LY</th>
                                     <th className="py-1 px-2 text-center bg-yellow-50/50 text-yellow-800">Share %</th>
                                 </tr>
                                 <tr className="border-b border-gray-200">
@@ -267,8 +267,8 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
                                     <th className="py-2 px-2 text-right bg-blue-50/30">Qty</th><th className="py-2 px-2 text-right border-r bg-blue-50/30">Value</th>
                                     <th className="py-2 px-2 text-right bg-indigo-50/30">Qty</th><th className="py-2 px-2 text-right border-r bg-indigo-50/30">Value</th>
                                     <th className="py-2 px-2 text-right bg-purple-50/30">Qty</th><th className="py-2 px-2 text-right border-r bg-purple-50/30">Value</th>
-                                    <th className="py-2 px-2 text-center bg-gray-100">%</th>
-                                    <th className="py-2 px-2 text-center bg-yellow-50/30">%</th>
+                                    <th className="py-2 px-2 text-center bg-gray-100">Growth %</th>
+                                    <th className="py-2 px-2 text-center bg-yellow-50/30">Share %</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 text-[10px] text-gray-700">
@@ -285,7 +285,12 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
                                                     <td className="py-2 px-2 text-right font-bold">{Math.round(gTotal.fy2324_qty).toLocaleString('en-IN')}</td><td className="py-2 px-2 text-right border-r font-bold">{Math.round(gTotal.fy2324_val).toLocaleString('en-IN')}</td>
                                                     <td className="py-2 px-2 text-right font-bold">{Math.round(gTotal.fy2425_qty).toLocaleString('en-IN')}</td><td className="py-2 px-2 text-right border-r font-bold">{Math.round(gTotal.fy2425_val).toLocaleString('en-IN')}</td>
                                                     <td className="py-2 px-2 text-right font-black">{Math.round(gTotal.fy2526_qty).toLocaleString('en-IN')}</td><td className="py-2 px-2 text-right border-r font-black">{Math.round(gTotal.fy2526_val).toLocaleString('en-IN')}</td>
-                                                    <td className="py-2 px-2 text-center font-bold text-blue-600">{Math.round(gGrowth)}%</td>
+                                                    <td className="py-2 px-2 text-center font-bold">
+                                                        <div className={`flex items-center justify-center gap-1 ${gGrowth >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                            {gGrowth >= 0 ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
+                                                            {Math.round(Math.abs(gGrowth))}%
+                                                        </div>
+                                                    </td>
                                                     <td className="py-2 px-2 text-center font-bold bg-yellow-50/50 text-yellow-800">{totalFY2526 > 0 ? ((gTotal.fy2526_val / totalFY2526) * 100).toFixed(1) : 0}%</td>
                                                 </tr>
                                                 {isExpanded && Object.entries(subGroups).map(([subGroupName, customers]) => {
@@ -297,7 +302,12 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
                                                                 <td className="py-1.5 px-2 text-right text-gray-500">{Math.round(sgTotal.fy2324_qty).toLocaleString('en-IN')}</td><td className="py-1.5 px-2 text-right border-r text-gray-500">{Math.round(sgTotal.fy2324_val).toLocaleString('en-IN')}</td>
                                                                 <td className="py-1.5 px-2 text-right text-indigo-600">{Math.round(sgTotal.fy2425_qty).toLocaleString('en-IN')}</td><td className="py-1.5 px-2 text-right border-r text-indigo-600">{Math.round(sgTotal.fy2425_val).toLocaleString('en-IN')}</td>
                                                                 <td className="py-1.5 px-2 text-right text-purple-700 font-bold">{Math.round(sgTotal.fy2526_qty).toLocaleString('en-IN')}</td><td className="py-1.5 px-2 text-right border-r text-purple-700 font-bold">{Math.round(sgTotal.fy2526_val).toLocaleString('en-IN')}</td>
-                                                                <td className="py-1.5 px-2 text-center text-emerald-600">{Math.round(sgGrowth)}%</td>
+                                                                <td className="py-1.5 px-2 text-center font-bold">
+                                                                    <div className={`flex items-center justify-center gap-1 ${sgGrowth >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
+                                                                        {sgGrowth >= 0 ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
+                                                                        {Math.round(Math.abs(sgGrowth))}%
+                                                                    </div>
+                                                                </td>
                                                                 <td className="py-1.5 px-2 text-center text-yellow-700 font-medium">{totalFY2526 > 0 ? ((sgTotal.fy2526_val / totalFY2526) * 100).toFixed(1) : 0}%</td>
                                                             </tr>
                                                             {isSgExpanded && customers.map(cust => {
@@ -316,7 +326,12 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
                                                                         <td className="py-1 px-2 text-right text-gray-400">{Math.round(cust.fy202324.qty).toLocaleString('en-IN')}</td><td className="py-1 px-2 text-right border-r text-gray-400">{Math.round(cust.fy202324.value).toLocaleString('en-IN')}</td>
                                                                         <td className="py-1 px-2 text-right text-indigo-600/70">{Math.round(qtyPrev).toLocaleString('en-IN')}</td><td className="py-1 px-2 text-right border-r text-indigo-600/70">{Math.round(valPrev).toLocaleString('en-IN')}</td>
                                                                         <td className="py-1 px-2 text-right text-purple-700 font-bold">{Math.round(qtyCurr).toLocaleString('en-IN')}</td><td className="py-1 px-2 text-right border-r text-purple-700 font-black">{Math.round(valCurr).toLocaleString('en-IN')}</td>
-                                                                        <td className="py-1 px-2 text-center">{Math.round(growth)}%</td>
+                                                                        <td className="py-1 px-2 text-center font-medium">
+                                                                            <div className={`flex items-center justify-center gap-1 ${growth >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                                                                {growth >= 0 ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />}
+                                                                                {Math.round(Math.abs(growth))}%
+                                                                            </div>
+                                                                        </td>
                                                                         <td className="py-1 px-2 text-center text-gray-500">{totalSalesForContrib > 0 ? ((valCurr / totalSalesForContrib) * 100).toFixed(1) : 0}%</td>
                                                                     </tr>
                                                                 );
