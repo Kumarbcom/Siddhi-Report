@@ -3,8 +3,9 @@ import { SalesReportItem, CustomerMasterItem } from '../types';
 import {
     Users, TrendingUp, TrendingDown, UserPlus, UserCheck, UserMinus, RefreshCw,
     ArrowUp, ArrowDown, PieChart as PieIcon, DollarSign, Hash, Calendar,
-    Filter, Search, ChevronDown, ChevronUp, ChevronRight, BarChart3
+    Filter, Search, ChevronDown, ChevronUp, ChevronRight, BarChart3, Download
 } from 'lucide-react';
+import { utils, writeFile } from 'xlsx';
 
 interface CustomerFYAnalysisViewProps {
     salesReportItems: SalesReportItem[];
@@ -303,6 +304,34 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
         }));
     };
 
+    const handleExportToExcel = () => {
+        const totalFY2526 = filteredData.reduce((acc, c) => acc + c.fy202526.value, 0);
+
+        const dataToExport = filteredData.map(c => {
+            const growth = c.fy202425.value > 0 ? ((c.fy202526.value - c.fy202425.value) / c.fy202425.value) * 100 : 0;
+            const share = totalFY2526 > 0 ? (c.fy202526.value / totalFY2526) * 100 : 0;
+
+            return {
+                'Group': c.group,
+                'Customer Group': c.customerGroup,
+                'Customer Name': c.customerName,
+                'FY 23-24 Qty': c.fy202324.qty,
+                'FY 23-24 Value': c.fy202324.value,
+                'FY 24-25 Qty': c.fy202425.qty,
+                'FY 24-25 Value': c.fy202425.value,
+                'FY 25-26 Qty': c.fy202526.qty,
+                'FY 25-26 Value': c.fy202526.value,
+                'Trend %': growth.toFixed(2) + '%',
+                'Share %': share.toFixed(2) + '%'
+            };
+        });
+
+        const ws = utils.json_to_sheet(dataToExport);
+        const wb = utils.book_new();
+        utils.book_append_sheet(wb, ws, "Customer Analysis");
+        writeFile(wb, `Customer_FY_Analysis_FY${currentFY}.xlsx`);
+    };
+
     return (
         <div className="h-full overflow-y-auto custom-scrollbar bg-gradient-to-br from-blue-50 via-white to-indigo-50">
             <div className="max-w-[1800px] mx-auto p-6 space-y-6">
@@ -318,6 +347,13 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
                                 <Calendar className="w-4 h-4 text-blue-600" />
                                 <span className="text-xs font-bold text-blue-900">FY {currentFY}</span>
                             </div>
+                            <button
+                                onClick={handleExportToExcel}
+                                className="flex items-center gap-2 bg-green-50 px-4 py-2 rounded-xl border border-green-100 hover:bg-green-100 transition-colors"
+                            >
+                                <Download className="w-4 h-4 text-green-600" />
+                                <span className="text-xs font-bold text-green-700">Export Excel</span>
+                            </button>
                         </div>
                     </div>
 
