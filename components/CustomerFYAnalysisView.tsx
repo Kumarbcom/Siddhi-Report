@@ -42,12 +42,19 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
     const [searchTerm, setSearchTerm] = useState('');
     const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
 
-    const today = new Date();
-    const currentFY = getFiscalYear(today);
-    const currentFYStart = new Date(parseInt(currentFY.split('-')[0]), 3, 1); // April 1
+    // Calculate max date from sales data to determine YTD cutoff
+    const lastSalesDate = useMemo(() => {
+        let max = new Date(2025, 3, 1); // Default to start of FY 25-26
+        if (salesReportItems.length === 0) return new Date();
 
-    // Calculate YTD end date (today)
-    const ytdEnd = today;
+        salesReportItems.forEach(sale => {
+            const d = parseDate(sale.date);
+            if (d && d > max) max = d;
+        });
+        return max;
+    }, [salesReportItems]);
+
+    const currentFY = getFiscalYear(lastSalesDate);
 
     // Customer sales data by FY
     const customerSalesByFY = useMemo(() => {
@@ -63,6 +70,14 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
 
         // Get customer info from master
         const customerMap = new Map(customers.map(c => [c.customerName, c]));
+
+        // Pre-calculate date boundaries to avoid re-creation in loop
+        const fy24Start = new Date(2024, 3, 1); // Apr 1, 2024
+        const fy25Start = new Date(2025, 3, 1); // Apr 1, 2025
+
+        const currentYTDEnd = lastSalesDate;
+        // Previous YTD End is exactly 1 year before current YTD End
+        const prevYTDEnd = new Date(lastSalesDate.getFullYear() - 1, lastSalesDate.getMonth(), lastSalesDate.getDate());
 
         salesReportItems.forEach(sale => {
             const invoiceDate = parseDate(sale.date);
@@ -87,7 +102,7 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
             const qty = parseFloat(String(sale.quantity || 0));
             const value = parseFloat(String(sale.value || 0));
 
-            // Full FY data
+            // Full FY data accumulation (Fixed FY Buckets)
             if (fy === '2023-24') {
                 data[custName].fy202324.qty += qty;
                 data[custName].fy202324.value += value;
@@ -99,16 +114,15 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
                 data[custName].fy202526.value += value;
             }
 
-            // YTD data (April to today's date)
-            const fy2425Start = new Date(2024, 3, 1);
-            const fy2425YTDEnd = new Date(2024, ytdEnd.getMonth(), ytdEnd.getDate());
-            if (invoiceDate >= fy2425Start && invoiceDate <= fy2425YTDEnd) {
+            // YTD Logic: 
+            // YTD 24-25: Apr 1, 2024 to (LastSalesDate - 1 Year)
+            if (invoiceDate >= fy24Start && invoiceDate <= prevYTDEnd) {
                 data[custName].ytd202425.qty += qty;
                 data[custName].ytd202425.value += value;
             }
 
-            const fy2526Start = new Date(2025, 3, 1);
-            if (invoiceDate >= fy2526Start && invoiceDate <= ytdEnd) {
+            // YTD 25-26: Apr 1, 2025 to LastSalesDate
+            if (invoiceDate >= fy25Start && invoiceDate <= currentYTDEnd) {
                 data[custName].ytd202526.qty += qty;
                 data[custName].ytd202526.value += value;
             }
