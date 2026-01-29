@@ -201,23 +201,20 @@ const App: React.FC = () => {
   const loadAllData = async () => {
     try {
       setIsDbLoading(true);
+      console.log('🔄 Starting data load process (Optimized)...');
 
-      const [
-        localMats,
-        localCusts,
-        localStock,
-        localSO,
-        localPO,
-        localSales
-      ] = await Promise.all([
+      // 1. Load local data immediately
+      console.log('📂 Loading local data from IndexedDB...');
+      const [localMats, localCusts, localStock, localSO, localPO, localSales] = await Promise.all([
         dbService.getAll<Material>(STORES.MATERIALS),
         dbService.getAll<CustomerMasterItem>(STORES.CUSTOMERS),
         dbService.getAll<ClosingStockItem>(STORES.STOCK),
-        dbService.getAll<PendingSOItem>(STORES.SO),
         dbService.getAll<PendingPOItem>(STORES.PO),
+        dbService.getAll<PendingSOItem>(STORES.SO),
         dbService.getAll<SalesReportItem>(STORES.SALES)
       ]);
 
+      // 2. Render immediately with local data
       setMaterials(localMats);
       setCustomerMasterItems(localCusts);
       setClosingStockItems(localStock);
@@ -225,31 +222,55 @@ const App: React.FC = () => {
       setPendingPOItems(localPO);
       setSalesReportItems(localSales);
 
+      // Load stored charts data
       try {
         const storedS1Y = localStorage.getItem(STORAGE_KEY_SALES_1Y);
         if (storedS1Y) setSales1Year(JSON.parse(storedS1Y));
-      } catch (e) { console.error("Parse Error (Sales 1Y):", e); }
-
-      try {
         const storedS3M = localStorage.getItem(STORAGE_KEY_SALES_3M);
         if (storedS3M) setSales3Months(JSON.parse(storedS3M));
-      } catch (e) { console.error("Parse Error (Sales 3M):", e); }
+      } catch (e) { console.error("Parse Error:", e); }
 
+      // 3. Mark app as loaded so user sees UI immediately
       setIsDataLoaded(true);
       setIsDbLoading(false);
+      console.log('🚀 UI Unblocked - Local data rendered');
 
+      // 4. Start Cloud Sync in Background
       if (isSupabaseConfigured) {
+        console.log('☁️ Starting background cloud sync...');
         setDbStatus('connected');
         setIsSyncing(true);
-        const syncPromises = [
-          materialService.getAll().then(m => setMaterials(m)).catch(e => console.warn("Sync Error (Materials):", e)),
-          customerService.getAll().then(c => setCustomerMasterItems(c)).catch(e => console.warn("Sync Error (Customers):", e)),
-          stockService.getAll().then(s => setClosingStockItems(s)).catch(e => console.warn("Sync Error (Stock):", e)),
-          soService.getAll().then(s => setPendingSOItems(s)).catch(e => console.warn("Sync Error (SO):", e)),
-          poService.getAll().then(p => setPendingPOItems(p)).catch(e => console.warn("Sync Error (PO):", e)),
-          salesService.getAll().then(s => setSalesReportItems(s)).catch(e => console.warn("Sync Error (Sales):", e))
-        ];
-        Promise.all(syncPromises).finally(() => setIsSyncing(false));
+
+        try {
+          // Sync all data from Supabase
+          const [syncedMats, syncedCusts, syncedStock, syncedSO, syncedPO, syncedSales] = await Promise.all([
+            materialService.getAll().catch(e => { console.warn("Background Sync Error (Materials):", e); return localMats; }),
+            customerService.getAll().catch(e => { console.warn("Background Sync Error (Customers):", e); return localCusts; }),
+            stockService.getAll().catch(e => { console.warn("Background Sync Error (Stock):", e); return localStock; }),
+            soService.getAll().catch(e => { console.warn("Background Sync Error (SO):", e); return localSO; }),
+            poService.getAll().catch(e => { console.warn("Background Sync Error (PO):", e); return localPO; }),
+            salesService.getAll().catch(e => {
+              console.error("Background Sync Error (Sales):", e);
+              return localSales;
+            })
+          ]);
+
+          // Update state with fresh data
+          console.log('🔄 Updating state with synced cloud data...');
+          setMaterials(syncedMats);
+          setCustomerMasterItems(syncedCusts);
+          setClosingStockItems(syncedStock);
+          setPendingSOItems(syncedSO);
+          setPendingPOItems(syncedPO);
+          setSalesReportItems(syncedSales);
+
+          console.log('✅ Background sync complete.');
+        } catch (e) {
+          console.error("Background sync failed:", e);
+          setDbStatus('partial');
+        } finally {
+          setIsSyncing(false);
+        }
       } else {
         setDbStatus('unlinked');
       }
@@ -348,6 +369,18 @@ const App: React.FC = () => {
       }
     });
   };
+
+  const handleRefreshSales = async () => {
+    try {
+      const syncedSales = await salesService.getAll();
+      setSalesReportItems(syncedSales);
+      console.info(`✓ Sales data refreshed. Total records: ${syncedSales.length}`);
+    } catch (e: any) {
+      console.error("Sales refresh failed:", e);
+      throw new Error("Failed to sync sales data from cloud");
+    }
+  };
+
 
   const handleBulkAddCustomer = async (dataList: Omit<CustomerMasterItem, 'id' | 'createdAt'>[]) => {
     const newItems = await customerService.createBulk(dataList);
@@ -648,7 +681,7 @@ const App: React.FC = () => {
           <div className="absolute inset-0 flex items-center justify-center"><Database className="w-8 h-8 text-blue-600 animate-pulse" /></div>
         </div>
         <h2 className="mt-8 text-2xl font-black text-gray-900 uppercase tracking-tighter">Siddhi Kabel</h2>
-        <div className="mt-2 flex items-center gap-2 text-sm text-gray-500 font-bold uppercase tracking-widest"><Loader2 className="w-4 h-4 animate-spin" /><span>Verifying Systems...</span></div>
+        <div className="mt-2 flex items-center gap-2 text-sm text-gray-500 font-bold uppercase tracking-widest"><Loader2 className="w-4 h-4 animate-spin" /><span>Starting System...</span></div>
       </div>
     );
   }
@@ -664,6 +697,12 @@ const App: React.FC = () => {
         <div className="flex flex-col h-full w-full">
           {/* Logo Section */}
           <div className={`h-16 flex items-center ${isSidebarOpen ? 'justify-between px-6' : 'justify-center px-2'} border-b border-gray-100 transition-all`}>
+            {/* Sync Indicator */}
+            {isSyncing && (
+              <div className="absolute top-0 left-0 right-0 h-1 bg-blue-100 overflow-hidden">
+                <div className="h-full bg-blue-500 animate-progress-indeterminate"></div>
+              </div>
+            )}
             <div className={`flex items-center gap-3 overflow-hidden ${!isSidebarOpen && 'hidden'}`}>
               <div className={`transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100 min-w-0' : 'opacity-0 w-0 hidden'}`}>
                 <h1 className="text-sm font-bold text-gray-900 tracking-tight uppercase leading-none mb-1">Siddhi Kabel</h1>
@@ -840,7 +879,7 @@ const App: React.FC = () => {
             {activeTab === 'closingStock' && <div className="h-full w-full"><ClosingStockView isAdmin={isAdmin} items={closingStockItems} materials={materials} onBulkAdd={handleBulkAddStock} onUpdate={handleUpdateStock} onDelete={handleDeleteStock} onClear={handleClearStock} /></div>}
             {activeTab === 'pendingSO' && <div className="h-full w-full"><PendingSOView isAdmin={isAdmin} items={pendingSOItems} materials={materials} closingStockItems={closingStockItems} onBulkAdd={handleBulkAddSO} onUpdate={handleUpdateSO} onDelete={handleDeleteSO} onClear={handleClearSO} onAddMaterial={handleAddMaterial} /></div>}
             {activeTab === 'pendingPO' && <div className="h-full w-full"><PendingPOView isAdmin={isAdmin} items={pendingPOItems} materials={materials} closingStockItems={closingStockItems} pendingSOItems={pendingSOItems} salesReportItems={salesReportItems} onBulkAdd={handleBulkAddPO} onUpdate={handleUpdatePO} onDelete={handleDeletePO} onClear={handleClearPO} onAddMaterial={handleAddMaterial} /></div>}
-            {activeTab === 'salesReport' && <div className="h-full w-full"><SalesReportView isAdmin={isAdmin} items={salesReportItems} materials={materials} customers={customerMasterItems} onBulkAdd={handleBulkAddSales} onUpdate={handleUpdateSales} onDelete={handleDeleteSales} onClear={handleClearSales} onAddMaterial={handleAddMaterial} onAddCustomer={handleAddCustomer} /></div>}
+            {activeTab === 'salesReport' && <div className="h-full w-full"><SalesReportView isAdmin={isAdmin} items={salesReportItems} materials={materials} customers={customerMasterItems} onBulkAdd={handleBulkAddSales} onUpdate={handleUpdateSales} onDelete={handleDeleteSales} onClear={handleClearSales} onAddMaterial={handleAddMaterial} onAddCustomer={handleAddCustomer} onRefresh={handleRefreshSales} /></div>}
             {activeTab === 'customerFYAnalysis' && <div className="h-full w-full"><CustomerFYAnalysisView salesReportItems={salesReportItems} customers={customerMasterItems} /></div>}
             {activeTab === 'mom' && <div className="h-full w-full"><MOMView isAdmin={isAdmin} materials={materials} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} salesReportItems={salesReportItems} customers={customerMasterItems} /></div>}
             {activeTab === 'attendees' && <div className="h-full w-full"><AttendeeMasterView isAdmin={isAdmin} /></div>}

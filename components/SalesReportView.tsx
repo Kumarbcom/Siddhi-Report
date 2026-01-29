@@ -1,7 +1,7 @@
 
 import React, { useRef, useState, useMemo, useEffect, useDeferredValue } from 'react';
 import { SalesReportItem, Material, CustomerMasterItem } from '../types';
-import { Trash2, Download, Upload, Search, ArrowUpDown, ArrowUp, ArrowDown, FileBarChart, AlertTriangle, UserX, PackageX, Users, Package, FileWarning, FileDown, Loader2, ChevronLeft, ChevronRight, Filter, Calendar, CalendarRange, Layers, TrendingUp, TrendingDown, Minus, UserCheck, Target, BarChart2, AlertOctagon, DollarSign, Pencil, Save, X, Database, Plus, UserPlus } from 'lucide-react';
+import { Trash2, Download, Upload, Search, ArrowUpDown, ArrowUp, ArrowDown, FileBarChart, AlertTriangle, UserX, PackageX, Users, Package, FileWarning, FileDown, Loader2, ChevronLeft, ChevronRight, Filter, Calendar, CalendarRange, Layers, TrendingUp, TrendingDown, Minus, UserCheck, Target, BarChart2, AlertOctagon, DollarSign, Pencil, Save, X, Database, Plus, UserPlus, RefreshCw } from 'lucide-react';
 import { read, utils, writeFile } from 'xlsx';
 
 interface SalesReportViewProps {
@@ -14,6 +14,7 @@ interface SalesReportViewProps {
     onClear: () => void;
     onAddMaterial?: (data: any) => Promise<void>;
     onAddCustomer?: (data: any) => Promise<void>;
+    onRefresh?: () => Promise<void>;
     isAdmin?: boolean;
 }
 
@@ -53,6 +54,7 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
     onClear,
     onAddMaterial,
     onAddCustomer,
+    onRefresh,
     isAdmin = false
 }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -90,6 +92,7 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
     const [quickAddCustForm, setQuickAddCustForm] = useState<{ customerName: string; group: string; salesRep: string; status: string; customerGroup: string }>({ customerName: '', group: '', salesRep: '', status: 'Active', customerGroup: '' });
 
     const [isAdding, setIsAdding] = useState(false);
+    const [isRefreshing, setIsRefreshing] = useState(false);
 
     const handleOpenQuickAddMat = (item: EnrichedSalesItem) => {
         setQuickAddMatModal({ isOpen: true, item });
@@ -479,6 +482,20 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
         }, 100);
     };
 
+    const handleRefresh = async () => {
+        if (!onRefresh) return;
+        setIsRefreshing(true);
+        try {
+            await onRefresh();
+            alert("Data refreshed successfully!");
+        } catch (e: any) {
+            alert("Failed to refresh data: " + (e.message || "Unknown error"));
+        } finally {
+            setIsRefreshing(false);
+        }
+    };
+
+
     return (
         <div className="flex flex-col h-full gap-4 relative">
             {isProcessing && (<div className="absolute inset-0 z-50 bg-white/90 flex flex-col items-center justify-center backdrop-blur-sm rounded-xl"><Loader2 className="w-12 h-12 text-blue-600 animate-spin mb-4" /><h3 className="text-xl font-bold text-gray-800">{statusMessage}</h3>{uploadProgress !== null && (<div className="w-64 bg-gray-200 rounded-full h-3 mt-4"><div className="bg-blue-600 h-3 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div></div>)}</div>)}
@@ -521,6 +538,17 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                 <div className="flex items-center gap-4 pl-2"><div className="flex flex-col"><span className="text-[10px] text-gray-500 font-bold uppercase">Qty</span><span className="text-sm font-black text-blue-600">{totals.qty.toLocaleString()}</span></div><div className="w-px h-6 bg-gray-200"></div><div className="flex flex-col"><span className="text-[10px] text-gray-500 font-bold uppercase">Total Value</span><span className="text-sm font-black text-emerald-600">{formatCurrency(totals.val)}</span></div></div>
                 <div className="flex gap-2">
                     <input type="file" ref={fileInputRef} className="hidden" accept=".xlsx, .xls" onChange={handleFileUpload} />
+                    {onRefresh && (
+                        <button
+                            onClick={handleRefresh}
+                            disabled={isRefreshing}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-bold border border-indigo-100 hover:bg-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Sync data from cloud"
+                        >
+                            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                            {isRefreshing ? 'Syncing...' : 'Sync'}
+                        </button>
+                    )}
                     <button onClick={handleExportToExcel} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-xs font-bold border border-emerald-100 hover:bg-emerald-100"><Download className="w-3.5 h-3.5" /> Export</button>
                     {isAdmin && (
                         <>
