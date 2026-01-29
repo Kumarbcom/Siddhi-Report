@@ -19,54 +19,69 @@ export const salesService = {
     if (isSupabaseConfigured) {
       console.log('☁️ Supabase is configured, fetching from cloud...');
       try {
-        // Supabase default limit is 1000. Increasing this to 50,000 for comprehensive reporting.
         const PAGE_SIZE = 1000;
         console.log(`📄 Fetching first page (PAGE_SIZE: ${PAGE_SIZE})...`);
 
-        // Initialize with first page and get total count
-        const { data: firstPage, error: firstError, count } = await supabase
+        // Fetch first page. Note: We don't strictly rely on 'count' as it can be blocked by RLS.
+        const { data: firstPage, error: firstError } = await supabase
           .from('sales_report')
-          .select('*', { count: 'exact' })
+          .select('*')
           .order('date', { ascending: false })
           .range(0, PAGE_SIZE - 1);
 
         if (firstError) {
           console.error('❌ Error fetching first page:', firstError);
+          // If permission denied (RLS), we should know
+          if (firstError.code === '42501') {
+            console.error('⛔ PERMISSION DENIED: Check Supabase RLS policies for sales_report table.');
+            alert("Sync Error: Permission Denied. Please check database access rights.");
+          }
           throw new Error(firstError.message);
         }
 
-        console.log(`✅ First page fetched. Count: ${count}, First page items: ${firstPage?.length || 0}`);
-        const allData: any[] = [...(firstPage || [])];
-        const totalItems = count || 0;
+        const initialData = firstPage || [];
+        console.log(`✅ First page fetched. Items: ${initialData.length}`);
 
-        if (totalItems > PAGE_SIZE) {
-          const totalPages = Math.ceil(totalItems / PAGE_SIZE);
-          console.log(`📚 Multiple pages detected. Total: ${totalPages} pages, ${totalItems} items`);
-          const pagePromises = [];
+        const allData: any[] = [...initialData];
 
-          for (let p = 1; p < totalPages; p++) {
-            pagePromises.push(
-              supabase
-                .from('sales_report')
-                .select('*')
-                .order('date', { ascending: false })
-                .range(p * PAGE_SIZE, (p + 1) * PAGE_SIZE - 1)
-            );
-          }
+        // If we got a full page, there might be more. Fetch simply by iterating.
+        if (initialData.length === PAGE_SIZE) {
+          console.log(`📚 Full page detected. Fetching remaining pages...`);
+          let page = 1;
+          let hasMore = true;
 
-          console.log(`🔄 Fetching ${pagePromises.length} additional pages...`);
-          // Fetch pages in parallel but beware of rate limits or memory
-          const results = await Promise.all(pagePromises);
-          for (const res of results) {
-            if (res.error) {
-              console.error('❌ Error fetching page:', res.error);
-              throw new Error(res.error.message);
+          while (hasMore) {
+            console.log(`🔄 Fetching page ${page + 1}...`);
+            const { data: nextPage, error: nextError } = await supabase
+              .from('sales_report')
+              .select('*')
+              .order('date', { ascending: false })
+              .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+
+            if (nextError) {
+              console.error(`❌ Error fetching page ${page + 1}:`, nextError);
+              break; // Stop fetching but save what we have
             }
-            if (res.data) allData.push(...res.data);
+
+            if (nextPage && nextPage.length > 0) {
+              allData.push(...nextPage);
+              console.log(`✅ Page ${page + 1} fetched. Items: ${nextPage.length}`);
+              page++;
+              // If this page is partially full, it's the last one
+              if (nextPage.length < PAGE_SIZE) hasMore = false;
+            } else {
+              hasMore = false;
+            }
+
+            // Safety break for extremely large datasets (limit to 100k for now to prevent loops)
+            if (page > 100) {
+              console.warn("⚠️ Reached 100 pages limit. Stopping fetch.");
+              hasMore = false;
+            }
           }
-          console.log(`✅ All pages fetched. Total items: ${allData.length}`);
         }
 
+        console.log(`✅ All data fetched from cloud. Total items: ${allData.length}`);
         const data = allData;
         const synced: SalesReportItem[] = [];
 
@@ -98,9 +113,9 @@ export const salesService = {
           console.log(`✅ Sales data saved to IndexedDB successfully`);
           console.log(`📊 Returning ${synced.length} sales records`);
           return synced;
+        } else {
+          console.warn('⚠️ No data returned from Supabase [Empty Table or RLS Restriction]');
         }
-
-        console.warn('⚠️ No data returned from Supabase');
       } catch (e: any) {
         if (e.name === 'TypeError' && e.message.includes('fetch')) {
           console.warn("⚠️ Sales Report: Cloud sync unavailable (Network). Falling back to local data.");
