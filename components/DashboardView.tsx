@@ -638,7 +638,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 const moms = await momService.getAll();
                 if (moms && moms.length > 0) {
                     // Find the most recent MOM before targetDate
-                    const target = new Date(2026, 0, 1); // Matching hardcoded targetDate
+                    const target = new Date(); // Dynamic target date for benchmarks
                     const pastMoms = moms
                         .filter(m => new Date(m.date) < target && m.benchmarks)
                         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -1113,7 +1113,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             }
         });
 
-        const monthEnd = new Date(2026, 0, 31); // End of Jan 2026
+        const today = new Date();
+        const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0); // End of current month
 
         // 3. Pending SO
         pendingSO.forEach(item => {
@@ -1630,8 +1631,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     }, [pendingPO, materials]);
 
     const weeklyStats = useMemo(() => {
-        const targetDate = new Date(2026, 0, 1); // Jan 01, 2026
-        const prevDate = new Date(2025, 11, 24); // Dec 24, 2025
+        const targetDate = new Date();
+        targetDate.setHours(0, 0, 0, 0);
+        const prevDate = new Date(targetDate);
+        prevDate.setDate(targetDate.getDate() - 7); // 7 days ago
 
         // Define Weekly Gap for Current Week "MTD" (25.12.2025 - 31.12.2025)
         const weeklyGapStart = new Date(prevDate);
