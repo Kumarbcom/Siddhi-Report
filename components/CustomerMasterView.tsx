@@ -124,10 +124,15 @@ const CustomerMasterView: React.FC<CustomerMasterViewProps> = ({
     }
     if (sortConfig) {
       data.sort((a, b) => {
-        if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === 'asc' ? -1 : 1;
-        if (a[sortConfig.key] > b[sortConfig.key]) return sortConfig.direction === 'asc' ? 1 : -1;
-        return 0;
+        const valA = String((a as any)[sortConfig.key] || '');
+        const valB = String((b as any)[sortConfig.key] || '');
+        const cmp = valA.localeCompare(valB, undefined, { sensitivity: 'base' });
+        return sortConfig.direction === 'asc' ? cmp : -cmp;
       });
+    } else {
+      data.sort((a, b) =>
+        String(a.customerName || '').localeCompare(String(b.customerName || ''), undefined, { sensitivity: 'base' })
+      );
     }
     return data;
   }, [itemsWithSearch, deferredSearchTerm, sortConfig]);

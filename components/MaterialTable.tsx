@@ -117,9 +117,14 @@ const MaterialTable: React.FC<MaterialTableProps> = ({ materials, salesReportIte
       data.sort((a, b) => {
         const valA = String((a as any)[sortConfig.key] || '');
         const valB = String((b as any)[sortConfig.key] || '');
-        if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
-        if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
-        return 0;
+        const cmp = valA.localeCompare(valB, undefined, { numeric: true, sensitivity: 'base' });
+        return sortConfig.direction === 'asc' ? cmp : -cmp;
+      });
+    } else {
+      data.sort((a, b) => {
+        const valA = String(a.description || '');
+        const valB = String(b.description || '');
+        return valA.localeCompare(valB, undefined, { numeric: true, sensitivity: 'base' });
       });
     }
     return data;

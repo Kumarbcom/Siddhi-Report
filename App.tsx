@@ -329,6 +329,58 @@ const App: React.FC = () => {
     });
   };
 
+  const handleDeduplicateMaterials = () => {
+    if (!isAdmin) return;
+
+    // Group materials by trimmed, lowercase description
+    const groups = new Map<string, Material[]>();
+    materials.forEach(m => {
+      const key = (m.description || '').trim().toLowerCase();
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(m);
+    });
+
+    // Collect IDs to delete (all but the oldest in each group)
+    const toDelete: Material[] = [];
+    groups.forEach(group => {
+      if (group.length > 1) {
+        // Sort by createdAt ascending — keep the oldest (index 0)
+        const sorted = [...group].sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+        toDelete.push(...sorted.slice(1));
+      }
+    });
+
+    if (toDelete.length === 0) {
+      alert('No duplicates found! All material descriptions are unique.');
+      return;
+    }
+
+    setConfirmModal({
+      isOpen: true,
+      title: 'Remove Duplicate Materials?',
+      message: `Found ${toDelete.length} duplicate record(s) across ${groups.size} unique descriptions. The oldest record for each description will be kept. This action cannot be undone.`,
+      isDanger: true,
+      isLoading: false,
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, isLoading: true }));
+        try {
+          // Delete in batches to avoid overwhelming the API
+          const BATCH = 20;
+          for (let i = 0; i < toDelete.length; i += BATCH) {
+            await Promise.all(toDelete.slice(i, i + BATCH).map(m => materialService.delete(m.id)));
+          }
+          const deletedIds = new Set(toDelete.map(m => m.id));
+          setMaterials(prev => prev.filter(m => !deletedIds.has(m.id)));
+          setConfirmModal(prev => ({ ...prev, isOpen: false, isLoading: false }));
+          alert(`Done! Removed ${toDelete.length} duplicate record(s).`);
+        } catch (e: any) {
+          alert('Failed to remove duplicates: ' + (e.message || 'Unknown error'));
+          setConfirmModal(prev => ({ ...prev, isLoading: false }));
+        }
+      }
+    });
+  };
+
   const handleBulkAddSales = async (items: any) => {
     const newItems = await salesService.createBulk(items);
     setSalesReportItems(prev => [...newItems, ...prev]);
@@ -854,6 +906,7 @@ const App: React.FC = () => {
                         <button onClick={handleDownloadMaterialTemplate} className="flex items-center gap-1.5 px-3 py-1.5 text-gray-600 hover:text-blue-600 hover:bg-white rounded-lg text-[10px] font-black uppercase transition-all tracking-wider border-l border-gray-200"><Download className="w-3.5 h-3.5" /> Template</button>
                       </div>
                       <button onClick={() => materialFileInputRef.current?.click()} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-black shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all uppercase tracking-widest"><Upload className="w-4 h-4" /> Batch Import</button>
+                      {isAdmin && <button onClick={handleDeduplicateMaterials} className="flex items-center gap-1.5 px-3 py-2 text-orange-600 hover:bg-orange-50 rounded-xl transition-all text-[10px] font-black uppercase border border-orange-200" title="Remove Duplicate Materials"><Layers className="w-3.5 h-3.5" /> Deduplicate</button>}
                       {isAdmin && <button onClick={handleClearMaterials} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all" title="Clear Warehouse"><Trash2 className="w-4 h-4" /></button>}
                     </div>
                   </div>

@@ -29,7 +29,7 @@ export const materialService = {
         const { data: firstPage, error: firstError, count } = await supabase
           .from('material_master')
           .select('*', { count: 'exact' })
-          .order('material_code', { ascending: true })
+          .order('description', { ascending: true })
           .order('id', { ascending: true })
           .range(0, PAGE_SIZE - 1);
 
@@ -46,7 +46,7 @@ export const materialService = {
               supabase
                 .from('material_master')
                 .select('*')
-                .order('material_code', { ascending: true })
+                .order('description', { ascending: true })
                 .order('id', { ascending: true })
                 .range(p * PAGE_SIZE, (p + 1) * PAGE_SIZE - 1)
             );
