@@ -24,6 +24,7 @@ export const customerService = {
           .from('customer_master')
           .select('*', { count: 'exact' })
           .order('created_at', { ascending: false })
+          .order('id', { ascending: true })
           .range(0, PAGE_SIZE - 1);
 
         if (firstError) throw new Error(firstError.message);
@@ -40,6 +41,7 @@ export const customerService = {
                 .from('customer_master')
                 .select('*')
                 .order('created_at', { ascending: false })
+                .order('id', { ascending: true })
                 .range(p * PAGE_SIZE, (p + 1) * PAGE_SIZE - 1)
             );
           }

@@ -54,7 +54,7 @@ export const customerAnalysisService = {
 
         // Sorting
         const sortField = params.sortBy || 'fy_25_26_val';
-        query = query.order(sortField, { ascending: !params.sortDesc });
+        query = query.order(sortField, { ascending: !params.sortDesc }).order('id', { ascending: true });
 
         // Pagination
         const page = params.page || 0;

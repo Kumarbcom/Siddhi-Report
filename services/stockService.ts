@@ -23,6 +23,7 @@ export const stockService = {
           .from('closing_stock')
           .select('*', { count: 'exact' })
           .order('description', { ascending: true })
+          .order('id', { ascending: true })
           .range(0, PAGE_SIZE - 1);
 
         if (firstError) throw new Error(firstError.message);
@@ -39,6 +40,7 @@ export const stockService = {
                 .from('closing_stock')
                 .select('*')
                 .order('description', { ascending: true })
+                .order('id', { ascending: true })
                 .range(p * PAGE_SIZE, (p + 1) * PAGE_SIZE - 1)
             );
           }

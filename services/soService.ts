@@ -23,6 +23,7 @@ export const soService = {
           .from('pending_sales_orders')
           .select('*', { count: 'exact' })
           .order('created_at', { ascending: false })
+          .order('id', { ascending: true })
           .range(0, PAGE_SIZE - 1);
 
         if (firstError) throw new Error(firstError.message);
@@ -39,6 +40,7 @@ export const soService = {
                 .from('pending_sales_orders')
                 .select('*')
                 .order('created_at', { ascending: false })
+                .order('id', { ascending: true })
                 .range(p * PAGE_SIZE, (p + 1) * PAGE_SIZE - 1)
             );
           }

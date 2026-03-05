@@ -27,6 +27,8 @@ export const salesService = {
           .from('sales_report')
           .select('*')
           .order('date', { ascending: false })
+          .order('voucher_no', { ascending: false })
+          .order('id', { ascending: true })
           .range(0, PAGE_SIZE - 1);
 
         if (firstError) {
@@ -56,6 +58,8 @@ export const salesService = {
               .from('sales_report')
               .select('*')
               .order('date', { ascending: false })
+              .order('voucher_no', { ascending: false })
+              .order('id', { ascending: true })
               .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
             if (nextError) {

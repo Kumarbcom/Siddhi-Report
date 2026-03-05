@@ -314,9 +314,25 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
             data.sort((a, b) => {
                 const valA = a[sortConfig.key] as any;
                 const valB = b[sortConfig.key] as any;
+
+                if (sortConfig.key === 'voucherNo') {
+                    const cmp = String(valA || '').localeCompare(String(valB || ''), undefined, { numeric: true, sensitivity: 'base' });
+                    return sortConfig.direction === 'asc' ? cmp : -cmp;
+                }
+
                 if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
                 if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
                 return 0;
+            });
+        } else {
+            data.sort((a, b) => {
+                const dateA = new Date(a.date || 0).getTime();
+                const dateB = new Date(b.date || 0).getTime();
+                if (dateA !== dateB) return dateB - dateA;
+
+                const vA = String(a.voucherNo || '');
+                const vB = String(b.voucherNo || '');
+                return vB.localeCompare(vA, undefined, { numeric: true, sensitivity: 'base' });
             });
         }
         return data;
@@ -565,7 +581,7 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                         <thead className="sticky top-0 z-10 bg-gray-50 shadow-sm text-[10px] font-bold text-gray-500 uppercase tracking-tighter">
                             <tr className="border-b border-gray-200">
                                 <th className="py-2 px-3 whitespace-nowrap cursor-pointer hover:bg-gray-100" onClick={() => handleSort('date')}>Date {renderSortIcon('date')}</th>
-                                <th className="py-2 px-3 whitespace-nowrap">Voucher No.</th>
+                                <th className="py-2 px-3 whitespace-nowrap cursor-pointer hover:bg-gray-100" onClick={() => handleSort('voucherNo')}>Voucher No. {renderSortIcon('voucherNo')}</th>
                                 <th className="py-2 px-3 whitespace-nowrap">Voucher Ref. No.</th>
                                 <th className="py-2 px-3 whitespace-nowrap cursor-pointer hover:bg-gray-100" onClick={() => handleSort('customerName')}>Customer Name {renderSortIcon('customerName')}</th>
                                 <th className="py-2 px-3 whitespace-nowrap cursor-pointer hover:bg-gray-100" onClick={() => handleSort('particulars')}>Item Name {renderSortIcon('particulars')}</th>
