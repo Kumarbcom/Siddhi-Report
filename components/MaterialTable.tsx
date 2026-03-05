@@ -232,7 +232,22 @@ const MaterialTable: React.FC<MaterialTableProps> = ({ materials, salesReportIte
           </thead>
           <tbody className="text-[11px]">
             {processedMaterials.map((material, idx) => {
-              const salesInfo = salesMap.get(material.description.trim().toLowerCase()) || { total: 0, customers: new Set() };
+              // Match by description AND by partNo to cover both invoice styles
+              const descKey = (material.description || '').trim().toLowerCase();
+              const partKey = (material.partNo || '').trim().toLowerCase();
+              const byDesc = salesMap.get(descKey);
+              const byPart = partKey ? salesMap.get(partKey) : null;
+
+              let salesInfo: { total: number; customers: Set<string> };
+              if (byDesc && byPart && partKey !== descKey) {
+                // Merge both — union of customers, sum of qty
+                salesInfo = {
+                  total: byDesc.total + byPart.total,
+                  customers: new Set([...byDesc.customers, ...byPart.customers])
+                };
+              } else {
+                salesInfo = byDesc || byPart || { total: 0, customers: new Set() };
+              }
               return (
                 <tr key={material.id} className="hover:bg-blue-50/50 even:bg-gray-50/20 transition-colors group">
                   <td className="border border-gray-200 px-2 py-1 text-center text-gray-400 font-mono bg-gray-50/30">{idx + 1}</td>
@@ -260,7 +275,7 @@ const MaterialTable: React.FC<MaterialTableProps> = ({ materials, salesReportIte
                       {visibleColumns.materialCode && <td className="border border-gray-200 px-3 py-1 font-mono text-gray-400">{material.materialCode || '-'}</td>}
                       {visibleColumns.description && <td className="border border-gray-200 px-3 py-1 font-black text-gray-900 uppercase truncate max-w-[400px]" title={material.description}>{material.description}</td>}
                       {visibleColumns.partNo && <td className="border border-gray-200 px-3 py-1 font-mono text-gray-500">{material.partNo || '-'}</td>}
-                      {visibleColumns.salesQty && <td className="border border-gray-200 px-3 py-1 text-center font-bold text-green-700 bg-green-50/10">{salesInfo.total || 0}</td>}
+                      {visibleColumns.salesQty && <td className="border border-gray-200 px-3 py-1 text-center font-bold text-green-700 bg-green-50/10">{Math.round(salesInfo.total || 0).toLocaleString()}</td>}
                       {visibleColumns.customers && <td className="border border-gray-200 px-3 py-1 text-center font-bold text-blue-600 bg-green-50/10">{salesInfo.customers.size || 0}</td>}
                       <td className="border border-gray-200 px-3 py-1 text-right">
                         {isAdmin && (
