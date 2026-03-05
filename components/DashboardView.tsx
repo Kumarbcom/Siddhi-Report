@@ -1113,7 +1113,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             }
         });
 
-        const today = new Date();
         const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0); // End of current month
 
         // 3. Pending SO
@@ -1633,6 +1632,12 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     const weeklyStats = useMemo(() => {
         const targetDate = new Date();
         targetDate.setHours(0, 0, 0, 0);
+
+        // Find the most recent Wednesday (since weeks end on Wednesday)
+        const currentDay = targetDate.getDay();
+        const daysToSubtract = currentDay >= 3 ? currentDay - 3 : currentDay + 4;
+        targetDate.setDate(targetDate.getDate() - daysToSubtract);
+
         const prevDate = new Date(targetDate);
         prevDate.setDate(targetDate.getDate() - 7); // 7 days ago
 
