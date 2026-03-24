@@ -250,6 +250,11 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
         setSlicerGroup('ALL');
     };
 
+    const renderSortIcon = (key: SortPath) => {
+        if (!sortConfig || sortConfig.key !== key) return <ArrowUpDown className="w-2 h-2 text-gray-300 ml-1" />;
+        return sortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5 text-indigo-600 ml-1" /> : <ArrowDown className="w-2.5 h-2.5 text-indigo-600 ml-1" />;
+    };
+
     return (
         <div className="flex flex-col h-full gap-3">
             <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200 flex flex-col gap-3">
@@ -296,33 +301,33 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                                 <th colSpan={2} className="p-1 text-blue-700 text-center">Exp</th>
                             </tr>
                             <tr className="border-b cursor-pointer">
-                                <th onClick={() => handleHeaderSort('make')} className="p-2 border-r sticky left-0 bg-gray-50">Make</th>
-                                <th onClick={() => handleHeaderSort('materialGroup')} className="p-2 border-r sticky left-[6rem] bg-gray-50">Group</th>
-                                <th onClick={() => handleHeaderSort('description')} className="p-2 border-r sticky left-[12rem] bg-gray-50 min-w-[200px]">Description</th>
-                                <th onClick={() => handleHeaderSort('stock.qty')} className="p-2 text-right">Qty</th>
-                                <th onClick={() => handleHeaderSort('stock.val')} className="p-2 text-right border-r">Val</th>
-                                <th onClick={() => handleHeaderSort('so.curQty')} className="p-2 text-right text-orange-600">Cur</th>
-                                <th onClick={() => handleHeaderSort('so.schQty')} className="p-2 text-right text-orange-600">Sch</th>
-                                <th onClick={() => handleHeaderSort('so.qty')} className="p-2 text-right border-r">Tot</th>
-                                <th onClick={() => handleHeaderSort('po.curQty')} className="p-2 text-right text-purple-600">Cur</th>
-                                <th onClick={() => handleHeaderSort('po.schQty')} className="p-2 text-right text-purple-600">Sch</th>
-                                <th onClick={() => handleHeaderSort('po.qty')} className="p-2 text-right border-r">Tot</th>
-                                <th onClick={() => handleHeaderSort('net.qty')} className="p-2 text-right bg-gray-100">Qty</th>
-                                <th onClick={() => handleHeaderSort('net.val')} className="p-2 text-right border-r bg-gray-100">Val</th>
-                                <th onClick={() => handleHeaderSort('avg3m.qty')} className="p-2 text-right text-indigo-700">3M</th>
-                                <th onClick={() => handleHeaderSort('avg1y.qty')} className="p-2 text-right text-indigo-700">1Y</th>
-                                <th onClick={() => handleHeaderSort('growth.pct')} className="p-2 text-center border-r text-indigo-700">Trend</th>
-                                <th onClick={() => handleHeaderSort('levels.min.qty')} className="p-2 text-right text-emerald-700">Min</th>
-                                <th onClick={() => handleHeaderSort('levels.reorder.qty')} className="p-2 text-right text-emerald-700">Re</th>
-                                <th onClick={() => handleHeaderSort('levels.max.qty')} className="p-2 text-right border-r text-emerald-700">Max</th>
-                                <th onClick={() => handleHeaderSort('actions.excessStock.qty')} className="p-2 text-right">Qty</th>
-                                <th onClick={() => handleHeaderSort('actions.excessStock.val')} className="p-2 text-right border-r">Val</th>
-                                <th onClick={() => handleHeaderSort('actions.excessPO.qty')} className="p-2 text-right">Qty</th>
-                                <th onClick={() => handleHeaderSort('actions.excessPO.val')} className="p-2 text-right border-r">Val</th>
-                                <th onClick={() => handleHeaderSort('actions.poNeed.qty')} className="p-2 text-right">Qty</th>
-                                <th onClick={() => handleHeaderSort('actions.poNeed.val')} className="p-2 text-right border-r">Val</th>
-                                <th onClick={() => handleHeaderSort('actions.expedite.qty')} className="p-2 text-right">Qty</th>
-                                <th onClick={() => handleHeaderSort('actions.expedite.val')} className="p-2 text-right">Val</th>
+                                <th onClick={() => handleHeaderSort('make')} className="p-2 border-r sticky left-0 bg-gray-50">Make {renderSortIcon('make')}</th>
+                                <th onClick={() => handleHeaderSort('materialGroup')} className="p-2 border-r sticky left-[6rem] bg-gray-50">Group {renderSortIcon('materialGroup')}</th>
+                                <th onClick={() => handleHeaderSort('description')} className="p-2 border-r sticky left-[12rem] bg-gray-50 min-w-[200px]">Description {renderSortIcon('description')}</th>
+                                <th onClick={() => handleHeaderSort('stock.qty')} className="p-2 text-right">Qty {renderSortIcon('stock.qty')}</th>
+                                <th onClick={() => handleHeaderSort('stock.val')} className="p-2 text-right border-r">Val {renderSortIcon('stock.val')}</th>
+                                <th onClick={() => handleHeaderSort('so.curQty')} className="p-2 text-right text-orange-600">Cur {renderSortIcon('so.curQty')}</th>
+                                <th onClick={() => handleHeaderSort('so.schQty')} className="p-2 text-right text-orange-600">Sch {renderSortIcon('so.schQty')}</th>
+                                <th onClick={() => handleHeaderSort('so.qty')} className="p-2 text-right border-r">Tot {renderSortIcon('so.qty')}</th>
+                                <th onClick={() => handleHeaderSort('po.curQty')} className="p-2 text-right text-purple-600">Cur {renderSortIcon('po.curQty')}</th>
+                                <th onClick={() => handleHeaderSort('po.schQty')} className="p-2 text-right text-purple-600">Sch {renderSortIcon('po.schQty')}</th>
+                                <th onClick={() => handleHeaderSort('po.qty')} className="p-2 text-right border-r">Tot {renderSortIcon('po.qty')}</th>
+                                <th onClick={() => handleHeaderSort('net.qty')} className="p-2 text-right bg-gray-100">Qty {renderSortIcon('net.qty')}</th>
+                                <th onClick={() => handleHeaderSort('net.val')} className="p-2 text-right border-r bg-gray-100">Val {renderSortIcon('net.val')}</th>
+                                <th onClick={() => handleHeaderSort('avg3m.qty')} className="p-2 text-right text-indigo-700">3M {renderSortIcon('avg3m.qty')}</th>
+                                <th onClick={() => handleHeaderSort('avg1y.qty')} className="p-2 text-right text-indigo-700">1Y {renderSortIcon('avg1y.qty')}</th>
+                                <th onClick={() => handleHeaderSort('growth.pct')} className="p-2 text-center border-r text-indigo-700">Trend {renderSortIcon('growth.pct')}</th>
+                                <th onClick={() => handleHeaderSort('levels.min.qty')} className="p-2 text-right text-emerald-700">Min {renderSortIcon('levels.min.qty')}</th>
+                                <th onClick={() => handleHeaderSort('levels.reorder.qty')} className="p-2 text-right text-emerald-700">Re {renderSortIcon('levels.reorder.qty')}</th>
+                                <th onClick={() => handleHeaderSort('levels.max.qty')} className="p-2 text-right border-r text-emerald-700">Max {renderSortIcon('levels.max.qty')}</th>
+                                <th onClick={() => handleHeaderSort('actions.excessStock.qty')} className="p-2 text-right">Qty {renderSortIcon('actions.excessStock.qty')}</th>
+                                <th onClick={() => handleHeaderSort('actions.excessStock.val')} className="p-2 text-right border-r">Val {renderSortIcon('actions.excessStock.val')}</th>
+                                <th onClick={() => handleHeaderSort('actions.excessPO.qty')} className="p-2 text-right">Qty {renderSortIcon('actions.excessPO.qty')}</th>
+                                <th onClick={() => handleHeaderSort('actions.excessPO.val')} className="p-2 text-right border-r">Val {renderSortIcon('actions.excessPO.val')}</th>
+                                <th onClick={() => handleHeaderSort('actions.poNeed.qty')} className="p-2 text-right">Qty {renderSortIcon('actions.poNeed.qty')}</th>
+                                <th onClick={() => handleHeaderSort('actions.poNeed.val')} className="p-2 text-right border-r">Val {renderSortIcon('actions.poNeed.val')}</th>
+                                <th onClick={() => handleHeaderSort('actions.expedite.qty')} className="p-2 text-right">Qty {renderSortIcon('actions.expedite.qty')}</th>
+                                <th onClick={() => handleHeaderSort('actions.expedite.val')} className="p-2 text-right">Val {renderSortIcon('actions.expedite.val')}</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y text-[10px]">
