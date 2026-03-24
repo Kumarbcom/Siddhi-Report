@@ -287,11 +287,11 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                 <div className="overflow-auto h-full w-full">
                     <table className="w-full text-left border-collapse">
                         <thead className="sticky top-0 z-50 bg-gray-50 text-[9px] font-bold uppercase">
-                            <tr className="bg-gray-100 border-b">
-                                <th colSpan={3} className="p-1 border-r sticky left-0 bg-gray-100 text-center">Master</th>
-                                <th colSpan={2} className="p-1 border-r bg-blue-50/50 text-center">Stock</th>
-                                <th colSpan={3} className="p-1 border-r bg-orange-50/50 text-center">SO</th>
-                                <th colSpan={3} className="p-1 border-r bg-purple-50/50 text-center">PO</th>
+                            <tr className="bg-gray-100 border-b text-center">
+                                <th colSpan={3} className="p-1 border-r sticky left-0 z-20 bg-gray-100">Master Data</th>
+                                <th colSpan={2} className="p-1 border-r bg-blue-50/50">Stock Inventory</th>
+                                <th colSpan={3} className="p-1 border-r bg-orange-50/50">Sales (SO)</th>
+                                <th colSpan={3} className="p-1 border-r bg-purple-50/50">Purchases (PO)</th>
                                 <th colSpan={2} className="p-1 border-r bg-gray-200 text-center">Net</th>
                                 <th colSpan={3} className="p-1 border-r bg-indigo-50/50 text-center">Planning (Avg/Trend)</th>
                                 <th colSpan={3} className="p-1 border-r bg-emerald-50/50 text-center">Levels (Min/Re/Max)</th>
@@ -301,14 +301,14 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                                 <th colSpan={2} className="p-1 text-blue-700 text-center">Exp</th>
                             </tr>
                             <tr className="border-b cursor-pointer">
-                                <th onClick={() => handleHeaderSort('make')} className="p-2 border-r sticky left-0 bg-gray-50">Make {renderSortIcon('make')}</th>
-                                <th onClick={() => handleHeaderSort('materialGroup')} className="p-2 border-r sticky left-[6rem] bg-gray-50">Group {renderSortIcon('materialGroup')}</th>
-                                <th onClick={() => handleHeaderSort('description')} className="p-2 border-r sticky left-[12rem] bg-gray-50 min-w-[200px]">Description {renderSortIcon('description')}</th>
-                                <th onClick={() => handleHeaderSort('stock.qty')} className="p-2 text-right">Qty {renderSortIcon('stock.qty')}</th>
-                                <th onClick={() => handleHeaderSort('stock.val')} className="p-2 text-right border-r">Val {renderSortIcon('stock.val')}</th>
-                                <th onClick={() => handleHeaderSort('so.curQty')} className="p-2 text-right text-orange-600">Cur {renderSortIcon('so.curQty')}</th>
-                                <th onClick={() => handleHeaderSort('so.schQty')} className="p-2 text-right text-orange-600">Sch {renderSortIcon('so.schQty')}</th>
-                                <th onClick={() => handleHeaderSort('so.qty')} className="p-2 text-right border-r">Tot {renderSortIcon('so.qty')}</th>
+                                <th onClick={() => handleHeaderSort('make')} className="p-2 border-r sticky left-0 z-20 bg-gray-50 min-w-[70px]">Make {renderSortIcon('make')}</th>
+                                <th onClick={() => handleHeaderSort('materialGroup')} className="p-2 border-r sticky left-[70px] z-20 bg-gray-50 min-w-[150px]">Group {renderSortIcon('materialGroup')}</th>
+                                <th onClick={() => handleHeaderSort('description')} className="p-2 border-r sticky left-[220px] z-20 bg-gray-50 min-w-[250px]">Description {renderSortIcon('description')}</th>
+                                <th onClick={() => handleHeaderSort('stock.qty')} className="p-2 text-right bg-blue-50/20 min-w-[80px]">Qty {renderSortIcon('stock.qty')}</th>
+                                <th onClick={() => handleHeaderSort('stock.val')} className="p-2 text-right border-r bg-blue-50/20 min-w-[100px]">Val {renderSortIcon('stock.val')}</th>
+                                <th onClick={() => handleHeaderSort('so.curQty')} className="p-2 text-right text-orange-600 min-w-[60px]">Cur {renderSortIcon('so.curQty')}</th>
+                                <th onClick={() => handleHeaderSort('so.schQty')} className="p-2 text-right text-orange-600 min-w-[60px]">Sch {renderSortIcon('so.schQty')}</th>
+                                <th onClick={() => handleHeaderSort('so.qty')} className="p-2 text-right border-r min-w-[70px]">Tot {renderSortIcon('so.qty')}</th>
                                 <th onClick={() => handleHeaderSort('po.curQty')} className="p-2 text-right text-purple-600">Cur {renderSortIcon('po.curQty')}</th>
                                 <th onClick={() => handleHeaderSort('po.schQty')} className="p-2 text-right text-purple-600">Sch {renderSortIcon('po.schQty')}</th>
                                 <th onClick={() => handleHeaderSort('po.qty')} className="p-2 text-right border-r">Tot {renderSortIcon('po.qty')}</th>
@@ -333,10 +333,10 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                         <tbody className="divide-y text-[10px]">
                             {filteredData.slice(0, displayLimit).map((r, i) => (
                                 <tr key={i} className="hover:bg-gray-50">
-                                    <td className="p-1 border-r sticky left-0 bg-white">{r.make}</td>
-                                    <td className="p-1 border-r sticky left-[6rem] bg-white">{r.materialGroup}</td>
-                                    <td className="p-1 border-r sticky left-[12rem] bg-white truncate max-w-[200px] font-medium" title={r.description}>{r.description}</td>
-                                    <td className="p-1 text-right">{r.stock.qty || '-'}</td>
+                                    <td className="p-1 border-r sticky left-0 z-10 bg-white font-bold">{r.make}</td>
+                                    <td className="p-1 border-r sticky left-[70px] z-10 bg-white truncate max-w-[150px] text-gray-600" title={r.materialGroup}>{r.materialGroup}</td>
+                                    <td className="p-1 border-r sticky left-[220px] z-10 bg-white truncate max-w-[250px] font-medium" title={r.description}>{r.description}</td>
+                                    <td className="p-1 text-right bg-blue-50/5 font-bold">{r.stock.qty || '-'}</td>
                                     <td className="p-1 text-right border-r text-gray-500">{r.stock.val ? Math.round(r.stock.val).toLocaleString() : '-'}</td>
                                     <td className="p-1 text-right text-orange-600">{r.so.curQty || '-'}</td>
                                     <td className="p-1 text-right text-orange-400">{r.so.schQty || '-'}</td>
