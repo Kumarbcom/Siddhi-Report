@@ -150,8 +150,11 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
             let strategy = s1q * 12 >= 500 ? 'GENERAL STOCK' : (s1q > 0 ? 'AGAINST ORDER' : 'MADE TO ORDER');
             
             let min = 0, re = 0, max = 0;
-            if (isPl && strategy === 'GENERAL STOCK') {
-                min = roundToTen(a1q); re = roundToTen(a1q * 1.5); max = roundToTen(a1q * 3);
+            // Calculate levels for ALL items that have sales
+            if (a1q > 0) {
+                min = roundToTen(a1q); 
+                re = roundToTen(a1q * 1.5); 
+                max = roundToTen(a1q * 3);
             }
 
             const exStock = Math.max(0, stock.qty - (so.qty + max));
@@ -261,7 +264,7 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                                 <th colSpan={3} className="p-1 border-r bg-orange-50/50 text-center">SO</th>
                                 <th colSpan={3} className="p-1 border-r bg-purple-50/50 text-center">PO</th>
                                 <th colSpan={2} className="p-1 border-r bg-gray-200 text-center">Net</th>
-                                <th colSpan={2} className="p-1 border-r bg-indigo-50/50 text-center">Planning (Avg)</th>
+                                <th colSpan={3} className="p-1 border-r bg-indigo-50/50 text-center">Planning (Avg/Trend)</th>
                                 <th colSpan={3} className="p-1 border-r bg-emerald-50/50 text-center">Levels (Min/Re/Max)</th>
                                 <th colSpan={2} className="p-1 border-r text-red-700 text-center">Ex Stock</th>
                                 <th colSpan={2} className="p-1 border-r text-red-700 text-center">Ex PO</th>
@@ -283,7 +286,8 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                                 <th onClick={() => handleHeaderSort('net.qty')} className="p-2 text-right bg-gray-100">Qty</th>
                                 <th onClick={() => handleHeaderSort('net.val')} className="p-2 text-right border-r bg-gray-100">Val</th>
                                 <th onClick={() => handleHeaderSort('avg3m.qty')} className="p-2 text-right text-indigo-700">3M</th>
-                                <th onClick={() => handleHeaderSort('avg1y.qty')} className="p-2 text-right border-r text-indigo-700">1Y</th>
+                                <th onClick={() => handleHeaderSort('avg1y.qty')} className="p-2 text-right text-indigo-700">1Y</th>
+                                <th onClick={() => handleHeaderSort('growth.pct')} className="p-2 text-center border-r text-indigo-700">Trend</th>
                                 <th onClick={() => handleHeaderSort('levels.min.qty')} className="p-2 text-right text-emerald-700">Min</th>
                                 <th onClick={() => handleHeaderSort('levels.reorder.qty')} className="p-2 text-right text-emerald-700">Re</th>
                                 <th onClick={() => handleHeaderSort('levels.max.qty')} className="p-2 text-right border-r text-emerald-700">Max</th>
@@ -309,11 +313,19 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                                     <td className="p-1 text-right border-r font-bold">{r.po.qty || '-'}</td>
                                     <td className="p-1 text-right bg-gray-50 font-bold">{r.net.qty}</td>
                                     <td className="p-1 text-right border-r bg-gray-50">{Math.round(r.net.val).toLocaleString()}</td>
-                                    <td className="p-1 text-right text-indigo-700">{r.avg3m.qty > 0 ? r.avg3m.qty.toFixed(0) : '-'}</td>
-                                    <td className="p-1 text-right border-r text-indigo-700">{r.avg1y.qty > 0 ? r.avg1y.qty.toFixed(0) : '-'}</td>
-                                    <td className="p-1 text-right text-emerald-700">{r.levels.min.qty || '-'}</td>
-                                    <td className="p-1 text-right text-emerald-700">{r.levels.reorder.qty || '-'}</td>
-                                    <td className="p-1 text-right border-r text-emerald-700">{r.levels.max.qty || '-'}</td>
+                                    <td className="p-1 text-right text-indigo-700">{r.avg3m.qty > 0 ? r.avg3m.qty.toFixed(1) : '0'}</td>
+                                    <td className="p-1 text-right text-indigo-700">{r.avg1y.qty > 0 ? r.avg1y.qty.toFixed(1) : '0'}</td>
+                                    <td className="p-1 text-center border-r text-[8px] font-black">
+                                        {r.avg1y.qty > 0 && (
+                                            <div className={`flex items-center justify-center gap-0.5 ${r.growth.pct >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                {r.growth.pct >= 0 ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />}
+                                                <span>{Math.abs(Math.round(r.growth.pct))}%</span>
+                                            </div>
+                                        )}
+                                    </td>
+                                    <td className="p-1 text-right text-emerald-700 font-bold">{r.levels.min.qty || '0'}</td>
+                                    <td className="p-1 text-right text-emerald-700 font-bold">{r.levels.reorder.qty || '0'}</td>
+                                    <td className="p-1 text-right border-r text-emerald-700 font-bold">{r.levels.max.qty || '0'}</td>
                                     <td className="p-1 text-right text-red-600 font-bold">{r.actions.excessStock.qty || ''}</td>
                                     <td className="p-1 text-right border-r text-red-300">{r.actions.excessStock.val ? Math.round(r.actions.excessStock.val).toLocaleString() : ''}</td>
                                     <td className="p-1 text-right text-red-600 font-bold">{r.actions.excessPO.qty || ''}</td>
@@ -325,7 +337,7 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                                 </tr>
                             ))}
                             {filteredData.length > displayLimit && (
-                                <tr><td colSpan={26} className="p-4 text-center"><button onClick={() => setDisplayLimit(d => d + 200)} className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-xs font-bold shadow-md">Load More ({filteredData.length - displayLimit})</button></td></tr>
+                                <tr><td colSpan={27} className="p-4 text-center"><button onClick={() => setDisplayLimit(d => d + 200)} className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-xs font-bold shadow-md">Load More ({filteredData.length - displayLimit})</button></td></tr>
                             )}
                         </tbody>
                     </table>
