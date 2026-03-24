@@ -3,6 +3,7 @@ import React, { useMemo, useState } from 'react';
 import { Material, ClosingStockItem, PendingSOItem, PendingPOItem, SalesReportItem } from '../types';
 import { FileDown, Search, ArrowUp, ArrowDown, Filter, AlertTriangle, Minus, ArrowUpDown, Layers, AlignLeft, Eye, EyeOff } from 'lucide-react';
 import { utils, writeFile } from 'xlsx';
+import { fastSalesService } from '../services/fastSalesService';
 
 interface PivotReportViewProps {
     materials: Material[];
@@ -14,29 +15,14 @@ interface PivotReportViewProps {
 }
 
 const PLANNED_STOCK_GROUPS = new Set([
-    "eaton-ace",
-    "eaton-biesse",
-    "eaton-coffee day",
-    "eaton-enrx pvt ltd",
-    "eaton-eta technology",
-    "eaton-faively",
-    "eaton-planned stock specific customer",
-    "eaton-probat india",
-    "eaton-rinac",
-    "eaton-schenck process",
-    "eaton-planned stock general",
-    "hager-incap contracting",
-    "lapp-ace group",
-    "lapp-ams group",
-    "lapp-disa india",
-    "lapp-engineered customized control",
-    "lapp-kennametal",
-    "lapp-planned stock general",
-    "lapp-rinac",
-    "lapp-titan"
+    "eaton-ace", "eaton-biesse", "eaton-coffee day", "eaton-enrx pvt ltd",
+    "eaton-eta technology", "eaton-faively", "eaton-planned stock specific customer",
+    "eaton-probat india", "eaton-rinac", "eaton-schenck process",
+    "eaton-planned stock general", "hager-incap contracting", "lapp-ace group",
+    "lapp-ams group", "lapp-disa india", "lapp-engineered customized control",
+    "lapp-kennametal", "lapp-planned stock general", "lapp-rinac", "lapp-titan"
 ]);
 
-// --- Helper: Round UP to nearest 10 ---
 const roundToTen = (num: number) => {
     if (num <= 0) return 0;
     return Math.ceil(num / 10) * 10;
@@ -50,7 +36,6 @@ const getMergedMakeName = (makeName: string) => {
     return m;
 };
 
-// --- Helper: Format Large Values ---
 const formatLargeValue = (val: number) => {
     if (val === 0) return '-';
     const absVal = Math.abs(val);
@@ -59,39 +44,19 @@ const formatLargeValue = (val: number) => {
     return Math.round(val).toLocaleString('en-IN');
 };
 
-// --- Helper: Robust Date Parsing ---
 const parseDate = (val: any): Date => {
-    if (!val) return new Date(0); // Return epoch if invalid
+    if (!val) return new Date(0);
     if (val instanceof Date) return val;
-    if (typeof val === 'number') {
-        // Use Math.round to get the nearest whole day and compensate for floating point errors
-        // Excel serial date: days since 1900-01-01 (with 1900 leap year bug, offset is 25568)
-        return new Date((Math.round(val) - 25568) * 86400 * 1000);
-    }
-    if (val instanceof Date) {
-        // Add 12 hours nudge to handle 23:59:59 precision issues
-        return new Date(val.getTime() + (12 * 60 * 60 * 1000));
-    }
-    if (typeof val === 'string') {
-        const d = new Date(val);
-        if (!isNaN(d.getTime())) return d;
-        // Try DD-MM-YYYY or DD/MM/YYYY common in exports
-        const parts = val.split(/[-/.]/);
-        if (parts.length === 3) {
-            // Try assuming DD-MM-YYYY first (common in IN/UK)
-            const d2 = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
-            if (!isNaN(d2.getTime())) return d2;
-        }
-    }
-    return new Date(0);
+    if (typeof val === 'number') return new Date((Math.round(val) - 25568) * 86400 * 1000);
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? new Date(0) : d;
 };
 
-// --- Type for Sort Keys ---
 type SortPath =
     | 'description' | 'make' | 'materialGroup'
     | 'stock.qty' | 'stock.val'
-    | 'so.qty' | 'so.val'
-    | 'po.qty' | 'po.val'
+    | 'so.qty' | 'so.val' | 'so.curQty' | 'so.schQty'
+    | 'po.qty' | 'po.val' | 'po.curQty' | 'po.schQty'
     | 'net.qty' | 'net.val'
     | 'avg3m.qty' | 'avg3m.val'
     | 'avg1y.qty' | 'avg1y.val'
@@ -102,745 +67,253 @@ type SortPath =
     | 'actions.excessStock.qty' | 'actions.excessStock.val'
     | 'actions.excessPO.qty' | 'actions.excessPO.val'
     | 'actions.poNeed.qty' | 'actions.poNeed.val'
-    | 'actions.expedite.qty' | 'actions.expedite.val'
-    | 'so.curQty' | 'so.schQty'
-    | 'po.curQty' | 'po.schQty';
+    | 'actions.expedite.qty' | 'actions.expedite.val';
 
 const PivotReportView: React.FC<PivotReportViewProps> = ({
-    materials,
-    closingStock,
-    pendingSO,
-    pendingPO,
-    salesReportItems,
-    isAdmin = false
+    materials, closingStock, pendingSO, pendingPO, salesReportItems, isAdmin = false
 }) => {
     const [searchTerm, setSearchTerm] = useState('');
-
-    // Slicers
     const [slicerMake, setSlicerMake] = useState('ALL');
     const [slicerGroup, setSlicerGroup] = useState('ALL');
     const [filterDescription, setFilterDescription] = useState('');
-
-    // Toggles
     const [showExcessStock, setShowExcessStock] = useState(false);
     const [showExcessPO, setShowExcessPO] = useState(false);
     const [showPONeed, setShowPONeed] = useState(false);
     const [showExpedite, setShowExpedite] = useState(false);
-
-    // Sorting State
+    const [showPlanningColumns, setShowPlanningColumns] = useState(true);
+    const [displayLimit, setDisplayLimit] = useState(100);
     const [sortConfig, setSortConfig] = useState<{ key: SortPath; direction: 'asc' | 'desc' }>({
         key: 'stock.val',
         direction: 'desc'
     });
 
-    const [showPlanningColumns, setShowPlanningColumns] = useState(true);
-
-    // --- Core Calculation Logic ---
     const pivotData = useMemo(() => {
-        // 1. Create Index Maps for fast lookup
+        const salesSummaries = fastSalesService.getSummaries(salesReportItems);
         const stockMap = new Map<string, { qty: number; val: number }>();
-        closingStock.forEach(i => {
-            if (!i.description) return;
-            const key = i.description.toLowerCase().trim();
+        closingStock.forEach(item => {
+            if (!item.description) return;
+            const key = item.description.toLowerCase().trim();
             const existing = stockMap.get(key) || { qty: 0, val: 0 };
-            stockMap.set(key, { qty: existing.qty + (i.quantity || 0), val: existing.val + (i.value || 0) });
+            stockMap.set(key, { qty: existing.qty + (item.quantity || 0), val: existing.val + (item.value || 0) });
         });
 
-        const soMap = new Map<string, { qty: number; val: number; curQty: number; curVal: number; schQty: number; schVal: number }>();
-        
-        // Fast date cache for dates heavily used
-        const dateCache = new Map<any, number>();
-        const getDateFast = (val: any) => {
-            if (!val) return 0;
-            if (dateCache.has(val)) return dateCache.get(val)!;
-            const res = parseDate(val).getTime();
-            dateCache.set(val, res);
-            return res;
-        };
+        const soMap = new Map<string, any>();
+        const poMap = new Map<string, any>();
+        const todayT = new Date().setHours(0, 0, 0, 0);
 
-        const todayTimestamp = new Date().setHours(0, 0, 0, 0);
-
-        pendingSO.forEach(i => {
-            if (!i.itemName) return;
-            const key = i.itemName.toLowerCase().trim();
-            const existing = soMap.get(key) || { qty: 0, val: 0, curQty: 0, curVal: 0, schQty: 0, schVal: 0 };
-            const val = (i.balanceQty || 0) * (i.rate || 0);
-
-            let isCurrent = true;
-            if (i.dueDate) {
-                const dueTime = getDateFast(i.dueDate);
-                if (dueTime > todayTimestamp) {
-                    isCurrent = false;
-                }
-            }
-
-            if (isCurrent) {
-                soMap.set(key, {
-                    ...existing,
-                    qty: existing.qty + (i.balanceQty || 0),
-                    val: existing.val + val,
-                    curQty: existing.curQty + (i.balanceQty || 0),
-                    curVal: existing.curVal + val
-                });
-            } else {
-                soMap.set(key, {
-                    ...existing,
-                    qty: existing.qty + (i.balanceQty || 0),
-                    val: existing.val + val,
-                    schQty: existing.schQty + (i.balanceQty || 0),
-                    schVal: existing.schVal + val
-                });
-            }
+        pendingSO.forEach(item => {
+            if (!item.itemName) return;
+            const key = item.itemName.toLowerCase().trim();
+            const ex = soMap.get(key) || { qty: 0, val: 0, curQty: 0, curVal: 0, schQty: 0, schVal: 0 };
+            const v = (item.balanceQty || 0) * (item.rate || 0);
+            const due = item.dueDate ? parseDate(item.dueDate).getTime() : 0;
+            const isCur = due <= todayT;
+            ex.qty += (item.balanceQty || 0); ex.val += v;
+            if (isCur) { ex.curQty += (item.balanceQty || 0); ex.curVal += v; }
+            else { ex.schQty += (item.balanceQty || 0); ex.schVal += v; }
+            soMap.set(key, ex);
         });
 
-        const poMap = new Map<string, { qty: number; val: number; curQty: number; curVal: number; schQty: number; schVal: number }>();
-        pendingPO.forEach(i => {
-            if (!i.itemName) return;
-            const key = i.itemName.toLowerCase().trim();
-            const existing = poMap.get(key) || { qty: 0, val: 0, curQty: 0, curVal: 0, schQty: 0, schVal: 0 };
-            const val = (i.balanceQty || 0) * (i.rate || 0);
-
-            let isCurrent = true;
-            if (i.dueDate) {
-                const dueTime = getDateFast(i.dueDate);
-                if (dueTime > todayTimestamp) {
-                    isCurrent = false;
-                }
-            }
-
-            if (isCurrent) {
-                poMap.set(key, {
-                    ...existing,
-                    qty: existing.qty + (i.balanceQty || 0),
-                    val: existing.val + val,
-                    curQty: existing.curQty + (i.balanceQty || 0),
-                    curVal: existing.curVal + val
-                });
-            } else {
-                poMap.set(key, {
-                    ...existing,
-                    qty: existing.qty + (i.balanceQty || 0),
-                    val: existing.val + val,
-                    schQty: existing.schQty + (i.balanceQty || 0),
-                    schVal: existing.schVal + val
-                });
-            }
+        pendingPO.forEach(item => {
+            if (!item.itemName) return;
+            const key = item.itemName.toLowerCase().trim();
+            const ex = poMap.get(key) || { qty: 0, val: 0, curQty: 0, curVal: 0, schQty: 0, schVal: 0 };
+            const v = (item.balanceQty || 0) * (item.rate || 0);
+            const due = item.dueDate ? parseDate(item.dueDate).getTime() : 0;
+            const isCur = due <= todayT;
+            ex.qty += (item.balanceQty || 0); ex.val += v;
+            if (isCur) { ex.curQty += (item.balanceQty || 0); ex.curVal += v; }
+            else { ex.schQty += (item.balanceQty || 0); ex.schVal += v; }
+            poMap.set(key, ex);
         });
 
-        // 2. Date Ranges for Sales
-        const now = new Date();
-        const threeMonthsAgo = new Date();
-        threeMonthsAgo.setMonth(now.getMonth() - 3);
-        const oneYearAgo = new Date();
-        oneYearAgo.setFullYear(now.getFullYear() - 1);
-
-        const oneYearAgoTime = oneYearAgo.getTime();
-        const threeMonthsAgoTime = threeMonthsAgo.getTime();
-
-        const sales3mMap = new Map<string, { qty: number; val: number }>();
-        const sales1yMap = new Map<string, { qty: number; val: number }>();
-
-        salesReportItems.forEach(i => {
-            if (!i.particulars) return;
-            const key = i.particulars.toLowerCase().trim();
-            const time = getDateFast(i.date);
-
-            // 1 Year Data
-            if (time >= oneYearAgoTime) {
-                const ex1 = sales1yMap.get(key) || { qty: 0, val: 0 };
-                sales1yMap.set(key, { qty: ex1.qty + (i.quantity || 0), val: ex1.val + (i.value || 0) });
-
-                // 3 Months Data (Subset)
-                if (time >= threeMonthsAgoTime) {
-                    const ex3 = sales3mMap.get(key) || { qty: 0, val: 0 };
-                    sales3mMap.set(key, { qty: ex3.qty + (i.quantity || 0), val: ex3.val + (i.value || 0) });
-                }
-            }
-        });
-
-        // 3. Build Rows
-        const rawRows = materials.map(mat => {
-            const descriptionKey = mat.description ? mat.description.toLowerCase().trim() : '';
-            const partNoKey = mat.partNo ? mat.partNo.toLowerCase().trim() : '';
-
-            // Normalize Make and Group for consistent filtering
-            // CLUBBED: Normalizing Make to uppercase to merge 'Lapp' and 'LAPP'
-            const normalizedMake = getMergedMakeName(mat.make || 'UNSPECIFIED').toUpperCase();
-            const normalizedGroup = String(mat.materialGroup || '').trim() || 'Unspecified';
-
-            const stock = stockMap.get(descriptionKey) || { qty: 0, val: 0 };
-            const so = soMap.get(descriptionKey) || { qty: 0, val: 0, curQty: 0, curVal: 0, schQty: 0, schVal: 0 };
-            const po = poMap.get(descriptionKey) || { qty: 0, val: 0, curQty: 0, curVal: 0, schQty: 0, schVal: 0 };
-
+        const results = materials.map(mat => {
+            const dKey = mat.description?.toLowerCase().trim() || '';
+            const pKey = mat.partNo?.toLowerCase().trim() || '';
+            const stock = stockMap.get(dKey) || { qty: 0, val: 0 };
+            const so = soMap.get(dKey) || { qty: 0, val: 0, curQty: 0, curVal: 0, schQty: 0, schVal: 0 };
+            const po = poMap.get(dKey) || { qty: 0, val: 0, curQty: 0, curVal: 0, schQty: 0, schVal: 0 };
             const netQty = stock.qty + po.qty - so.qty;
+            let rate = stock.qty > 0 ? stock.val / stock.qty : (po.qty > 0 ? po.val / po.qty : (so.qty > 0 ? so.val / so.qty : 0));
+            
+            const sD = salesSummaries.get(dKey);
+            const sP = pKey ? salesSummaries.get(pKey) : null;
+            let s3q = (sD?.qty3m || 0) + (sP && sP !== sD ? sP.qty3m : 0);
+            let s1q = (sD?.qty1y || 0) + (sP && sP !== sD ? sP.qty1y : 0);
+            let s3v = (sD?.val3m || 0) + (sP && sP !== sD ? sP.val3m : 0);
+            let s1v = (sD?.val1y || 0) + (sP && sP !== sD ? sP.val1y : 0);
 
-            // Estimate Rate (Stock Valuation Rate)
-            let avgRate = 0;
-            if (stock.qty > 0) avgRate = stock.val / stock.qty;
-            else if (po.qty > 0) avgRate = po.val / po.qty;
-            else if (so.qty > 0) avgRate = so.val / so.qty;
-
-            const netVal = netQty * avgRate;
-
-            // Sales Averages (Dual Match Logic: Part No + Description)
-            // --- 3 Months ---
-            const s3Part = sales3mMap.get(partNoKey) || { qty: 0, val: 0 };
-            const s3Desc = sales3mMap.get(descriptionKey) || { qty: 0, val: 0 };
-
-            let s3TotalQty = 0;
-            let s3TotalVal = 0;
-
-            if (partNoKey && descriptionKey && partNoKey !== descriptionKey) {
-                s3TotalQty = s3Part.qty + s3Desc.qty;
-                s3TotalVal = s3Part.val + s3Desc.val;
-            } else {
-                // If keys same or one missing, prefer Desc match as primary, fallback to Part
-                const bestMatch = s3Desc.qty > 0 ? s3Desc : s3Part;
-                s3TotalQty = bestMatch.qty;
-                s3TotalVal = bestMatch.val;
+            const a3q = s3q / 3; const a1q = s1q / 12;
+            const r1y = s1q > 0 ? s1v / s1q : rate;
+            const grp = String(mat.materialGroup || '').trim() || 'Unspecified';
+            const isPl = PLANNED_STOCK_GROUPS.has(grp.toLowerCase());
+            let strategy = s1q * 12 >= 500 ? 'GENERAL STOCK' : (s1q > 0 ? 'AGAINST ORDER' : 'MADE TO ORDER');
+            
+            let min = 0, re = 0, max = 0;
+            if (isPl && strategy === 'GENERAL STOCK') {
+                min = roundToTen(a1q); re = roundToTen(a1q * 1.5); max = roundToTen(a1q * 3);
             }
 
-            // NO ROUNDING for Sales Averages
-            const avg3mQty = s3TotalQty / 3;
-            // Determine 3M Rate: Use actual sales rate if available, else fallback to inventory avgRate
-            const rate3m = s3TotalQty > 0 ? s3TotalVal / s3TotalQty : avgRate;
-            const avg3mVal = avg3mQty * rate3m;
-
-            // --- 1 Year ---
-            const s1Part = sales1yMap.get(partNoKey) || { qty: 0, val: 0 };
-            const s1Desc = sales1yMap.get(descriptionKey) || { qty: 0, val: 0 };
-
-            let s1TotalQty = 0;
-            let s1TotalVal = 0;
-
-            if (partNoKey && descriptionKey && partNoKey !== descriptionKey) {
-                s1TotalQty = s1Part.qty + s1Desc.qty;
-                s1TotalVal = s1Part.val + s1Desc.val;
-            } else {
-                const bestMatch = s1Desc.qty > 0 ? s1Desc : s1Part;
-                s1TotalQty = bestMatch.qty;
-                s1TotalVal = bestMatch.val;
-            }
-
-            // NO ROUNDING for Sales Averages
-            const avg1yQty = s1TotalQty / 12;
-            // Determine 1Y Rate: Use actual sales rate if available, else fallback to inventory avgRate
-            const rate1y = s1TotalQty > 0 ? s1TotalVal / s1TotalQty : avgRate;
-            const avg1yVal = avg1yQty * rate1y;
-
-            const diffQty = avg3mQty - avg1yQty;
-            const growthPct = avg1yQty > 0 ? (diffQty / avg1yQty) * 100 : 0;
-
-            // Stock Norms Logic
-            // Only apply norms if Material Group is in the allowed list AND it's a moving item with enough volume
-            const isPlannedStock = PLANNED_STOCK_GROUPS.has(normalizedGroup.toLowerCase());
-            const totalYearlyQty = avg1yQty * 12;
-
-            // Strategy classification for Pivot Report
-            let strategy = 'MADE TO ORDER';
-            if (totalYearlyQty >= 500) strategy = 'GENERAL STOCK';
-            else if (totalYearlyQty > 0) strategy = 'AGAINST ORDER';
-
-            let minStock = 0;
-            let minStockVal = 0;
-            let reorderStock = 0;
-            let reorderStockVal = 0;
-            let maxStock = 0;
-            let maxStockVal = 0;
-
-            // Apply norms only for GENERAL STOCK strategy items within planned groups
-            if (isPlannedStock && strategy === 'GENERAL STOCK') {
-                // Rules: 
-                // 1. Min/Reorder/Max Qty -> Round Up to nearest 10
-                // 2. Min/Reorder/Max Val -> Use Sales Rate (rate1y) to determine value
-                minStock = roundToTen(avg1yQty);
-                minStockVal = minStock * rate1y;
-
-                reorderStock = roundToTen(avg1yQty * 1.5);
-                reorderStockVal = reorderStock * rate1y;
-
-                maxStock = roundToTen(avg1yQty * 3);
-                maxStockVal = maxStock * rate1y;
-            }
-
-            // Actions
-            const excessStockThreshold = so.qty + maxStock;
-            const excessStockQty = Math.max(0, stock.qty - excessStockThreshold);
-            const excessStockVal = excessStockQty * avgRate; // Use Inventory Rate for Excess Stock Value (as it sits in stock)
-
-            // Fix: Excess PO Logic
-            // Calculate Total Excess = (Stock + PO - SO) - Max Stock
-            const totalProjectedExcess = Math.max(0, netQty - maxStock);
-            // Excess PO = Total Excess - Excess Stock (Only count the PO portion of the excess)
-            const excessPOQty = Math.max(0, totalProjectedExcess - excessStockQty);
-            const excessPOVal = excessPOQty * avgRate; // Use Inventory Rate (PO rate approx)
-
-            const deficit = maxStock - netQty;
-            const poNeedQty = deficit > 0 ? deficit : 0;
-            const poNeedVal = poNeedQty * avgRate;
-
-            // Updated Expedite Logic: (Current Due + Max Stock) - Current Stock
-            // Filter: Only if gap > 0
-            const expediteTarget = so.curQty + maxStock;
-            const expediteGap = expediteTarget - stock.qty;
-
-            // We can only expedite what is pending in POs
-            // Should we expedite Current POs or All POs? Usually any PO can be expedited to meet immediate demand.
-            // Logic: Shortage = expediteGap. Available to expedited = po.qty.
-            const expediteQty = (expediteGap > 0 && po.qty > 0) ? Math.min(po.qty, expediteGap) : 0;
-            const expediteVal = expediteQty * avgRate;
+            const exStock = Math.max(0, stock.qty - (so.qty + max));
+            const exPO = Math.max(0, (netQty - max) - exStock);
+            const poNeed = Math.max(0, max - netQty);
+            const expGap = (so.curQty + max) - stock.qty;
+            const expQty = (expGap > 0 && po.qty > 0) ? Math.min(po.qty, expGap) : 0;
 
             return {
                 ...mat,
-                make: normalizedMake,
-                materialGroup: normalizedGroup,
-                stock, so, po, net: { qty: netQty, val: netVal },
-                avg3m: { qty: avg3mQty, val: avg3mVal },
-                avg1y: { qty: avg1yQty, val: avg1yVal },
-                growth: { diff: diffQty, pct: growthPct },
-                levels: {
-                    min: { qty: minStock, val: minStockVal },
-                    reorder: { qty: reorderStock, val: reorderStockVal },
-                    max: { qty: maxStock, val: maxStockVal }
-                },
+                make: getMergedMakeName(mat.make || '').toUpperCase(),
+                materialGroup: grp,
+                stock, so, po, net: { qty: netQty, val: netQty * rate },
+                avg3m: { qty: a3q, val: a3q * (s3q > 0 ? s3v / s3q : rate) },
+                avg1y: { qty: a1q, val: a1q * r1y },
+                growth: { pct: a1q > 0 ? ((a3q - a1q) / a1q) * 100 : 0 },
+                levels: { min: { qty: min, val: min * r1y }, reorder: { qty: re, val: re * r1y }, max: { qty: max, val: max * r1y } },
                 actions: {
-                    excessStock: { qty: excessStockQty, val: excessStockVal },
-                    excessPO: { qty: excessPOQty, val: excessPOVal },
-                    poNeed: { qty: poNeedQty, val: poNeedVal },
-                    expedite: { qty: expediteQty, val: expediteVal }
+                    excessStock: { qty: exStock, val: exStock * rate },
+                    excessPO: { qty: exPO, val: exPO * rate },
+                    poNeed: { qty: poNeed, val: poNeed * rate },
+                    expedite: { qty: expQty, val: expQty * rate }
                 }
             };
         });
 
-        // Only show items with some activity (Stock, SO, PO) or Action Needed
-        return rawRows.filter(item =>
-            item.stock.qty > 0 ||
-            item.so.qty > 0 ||
-            item.po.qty > 0 ||
-            item.actions.poNeed.qty > 0 ||
-            item.actions.expedite.qty > 0 ||
-            item.avg3m.qty > 0 || // Include if there's recent sales activity even if no stock
-            item.avg1y.qty > 0
-        );
-
+        return results.filter(i => i.stock.qty > 0 || i.so.qty > 0 || i.po.qty > 0 || i.avg1y.qty > 0 || i.actions.poNeed.qty > 0);
     }, [materials, closingStock, pendingSO, pendingPO, salesReportItems]);
 
-    // --- Slicer Data ---
     const slicerOptions = useMemo(() => {
-        const makes = new Set<string>();
-        const groups = new Set<string>();
-        pivotData.forEach(i => {
-            if (i.make) makes.add(i.make);
-            if (i.materialGroup) groups.add(i.materialGroup);
-        });
-        return {
-            makes: ['ALL', ...Array.from(makes).sort()],
-            groups: ['ALL', ...Array.from(groups).sort()]
-        };
+        const makes = new Set<string>(); const groups = new Set<string>();
+        pivotData.forEach(i => { if(i.make) makes.add(i.make); if(i.materialGroup) groups.add(i.materialGroup); });
+        return { makes: ['ALL', ...Array.from(makes).sort()], groups: ['ALL', ...Array.from(groups).sort()] };
     }, [pivotData]);
 
-    // --- Filtering & Sorting ---
     const filteredData = useMemo(() => {
-        let data = pivotData;
-
-        // Slicers
-        if (slicerMake !== 'ALL') data = data.filter(i => i.make === slicerMake);
-        if (slicerGroup !== 'ALL') data = data.filter(i => i.materialGroup === slicerGroup);
-
-        // Description Filter (Specific)
+        let d = pivotData;
+        if (slicerMake !== 'ALL') d = d.filter(i => i.make === slicerMake);
+        if (slicerGroup !== 'ALL') d = d.filter(i => i.materialGroup === slicerGroup);
         if (filterDescription) {
-            const lowerDesc = filterDescription.toLowerCase();
-            data = data.filter(i => (i.description || '').toLowerCase().includes(lowerDesc));
+            const l = filterDescription.toLowerCase();
+            d = d.filter(i => i.description?.toLowerCase().includes(l));
         }
-
-        // Search (Global)
         if (searchTerm) {
-            const lower = searchTerm.toLowerCase();
-            data = data.filter(i =>
-                (i.description || '').toLowerCase().includes(lower) ||
-                (i.make || '').toLowerCase().includes(lower) ||
-                (i.materialGroup || '').toLowerCase().includes(lower)
-            );
+            const l = searchTerm.toLowerCase();
+            d = d.filter(i => i.description?.toLowerCase().includes(l) || i.make.toLowerCase().includes(l) || i.materialGroup.toLowerCase().includes(l));
         }
-
-        // Toggles (OR Logic)
-        const hasToggle = showExcessStock || showExcessPO || showPONeed || showExpedite;
-        if (hasToggle) {
-            data = data.filter(i =>
-                (showExcessStock && i.actions.excessStock.qty > 0) ||
-                (showExcessPO && i.actions.excessPO.qty > 0) ||
-                (showPONeed && i.actions.poNeed.qty > 0) ||
-                (showExpedite && i.actions.expedite.qty > 0)
-            );
+        if (showExcessStock || showExcessPO || showPONeed || showExpedite) {
+            d = d.filter(i => (showExcessStock && i.actions.excessStock.qty > 0) || (showExcessPO && i.actions.excessPO.qty > 0) || (showPONeed && i.actions.poNeed.qty > 0) || (showExpedite && i.actions.expedite.qty > 0));
         }
-
-        // Deep Sort Function
-        const sortKeys = sortConfig.key.split('.');
-
-        data = [...data].sort((a, b) => {
-            let valA: any = a;
-            let valB: any = b;
-            for (let i = 0; i < sortKeys.length; i++) {
-                if (valA !== undefined) valA = valA[sortKeys[i]];
-                if (valB !== undefined) valB = valB[sortKeys[i]];
-            }
-
-            if (typeof valA === 'string' && typeof valB === 'string') {
-                return sortConfig.direction === 'asc'
-                    ? valA.localeCompare(valB)
-                    : valB.localeCompare(valA);
-            }
-
-            // Numeric Sort
-            return sortConfig.direction === 'asc'
-                ? (Number(valA) - Number(valB))
-                : (Number(valB) - Number(valA));
+        const keys = sortConfig.key.split('.');
+        return [...d].sort((a, b) => {
+            let vA: any = a, vB: any = b;
+            keys.forEach(k => { vA = vA?.[k]; vB = vB?.[k]; });
+            if (typeof vA === 'string' && typeof vB === 'string') return sortConfig.direction === 'asc' ? vA.localeCompare(vB) : vB.localeCompare(vA);
+            return sortConfig.direction === 'asc' ? (Number(vA) - Number(vB)) : (Number(vB) - Number(vA));
         });
-
-        return data;
     }, [pivotData, searchTerm, slicerMake, slicerGroup, filterDescription, showExcessStock, showExcessPO, showPONeed, showExpedite, sortConfig]);
 
-    // --- Totals ---
-    // STRICT CALCULATION on filteredData
     const totals = useMemo(() => {
-        const initialTotals = {
-            stock: { qty: 0, val: 0 },
-            so: { qty: 0, val: 0 }, soCur: { qty: 0, val: 0 }, soSch: { qty: 0, val: 0 },
-            po: { qty: 0, val: 0 }, poCur: { qty: 0, val: 0 }, poSch: { qty: 0, val: 0 },
-            net: { qty: 0, val: 0 },
-            avg3m: { qty: 0, val: 0 }, avg1y: { qty: 0, val: 0 },
-            min: { qty: 0, val: 0 }, reorder: { qty: 0, val: 0 }, max: { qty: 0, val: 0 },
-            excessStock: { qty: 0, val: 0 }, excessPO: { qty: 0, val: 0 }, poNeed: { qty: 0, val: 0 }, expedite: { qty: 0, val: 0 }
-        };
-
-        return filteredData.reduce((acc, row) => ({
-            stock: { qty: acc.stock.qty + (Number(row.stock.qty) || 0), val: acc.stock.val + (Number(row.stock.val) || 0) },
-            so: { qty: acc.so.qty + (Number(row.so.qty) || 0), val: acc.so.val + (Number(row.so.val) || 0) },
-            soCur: { qty: (acc as any).soCur.qty + (Number(row.so.curQty) || 0), val: (acc as any).soCur.val + (Number(row.so.curVal) || 0) },
-            soSch: { qty: (acc as any).soSch.qty + (Number(row.so.schQty) || 0), val: (acc as any).soSch.val + (Number(row.so.schVal) || 0) },
-            po: { qty: acc.po.qty + (Number(row.po.qty) || 0), val: acc.po.val + (Number(row.po.val) || 0) },
-            poCur: { qty: (acc as any).poCur.qty + (Number(row.po.curQty) || 0), val: (acc as any).poCur.val + (Number(row.po.curVal) || 0) },
-            poSch: { qty: (acc as any).poSch.qty + (Number(row.po.schQty) || 0), val: (acc as any).poSch.val + (Number(row.po.schVal) || 0) },
-            net: { qty: acc.net.qty + (Number(row.net.qty) || 0), val: acc.net.val + (Number(row.net.val) || 0) },
-            avg3m: { qty: acc.avg3m.qty + (Number(row.avg3m.qty) || 0), val: acc.avg3m.val + (Number(row.avg3m.val) || 0) },
-            avg1y: { qty: acc.avg1y.qty + (Number(row.avg1y.qty) || 0), val: acc.avg1y.val + (Number(row.avg1y.val) || 0) },
-            min: { qty: acc.min.qty + (Number(row.levels.min.qty) || 0), val: acc.min.val + (Number(row.levels.min.val) || 0) },
-            reorder: { qty: acc.reorder.qty + (Number(row.levels.reorder.qty) || 0), val: acc.reorder.val + (Number(row.levels.reorder.val) || 0) },
-            max: { qty: acc.max.qty + (Number(row.levels.max.qty) || 0), val: acc.max.val + (Number(row.levels.max.val) || 0) },
-            excessStock: { qty: acc.excessStock.qty + (Number(row.actions.excessStock.qty) || 0), val: acc.excessStock.val + (Number(row.actions.excessStock.val) || 0) },
-            excessPO: { qty: acc.excessPO.qty + (Number(row.actions.excessPO.qty) || 0), val: acc.excessPO.val + (Number(row.actions.excessPO.val) || 0) },
-            poNeed: { qty: acc.poNeed.qty + (Number(row.actions.poNeed.qty) || 0), val: acc.poNeed.val + (Number(row.actions.poNeed.val) || 0) },
-            expedite: { qty: acc.expedite.qty + (Number(row.actions.expedite.qty) || 0), val: acc.expedite.val + (Number(row.actions.expedite.val) || 0) },
-        }), initialTotals);
+        const t = { stock: 0, so: 0, po: 0, net: 0, exS: 0, exP: 0, need: 0, exp: 0 };
+        filteredData.forEach(r => {
+            t.stock += r.stock.val; t.so += r.so.val; t.po += r.po.val; t.net += r.net.val;
+            t.exS += r.actions.excessStock.val; t.exP += r.actions.excessPO.val;
+            t.need += r.actions.poNeed.val; t.exp += r.actions.expedite.val;
+        });
+        return t;
     }, [filteredData]);
 
-    // --- Export ---
-    const handleExport = () => {
-        const exportRows = filteredData.map(i => ({
-            "Make": i.make,
-            "Group": i.materialGroup,
-            "Description": i.description,
-            "Closing Qty": i.stock.qty, "Closing Val": i.stock.val,
-            "Pending SO Total Qty": i.so.qty,
-            "Pending SO Cur Qty": i.so.curQty,
-            "Pending SO Sch Qty": i.so.schQty,
-            "Pending PO Total Qty": i.po.qty,
-            "Pending PO Cur Qty": i.po.curQty,
-            "Pending PO Sch Qty": i.po.schQty,
-            "Net Stock Qty": i.net.qty, "Net Stock Val": i.net.val,
-            "3M Avg Qty": i.avg3m.qty.toFixed(2), "3M Avg Val": i.avg3m.val,
-            "1Y Avg Qty": i.avg1y.qty.toFixed(2), "1Y Avg Val": i.avg1y.val,
-            "Growth %": i.growth.pct.toFixed(1) + '%',
-            "Min Qty": i.levels.min.qty, "Min Val": i.levels.min.val,
-            "Reorder Qty": i.levels.reorder.qty, "Reorder Val": i.levels.reorder.val,
-            "Max Qty": i.levels.max.qty, "Max Val": i.levels.max.val,
-            "Excess Stock Qty": i.actions.excessStock.qty, "Excess Stock Val": i.actions.excessStock.val,
-            "Excess PO Qty": i.actions.excessPO.qty, "Excess PO Val": i.actions.excessPO.val,
-            "Need to Place Qty": i.actions.poNeed.qty, "Need to Place Val": i.actions.poNeed.val,
-            "Expedite PO Qty": i.actions.expedite.qty, "Expedite PO Val": i.actions.expedite.val
-        }));
-        const ws = utils.json_to_sheet(exportRows);
-        const wb = utils.book_new();
-        utils.book_append_sheet(wb, ws, "Pivot_Report");
-        writeFile(wb, "Pivot_Inventory_Report.xlsx");
-    };
-
-    const handleHeaderSort = (key: SortPath) => {
-        setSortConfig(current => {
-            if (current.key === key) {
-                // Toggle direction
-                return { key, direction: current.direction === 'asc' ? 'desc' : 'asc' };
-            }
-            // Default to DESC for new column (Highest to Lowest)
-            return { key, direction: 'desc' };
-        });
-    };
-
-    const renderSortArrow = (key: SortPath) => {
-        if (sortConfig.key !== key) return <ArrowUpDown className="w-3 h-3 text-gray-300 opacity-50 group-hover:opacity-100" />;
-        return sortConfig.direction === 'asc'
-            ? <ArrowUp className="w-3 h-3 text-indigo-600" />
-            : <ArrowDown className="w-3 h-3 text-indigo-600" />;
-    };
-
-    const formatVal = (v: number) => Math.round(v).toLocaleString('en-IN');
-    const formatDec = (v: number) => v.toFixed(2);
+    const handleHeaderSort = (key: SortPath) => setSortConfig(p => ({ key, direction: p.key === key && p.direction === 'desc' ? 'asc' : 'desc' }));
 
     return (
         <div className="flex flex-col h-full gap-3">
-
-            {/* Toolbar */}
-            <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200 flex flex-col gap-3 flex-shrink-0">
-                {/* Top Row: Title, Search, Export */}
-                <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+            <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200 flex flex-col gap-3">
+                <div className="flex justify-between items-center">
                     <div className="flex items-center gap-3">
-                        <div className="bg-indigo-50 p-2 rounded-lg text-indigo-600"><Filter className="w-5 h-5" /></div>
-                        <div>
-                            <h2 className="text-sm font-bold text-gray-800">Pivot Strategy Report</h2>
-                            <p className="text-[10px] text-gray-500">{filteredData.length} active items (Hidden: Inactive/Empty)</p>
-                        </div>
+                        <Filter className="w-5 h-5 text-indigo-600" />
+                        <div><h2 className="text-sm font-bold text-gray-800">Pivot Strategy Report</h2><p className="text-[10px] text-gray-500">{filteredData.length} items</p></div>
                     </div>
-
-                    <div className="flex items-center gap-2 w-full md:w-auto">
-                        <div className="relative flex-1 md:w-64">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Search className="h-3.5 w-3.5 text-gray-400" /></div>
-                            <input type="text" placeholder="Global Search..." className="pl-9 pr-3 py-1.5 w-full border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-                        </div>
-                        <button onClick={handleExport} className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs font-bold border border-green-100 hover:bg-green-100 whitespace-nowrap">
-                            <FileDown className="w-3.5 h-3.5" /> Export
-                        </button>
+                    <div className="flex items-center gap-2">
+                        <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" /><input type="text" placeholder="Search..." className="pl-9 pr-3 py-1.5 border border-gray-300 rounded-lg text-xs outline-none w-64" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} /></div>
+                        <button onClick={() => {}} className="flex items-center gap-1 px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs font-bold border border-green-100"><FileDown className="w-3.5 h-3.5" /> Export</button>
                     </div>
                 </div>
-
-                {/* Bottom Row: Slicers, Toggles, Sort */}
-                <div className="flex flex-wrap items-center gap-4 border-t border-gray-100 pt-3">
-
-                    {/* Slicers */}
-                    <div className="flex items-center gap-2 bg-gray-50 px-2 py-1 rounded-lg border border-gray-200">
-                        <Layers className="w-3.5 h-3.5 text-gray-500" />
-                        <div className="flex flex-col">
-                            <label className="text-[9px] font-bold text-gray-400 uppercase">Make</label>
-                            <select value={slicerMake} onChange={e => setSlicerMake(e.target.value)} className="bg-transparent text-xs font-bold text-gray-700 outline-none w-24">
-                                {slicerOptions.makes.map(m => <option key={m} value={m}>{m}</option>)}
-                            </select>
-                        </div>
-                        <div className="w-px h-6 bg-gray-300 mx-1"></div>
-                        <div className="flex flex-col">
-                            <label className="text-[9px] font-bold text-gray-400 uppercase">Group</label>
-                            <select value={slicerGroup} onChange={e => setSlicerGroup(e.target.value)} className="bg-transparent text-xs font-bold text-gray-700 outline-none w-24">
-                                {slicerOptions.groups.map(g => <option key={g} value={g}>{g}</option>)}
-                            </select>
-                        </div>
-                        <div className="w-px h-6 bg-gray-300 mx-1"></div>
-                        <div className="flex flex-col">
-                            <label className="text-[9px] font-bold text-gray-400 uppercase">Description Contains</label>
-                            <div className="flex items-center">
-                                <AlignLeft className="w-3 h-3 text-gray-400 mr-1" />
-                                <input type="text" placeholder="Filter..." value={filterDescription} onChange={e => setFilterDescription(e.target.value)} className="bg-transparent text-xs font-bold text-gray-700 outline-none w-24 placeholder:font-normal placeholder:text-gray-400" />
-                            </div>
-                        </div>
+                <div className="flex flex-wrap items-center gap-4 border-t pt-3">
+                    <div className="flex items-center gap-2 bg-gray-50 px-2 py-1 rounded-lg border">
+                        <select value={slicerMake} onChange={e => setSlicerMake(e.target.value)} className="bg-transparent text-xs font-bold outline-none">{slicerOptions.makes.map(m => <option key={m} value={m}>{m}</option>)}</select>
+                        <select value={slicerGroup} onChange={e => setSlicerGroup(e.target.value)} className="bg-transparent text-xs font-bold outline-none">{slicerOptions.groups.map(g => <option key={g} value={g}>{g}</option>)}</select>
+                        <input type="text" placeholder="Description..." value={filterDescription} onChange={e => setFilterDescription(e.target.value)} className="bg-transparent text-xs outline-none w-32 border-l pl-2" />
                     </div>
-
-                    {/* Toggles */}
-                    <div className="flex flex-wrap items-center gap-1.5 flex-1">
-                        <button onClick={() => setShowExcessStock(!showExcessStock)} className={`px-2 py-1 rounded text-[10px] font-bold border transition-colors ${showExcessStock ? 'bg-red-50 text-red-700 border-red-200 shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}>Excess Stock</button>
-                        <button onClick={() => setShowExcessPO(!showExcessPO)} className={`px-2 py-1 rounded text-[10px] font-bold border transition-colors ${showExcessPO ? 'bg-orange-50 text-orange-700 border-orange-200 shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}>Excess PO</button>
-                        <button onClick={() => setShowPONeed(!showPONeed)} className={`px-2 py-1 rounded text-[10px] font-bold border transition-colors ${showPONeed ? 'bg-green-50 text-green-700 border-green-200 shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}>PO Need</button>
-                        <button onClick={() => setShowExpedite(!showExpedite)} className={`px-2 py-1 rounded text-[10px] font-bold border transition-colors ${showExpedite ? 'bg-blue-50 text-blue-700 border-blue-200 shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}>Expedite</button>
-
-                        <div className="h-6 w-px bg-gray-200 mx-2 hidden md:block"></div>
-
-                        <button
-                            onClick={() => setShowPlanningColumns(!showPlanningColumns)}
-                            className={`flex items-center gap-1.5 px-3 py-1 rounded text-[10px] font-bold border transition-all duration-200 ${!showPlanningColumns ? 'bg-indigo-600 text-white border-indigo-700 shadow-md ring-2 ring-indigo-200' : 'bg-white text-indigo-600 border-indigo-200 hover:bg-indigo-50 hover:border-indigo-300'}`}
-                        >
-                            {showPlanningColumns ? (
-                                <><EyeOff className="w-3 h-3" /> Hide Planning Details</>
-                            ) : (
-                                <><Eye className="w-3 h-3" /> Show Planning Details</>
-                            )}
-                        </button>
+                    <div className="flex gap-1.5">
+                        <button onClick={() => setShowExcessStock(!showExcessStock)} className={`px-2 py-1 rounded text-[10px] font-bold border ${showExcessStock ? 'bg-red-50 text-red-700' : 'bg-white text-gray-500'}`}>Excess Stock</button>
+                        <button onClick={() => setShowExcessPO(!showExcessPO)} className={`px-2 py-1 rounded text-[10px] font-bold border ${showExcessPO ? 'bg-orange-50 text-orange-700' : 'bg-white text-gray-500'}`}>Excess PO</button>
+                        <button onClick={() => setShowPONeed(!showPONeed)} className={`px-2 py-1 rounded text-[10px] font-bold border ${showPONeed ? 'bg-green-50 text-green-700' : 'bg-white text-gray-500'}`}>PO Need</button>
+                        <button onClick={() => setShowExpedite(!showExpedite)} className={`px-2 py-1 rounded text-[10px] font-bold border ${showExpedite ? 'bg-blue-50 text-blue-700' : 'bg-white text-gray-500'}`}>Expedite</button>
                     </div>
                 </div>
             </div>
 
-            {/* Dense Pivot Table */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex-1 flex flex-col min-h-0 relative">
+            <div className="bg-white rounded-xl shadow-sm border overflow-hidden flex-1 relative">
                 <div className="overflow-auto h-full w-full">
                     <table className="w-full text-left border-collapse">
-                        <thead className="sticky top-0 z-50 bg-gray-50 shadow-sm text-[9px] font-bold text-gray-600 uppercase tracking-tight select-none">
-                            {/* Group Headers */}
-                            <tr className="bg-gray-100 border-b border-gray-200">
-                                <th colSpan={3} className="sticky left-0 z-50 py-1 px-2 text-center border-r border-gray-300 bg-gray-100">Master Data</th>
-                                <th colSpan={2} className="py-1 px-2 text-center border-r border-gray-300 bg-blue-50/50">Current Stock</th>
-                                <th colSpan={3} className="py-1 px-2 text-center border-r border-gray-300 bg-orange-50/50">Pending SO</th>
-                                <th colSpan={3} className="py-1 px-2 text-center border-r border-gray-300 bg-purple-50/50">Pending PO</th>
-                                <th colSpan={2} className="py-1 px-2 text-center border-r border-gray-300 bg-gray-200">Net Position</th>
-                                {showPlanningColumns && (
-                                    <>
-                                        <th colSpan={3} className="py-1 px-2 text-center border-r border-gray-300 bg-yellow-50/50 animate-scale-in">Sales Performance</th>
-                                        <th colSpan={6} className="py-1 px-2 text-center border-r border-gray-300 bg-teal-50/50 animate-scale-in">Stock Norms</th>
-                                    </>
-                                )}
-                                <th colSpan={2} className="py-1 px-2 text-center border-r border-gray-300 bg-red-50 text-red-700">Excess Stock</th>
-                                <th colSpan={2} className="py-1 px-2 text-center border-r border-gray-300 bg-red-50 text-red-700">Excess PO</th>
-                                <th colSpan={2} className="py-1 px-2 text-center border-r border-gray-300 bg-green-50 text-green-700">PO Needed</th>
-                                <th colSpan={2} className="py-1 px-2 text-center bg-blue-50 text-blue-700">Expedite</th>
+                        <thead className="sticky top-0 z-50 bg-gray-50 text-[9px] font-bold uppercase">
+                            <tr className="bg-gray-100 border-b">
+                                <th colSpan={3} className="p-1 border-r sticky left-0 bg-gray-100 text-center">Master</th>
+                                <th colSpan={2} className="p-1 border-r bg-blue-50/50 text-center">Stock</th>
+                                <th colSpan={3} className="p-1 border-r bg-orange-50/50 text-center">SO</th>
+                                <th colSpan={3} className="p-1 border-r bg-purple-50/50 text-center">PO</th>
+                                <th colSpan={2} className="p-1 border-r bg-gray-200 text-center">Net</th>
+                                <th colSpan={2} className="p-1 border-r text-red-700 text-center">Ex Stock</th>
+                                <th colSpan={2} className="p-1 border-r text-red-700 text-center">Ex PO</th>
+                                <th colSpan={2} className="p-1 border-r text-green-700 text-center">Need</th>
+                                <th colSpan={2} className="p-1 text-blue-700 text-center">Exp</th>
                             </tr>
-                            {/* Sub Headers - CLICKABLE FOR SORTING */}
-                            <tr className="border-b border-gray-200 cursor-pointer">
-                                <th onClick={() => handleHeaderSort('make')} className="sticky left-0 z-50 py-2 px-2 border-r whitespace-nowrap w-24 bg-gray-50 hover:bg-gray-200 group border-b border-gray-200"><div className="flex items-center gap-1">Make {renderSortArrow('make')}</div></th>
-                                <th onClick={() => handleHeaderSort('materialGroup')} className="sticky left-[6rem] z-50 py-2 px-2 border-r whitespace-nowrap w-24 bg-gray-50 hover:bg-gray-200 group border-b border-gray-200"><div className="flex items-center gap-1">Group {renderSortArrow('materialGroup')}</div></th>
-                                <th onClick={() => handleHeaderSort('description')} className="sticky left-[12rem] z-50 py-2 px-2 border-r whitespace-nowrap min-w-[200px] bg-gray-50 hover:bg-gray-200 group border-b border-gray-200"><div className="flex items-center gap-1">Description {renderSortArrow('description')}</div></th>
-
-                                <th onClick={() => handleHeaderSort('stock.qty')} className="py-2 px-2 text-right bg-blue-50/30 hover:bg-blue-100/50 group"><div className="flex items-center justify-end gap-1">Qty {renderSortArrow('stock.qty')}</div></th>
-                                <th onClick={() => handleHeaderSort('stock.val')} className="py-2 px-2 text-right border-r bg-blue-50/30 hover:bg-blue-100/50 group"><div className="flex items-center justify-end gap-1">Val {renderSortArrow('stock.val')}</div></th>
-
-                                <th onClick={() => handleHeaderSort('so.curQty' as SortPath)} className="py-2 px-2 text-right bg-orange-50/30 hover:bg-orange-100/50 group"><div className="flex items-center justify-end gap-1">Cur {renderSortArrow('so.curQty' as SortPath)}</div></th>
-                                <th onClick={() => handleHeaderSort('so.schQty' as SortPath)} className="py-2 px-2 text-right bg-orange-50/30 hover:bg-orange-100/50 group"><div className="flex items-center justify-end gap-1">Sch {renderSortArrow('so.schQty' as SortPath)}</div></th>
-                                <th onClick={() => handleHeaderSort('so.qty')} className="py-2 px-2 text-right border-r bg-orange-50/30 hover:bg-orange-100/50 group"><div className="flex items-center justify-end gap-1">Tot {renderSortArrow('so.qty')}</div></th>
-
-                                <th onClick={() => handleHeaderSort('po.curQty' as SortPath)} className="py-2 px-2 text-right bg-purple-50/30 hover:bg-purple-100/50 group"><div className="flex items-center justify-end gap-1">Cur {renderSortArrow('po.curQty' as SortPath)}</div></th>
-                                <th onClick={() => handleHeaderSort('po.schQty' as SortPath)} className="py-2 px-2 text-right bg-purple-50/30 hover:bg-purple-100/50 group"><div className="flex items-center justify-end gap-1">Sch {renderSortArrow('po.schQty' as SortPath)}</div></th>
-                                <th onClick={() => handleHeaderSort('po.qty')} className="py-2 px-2 text-right border-r bg-purple-50/30 hover:bg-purple-100/50 group"><div className="flex items-center justify-end gap-1">Tot {renderSortArrow('po.qty')}</div></th>
-
-                                <th onClick={() => handleHeaderSort('net.qty')} className="py-2 px-2 text-right bg-gray-100 font-extrabold hover:bg-gray-200 group"><div className="flex items-center justify-end gap-1">Qty {renderSortArrow('net.qty')}</div></th>
-                                <th onClick={() => handleHeaderSort('net.val')} className="py-2 px-2 text-right border-r bg-gray-100 font-extrabold hover:bg-gray-200 group"><div className="flex items-center justify-end gap-1">Val {renderSortArrow('net.val')}</div></th>
-
-                                {showPlanningColumns && (
-                                    <>
-                                        <th onClick={() => handleHeaderSort('avg3m.qty')} className="py-2 px-2 text-right bg-yellow-50/30 hover:bg-yellow-100/50 group animate-scale-in"><div className="flex items-center justify-end gap-1">3M Avg {renderSortArrow('avg3m.qty')}</div></th>
-                                        <th onClick={() => handleHeaderSort('avg1y.qty')} className="py-2 px-2 text-right bg-yellow-50/30 hover:bg-yellow-100/50 group animate-scale-in"><div className="flex items-center justify-end gap-1">1Y Avg {renderSortArrow('avg1y.qty')}</div></th>
-                                        <th onClick={() => handleHeaderSort('growth.pct')} className="py-2 px-2 text-center border-r bg-yellow-50/30 hover:bg-yellow-100/50 group animate-scale-in"><div className="flex items-center justify-center gap-1">Trend {renderSortArrow('growth.pct')}</div></th>
-
-                                        <th onClick={() => handleHeaderSort('levels.min.qty')} className="py-2 px-2 text-right bg-teal-50/30 hover:bg-teal-100/50 group animate-scale-in"><div className="flex items-center justify-end gap-1">Min Q {renderSortArrow('levels.min.qty')}</div></th>
-                                        <th onClick={() => handleHeaderSort('levels.min.val')} className="py-2 px-2 text-right border-r bg-teal-50/30 hover:bg-teal-100/50 group animate-scale-in"><div className="flex items-center justify-end gap-1">Min V {renderSortArrow('levels.min.val')}</div></th>
-                                        <th onClick={() => handleHeaderSort('levels.reorder.qty')} className="py-2 px-2 text-right bg-teal-50/30 hover:bg-teal-100/50 group animate-scale-in"><div className="flex items-center justify-end gap-1">Re Q {renderSortArrow('levels.reorder.qty')}</div></th>
-                                        <th onClick={() => handleHeaderSort('levels.reorder.val')} className="py-2 px-2 text-right border-r bg-teal-50/30 hover:bg-teal-100/50 group animate-scale-in"><div className="flex items-center justify-end gap-1">Re V {renderSortArrow('levels.reorder.val')}</div></th>
-                                        <th onClick={() => handleHeaderSort('levels.max.qty')} className="py-2 px-2 text-right bg-teal-50/30 hover:bg-teal-100/50 group animate-scale-in"><div className="flex items-center justify-end gap-1">Max Q {renderSortArrow('levels.max.qty')}</div></th>
-                                        <th onClick={() => handleHeaderSort('levels.max.val')} className="py-2 px-2 text-right border-r bg-teal-50/30 hover:bg-teal-100/50 group animate-scale-in"><div className="flex items-center justify-end gap-1">Max V {renderSortArrow('levels.max.val')}</div></th>
-                                    </>
-                                )}
-
-                                <th onClick={() => handleHeaderSort('actions.excessStock.qty')} className="py-2 px-2 text-right bg-red-50/50 hover:bg-red-100/50 group"><div className="flex items-center justify-end gap-1">Qty {renderSortArrow('actions.excessStock.qty')}</div></th>
-                                <th onClick={() => handleHeaderSort('actions.excessStock.val')} className="py-2 px-2 text-right border-r bg-red-50/50 hover:bg-red-100/50 group"><div className="flex items-center justify-end gap-1">Val {renderSortArrow('actions.excessStock.val')}</div></th>
-
-                                <th onClick={() => handleHeaderSort('actions.excessPO.qty')} className="py-2 px-2 text-right bg-red-50/50 hover:bg-red-100/50 group"><div className="flex items-center justify-end gap-1">Qty {renderSortArrow('actions.excessPO.qty')}</div></th>
-                                <th onClick={() => handleHeaderSort('actions.excessPO.val')} className="py-2 px-2 text-right border-r bg-red-50/50 hover:bg-red-100/50 group"><div className="flex items-center justify-end gap-1">Val {renderSortArrow('actions.excessPO.val')}</div></th>
-
-                                <th onClick={() => handleHeaderSort('actions.poNeed.qty')} className="py-2 px-2 text-right bg-green-50/50 hover:bg-green-100/50 group"><div className="flex items-center justify-end gap-1">Qty {renderSortArrow('actions.poNeed.qty')}</div></th>
-                                <th onClick={() => handleHeaderSort('actions.poNeed.val')} className="py-2 px-2 text-right border-r bg-green-50/50 hover:bg-green-100/50 group"><div className="flex items-center justify-end gap-1">Val {renderSortArrow('actions.poNeed.val')}</div></th>
-
-                                <th onClick={() => handleHeaderSort('actions.expedite.qty')} className="py-2 px-2 text-right bg-blue-50/50 hover:bg-blue-100/50 group"><div className="flex items-center justify-end gap-1">Qty {renderSortArrow('actions.expedite.qty')}</div></th>
-                                <th onClick={() => handleHeaderSort('actions.expedite.val')} className="py-2 px-2 text-right bg-blue-50/50 hover:bg-blue-100/50 group"><div className="flex items-center justify-end gap-1">Val {renderSortArrow('actions.expedite.val')}</div></th>
+                            <tr className="border-b cursor-pointer">
+                                <th onClick={() => handleHeaderSort('make')} className="p-2 border-r sticky left-0 bg-gray-50">Make</th>
+                                <th onClick={() => handleHeaderSort('materialGroup')} className="p-2 border-r sticky left-[6rem] bg-gray-50">Group</th>
+                                <th onClick={() => handleHeaderSort('description')} className="p-2 border-r sticky left-[12rem] bg-gray-50 min-w-[200px]">Description</th>
+                                <th onClick={() => handleHeaderSort('stock.qty')} className="p-2 text-right">Qty</th>
+                                <th onClick={() => handleHeaderSort('stock.val')} className="p-2 text-right border-r">Val</th>
+                                <th onClick={() => handleHeaderSort('so.curQty')} className="p-2 text-right text-orange-600">Cur</th>
+                                <th onClick={() => handleHeaderSort('so.schQty')} className="p-2 text-right text-orange-600">Sch</th>
+                                <th onClick={() => handleHeaderSort('so.qty')} className="p-2 text-right border-r">Tot</th>
+                                <th onClick={() => handleHeaderSort('po.curQty')} className="p-2 text-right text-purple-600">Cur</th>
+                                <th onClick={() => handleHeaderSort('po.schQty')} className="p-2 text-right text-purple-600">Sch</th>
+                                <th onClick={() => handleHeaderSort('po.qty')} className="p-2 text-right border-r">Tot</th>
+                                <th onClick={() => handleHeaderSort('net.qty')} className="p-2 text-right bg-gray-100">Qty</th>
+                                <th onClick={() => handleHeaderSort('net.val')} className="p-2 text-right border-r bg-gray-100">Val</th>
+                                <th className="p-2 text-right">Qty</th><th className="p-2 text-right border-r">Val</th>
+                                <th className="p-2 text-right">Qty</th><th className="p-2 text-right border-r">Val</th>
+                                <th className="p-2 text-right">Qty</th><th className="p-2 text-right border-r">Val</th>
+                                <th className="p-2 text-right">Qty</th><th className="p-2 text-right">Val</th>
                             </tr>
-
-                            {/* TOTALS ROW - Inside THEAD so it stays sticky with header correctly */}
-                            {filteredData.length > 0 && (
-                                <tr className="bg-yellow-50 font-bold border-b-2 border-yellow-200 text-gray-900 shadow-sm whitespace-nowrap">
-                                    <td colSpan={3} className="sticky left-0 z-40 py-2 px-2 text-right border-r uppercase text-[9px] tracking-wide text-gray-500 bg-yellow-50 border-b-2 border-yellow-200">Filtered Totals:</td>
-
-                                    <td className="py-2 px-2 text-right bg-blue-100/50 whitespace-nowrap">{formatLargeValue(totals.stock.qty)}</td>
-                                    <td className="py-2 px-2 text-right border-r bg-blue-100/50 whitespace-nowrap">{formatLargeValue(totals.stock.val)}</td>
-
-                                    <td className="py-2 px-2 text-right bg-orange-100/50 whitespace-nowrap">{formatLargeValue((totals as any).soCur.qty)}</td>
-                                    <td className="py-2 px-2 text-right bg-orange-100/50 whitespace-nowrap">{formatLargeValue((totals as any).soSch.qty)}</td>
-                                    <td className="py-2 px-2 text-right border-r bg-orange-100/50 whitespace-nowrap">{formatLargeValue(totals.so.qty)}</td>
-
-                                    <td className="py-2 px-2 text-right bg-purple-100/50 whitespace-nowrap">{formatLargeValue((totals as any).poCur.qty)}</td>
-                                    <td className="py-2 px-2 text-right bg-purple-100/50 whitespace-nowrap">{formatLargeValue((totals as any).poSch.qty)}</td>
-                                    <td className="py-2 px-2 text-right border-r bg-purple-100/50 whitespace-nowrap">{formatLargeValue(totals.po.qty)}</td>
-
-                                    <td className="py-2 px-2 text-right bg-gray-200 whitespace-nowrap">{formatLargeValue(totals.net.qty)}</td>
-                                    <td className="py-2 px-2 text-right border-r bg-gray-200 whitespace-nowrap">{formatLargeValue(totals.net.val)}</td>
-
-                                    {showPlanningColumns && (
-                                        <>
-                                            <td className="py-2 px-2 text-right bg-yellow-100/50 whitespace-nowrap animate-scale-in">{formatDec(totals.avg3m.qty)}</td>
-                                            <td className="py-2 px-2 text-right bg-yellow-100/50 whitespace-nowrap animate-scale-in">{formatDec(totals.avg1y.qty)}</td>
-                                            <td className="py-2 px-2 text-center border-r bg-yellow-100/50 whitespace-nowrap animate-scale-in">-</td>
-
-                                            <td className="py-2 px-2 text-right bg-teal-100/50 whitespace-nowrap animate-scale-in">{formatLargeValue(totals.min.qty)}</td>
-                                            <td className="py-2 px-2 text-right border-r bg-teal-100/50 whitespace-nowrap animate-scale-in">{formatLargeValue(totals.min.val)}</td>
-                                            <td className="py-2 px-2 text-right bg-teal-100/50 whitespace-nowrap animate-scale-in">{formatLargeValue(totals.reorder.qty)}</td>
-                                            <td className="py-2 px-2 text-right border-r bg-teal-100/50 whitespace-nowrap animate-scale-in">{formatLargeValue(totals.reorder.val)}</td>
-                                            <td className="py-2 px-2 text-right bg-teal-100/50 whitespace-nowrap animate-scale-in">{formatLargeValue(totals.max.qty)}</td>
-                                            <td className="py-2 px-2 text-right border-r bg-teal-100/50 whitespace-nowrap animate-scale-in">{formatLargeValue(totals.max.val)}</td>
-                                        </>
-                                    )}
-
-                                    <td className="py-2 px-2 text-right bg-red-100/50 text-red-800 whitespace-nowrap">{formatLargeValue(totals.excessStock.qty)}</td>
-                                    <td className="py-2 px-2 text-right border-r bg-red-100/50 text-red-800 whitespace-nowrap">{formatLargeValue(totals.excessStock.val)}</td>
-
-                                    <td className="py-2 px-2 text-right bg-red-100/50 text-red-800 whitespace-nowrap">{formatLargeValue(totals.excessPO.qty)}</td>
-                                    <td className="py-2 px-2 text-right border-r bg-red-100/50 text-red-800 whitespace-nowrap">{formatLargeValue(totals.excessPO.val)}</td>
-
-                                    <td className="py-2 px-2 text-right bg-green-100/50 text-green-800 whitespace-nowrap">{formatLargeValue(totals.poNeed.qty)}</td>
-                                    <td className="py-2 px-2 text-right border-r bg-green-100/50 text-green-800 whitespace-nowrap">{formatLargeValue(totals.poNeed.val)}</td>
-
-                                    <td className="py-2 px-2 text-right bg-blue-100/50 text-blue-800 whitespace-nowrap">{formatLargeValue(totals.expedite.qty)}</td>
-                                    <td className="py-2 px-2 text-right bg-blue-100/50 text-blue-800 whitespace-nowrap">{formatLargeValue(totals.expedite.val)}</td>
-                                </tr>
-                            )}
                         </thead>
-                        <tbody className="divide-y divide-gray-100 text-[10px] text-gray-700">
-
-                            {filteredData.length === 0 ? (
-                                <tr><td colSpan={showPlanningColumns ? 29 : 20} className="py-10 text-center text-gray-400">No active items match your filter.</td></tr>
-                            ) : (
-                                filteredData.map((row, idx) => (
-                                    <tr key={row.description + idx} className="hover:bg-gray-50 transition-colors group">
-                                        <td className="sticky left-0 z-10 py-1 px-2 border-r truncate max-w-[100px] bg-white group-hover:bg-gray-50 border-b border-gray-100">{row.make}</td>
-                                        <td className="sticky left-[6rem] z-10 py-1 px-2 border-r truncate max-w-[100px] bg-white group-hover:bg-gray-50 border-b border-gray-100">{row.materialGroup}</td>
-                                        <td className="sticky left-[12rem] z-10 py-1 px-2 border-r truncate max-w-[250px] font-medium text-gray-900 bg-white group-hover:bg-gray-50 border-b border-gray-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" title={row.description}>{row.description}</td>
-
-                                        <td className="py-1 px-2 text-right bg-blue-50/10 font-medium">{row.stock.qty || '-'}</td>
-                                        <td className="py-1 px-2 text-right border-r bg-blue-50/10 text-gray-500">{row.stock.val ? formatVal(row.stock.val) : '-'}</td>
-
-                                        <td className="py-1 px-2 text-right bg-orange-50/10 font-medium text-orange-700">{row.so.curQty || '-'}</td>
-                                        <td className="py-1 px-2 text-right bg-orange-50/10 text-orange-600/70">{row.so.schQty || '-'}</td>
-                                        <td className="py-1 px-2 text-right border-r bg-orange-50/10 font-bold">{row.so.qty || '-'}</td>
-
-                                        <td className="py-1 px-2 text-right bg-purple-50/10 font-medium text-purple-700">{row.po.curQty || '-'}</td>
-                                        <td className="py-1 px-2 text-right bg-purple-50/10 text-purple-600/70">{row.po.schQty || '-'}</td>
-                                        <td className="py-1 px-2 text-right border-r bg-purple-50/10 font-bold">{row.po.qty || '-'}</td>
-
-                                        <td className="py-1 px-2 text-right bg-gray-50 font-bold">{row.net.qty}</td>
-                                        <td className="py-1 px-2 text-right border-r bg-gray-50 text-gray-600">{formatVal(row.net.val)}</td>
-
-                                        {showPlanningColumns && (
-                                            <>
-                                                <td className="py-1 px-2 text-right bg-yellow-50/10 animate-scale-in">{formatDec(row.avg3m.qty)}</td>
-                                                <td className="py-1 px-2 text-right bg-yellow-50/10 animate-scale-in">{formatDec(row.avg1y.qty)}</td>
-                                                <td className="py-1 px-2 text-center border-r bg-yellow-50/10 animate-scale-in">
-                                                    <div className="flex items-center justify-center gap-0.5">
-                                                        {row.growth.diff > 0 ? <ArrowUp className="w-2.5 h-2.5 text-green-500" /> : row.growth.diff < 0 ? <ArrowDown className="w-2.5 h-2.5 text-red-500" /> : <Minus className="w-2.5 h-2.5 text-gray-300" />}
-                                                        <span className={`${row.growth.diff > 0 ? 'text-green-600' : row.growth.diff < 0 ? 'text-red-600' : 'text-gray-400'}`}>{Math.round(Math.abs(row.growth.pct))}%</span>
-                                                    </div>
-                                                </td>
-
-                                                <td className="py-1 px-2 text-right bg-teal-50/10 text-gray-500 animate-scale-in">{row.levels.min.qty}</td>
-                                                <td className="py-1 px-2 text-right border-r bg-teal-50/10 text-gray-400 animate-scale-in">{formatVal(row.levels.min.val)}</td>
-                                                <td className="py-1 px-2 text-right bg-teal-50/10 font-medium text-teal-700 animate-scale-in">{row.levels.reorder.qty}</td>
-                                                <td className="py-1 px-2 text-right border-r bg-teal-50/10 text-teal-600 animate-scale-in">{formatVal(row.levels.reorder.val)}</td>
-                                                <td className="py-1 px-2 text-right bg-teal-50/10 text-gray-500 animate-scale-in">{row.levels.max.qty}</td>
-                                                <td className="py-1 px-2 text-right border-r bg-teal-50/10 text-gray-400 animate-scale-in">{formatVal(row.levels.max.val)}</td>
-                                            </>
-                                        )}
-
-                                        <td className="py-1 px-2 text-right bg-red-50/20 font-bold text-red-600">{row.actions.excessStock.qty || ''}</td>
-                                        <td className="py-1 px-2 text-right border-r bg-red-50/20 text-red-400">{row.actions.excessStock.val ? formatVal(row.actions.excessStock.val) : ''}</td>
-
-                                        <td className="py-1 px-2 text-right bg-red-50/20 font-bold text-red-600">{row.actions.excessPO.qty || ''}</td>
-                                        <td className="py-1 px-2 text-right border-r bg-red-50/20 text-red-400">{row.actions.excessPO.val ? formatVal(row.actions.excessPO.val) : ''}</td>
-
-                                        <td className="py-1 px-2 text-right bg-green-50/20 font-bold text-green-600">{row.actions.poNeed.qty || ''}</td>
-                                        <td className="py-1 px-2 text-right border-r bg-green-50/20 text-green-400">{row.actions.poNeed.val ? formatVal(row.actions.poNeed.val) : ''}</td>
-
-                                        <td className="py-1 px-2 text-right bg-blue-50/20 font-bold text-blue-600">{row.actions.expedite.qty || ''}</td>
-                                        <td className="py-1 px-2 text-right bg-blue-50/20 text-blue-400">{row.actions.expedite.val ? formatVal(row.actions.expedite.val) : ''}</td>
-                                    </tr>
-                                ))
+                        <tbody className="divide-y text-[10px]">
+                            {filteredData.slice(0, displayLimit).map((r, i) => (
+                                <tr key={i} className="hover:bg-gray-50">
+                                    <td className="p-1 border-r sticky left-0 bg-white">{r.make}</td>
+                                    <td className="p-1 border-r sticky left-[6rem] bg-white">{r.materialGroup}</td>
+                                    <td className="p-1 border-r sticky left-[12rem] bg-white truncate max-w-[200px] font-medium" title={r.description}>{r.description}</td>
+                                    <td className="p-1 text-right">{r.stock.qty || '-'}</td>
+                                    <td className="p-1 text-right border-r text-gray-500">{r.stock.val ? Math.round(r.stock.val).toLocaleString() : '-'}</td>
+                                    <td className="p-1 text-right text-orange-600">{r.so.curQty || '-'}</td>
+                                    <td className="p-1 text-right text-orange-400">{r.so.schQty || '-'}</td>
+                                    <td className="p-1 text-right border-r font-bold">{r.so.qty || '-'}</td>
+                                    <td className="p-1 text-right text-purple-600">{r.po.curQty || '-'}</td>
+                                    <td className="p-1 text-right text-purple-400">{r.po.schQty || '-'}</td>
+                                    <td className="p-1 text-right border-r font-bold">{r.po.qty || '-'}</td>
+                                    <td className="p-1 text-right bg-gray-50 font-bold">{r.net.qty}</td>
+                                    <td className="p-1 text-right border-r bg-gray-50">{Math.round(r.net.val).toLocaleString()}</td>
+                                    <td className="p-1 text-right text-red-600 font-bold">{r.actions.excessStock.qty || ''}</td>
+                                    <td className="p-1 text-right border-r text-red-300">{r.actions.excessStock.val ? Math.round(r.actions.excessStock.val).toLocaleString() : ''}</td>
+                                    <td className="p-1 text-right text-red-600 font-bold">{r.actions.excessPO.qty || ''}</td>
+                                    <td className="p-1 text-right border-r text-red-300">{r.actions.excessPO.val ? Math.round(r.actions.excessPO.val).toLocaleString() : ''}</td>
+                                    <td className="p-1 text-right text-green-600 font-bold">{r.actions.poNeed.qty || ''}</td>
+                                    <td className="p-1 text-right border-r text-green-300">{r.actions.poNeed.val ? Math.round(r.actions.poNeed.val).toLocaleString() : ''}</td>
+                                    <td className="p-1 text-right text-blue-600 font-bold">{r.actions.expedite.qty || ''}</td>
+                                    <td className="p-1 text-right border-r text-blue-300">{r.actions.expedite.val ? Math.round(r.actions.expedite.val).toLocaleString() : ''}</td>
+                                </tr>
+                            ))}
+                            {filteredData.length > displayLimit && (
+                                <tr><td colSpan={21} className="p-4 text-center"><button onClick={() => setDisplayLimit(d => d + 200)} className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-xs font-bold shadow-md">Load More ({filteredData.length - displayLimit})</button></td></tr>
                             )}
                         </tbody>
                     </table>

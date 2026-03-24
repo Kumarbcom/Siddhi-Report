@@ -39,6 +39,11 @@ const getMergedMakeName = (makeName: string) => {
     return m;
 };
 
+const roundToTen = (num: number) => {
+    if (num <= 0) return 0;
+    return Math.ceil(num / 10) * 10;
+};
+
 const getSmoothPath = (points: [number, number][]) => {
     if (points.length < 2) return "";
     let d = `M ${points[0][0]} ${points[0][1]}`;
@@ -743,53 +748,51 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     };
 
     const enrichedSales = useMemo(() => {
+        // Only calculate if needed for active sub-tabs
+        if (!['sales', 'weekly', 'customerAnalysis'].includes(activeSubTab)) return [];
+
+        console.time('📊 Dashboard.enrichedSales');
         const custMap = new Map<string, CustomerMasterItem>();
         customers.forEach(c => { if (c.customerName) custMap.set(String(c.customerName).toLowerCase().trim(), c); });
 
-        const matByPartNo = new Map<string, { make: string, group: string }>();
-        const matByDesc = new Map<string, { make: string, group: string }>();
-        const dateCache = new Map<any, Date>();
-        const getDateFast = (val: any) => {
-            if (!val) return new Date();
-            if (dateCache.has(val)) return dateCache.get(val)!;
-            const res = parseDate(val);
-            dateCache.set(val, res);
-            return res;
-        };
-
+        const matMap = new Map<string, { make: string, group: string }>();
         materials.forEach(m => {
-            const info = { make: m.make, group: m.materialGroup };
-            if (m.partNo) matByPartNo.set(String(m.partNo).toLowerCase().trim(), info);
-            if (m.description) matByDesc.set(String(m.description).toLowerCase().trim(), info);
+            const info = { make: m.make || 'Unspecified', group: m.materialGroup || 'Unspecified' };
+            if (m.partNo) matMap.set(String(m.partNo).toLowerCase().trim(), info);
+            if (m.description) matMap.set(String(m.description).toLowerCase().trim(), info);
         });
 
-        return salesReportItems.map(item => {
-            const dateObj = getDateFast(item.date);
-            const fi = getFiscalInfo(dateObj);
-            const cust = custMap.get(String(item.customerName || '').toLowerCase().trim());
+        const dateCache = new Map<any, { obj: Date, fi: any }>();
 
-            const rawGroup = cust?.customerGroup || 'Unassigned';
-            const relevantGroup = cust?.group || cust?.customerGroup || 'Unassigned';
-            const mergedGroup = getMergedGroupName(relevantGroup);
-            const custGroupName = groupingMode === 'RAW' ? rawGroup : mergedGroup;
+        const res = salesReportItems.map(item => {
+            let cached = dateCache.get(item.date);
+            if (!cached) {
+                const dateObj = parseDate(item.date);
+                cached = { obj: dateObj, fi: getFiscalInfo(dateObj) };
+                dateCache.set(item.date, cached);
+            }
 
-            const searchKey = String(item.particulars || '').toLowerCase().trim();
-            const matInfo = matByPartNo.get(searchKey) || matByDesc.get(searchKey);
+            const custKey = String(item.customerName || '').toLowerCase().trim();
+            const cust = custMap.get(custKey);
+            const mergedGroup = getMergedGroupName(cust?.group || cust?.customerGroup || 'Unassigned');
+            const custGroupName = groupingMode === 'RAW' ? (cust?.customerGroup || 'Unassigned') : mergedGroup;
 
-            const rawMake = matInfo?.make || 'Unspecified';
-            const mergedMake = getMergedMakeName(rawMake);
+            const matKey = String(item.particulars || '').toLowerCase().trim();
+            const matInfo = matMap.get(matKey);
 
             return {
                 ...item,
-                ...fi,
-                rawDate: dateObj,
+                ...cached.fi,
+                rawDate: cached.obj,
                 custGroup: custGroupName,
                 custStatus: cust?.status || 'Unknown',
-                make: mergedMake,
+                make: getMergedMakeName(matInfo?.make || 'Unspecified'),
                 matGroup: matInfo?.group || 'Unspecified'
             };
         });
-    }, [salesReportItems, customers, materials, groupingMode]);
+        console.timeEnd('📊 Dashboard.enrichedSales');
+        return res;
+    }, [salesReportItems, customers, materials, groupingMode, activeSubTab]);
 
     const uniqueFYs = useMemo(() => Array.from(new Set(enrichedSales.map(i => i.fiscalYear))).filter(f => f !== 'N/A').sort().reverse(), [enrichedSales]);
     const uniqueMakes = useMemo(() => {
@@ -1069,205 +1072,84 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
 
     const stockPlanningData = useMemo(() => {
+        if (activeSubTab !== 'stockPlanning') return [];
+
         const today = new Date();
-        const currentFiscalInfo = getFiscalInfo(today);
-        const currentFY = currentFiscalInfo.fiscalYear;
-        const currentYearStart = parseInt(currentFY.split('-')[0]);
-        const previousFY = `${currentYearStart - 1}-${currentYearStart.toString().slice(-2)}`;
+        const info = getFiscalInfo(today);
+        const currentFY = info.fiscalYear;
+        const prevFY = `${parseInt(currentFY.split('-')[0]) - 1}-${currentFY.split('-')[0].slice(-2)}`;
 
-        const materialMap = new Map<string, any>();
-
-        // 1. Initialize with Materials
+        const matMap = new Map<string, any>();
         materials.forEach(m => {
-            const desc = (m.description || '').trim();
-            const lowerDesc = desc.toLowerCase();
-            const partNo = (m.partNo || '').trim().toLowerCase();
-            const uniqueKey = `${lowerDesc}|${partNo}`;
-
+            const desc = (m.description || '').toLowerCase().trim();
+            const part = (m.partNo || '').toLowerCase().trim();
             const entry = {
-                description: desc,
-                partNo: m.partNo || '',
-                make: getMergedMakeName(m.make),
-                group: m.materialGroup,
-                stock: 0,
-                soDue: 0,
-                soSched: 0,
-                poDue: 0,
-                poSched: 0,
-                salesCY: 0,
-                salesPY: 0,
-                regSalesCY: 0,
-                regSalesPY: 0,
-                monthlySales: new Map<string, number>(),
-                hasProject: false,
-                strategy: 'MADE TO ORDER',
-                classification: 'NON-MOVING',
-                rollingMonths: new Set()
+                description: m.description, partNo: m.partNo, make: getMergedMakeName(m.make), group: m.materialGroup,
+                stock: 0, soDue: 0, soSched: 0, poDue: 0, poSched: 0, salesCY: 0, salesPY: 0, regSalesCY: 0, regSalesPY: 0,
+                monthlySales: new Map<string, number>(), rollingMonths: new Set<string>(), hasProject: false
             };
-
-            materialMap.set(uniqueKey, entry);
-            // Also maintain reverse lookup for matching sales/orders
-            if (lowerDesc) materialMap.set(lowerDesc, entry);
-            if (partNo && partNo !== lowerDesc) {
-                materialMap.set(partNo, entry);
-            }
+            if (desc) matMap.set(desc, entry);
+            if (part && part !== desc) matMap.set(part, entry);
         });
 
-        // Fast date cache for heavy loops
-        const dateCache = new Map<any, Date>();
-        const getDateFast = (val: any) => {
-            if (!val) return new Date(0);
-            if (dateCache.has(val)) return dateCache.get(val)!;
-            const res = parseDate(val);
-            dateCache.set(val, res);
-            return res;
+        closingStock.forEach(i => {
+            const k = (i.description || '').toLowerCase().trim();
+            const target = matMap.get(k);
+            if (target) target.stock += (i.quantity || 0);
+        });
+
+        const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        const processOrder = (items: any[], isSO: boolean) => {
+            items.forEach(item => {
+                const k = (item.itemName || '').toLowerCase().trim();
+                const p = (item.partNo || '').toLowerCase().trim();
+                const target = matMap.get(p) || matMap.get(k);
+                if (target) {
+                    const due = parseDate(item.dueDate);
+                    const qty = item.balanceQty || 0;
+                    if (due <= monthEnd) { if (isSO) target.soDue += qty; else target.poDue += qty; }
+                    else { if (isSO) target.soSched += qty; else target.poSched += qty; }
+                }
+            });
         };
+        processOrder(pendingSO, true);
+        processOrder(pendingPO, false);
 
-        // 2. Closing Stock
-        closingStock.forEach(item => {
-            const lower = (item.description || '').toLowerCase().trim();
-            if (materialMap.has(lower)) {
-                materialMap.get(lower).stock += (item.quantity || 0);
-            }
-        });
-
-        const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0); // End of current month
-
-        // 3. Pending SO
-        pendingSO.forEach(item => {
-            const nameLower = (item.itemName || '').toLowerCase().trim();
-            const partLower = (item.partNo || '').toLowerCase().trim();
-            const target = materialMap.get(partLower) || materialMap.get(nameLower);
-
-            if (target) {
-                const due = getDateFast(item.dueDate);
-                if (due <= monthEnd) target.soDue += (item.balanceQty || 0);
-                else target.soSched += (item.balanceQty || 0);
-            }
-        });
-
-        // 4. Pending PO
-        pendingPO.forEach(item => {
-            const nameLower = (item.itemName || '').toLowerCase().trim();
-            const partLower = (item.partNo || '').toLowerCase().trim();
-            const target = materialMap.get(partLower) || materialMap.get(nameLower);
-
-            if (target) {
-                const due = getDateFast(item.dueDate);
-                if (due <= monthEnd) target.poDue += (item.balanceQty || 0);
-                else target.poSched += (item.balanceQty || 0);
-            }
-        });
-
-        // 5. Sales & Movement
-        const now = new Date();
-        const twelveMonthsAgo = new Date();
-        twelveMonthsAgo.setMonth(now.getMonth() - 12);
-
+        const yearAgo = new Date(today); yearAgo.setFullYear(today.getFullYear() - 1);
         enrichedSales.forEach(item => {
-            const desc = (item.particulars || '').toLowerCase().trim();
-            const target = materialMap.get(desc);
-
+            const target = matMap.get((item.particulars || '').toLowerCase().trim());
             if (target) {
-                const itemDate = getDateFast(item.date);
-                const isProject = desc.includes('project') || (item.customerName || '').toLowerCase().includes('project');
-
-                if (item.fiscalYear === currentFY) {
-                    target.salesCY += (item.quantity || 0);
-                    if (!isProject) target.regSalesCY += (item.quantity || 0);
-                }
-                if (item.fiscalYear === previousFY) {
-                    target.salesPY += (item.quantity || 0);
-                    if (!isProject) target.regSalesPY += (item.quantity || 0);
-                }
-
-                const monthKey = `${itemDate.getFullYear()}-${itemDate.getMonth() + 1}`;
-                target.monthlySales.set(monthKey, (target.monthlySales.get(monthKey) || 0) + (item.quantity || 0));
-
-                if (itemDate >= twelveMonthsAgo) {
-                    if (!target.rollingMonths) target.rollingMonths = new Set();
-                    target.rollingMonths.add(monthKey);
-                }
-
+                const isProject = (item.particulars || '').toLowerCase().includes('project') || (item.customerName || '').toLowerCase().includes('project');
+                const qty = item.quantity || 0;
+                if (item.fiscalYear === currentFY) { target.salesCY += qty; if (!isProject) target.regSalesCY += qty; }
+                if (item.fiscalYear === prevFY) { target.salesPY += qty; if (!isProject) target.regSalesPY += qty; }
+                const mKey = `${item.rawDate.getFullYear()}-${item.rawDate.getMonth() + 1}`;
+                target.monthlySales.set(mKey, (target.monthlySales.get(mKey) || 0) + qty);
+                if (item.rawDate >= yearAgo) target.rollingMonths.add(mKey);
                 if (isProject) target.hasProject = true;
             }
         });
 
-        // 6. Final Calculations & Heuristics
-        const uniqueMaterials = Array.from(new Set(materialMap.values()));
-
-        // Calculate Top 30% volume for Pareto based on Regular Sales
-        let totalRegQtyCombined = 0;
-        uniqueMaterials.forEach(m => { totalRegQtyCombined += ((m.regSalesCY || 0) + (m.regSalesPY || 0)); });
-
-        const sortedByRegVolume = uniqueMaterials
-            .map(m => ({ id: `${m.description}|${m.partNo}`.toLowerCase(), qty: (m.regSalesCY || 0) + (m.regSalesPY || 0) }))
-            .sort((a, b) => b.qty - a.qty);
-
-        let cumulative = 0;
-        const top30PercentIds = new Set();
-        for (const item of sortedByRegVolume) {
-            cumulative += item.qty;
-            top30PercentIds.add(item.id);
-            if (cumulative >= totalRegQtyCombined * 0.3) break;
-        }
-
+        const uniqueMaterials = Array.from(new Set(matMap.values()));
         return uniqueMaterials.map(m => {
-            const activeMonths = m.monthlySales.size;
-            const rollingMonthsCount = m.rollingMonths ? m.rollingMonths.size : 0;
-            const avgMonthly = activeMonths > 0 ? Array.from(m.monthlySales.values() as IterableIterator<number>).reduce((a: number, b: number) => a + b, 0) / activeMonths : 0;
-
-            // Classification Logic (Rolling 12 Months + Pareto)
-            const isVolumeLeader = top30PercentIds.has(`${m.description}|${m.partNo}`.toLowerCase());
-            let movementClass = 'NON-MOVING';
-            if (rollingMonthsCount >= 9 || (rollingMonthsCount >= 6 && isVolumeLeader)) {
-                movementClass = 'FAST RUNNER';
-            } else if (rollingMonthsCount >= 3) {
-                movementClass = 'SLOW RUNNER';
-            }
-            m.classification = movementClass;
-
-            // Strategy Logic
-            if (m.salesCY + m.salesPY > 1000 || (movementClass === 'FAST RUNNER' && m.salesCY + m.salesPY > 500)) m.strategy = 'GENERAL STOCK';
-            else if (m.salesCY + m.salesPY > 0) m.strategy = 'AGAINST ORDER';
-
-            const netQty = m.stock + m.poDue + m.poSched - (m.soDue + m.soSched);
-
-            const roundInventory = (val: number) => {
-                if (val <= 0) return 0;
-                if (val < 10) return Math.ceil(val);
-                if (val < 200) return Math.round(val / 10) * 10;
-                return Math.round(val / 100) * 100;
-            };
-
-            // Inventory Levels
-            let safetyStock = Math.ceil(avgMonthly * 1.2);
-            let minStock = roundInventory(safetyStock);
-            let rol = roundInventory(safetyStock + (avgMonthly * 0.5));
-            let maxStock = roundInventory(rol + (avgMonthly * 1.5));
-
-            // User request: For Non moving or Against order, no need to plan additional (buffer) stock.
-            // Requirement is strictly based on Sales Orders (SO - (Stock + PO)).
-            if (movementClass === 'NON-MOVING' || m.strategy === 'AGAINST ORDER' || m.strategy === 'MADE TO ORDER') {
-                safetyStock = 0;
-                minStock = 0;
-                rol = 0;
-                maxStock = 0;
-            }
+            const activeM = m.monthlySales.size;
+            const avgM = activeM > 0 ? m.salesCY / activeM : 0;
+            const rollCount = m.rollingMonths.size;
+            let mClass = 'NON-MOVING', strategy = 'MADE TO ORDER';
+            if (rollCount >= 9) mClass = 'FAST RUNNER'; else if (rollCount >= 3) mClass = 'SLOW RUNNER';
+            if (m.salesCY + m.salesPY > 1000) strategy = 'GENERAL STOCK'; else if (m.salesCY + m.salesPY > 0) strategy = 'AGAINST ORDER';
+            
+            const net = m.stock + m.poDue + m.poSched - (m.soDue + m.soSched);
+            let safety = (mClass === 'FAST RUNNER' || strategy === 'GENERAL STOCK') ? Math.ceil(avgM * 1.2) : 0;
+            const min = roundToTen(safety);
+            const max = roundToTen(safety * 3);
 
             return {
-                ...m,
-                uniqueId: `${m.description}|${m.partNo}`,
-                netQty,
-                safetyStock,
-                minStock,
-                rol,
-                maxStock,
-                projection: Math.ceil(avgMonthly),
-                avgMonthly
+                ...m, uniqueId: `${m.description}|${m.partNo}`, netQty: net, safetyStock: safety, minStock: min,
+                rol: roundToTen(safety * 1.5), maxStock: max, avgMonthly: avgM, classification: mClass, strategy
             };
         });
-    }, [materials, closingStock, pendingSO, pendingPO, enrichedSales]);
+    }, [materials, closingStock, pendingSO, pendingPO, enrichedSales, activeSubTab]);
 
     const filteredStockPlanning = useMemo(() => {
         let data = stockPlanningData.filter(d => {
@@ -1379,120 +1261,66 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     }, [stockPlanningData, stockSlicers, stockSearchTerm]);
 
     const inventoryStats = useMemo(() => {
-        // Build maps for O(1) matching
-        const matByPartNo = new Map<string, { make: string, group: string }>();
-        const matByDesc = new Map<string, { make: string, group: string }>();
-        const dateCache = new Map<any, Date>();
-        const getDateFast = (val: any) => {
-            if (!val) return new Date();
-            if (dateCache.has(val)) return dateCache.get(val)!;
-            const res = parseDate(val);
-            dateCache.set(val, res);
-            return res;
-        };
+        if (!['inventory', 'weekly'].includes(activeSubTab)) return { totalVal: 0, totalQty: 0, totalExcessVal: 0, count: 0, items: [], makeMix: [], groupMix: [], topStock: [], topExcess: [] };
 
-        (materials || []).forEach(m => {
-            if (!m) return;
+        console.time('📦 Dashboard.inventoryStats');
+        const matMap = new Map<string, { make: string, group: string }>();
+        materials.forEach(m => {
             const info = { make: m.make || 'Unspecified', group: m.materialGroup || 'Unspecified' };
-            if (m.partNo) matByPartNo.set(String(m.partNo).toLowerCase().trim(), info);
-            if (m.description) matByDesc.set(String(m.description).toLowerCase().trim(), info);
+            if (m.partNo) matMap.set(String(m.partNo).toLowerCase().trim(), info);
+            if (m.description) matMap.set(String(m.description).toLowerCase().trim(), info);
         });
 
         const soMap = new Map<string, number>();
-        (pendingSO || []).forEach(s => {
-            if (!s || !s.itemName) return;
-            const k = s.itemName.toLowerCase().trim();
-            soMap.set(k, (soMap.get(k) || 0) + (s.balanceQty || 0));
+        pendingSO.forEach(s => {
+            if (s.itemName) {
+                const k = s.itemName.toLowerCase().trim();
+                soMap.set(k, (soMap.get(k) || 0) + (s.balanceQty || 0));
+            }
         });
 
         const poMap = new Map<string, number>();
-        (pendingPO || []).forEach(p => {
-            if (!p || !p.itemName) return;
-            const k = p.itemName.toLowerCase().trim();
-            poMap.set(k, (poMap.get(k) || 0) + (p.balanceQty || 0));
+        pendingPO.forEach(p => {
+            if (p.itemName) {
+                const k = p.itemName.toLowerCase().trim();
+                poMap.set(k, (poMap.get(k) || 0) + (p.balanceQty || 0));
+            }
         });
 
-        const rawItems = (closingStock || []).map(i => {
-            if (!i || !i.description) return null;
-            const descLower = String(i.description || '').toLowerCase().trim();
-            const matInfo = matByPartNo.get(descLower) || matByDesc.get(descLower);
-            const mergedMake = getMergedMakeName(matInfo?.make || 'Unspecified');
+        const rawItems = closingStock.map(i => {
+            if (!i.description) return null;
+            const k = i.description.toLowerCase().trim();
+            const matInfo = matMap.get(k);
+            const mke = getMergedMakeName(matInfo?.make || 'Unspecified');
+            const sQty = soMap.get(k) || 0;
+            const pQty = poMap.get(k) || 0;
+            const exQty = Math.max(0, (i.quantity || 0) + pQty - sQty);
+            return { ...i, make: mke, group: matInfo?.group || 'Unspecified', excessVal: exQty * (i.rate || 0), excessPct: ((i.quantity || 0) + pQty) > 0 ? (exQty / ((i.quantity || 0) + pQty)) * 100 : 0 };
+        }).filter(i => i !== null) as any[];
 
-            const sQty = soMap.get(descLower) || 0;
-            const pQty = poMap.get(descLower) || 0;
-            const excessQty = Math.max(0, (i.quantity || 0) + pQty - sQty);
-            const excessVal = excessQty * (i.rate || 0);
-            const totalAvail = (i.quantity || 0) + pQty;
-            const excessPct = totalAvail > 0 ? (excessQty / totalAvail) * 100 : 0;
+        const filtered = rawItems.filter(i => (selectedMake === 'ALL' || i.make === selectedMake) && (selectedMatGroup === 'ALL' || i.group === selectedMatGroup));
+        const totalV = filtered.reduce((a, b) => a + (b.value || 0), 0);
+        const totalQ = filtered.reduce((a, b) => a + (b.quantity || 0), 0);
+        const totalExV = filtered.reduce((a, b) => a + (b.excessVal || 0), 0);
+        const baseline = invGroupMetric === 'value' ? totalV : totalQ;
 
-            return {
-                ...i,
-                make: mergedMake,
-                group: matInfo?.group || 'Unspecified',
-                excessVal,
-                excessPct
-            };
-        }).filter((i): i is any => i !== null);
-
-        // Apply Slicers (respects Make and Material Group selections)
-        const filteredData = rawItems.filter(i => {
-            if (selectedMake !== 'ALL' && i.make !== selectedMake) return false;
-            if (selectedMatGroup !== 'ALL' && i.group !== selectedMatGroup) return false;
-            return true;
+        const mkeMap = new Map<string, number>();
+        const grpMap = new Map<string, number>();
+        filtered.forEach(i => {
+            const v = invGroupMetric === 'value' ? (i.value || 0) : (i.quantity || 0);
+            mkeMap.set(i.make, (mkeMap.get(i.make) || 0) + v);
+            grpMap.set(i.group, (grpMap.get(i.group) || 0) + v);
         });
 
-        const totalVal = filteredData.reduce((a, b) => a + (b.value || 0), 0);
-        const totalQty = filteredData.reduce((a, b) => a + (b.quantity || 0), 0);
-        const totalExcessVal = filteredData.reduce((a, b) => a + (b.excessVal || 0), 0);
-        const baseline = invGroupMetric === 'value' ? totalVal : totalQty;
-
-        const makeMap = new Map<string, number>();
-        const groupMap = new Map<string, number>();
-
-        filteredData.forEach(i => {
-            const val = invGroupMetric === 'value' ? (i.value || 0) : (i.quantity || 0);
-            makeMap.set(i.make, (makeMap.get(i.make) || 0) + val);
-            groupMap.set(i.group, (groupMap.get(i.group) || 0) + val);
-        });
-
+        console.timeEnd('📦 Dashboard.inventoryStats');
         return {
-            totalVal,
-            totalQty,
-            totalExcessVal,
-            count: filteredData.length,
-            items: filteredData,
-            makeMix: Array.from(makeMap.entries())
-                .map(([label, value]) => ({
-                    label,
-                    value,
-                    share: baseline > 0 ? (value / baseline) * 100 : 0
-                }))
-                .sort((a, b) => b.value - a.value),
-            groupMix: Array.from(groupMap.entries())
-                .map(([label, value]) => ({
-                    label,
-                    value,
-                    share: baseline > 0 ? (value / baseline) * 100 : 0
-                }))
-                .sort((a, b) => b.value - a.value),
-            topStock: [...filteredData]
-                .sort((a, b) => b.value - a.value)
-                .slice(0, 10)
-                .map(i => ({
-                    label: i.description,
-                    value: i.value,
-                    share: totalVal > 0 ? (i.value / totalVal) * 100 : 0
-                })),
-            topExcess: [...filteredData]
-                .sort((a, b) => b.excessVal - a.excessVal)
-                .slice(0, 10)
-                .map(i => ({
-                    label: i.description,
-                    value: i.excessVal,
-                    share: i.excessPct
-                }))
+            totalVal: totalV, totalQty: totalQ, totalExcessVal: totalExV, count: filtered.length, items: filtered,
+            makeMix: Array.from(mkeMap.entries()).map(([label, value]) => ({ label, value, share: baseline > 0 ? (value / baseline) * 100 : 0 })).sort((a, b) => b.value - a.value),
+            groupMix: Array.from(grpMap.entries()).map(([label, value]) => ({ label, value, share: baseline > 0 ? (value / baseline) * 100 : 0 })).sort((a, b) => b.value - a.value),
+            topStock: [...filtered].sort((a, b) => b.value - a.value).slice(0, 10).map(i => ({ label: i.description, value: i.value, share: totalV > 0 ? (i.value / totalV) * 100 : 0 })),
+            topExcess: [...filtered].sort((a, b) => b.excessVal - a.excessVal).slice(0, 10).map(i => ({ label: i.description, value: i.excessVal, share: i.excessPct }))
         };
-    }, [closingStock, materials, invGroupMetric, selectedMake, selectedMatGroup, pendingSO, pendingPO]);
+    }, [closingStock, materials, invGroupMetric, selectedMake, selectedMatGroup, pendingSO, pendingPO, activeSubTab]);
 
     const processedInventoryItems = useMemo(() => {
         let items = [...inventoryStats.items];
@@ -1528,267 +1356,191 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     };
 
     const soStats = useMemo(() => {
-        const totalVal = pendingSO.reduce((a, b) => a + (b.value || 0), 0);
-        const totalQty = pendingSO.reduce((a, b) => a + (b.balanceQty || 0), 0);
-        const custMap = new Map<string, { due: number, scheduled: number }>();
-        const groupMap = new Map<string, number>();
-        const itemSet = new Set<string>();
-        const soSet = new Set<string>();
-        const ageingMap = { '0-30d': 0, '31-60d': 0, '61-90d': 0, '90d+': 0 };
-
-        let dueValue = 0, dueQty = 0, readyDueValue = 0, readyDueQty = 0, shortageDueValue = 0, shortageDueQty = 0;
-        let scheduledValue = 0, scheduledQty = 0, readySchValue = 0, readySchQty = 0, shortageSchValue = 0, shortageSchQty = 0;
-
+        if (!['so', 'weekly'].includes(activeSubTab)) return { totalVal: 0, totalQty: 0, dueValue: 0, scheduledValue: 0, readyDueValue: 0, shortageDueValue: 0, readySchValue: 0, shortageSchValue: 0, uniqueSOCount: 0, uniqueItemCount: 0, custMix: [], groupMix: [], ageing: [], topItems: [], enrichedItems: [] };
+        
+        console.time('📑 Dashboard.soStats');
         const stockMap = new Map<string, number>();
-        (closingStock || []).forEach(s => {
+        closingStock.forEach(s => {
             const k = (s.description || '').toLowerCase().trim();
             stockMap.set(k, (stockMap.get(k) || 0) + (s.quantity || 0));
         });
 
-        const tempStock = new Map(stockMap);
-        const dateCache = new Map<any, Date>();
-        const getDateFast = (val: any) => {
-            if (!val) return new Date();
-            if (dateCache.has(val)) return dateCache.get(val)!;
-            const res = parseDate(val);
-            dateCache.set(val, res);
-            return res;
-        };
-
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        // Sort by due date for fair stock allocation
-        const sortedSO = [...pendingSO].sort((a, b) => getDateFast(a.dueDate).getTime() - getDateFast(b.dueDate).getTime());
-
-        const enrichedItems = sortedSO.map(i => {
-            const pName = (i.partyName || 'Unknown').trim();
-            if (!custMap.has(pName)) custMap.set(pName, { due: 0, scheduled: 0 });
-
-            const iName = (i.itemName || 'Unspecified').trim().toLowerCase();
-            itemSet.add(iName);
-            if (i.orderNo) soSet.add(i.orderNo);
-
-            const days = i.overDueDays || 0;
-            const dueDate = getDateFast(i.dueDate);
-            const isDue = days > 0 || (dueDate.getTime() > 0 && dueDate <= today);
-
-            const qty = i.balanceQty || 0;
-            const available = tempStock.get(iName) || 0;
-            const allocated = Math.min(qty, available);
-            const shortage = Math.max(0, qty - allocated);
-            tempStock.set(iName, available - allocated);
-
-            const itemVal = i.value || 0;
-            const itemReadyVal = allocated * (i.rate || 0);
-            const itemShortageVal = shortage * (i.rate || 0);
-
-            if (isDue) {
-                dueValue += itemVal; dueQty += qty;
-                readyDueValue += itemReadyVal; readyDueQty += allocated;
-                shortageDueValue += itemShortageVal; shortageDueQty += shortage;
-                custMap.get(pName)!.due += itemVal;
-            } else {
-                scheduledValue += itemVal; scheduledQty += qty;
-                readySchValue += itemReadyVal; readySchQty += allocated;
-                shortageSchValue += itemShortageVal; shortageSchQty += shortage;
-                custMap.get(pName)!.scheduled += itemVal;
-            }
-
-            const mat = materials.find(m => (m.description || '').toLowerCase().trim() === iName);
-            const group = mat ? (mat.materialGroup || 'Unspecified') : 'Unspecified';
-            groupMap.set(group, (groupMap.get(group) || 0) + itemVal);
-
-            if (days <= 30) ageingMap['0-30d'] += itemVal;
-            else if (days <= 60) ageingMap['31-60d'] += itemVal;
-            else if (days <= 90) ageingMap['61-90d'] += itemVal;
-            else ageingMap['90d+'] += itemVal;
-
-            return {
-                ...i,
-                readyVal: itemReadyVal,
-                shortageVal: itemShortageVal,
-                readyQty: allocated,
-                shortageQty: shortage
-            };
+        const matMap = new Map<string, string>();
+        materials.forEach(m => {
+            if (m.description) matMap.set(m.description.toLowerCase().trim(), m.materialGroup || 'Unspecified');
         });
 
+        const today = new Date(); today.setHours(0,0,0,0);
+        const sorted = [...pendingSO].sort((a,b) => parseDate(a.dueDate).getTime() - parseDate(b.dueDate).getTime());
+        
+        const custMap = new Map<string, { due: number, scheduled: number }>();
+        const groupMap = new Map<string, number>();
+        const aging = { '0-30d': 0, '31-60d': 0, '61-90d': 0, '90d+': 0 };
+        const soSet = new Set<string>();
+        const itemSet = new Set<string>();
+        let dV = 0, dQ = 0, rdV = 0, sdV = 0, sV = 0, sQ = 0, rsV = 0, ssV = 0;
+
+        const enriched = sorted.map(i => {
+            const k = (i.itemName || '').toLowerCase().trim();
+            const due = parseDate(i.dueDate);
+            const isD = (i.overDueDays || 0) > 0 || (due.getTime() > 0 && due <= today);
+            const qty = i.balanceQty || 0;
+            const avail = stockMap.get(k) || 0;
+            const alloc = Math.min(qty, avail);
+            stockMap.set(k, avail - alloc);
+            
+            const val = i.value || 0;
+            const rV = alloc * (i.rate || 0);
+            const shV = (qty - alloc) * (i.rate || 0);
+
+            if (isD) { dV += val; dQ += qty; rdV += rV; sdV += shV; }
+            else { sV += val; sQ += qty; rsV += rV; ssV += shV; }
+
+            const pName = (i.partyName || 'Unknown').trim();
+            const c = custMap.get(pName) || { due: 0, scheduled: 0 };
+            if (isD) c.due += val; else c.scheduled += val;
+            custMap.set(pName, c);
+
+            const grp = matMap.get(k) || 'Unspecified';
+            groupMap.set(grp, (groupMap.get(grp) || 0) + val);
+            if (i.orderNo) soSet.add(i.orderNo);
+            itemSet.add(k);
+
+            const diff = (today.getTime() - due.getTime()) / (1000 * 3600 * 24);
+            if (diff > 90) aging['90d+'] += val;
+            else if (diff > 60) aging['61-90d'] += val;
+            else if (diff > 30) aging['31-60d'] += val;
+            else if (diff > 0) aging['0-30d'] += val;
+
+            return { ...i, readyVal: rV, shortageVal: shV, readyQty: alloc, shortageQty: qty - alloc };
+        });
+
+        console.timeEnd('📑 Dashboard.soStats');
         return {
-            totalVal, totalQty,
-            dueValue, dueQty, readyDueValue, readyDueQty, shortageDueValue, shortageDueQty,
-            scheduledValue, scheduledQty, readySchValue, readySchQty, shortageSchValue, shortageSchQty,
-            count: pendingSO.length,
-            uniqueItemCount: itemSet.size,
-            uniqueSOCount: soSet.size,
-            custMix: Array.from(custMap.entries()).map(([label, v]) => ({ label, value: v.due, secondaryValue: v.scheduled })).sort((a, b) => (b.value + b.secondaryValue) - (a.value + a.secondaryValue)),
-            groupMix: Array.from(groupMap.entries()).map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value),
-            ageing: Object.entries(ageingMap).map(([label, value]) => ({ label, value })),
-            topItems: enrichedItems.sort((a, b) => b.value - a.value).slice(0, 10),
-            enrichedItems
+            totalVal: dV + sV, totalQty: dQ + sQ, dueValue: dV, scheduledValue: sV, readyDueValue: rdV, shortageDueValue: sdV, readySchValue: rsV, shortageSchValue: ssV,
+            uniqueSOCount: soSet.size, uniqueItemCount: itemSet.size,
+            custMix: Array.from(custMap.entries()).map(([label, v]) => ({ label, value: v.due, secondaryValue: v.scheduled })).sort((a,b) => (b.value+b.secondaryValue) - (a.value+a.secondaryValue)),
+            groupMix: Array.from(groupMap.entries()).map(([label, value]) => ({ label, value })).sort((a,b) => b.value - a.value),
+            ageing: Object.entries(aging).map(([label, value]) => ({ label, value })),
+            topItems: enriched.sort((a,b) => b.value - a.value).slice(0, 10),
+            enrichedItems: enriched
         };
-    }, [pendingSO, materials, closingStock]);
+    }, [pendingSO, materials, closingStock, activeSubTab]);
 
     const poStats = useMemo(() => {
-        const totalVal = pendingPO.reduce((a, b) => a + (b.value || 0), 0);
-        const vendorMap = new Map<string, number>();
-        const statusMap = { 'Overdue': 0, 'Due Today': 0, 'Due This Week': 0, 'Future': 0 };
-        const groupMap = new Map<string, number>();
-
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const weekEnd = new Date(today);
-        weekEnd.setDate(today.getDate() + 7);
-
-        const dateCache = new Map<any, Date>();
-        const getDateFast = (val: any) => {
-            if (!val) return new Date();
-            if (dateCache.has(val)) return dateCache.get(val)!;
-            const res = parseDate(val);
-            dateCache.set(val, res);
-            return res;
-        };
-
-        (pendingPO || []).forEach(i => {
-            const vName = (i.partyName || 'Unknown').trim();
-            vendorMap.set(vName, (vendorMap.get(vName) || 0) + (i.value || 0));
-
-            const iName = (i.itemName || 'Unspecified').trim();
-            const mat = materials.find(m => (m.description || '').toLowerCase().trim() === iName.toLowerCase());
-            const group = mat ? (mat.materialGroup || 'Unspecified') : 'Unspecified';
-            groupMap.set(group, (groupMap.get(group) || 0) + (i.value || 0));
-
-            const dueDate = getDateFast(i.dueDate);
-            if (dueDate < today) statusMap['Overdue'] += (i.value || 0);
-            else if (dueDate.getTime() === today.getTime()) statusMap['Due Today'] += (i.value || 0);
-            else if (dueDate <= weekEnd) statusMap['Due This Week'] += (i.value || 0);
-            else statusMap['Future'] += (i.value || 0);
+        if (activeSubTab !== 'po') return { totalVal: 0, count: 0, vendorMix: [], dueMix: [], groupMix: [], topItems: [] };
+        console.time('🛒 Dashboard.poStats');
+        const matMap = new Map<string, { group: string }>();
+        materials.forEach(m => {
+            const grp = { group: m.materialGroup || 'Unspecified' };
+            if (m.description) matMap.set(m.description.toLowerCase().trim(), grp);
+            if (m.partNo) matMap.set(m.partNo.toLowerCase().trim(), grp);
         });
 
+        const vMap = new Map<string, number>();
+        const sMap = { 'Overdue': 0, 'Due Today': 0, 'Due This Week': 0, 'Future': 0 };
+        const gMap = new Map<string, number>();
+        const td = new Date(); td.setHours(0,0,0,0);
+        const wEnd = new Date(td); wEnd.setDate(td.getDate() + 7);
+
+        pendingPO.forEach(i => {
+            const v = (i.partyName || 'Unknown').trim();
+            vMap.set(v, (vMap.get(v) || 0) + (i.value || 0));
+            const grp = matMap.get((i.itemName || '').toLowerCase().trim())?.group || 'Unspecified';
+            gMap.set(grp, (gMap.get(grp) || 0) + (i.value || 0));
+            const due = parseDate(i.dueDate);
+            if (due < td) sMap['Overdue'] += (i.value || 0);
+            else if (due.getTime() === td.getTime()) sMap['Due Today'] += (i.value || 0);
+            else if (due <= wEnd) sMap['Due This Week'] += (i.value || 0);
+            else sMap['Future'] += (i.value || 0);
+        });
+
+        console.timeEnd('🛒 Dashboard.poStats');
         return {
-            totalVal,
-            count: pendingPO.length,
-            vendorMix: Array.from(vendorMap.entries()).map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value),
-            dueMix: Object.entries(statusMap).map(([label, value]) => ({ label, value })),
-            groupMix: Array.from(groupMap.entries()).map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value),
-            topItems: [...pendingPO].sort((a, b) => b.value - a.value).slice(0, 10)
+            totalVal: pendingPO.reduce((a, b) => a + (b.value || 0), 0), count: pendingPO.length,
+            vendorMix: Array.from(vMap.entries()).map(([label, value]) => ({ label, value })).sort((a,b) => b.value - a.value),
+            dueMix: Object.entries(sMap).map(([label, value]) => ({ label, value })),
+            groupMix: Array.from(gMap.entries()).map(([label, value]) => ({ label, value })).sort((a,b) => b.value - a.value),
+            topItems: [...pendingPO].sort((a,b) => b.value - a.value).slice(0, 10)
         };
-    }, [pendingPO, materials]);
+    }, [pendingPO, materials, activeSubTab]);
 
     const weeklyStats = useMemo(() => {
-        const targetDate = new Date();
-        targetDate.setHours(0, 0, 0, 0);
+        const defaultState = {
+            sales: { mtdPrev: 0, mtdCurr: 0, mtdDiff: 0, ytdPrev: 0, ytdCurr: 0, ytdDiff: 0, mtdPrevOnline: 0, mtdCurrOnline: 0, mtdDiffOnline: 0, ytdPrevOnline: 0, ytdCurrOnline: 0, ytdDiffOnline: 0 },
+            due: {} as Record<string, { ready: number, shortage: number, total: number }>,
+            sched: {} as Record<string, { ready: number, shortage: number, total: number }>,
+            total: {} as Record<string, { ready: number, shortage: number, total: number }>,
+            stock: [] as { make: string, groups: { group: string, qty: number, value: number }[] }[],
+            targetDate: new Date(), prevDate: new Date()
+        };
+        if (activeSubTab !== 'weekly') return defaultState;
+        console.time('📅 Dashboard.weeklyStats');
+        const today = new Date(); today.setHours(0,0,0,0);
+        const cDay = today.getDay();
+        const sub = cDay >= 3 ? cDay - 3 : cDay + 4;
+        const targetD = new Date(today); targetD.setDate(today.getDate() - sub);
+        const prevD = new Date(targetD); prevD.setDate(targetD.getDate() - 7);
+        const gapEnd = new Date(targetD); gapEnd.setDate(targetD.getDate() - 1);
+        const mtdS = new Date(prevD.getFullYear(), prevD.getMonth(), 1);
+        const fyS = new Date(targetD.getMonth() >= 3 ? targetD.getFullYear() : targetD.getFullYear() - 1, 3, 1);
 
-        // Find the most recent Wednesday (since weeks end on Wednesday)
-        const currentDay = targetDate.getDay();
-        const daysToSubtract = currentDay >= 3 ? currentDay - 3 : currentDay + 4;
-        targetDate.setDate(targetDate.getDate() - daysToSubtract);
-
-        const prevDate = new Date(targetDate);
-        prevDate.setDate(targetDate.getDate() - 7); // 7 days ago
-
-        // Define Weekly Gap for Current Week "MTD" (25.12.2025 - 31.12.2025)
-        const weeklyGapStart = new Date(prevDate);
-        weeklyGapStart.setDate(weeklyGapStart.getDate() + 1);
-        const weeklyGapEnd = new Date(targetDate);
-        weeklyGapEnd.setDate(weeklyGapEnd.getDate() - 1);
-
-        const mtdStartPrev = new Date(prevDate.getFullYear(), prevDate.getMonth(), 1);
-        const ytdYear = targetDate.getMonth() >= 3 ? targetDate.getFullYear() : targetDate.getFullYear() - 1;
-        const ytdStart = new Date(ytdYear, 3, 1); // April 1st of fiscal year
-
-        const getSalesSum = (start: Date, end: Date, isOnlineOnly: boolean = false) => {
-            const startOfDay = new Date(start); startOfDay.setHours(0, 0, 0, 0);
-            const endOfDay = new Date(end); endOfDay.setHours(23, 59, 59, 999);
-
-            return enrichedSales
-                .filter(s => s.rawDate >= startOfDay && s.rawDate <= endOfDay)
-                .filter(s => !isOnlineOnly || s.custGroup === 'Online')
-                .reduce((acc, i) => acc + (i.value || 0), 0);
+        const getSum = (s: Date, e: Date, online: boolean = false) => {
+            const sd = new Date(s); sd.setHours(0,0,0,0);
+            const ed = new Date(e); ed.setHours(23,59,59,999);
+            return enrichedSales.filter(i => i.rawDate >= sd && i.rawDate <= ed && (!online || i.custGroup === 'Online')).reduce((a, b) => a + (b.value || 0), 0);
         };
 
-        const mtdPrev = getSalesSum(mtdStartPrev, prevDate);
-        // Calculate Total Month Sales (Dec 01 - Dec 31) for Current Week column
-        const mtdCurr = getSalesSum(mtdStartPrev, weeklyGapEnd);
-        const ytdPrev = getSalesSum(ytdStart, prevDate);
-        const ytdCurr = getSalesSum(ytdStart, targetDate);
+        const rMakes = ['LAPP', 'Eaton', 'Hager', 'Mennekes', 'Havells', 'Luker'];
+        const mMap = new Map<string, string>();
+        materials.forEach(m => {
+            const val = getMergedMakeName(m.make);
+            if (m.description) mMap.set(m.description.toLowerCase().trim(), val);
+        });
 
-        const mtdPrevOnline = getSalesSum(mtdStartPrev, prevDate, true);
-        const mtdCurrOnline = getSalesSum(mtdStartPrev, weeklyGapEnd, true);
-        const ytdPrevOnline = getSalesSum(ytdStart, prevDate, true);
-        const ytdCurrOnline = getSalesSum(ytdStart, targetDate, true);
-
-        // Specific Makes for the report
-        const reportMakes = ['LAPP', 'Eaton', 'Hager', 'Mennekes', 'Havells', 'Luker'];
-
-        const getMakeStats = (items: any[]) => {
-            const stats: Record<string, { ready: number, shortage: number, total: number }> = {};
-            reportMakes.forEach(m => stats[m] = { ready: 0, shortage: 0, total: 0 });
-            stats['Others'] = { ready: 0, shortage: 0, total: 0 };
-
+        const getMk = (items: any[]) => {
+            const s: Record<string, any> = { 'Others': { ready: 0, shortage: 0, total: 0 } };
+            rMakes.forEach(m => s[m] = { ready: 0, shortage: 0, total: 0 });
             items.forEach(i => {
-                const mat = materials.find(m => (m.description || '').toLowerCase().trim() === (i.itemName || '').toLowerCase().trim());
-                const rawMake = mat ? (mat.make || 'Unspecified') : 'Unspecified';
-                const mergedMake = getMergedMakeName(rawMake);
-                const targetKey = reportMakes.includes(mergedMake) ? mergedMake : 'Others';
-
-                stats[targetKey].ready += (i.readyVal || 0);
-                stats[targetKey].shortage += (i.shortageVal || 0);
-                stats[targetKey].total += (i.value || 0);
+                const mk = mMap.get((i.itemName || '').toLowerCase().trim()) || 'Others';
+                const k = rMakes.includes(mk) ? mk : 'Others';
+                s[k].ready += (i.readyVal || 0); s[k].shortage += (i.shortageVal || 0); s[k].total += (i.value || 0);
             });
-            return stats;
+            return s;
         };
 
-        const dueItems = soStats.enrichedItems.filter(i => {
-            const days = i.overDueDays || 0;
-            const dd = parseDate(i.dueDate);
-            const today = new Date(); today.setHours(0, 0, 0, 0);
-            return days > 0 || (dd.getTime() > 0 && dd <= today);
+        const due = soStats.enrichedItems.filter(i => { const d = parseDate(i.dueDate); return (i.overDueDays || 0) > 0 || (d.getTime() > 0 && d <= today); });
+        const sch = soStats.enrichedItems.filter(i => { const d = parseDate(i.dueDate); return !((i.overDueDays || 0) > 0 || (d.getTime() > 0 && d <= today)); });
+        const stMap = new Map<string, any>();
+        inventoryStats.items.forEach(i => {
+            if (!stMap.has(i.make)) stMap.set(i.make, new Map());
+            const gm = stMap.get(i.make)!;
+            const cur = gm.get(i.group) || { qty: 0, value: 0 };
+            gm.set(i.group, { qty: cur.qty + i.quantity, value: cur.value + i.value });
         });
 
-        const schedItems = soStats.enrichedItems.filter(i => {
-            const days = i.overDueDays || 0;
-            const dd = parseDate(i.dueDate);
-            const today = new Date(); today.setHours(0, 0, 0, 0);
-            return !(days > 0 || (dd.getTime() > 0 && dd <= today));
-        });
+        const mtdPrev = getSum(mtdS, prevD);
+        const mtdCurr = getSum(mtdS, gapEnd);
+        const ytdPrev = getSum(fyS, prevD);
+        const ytdCurr = getSum(fyS, targetD);
+        const mtdPrevOnline = getSum(mtdS, prevD, true);
+        const mtdCurrOnline = getSum(mtdS, gapEnd, true);
+        const ytdPrevOnline = getSum(fyS, prevD, true);
+        const ytdCurrOnline = getSum(fyS, targetD, true);
 
-        const stockPivotData: { make: string, groups: { group: string, qty: number, value: number }[] }[] = [];
-        const stockMakeMap = new Map<string, Map<string, { qty: number, value: number }>>();
-
-        (inventoryStats.items || []).forEach(i => {
-            const mke = i.make || 'Unspecified';
-            const grp = i.group || 'Unspecified';
-            if (!stockMakeMap.has(mke)) stockMakeMap.set(mke, new Map());
-            const groupMap = stockMakeMap.get(mke)!;
-            if (!groupMap.has(grp)) groupMap.set(grp, { qty: 0, value: 0 });
-            const stats = groupMap.get(grp)!;
-            stats.qty += (i.quantity || 0);
-            stats.value += (i.value || 0);
-        });
-
-        stockMakeMap.forEach((groups, make) => {
-            const groupList: { group: string, qty: number, value: number }[] = [];
-            groups.forEach((stats, group) => {
-                groupList.push({ group, ...stats });
-            });
-            stockPivotData.push({ make, groups: groupList.sort((a, b) => b.value - a.value) });
-        });
-
+        console.timeEnd('📅 Dashboard.weeklyStats');
         return {
-            sales: {
+            sales: { 
                 mtdPrev, mtdCurr, mtdDiff: mtdCurr - mtdPrev,
                 ytdPrev, ytdCurr, ytdDiff: ytdCurr - ytdPrev,
                 mtdPrevOnline, mtdCurrOnline, mtdDiffOnline: mtdCurrOnline - mtdPrevOnline,
                 ytdPrevOnline, ytdCurrOnline, ytdDiffOnline: ytdCurrOnline - ytdPrevOnline
             },
-            due: getMakeStats(dueItems),
-            sched: getMakeStats(schedItems),
-            total: getMakeStats(soStats.enrichedItems),
-            stock: stockPivotData.sort((a, b) => b.groups.reduce((acc, g) => acc + g.value, 0) - a.groups.reduce((acc, g) => acc + g.value, 0)),
-            targetDate,
-            prevDate
+            due: getMk(due), sched: getMk(sch), total: getMk(soStats.enrichedItems),
+            stock: Array.from(stMap.entries()).map(([m, g]) => ({ make: m, groups: Array.from(g.entries()).map(([gn, s]: any) => ({ group: gn, ...s })).sort((a,b) => b.value - a.value) })).sort((a,b) => b.groups.reduce((acc, x) => acc + x.value, 0) - a.groups.reduce((acc, y) => acc + y.value, 0)),
+            targetDate: targetD, prevDate: prevD
         };
-    }, [enrichedSales, soStats, materials, inventoryStats]);
+    }, [enrichedSales, soStats, materials, inventoryStats, activeSubTab]);
 
     const lineChartData = useMemo(() => {
         if (!selectedFY) return { labels: [], series: [] };
