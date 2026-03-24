@@ -979,10 +979,21 @@ const App: React.FC = () => {
         <main className="flex-1 overflow-hidden p-4 relative">
 
 
-          <div key={activeTab} className="h-full w-full">
-            {activeTab === 'dashboard' && <DashboardView isAdmin={isAdmin} materials={materials} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} salesReportItems={salesReportItems} customers={customerMasterItems} sales1Year={sales1Year} sales3Months={sales3Months} setActiveTab={setActiveTab} />}
-            {activeTab === 'pivotReport' && <PivotReportView isAdmin={isAdmin} materials={materials} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} salesReportItems={salesReportItems} />}
-            {activeTab === 'supplyChain' && <SupplyChainAnalyticsView materials={materials} salesReportItems={salesReportItems} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} />}
+          <div className="h-full w-full">
+            {/* Persist heavy report state by using hidden/block instead of unmounting (Keep-Alive) */}
+            <div className={activeTab === 'dashboard' ? 'h-full w-full' : 'hidden'}>
+              <DashboardView isAdmin={isAdmin} materials={materials} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} salesReportItems={salesReportItems} customers={customerMasterItems} sales1Year={sales1Year} sales3Months={sales3Months} setActiveTab={setActiveTab} />
+            </div>
+            
+            <div className={activeTab === 'pivotReport' ? 'h-full w-full' : 'hidden'}>
+              <PivotReportView isAdmin={isAdmin} materials={materials} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} salesReportItems={salesReportItems} />
+            </div>
+            
+            <div className={activeTab === 'supplyChain' ? 'h-full w-full' : 'hidden'}>
+              <SupplyChainAnalyticsView materials={materials} salesReportItems={salesReportItems} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} />
+            </div>
+
+            {/* Other views can remain conditionally rendered to save initial mount time */}
             {activeTab === 'chat' && <div className="h-full w-full max-w-4xl mx-auto flex flex-col gap-4"><ChatView isAdmin={isAdmin} materials={materials} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} salesReportItems={salesReportItems} customers={customerMasterItems} /></div>}
             {activeTab === 'master' && (
               <div className="flex flex-col h-full gap-4">
@@ -1034,7 +1045,9 @@ const App: React.FC = () => {
             {activeTab === 'pendingPO' && <div className="h-full w-full"><PendingPOView isAdmin={isAdmin} items={pendingPOItems} materials={materials} closingStockItems={closingStockItems} pendingSOItems={pendingSOItems} salesReportItems={salesReportItems} onBulkAdd={handleBulkAddPO} onUpdate={handleUpdatePO} onDelete={handleDeletePO} onClear={handleClearPO} onAddMaterial={handleAddMaterial} /></div>}
             {activeTab === 'salesReport' && <div className="h-full w-full"><SalesReportView isAdmin={isAdmin} items={salesReportItems} materials={materials} customers={customerMasterItems} onBulkAdd={handleBulkAddSales} onUpdate={handleUpdateSales} onDelete={handleDeleteSales} onClear={handleClearSales} onAddMaterial={handleAddMaterial} onAddCustomer={handleAddCustomer} onRefresh={handleRefreshSales} /></div>}
             {activeTab === 'customerFYAnalysis' && <div className="h-full w-full"><CustomerFYAnalysisView salesReportItems={salesReportItems} customers={customerMasterItems} /></div>}
-            {activeTab === 'mom' && <div className="h-full w-full"><MOMView isAdmin={isAdmin} materials={materials} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} salesReportItems={salesReportItems} customers={customerMasterItems} /></div>}
+            <div className={activeTab === 'mom' ? 'h-full w-full' : 'hidden'}>
+              <MOMView isAdmin={isAdmin} materials={materials} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} salesReportItems={salesReportItems} customers={customerMasterItems} />
+            </div>
             {activeTab === 'attendees' && <div className="h-full w-full"><AttendeeMasterView isAdmin={isAdmin} /></div>}
             {activeTab === 'userManagement' && isAdmin && <div className="h-full w-full"><UserManagementView /></div>}
           </div>
