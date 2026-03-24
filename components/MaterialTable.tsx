@@ -88,21 +88,51 @@ const MaterialTable: React.FC<MaterialTableProps> = ({ materials, salesReportIte
     setSortConfig({ key, direction });
   };
 
+  // Build salesMap once: particulars key -> { total, customers }
   const salesMap = useMemo(() => {
-    const map = new Map();
-    salesReportItems.forEach(item => {
+    const map = new Map<string, { total: number; customers: Set<string> }>();
+    for (const item of salesReportItems) {
       const key = (item.particulars || '').trim().toLowerCase();
+      if (!key) continue;
       if (!map.has(key)) map.set(key, { total: 0, customers: new Set() });
-      const data = map.get(key);
+      const data = map.get(key)!;
       data.total += (item.quantity || 0);
       data.customers.add(item.customerName);
-    });
+    }
     return map;
   }, [salesReportItems]);
+
+  // Pre-compute sales totals PER MATERIAL (by id) — runs only when materials or salesMap changes
+  const materialSalesCache = useMemo(() => {
+    const cache = new Map<string, { total: number; customerCount: number }>();
+    for (const m of materials) {
+      const descKey = (m.description || '').trim().toLowerCase();
+      const partKey = (m.partNo || '').trim().toLowerCase();
+      const byDesc = salesMap.get(descKey);
+      const byPart = partKey && partKey !== descKey ? salesMap.get(partKey) : null;
+
+      let total = 0;
+      let customerCount = 0;
+      if (byDesc && byPart) {
+        total = byDesc.total + byPart.total;
+        customerCount = new Set([...byDesc.customers, ...byPart.customers]).size;
+      } else if (byDesc) {
+        total = byDesc.total;
+        customerCount = byDesc.customers.size;
+      } else if (byPart) {
+        total = byPart.total;
+        customerCount = byPart.customers.size;
+      }
+      cache.set(m.id, { total: Math.round(total), customerCount });
+    }
+    return cache;
+  }, [materials, salesMap]);
 
   const materialsWithSearch = useMemo(() => {
     return materials.map(m => ({
       ...m,
+      // Pre-lowercase sort key for fast comparison
+      _sortDesc: (m.description || '').toLowerCase(),
       searchText: `${m.materialCode || ''} ${m.description || ''} ${m.partNo || ''} ${m.make || ''} ${m.materialGroup || ''}`.toLowerCase()
     }));
   }, [materials]);
@@ -114,18 +144,16 @@ const MaterialTable: React.FC<MaterialTableProps> = ({ materials, salesReportIte
       data = data.filter(item => words.every(word => item.searchText.includes(word)));
     }
     if (sortConfig) {
+      const key = sortConfig.key as string;
+      const dir = sortConfig.direction === 'asc' ? 1 : -1;
       data.sort((a, b) => {
-        const valA = String((a as any)[sortConfig.key] || '');
-        const valB = String((b as any)[sortConfig.key] || '');
-        const cmp = valA.localeCompare(valB, undefined, { numeric: true, sensitivity: 'base' });
-        return sortConfig.direction === 'asc' ? cmp : -cmp;
+        const valA = String((a as any)[key] || '').toLowerCase();
+        const valB = String((b as any)[key] || '').toLowerCase();
+        return valA < valB ? -dir : valA > valB ? dir : 0;
       });
     } else {
-      data.sort((a, b) => {
-        const valA = String(a.description || '');
-        const valB = String(b.description || '');
-        return valA.localeCompare(valB, undefined, { numeric: true, sensitivity: 'base' });
-      });
+      // Default: sort by pre-lowercased description key
+      data.sort((a, b) => (a._sortDesc < b._sortDesc ? -1 : a._sortDesc > b._sortDesc ? 1 : 0));
     }
     return data;
   }, [materialsWithSearch, deferredSearchTerm, sortConfig]);

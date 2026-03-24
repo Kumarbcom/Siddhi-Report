@@ -147,6 +147,19 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
         });
 
         const soMap = new Map<string, { qty: number; val: number; curQty: number; curVal: number; schQty: number; schVal: number }>();
+        
+        // Fast date cache for dates heavily used
+        const dateCache = new Map<any, number>();
+        const getDateFast = (val: any) => {
+            if (!val) return 0;
+            if (dateCache.has(val)) return dateCache.get(val)!;
+            const res = parseDate(val).getTime();
+            dateCache.set(val, res);
+            return res;
+        };
+
+        const todayTimestamp = new Date().setHours(0, 0, 0, 0);
+
         pendingSO.forEach(i => {
             if (!i.itemName) return;
             const key = i.itemName.toLowerCase().trim();
@@ -155,12 +168,8 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
 
             let isCurrent = true;
             if (i.dueDate) {
-                const due = parseDate(i.dueDate);
-                // "Current" implies Due Date <= Today (Backlog + Due Now)
-                // "Scheduled" implies Due Date > Today
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                if (due > today) {
+                const dueTime = getDateFast(i.dueDate);
+                if (dueTime > todayTimestamp) {
                     isCurrent = false;
                 }
             }
@@ -193,10 +202,8 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
 
             let isCurrent = true;
             if (i.dueDate) {
-                const due = parseDate(i.dueDate);
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                if (due > today) {
+                const dueTime = getDateFast(i.dueDate);
+                if (dueTime > todayTimestamp) {
                     isCurrent = false;
                 }
             }
@@ -227,21 +234,24 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
         const oneYearAgo = new Date();
         oneYearAgo.setFullYear(now.getFullYear() - 1);
 
+        const oneYearAgoTime = oneYearAgo.getTime();
+        const threeMonthsAgoTime = threeMonthsAgo.getTime();
+
         const sales3mMap = new Map<string, { qty: number; val: number }>();
         const sales1yMap = new Map<string, { qty: number; val: number }>();
 
         salesReportItems.forEach(i => {
             if (!i.particulars) return;
             const key = i.particulars.toLowerCase().trim();
-            const d = parseDate(i.date);
+            const time = getDateFast(i.date);
 
             // 1 Year Data
-            if (d >= oneYearAgo) {
+            if (time >= oneYearAgoTime) {
                 const ex1 = sales1yMap.get(key) || { qty: 0, val: 0 };
                 sales1yMap.set(key, { qty: ex1.qty + (i.quantity || 0), val: ex1.val + (i.value || 0) });
 
                 // 3 Months Data (Subset)
-                if (d >= threeMonthsAgo) {
+                if (time >= threeMonthsAgoTime) {
                     const ex3 = sales3mMap.get(key) || { qty: 0, val: 0 };
                     sales3mMap.set(key, { qty: ex3.qty + (i.quantity || 0), val: ex3.val + (i.value || 0) });
                 }
@@ -440,16 +450,16 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
         // Description Filter (Specific)
         if (filterDescription) {
             const lowerDesc = filterDescription.toLowerCase();
-            data = data.filter(i => i.description.toLowerCase().includes(lowerDesc));
+            data = data.filter(i => (i.description || '').toLowerCase().includes(lowerDesc));
         }
 
         // Search (Global)
         if (searchTerm) {
             const lower = searchTerm.toLowerCase();
             data = data.filter(i =>
-                i.description.toLowerCase().includes(lower) ||
-                i.make.toLowerCase().includes(lower) ||
-                i.materialGroup.toLowerCase().includes(lower)
+                (i.description || '').toLowerCase().includes(lower) ||
+                (i.make || '').toLowerCase().includes(lower) ||
+                (i.materialGroup || '').toLowerCase().includes(lower)
             );
         }
 
@@ -465,13 +475,15 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
         }
 
         // Deep Sort Function
-        const getVal = (obj: any, path: string) => {
-            return path.split('.').reduce((acc, part) => acc && acc[part] !== undefined ? acc[part] : 0, obj);
-        };
+        const sortKeys = sortConfig.key.split('.');
 
         data = [...data].sort((a, b) => {
-            const valA = getVal(a, sortConfig.key);
-            const valB = getVal(b, sortConfig.key);
+            let valA: any = a;
+            let valB: any = b;
+            for (let i = 0; i < sortKeys.length; i++) {
+                if (valA !== undefined) valA = valA[sortKeys[i]];
+                if (valB !== undefined) valB = valB[sortKeys[i]];
+            }
 
             if (typeof valA === 'string' && typeof valB === 'string') {
                 return sortConfig.direction === 'asc'

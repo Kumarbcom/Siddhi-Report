@@ -103,14 +103,40 @@ const MOMView: React.FC<MOMViewProps> = ({
         }
     }, [currentMom.date]);
 
+    const parseDate = (val: any): Date => {
+        if (!val) return new Date();
+        if (val instanceof Date) return val;
+        if (typeof val === 'number') {
+            return new Date((val - 25569) * 86400 * 1000);
+        }
+        const s = String(val).trim();
+        const parts = s.split(/[-/.]/);
+        if (parts.length === 3) {
+            const d = parseInt(parts[0]);
+            const m = parseInt(parts[1]) - 1;
+            const y = parts[2].length === 2 ? 2000 + parseInt(parts[2]) : parseInt(parts[2]);
+            return new Date(y, m, d);
+        }
+        return new Date(val);
+    };
+
     const autoPullData = useMemo(() => {
+        const dateCache = new Map<any, Date>();
+        const getDateFast = (val: any) => {
+            if (!val) return new Date(0);
+            if (dateCache.has(val)) return dateCache.get(val)!;
+            const res = parseDate(val);
+            dateCache.set(val, res);
+            return res;
+        };
+
         const momDateStr = currentMom.date || new Date().toISOString().split('T')[0];
-        const momDate = new Date(momDateStr);
+        const momDate = getDateFast(momDateStr);
         const fyYear = momDate.getMonth() < 3 ? momDate.getFullYear() - 1 : momDate.getFullYear();
         const fyStartDate = new Date(fyYear, 3, 1);
 
         const salesFY = salesReportItems.filter(i => {
-            const d = new Date(i.date);
+            const d = getDateFast(i.date);
             return d >= fyStartDate && d <= momDate;
         });
         const ytdSales = salesFY.reduce((acc, i) => acc + (i.value || 0), 0);
@@ -124,7 +150,7 @@ const MOMView: React.FC<MOMViewProps> = ({
         fourteenDaysAgo.setDate(today.getDate() - 14);
 
         const thisWeekItems = salesReportItems.filter(i => {
-            const d = new Date(i.date);
+            const d = getDateFast(i.date);
             return d > sevenDaysAgo && d <= today;
         });
 
@@ -132,7 +158,7 @@ const MOMView: React.FC<MOMViewProps> = ({
 
         const lastWeekSales = salesReportItems
             .filter(i => {
-                const d = new Date(i.date);
+                const d = getDateFast(i.date);
                 return d > fourteenDaysAgo && d <= sevenDaysAgo;
             })
             .reduce((acc, i) => acc + (i.value || 0), 0);
@@ -151,10 +177,10 @@ const MOMView: React.FC<MOMViewProps> = ({
 
         const totalPendingSOVal = pendingSO.reduce((acc, i) => acc + (i.value || 0), 0);
         const scheduledOrdersVal = pendingSO
-            .filter(i => new Date(i.dueDate) > momDate)
+            .filter(i => getDateFast(i.dueDate) > momDate)
             .reduce((acc, i) => acc + (i.value || 0), 0);
 
-        const dueOrders = pendingSO.filter(i => new Date(i.dueDate) <= momDate);
+        const dueOrders = pendingSO.filter(i => getDateFast(i.dueDate) <= momDate);
         const dueOrdersVal = dueOrders.reduce((acc, i) => acc + (i.value || 0), 0);
 
         const stockMap = new Map<string, { qty: number; rate: number }>();
@@ -242,7 +268,7 @@ const MOMView: React.FC<MOMViewProps> = ({
         oneYearAgo.setFullYear(momDate.getFullYear() - 1);
         salesReportItems.forEach(s => {
             const k = (s.particulars || '').toLowerCase().trim();
-            if (new Date(s.date) >= oneYearAgo) {
+            if (getDateFast(s.date) >= oneYearAgo) {
                 sales1yMap.set(k, (sales1yMap.get(k) || 0) + (s.quantity || 0));
             }
         });
@@ -341,7 +367,7 @@ const MOMView: React.FC<MOMViewProps> = ({
         };
 
         calculateTableBenchmarks(dueOrders, 'DUE');
-        const schedItems = pendingSO.filter(i => new Date(i.dueDate) > momDate);
+        const schedItems = pendingSO.filter(i => getDateFast(i.dueDate) > momDate);
         calculateTableBenchmarks(schedItems, 'SCH');
         calculateTableBenchmarks(pendingSO, 'TOT');
 

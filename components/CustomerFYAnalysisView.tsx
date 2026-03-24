@@ -50,8 +50,18 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
     const lastSalesDate = useMemo(() => {
         let max = new Date(2025, 3, 1);
         if (salesReportItems.length === 0) return new Date();
+
+        const dateCache = new Map<any, Date>();
+        const getDateFast = (val: any) => {
+            if (!val) return null;
+            if (dateCache.has(val)) return dateCache.get(val)!;
+            const res = parseDate(val);
+            if (res) dateCache.set(val, res);
+            return res;
+        };
+
         salesReportItems.forEach(sale => {
-            const d = parseDate(sale.date);
+            const d = getDateFast(sale.date);
             if (d && d > max) max = d;
         });
         return max;
@@ -67,8 +77,17 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
         const currentYTDEnd = lastSalesDate;
         const prevYTDEnd = new Date(lastSalesDate.getFullYear() - 1, lastSalesDate.getMonth(), lastSalesDate.getDate());
 
+        const dateCache = new Map<any, Date>();
+        const getDateFast = (val: any) => {
+            if (!val) return null;
+            if (dateCache.has(val)) return dateCache.get(val)!;
+            const res = parseDate(val);
+            if (res) dateCache.set(val, res);
+            return res;
+        };
+
         salesReportItems.forEach(sale => {
-            const invoiceDate = parseDate(sale.date);
+            const invoiceDate = getDateFast(sale.date);
             if (!invoiceDate) return;
             const fy = getFiscalYear(invoiceDate);
             const custName = sale.customerName || 'Unknown Customer';

@@ -78,7 +78,7 @@ const getMergedMakeName = (makeName: string) => {
   return m;
 };
 
-type ActiveTab = 'dashboard' | 'chat' | 'master' | 'customerMaster' | 'closingStock' | 'pendingSO' | 'pendingPO' | 'salesHistory' | 'salesReport' | 'pivotReport' | 'customerFYAnalysis' | 'mom' | 'attendees' | 'userManagement' | 'supplyChain';
+type ActiveTab = 'dashboard' | 'chat' | 'master' | 'customerMaster' | 'closingStock' | 'pendingSO' | 'pendingPO' | 'salesReport' | 'pivotReport' | 'customerFYAnalysis' | 'mom' | 'attendees' | 'userManagement' | 'supplyChain' | 'changePass';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(authService.getCurrentUser());
@@ -87,6 +87,24 @@ const App: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  const TAB_LABELS: Record<ActiveTab, string> = {
+    dashboard: 'Dashboard',
+    chat: 'AI Analyst',
+    master: 'Material Master',
+    customerMaster: 'Customer Master',
+    closingStock: 'Closing Stock',
+    pendingSO: 'Pending SO',
+    pendingPO: 'Pending PO',
+    salesReport: 'Sales Report',
+    pivotReport: 'Strategy Report',
+    customerFYAnalysis: 'Customer FY Analysis',
+    mom: 'Weekly MOM',
+    attendees: 'Attendee Master',
+    userManagement: 'User Management',
+    supplyChain: 'Supply Chain Planning',
+    changePass: 'Change Password',
+  };
 
   const [materials, setMaterials] = useState<Material[]>([]);
   const [closingStockItems, setClosingStockItems] = useState<ClosingStockItem[]>([]);
@@ -145,7 +163,7 @@ const App: React.FC = () => {
       alert("No data to export.");
       return;
     }
-    const data = materials.map(m => ({
+    const data = materials.map((m: Material) => ({
       "Material Code": m.materialCode,
       "Description": m.description,
       "Part No": m.partNo,
@@ -168,7 +186,7 @@ const App: React.FC = () => {
       const ws = wb.Sheets[wb.SheetNames[0]];
       const data = utils.sheet_to_json<any>(ws);
 
-      const validItems: MaterialFormData[] = data.map((row) => {
+      const validItems: MaterialFormData[] = data.map((row: any) => {
         const getVal = (keyArray: string[]) => {
           const foundKey = Object.keys(row).find(k =>
             keyArray.some(target => k.toLowerCase().replace(/[^a-z0-9]/g, '').includes(target.toLowerCase().replace(/[^a-z0-9]/g, '')))
@@ -183,7 +201,7 @@ const App: React.FC = () => {
           make: getVal(['make', 'brand', 'manufacturer', 'mfr', 'mfg']),
           materialGroup: getVal(['materialgroup', 'group', 'category', 'class'])
         };
-      }).filter(item => item.description);
+      }).filter((item: MaterialFormData) => item.description);
 
       if (validItems.length > 0) {
         handleBulkAddMaterial(validItems);
@@ -244,12 +262,12 @@ const App: React.FC = () => {
         try {
           // Sync all data from Supabase
           const [syncedMats, syncedCusts, syncedStock, syncedSO, syncedPO, syncedSales] = await Promise.all([
-            materialService.getAll().catch(e => { console.warn("Background Sync Error (Materials):", e); return localMats; }),
-            customerService.getAll().catch(e => { console.warn("Background Sync Error (Customers):", e); return localCusts; }),
-            stockService.getAll().catch(e => { console.warn("Background Sync Error (Stock):", e); return localStock; }),
-            soService.getAll().catch(e => { console.warn("Background Sync Error (SO):", e); return localSO; }),
-            poService.getAll().catch(e => { console.warn("Background Sync Error (PO):", e); return localPO; }),
-            salesService.getAll().catch(e => {
+            materialService.getAll().catch((e: any) => { console.warn("Background Sync Error (Materials):", e); return localMats; }),
+            customerService.getAll().catch((e: any) => { console.warn("Background Sync Error (Customers):", e); return localCusts; }),
+            stockService.getAll().catch((e: any) => { console.warn("Background Sync Error (Stock):", e); return localStock; }),
+            soService.getAll().catch((e: any) => { console.warn("Background Sync Error (SO):", e); return localSO; }),
+            poService.getAll().catch((e: any) => { console.warn("Background Sync Error (PO):", e); return localPO; }),
+            salesService.getAll().catch((e: any) => {
               console.error("Background Sync Error (Sales):", e);
               return localSales;
             })
@@ -286,26 +304,36 @@ const App: React.FC = () => {
 
   const handleBulkAddMaterial = async (dataList: MaterialFormData[]) => {
     const newItems = await materialService.createBulk(dataList);
-    setMaterials(prev => [...newItems, ...prev]);
+    setMaterials((prev: Material[]) => [...newItems, ...prev]);
   };
   const handleAddMaterial = async (data: MaterialFormData) => {
     const newItem = await materialService.create(data);
-    setMaterials(prev => [newItem, ...prev]);
+    setMaterials((prev: Material[]) => [newItem, ...prev]);
   };
   const handleUpdateMaterial = async (item: Material) => {
     await materialService.update(item);
-    setMaterials(prev => prev.map(m => m.id === item.id ? item : m));
+    setMaterials((prev: Material[]) => prev.map((m: Material) => m.id === item.id ? item : m));
   };
   const handleDeleteMaterial = async (id: string) => {
     if (!isAdmin) return;
-    if (confirm("Delete material record?")) {
-      try {
-        await materialService.delete(id);
-        setMaterials(prev => prev.filter(m => m.id !== id));
-      } catch (e: any) {
-        alert("Failed to delete from cloud: " + (e.message || "Unknown error"));
+    setConfirmModal({
+      isOpen: true,
+      title: "Delete Material Record?",
+      message: "This will permanently delete this material record. This action cannot be undone.",
+      isDanger: true,
+      isLoading: false,
+      onConfirm: async () => {
+        setConfirmModal((prev: { isOpen: boolean; title: string; message: string; onConfirm: () => void; onCancel?: () => void; onConfirmLabel?: string; onCancelLabel?: string; isDanger?: boolean; isLoading?: boolean; }) => ({ ...prev, isLoading: true }));
+        try {
+          await materialService.delete(id);
+          setMaterials((prev: Material[]) => prev.filter((m: Material) => m.id !== id));
+          setConfirmModal((prev: { isOpen: boolean; title: string; message: string; onConfirm: () => void; onCancel?: () => void; onConfirmLabel?: string; onCancelLabel?: string; isDanger?: boolean; isLoading?: boolean; }) => ({ ...prev, isOpen: false, isLoading: false }));
+        } catch (e: any) {
+          alert("Failed to delete from cloud: " + (e.message || "Unknown error"));
+          setConfirmModal((prev: { isOpen: boolean; title: string; message: string; onConfirm: () => void; onCancel?: () => void; onConfirmLabel?: string; onCancelLabel?: string; isDanger?: boolean; isLoading?: boolean; }) => ({ ...prev, isLoading: false }));
+        }
       }
-    }
+    });
   };
   const handleClearMaterials = async () => {
     if (!isAdmin) return;
@@ -316,14 +344,14 @@ const App: React.FC = () => {
       isDanger: true,
       isLoading: false,
       onConfirm: async () => {
-        setConfirmModal(prev => ({ ...prev, isLoading: true }));
+        setConfirmModal((prev: { isOpen: boolean; title: string; message: string; onConfirm: () => void; onCancel?: () => void; onConfirmLabel?: string; onCancelLabel?: string; isDanger?: boolean; isLoading?: boolean; }) => ({ ...prev, isLoading: true }));
         try {
           await materialService.clearAll();
           setMaterials([]);
-          setConfirmModal(prev => ({ ...prev, isOpen: false, isLoading: false }));
+          setConfirmModal((prev: { isOpen: boolean; title: string; message: string; onConfirm: () => void; onCancel?: () => void; onConfirmLabel?: string; onCancelLabel?: string; isDanger?: boolean; isLoading?: boolean; }) => ({ ...prev, isOpen: false, isLoading: false }));
         } catch (e: any) {
           alert("Failed to clear cloud data: " + (e.message || "Unknown error"));
-          setConfirmModal(prev => ({ ...prev, isLoading: false }));
+          setConfirmModal((prev: { isOpen: boolean; title: string; message: string; onConfirm: () => void; onCancel?: () => void; onConfirmLabel?: string; onCancelLabel?: string; isDanger?: boolean; isLoading?: boolean; }) => ({ ...prev, isLoading: false }));
         }
       }
     });
@@ -334,7 +362,7 @@ const App: React.FC = () => {
 
     // Group materials by trimmed, lowercase description
     const groups = new Map<string, Material[]>();
-    materials.forEach(m => {
+    materials.forEach((m: Material) => {
       const key = (m.description || '').trim().toLowerCase();
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key)!.push(m);
@@ -342,10 +370,10 @@ const App: React.FC = () => {
 
     // Collect IDs to delete (all but the oldest in each group)
     const toDelete: Material[] = [];
-    groups.forEach(group => {
+    groups.forEach((group: Material[]) => {
       if (group.length > 1) {
         // Sort by createdAt ascending — keep the oldest (index 0)
-        const sorted = [...group].sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+        const sorted = [...group].sort((a: Material, b: Material) => (a.createdAt || 0) - (b.createdAt || 0));
         toDelete.push(...sorted.slice(1));
       }
     });
@@ -362,20 +390,20 @@ const App: React.FC = () => {
       isDanger: true,
       isLoading: false,
       onConfirm: async () => {
-        setConfirmModal(prev => ({ ...prev, isLoading: true }));
+        setConfirmModal((prev: { isOpen: boolean; title: string; message: string; onConfirm: () => void; onCancel?: () => void; onConfirmLabel?: string; onCancelLabel?: string; isDanger?: boolean; isLoading?: boolean; }) => ({ ...prev, isLoading: true }));
         try {
           // Delete in batches to avoid overwhelming the API
           const BATCH = 20;
           for (let i = 0; i < toDelete.length; i += BATCH) {
-            await Promise.all(toDelete.slice(i, i + BATCH).map(m => materialService.delete(m.id)));
+            await Promise.all(toDelete.slice(i, i + BATCH).map((m: Material) => materialService.delete(m.id)));
           }
-          const deletedIds = new Set(toDelete.map(m => m.id));
-          setMaterials(prev => prev.filter(m => !deletedIds.has(m.id)));
-          setConfirmModal(prev => ({ ...prev, isOpen: false, isLoading: false }));
+          const deletedIds = new Set(toDelete.map((m: Material) => m.id));
+          setMaterials((prev: Material[]) => prev.filter((m: Material) => !deletedIds.has(m.id)));
+          setConfirmModal((prev: { isOpen: boolean; title: string; message: string; onConfirm: () => void; onCancel?: () => void; onConfirmLabel?: string; onCancelLabel?: string; isDanger?: boolean; isLoading?: boolean; }) => ({ ...prev, isOpen: false, isLoading: false }));
           alert(`Done! Removed ${toDelete.length} duplicate record(s).`);
         } catch (e: any) {
           alert('Failed to remove duplicates: ' + (e.message || 'Unknown error'));
-          setConfirmModal(prev => ({ ...prev, isLoading: false }));
+          setConfirmModal((prev: { isOpen: boolean; title: string; message: string; onConfirm: () => void; onCancel?: () => void; onConfirmLabel?: string; onCancelLabel?: string; isDanger?: boolean; isLoading?: boolean; }) => ({ ...prev, isLoading: false }));
         }
       }
     });
@@ -383,22 +411,32 @@ const App: React.FC = () => {
 
   const handleBulkAddSales = async (items: any) => {
     const newItems = await salesService.createBulk(items);
-    setSalesReportItems(prev => [...newItems, ...prev]);
+    setSalesReportItems((prev: SalesReportItem[]) => [...newItems, ...prev]);
   };
   const handleUpdateSales = async (item: SalesReportItem) => {
     await salesService.update(item);
-    setSalesReportItems(prev => prev.map(i => i.id === item.id ? item : i));
+    setSalesReportItems((prev: SalesReportItem[]) => prev.map((i: SalesReportItem) => i.id === item.id ? item : i));
   };
   const handleDeleteSales = async (id: string) => {
     if (!isAdmin) return;
-    if (confirm("Delete this transaction?")) {
-      try {
-        await salesService.delete(id);
-        setSalesReportItems(prev => prev.filter(i => i.id !== id));
-      } catch (e: any) {
-        alert("Failed to delete from cloud: " + (e.message || "Unknown error"));
+    setConfirmModal({
+      isOpen: true,
+      title: "Delete Transaction?",
+      message: "This will permanently delete this sales transaction. This action cannot be undone.",
+      isDanger: true,
+      isLoading: false,
+      onConfirm: async () => {
+        setConfirmModal((prev: any) => ({ ...prev, isLoading: true }));
+        try {
+          await salesService.delete(id);
+          setSalesReportItems((prev: SalesReportItem[]) => prev.filter((i: SalesReportItem) => i.id !== id));
+          setConfirmModal((prev: any) => ({ ...prev, isOpen: false, isLoading: false }));
+        } catch (e: any) {
+          alert("Failed to delete from cloud: " + (e.message || "Unknown error"));
+          setConfirmModal((prev: any) => ({ ...prev, isLoading: false }));
+        }
       }
-    }
+    });
   };
   const handleClearSales = async () => {
     if (!isAdmin) return;
@@ -409,14 +447,14 @@ const App: React.FC = () => {
       isDanger: true,
       isLoading: false,
       onConfirm: async () => {
-        setConfirmModal(prev => ({ ...prev, isLoading: true }));
+        setConfirmModal((prev: any) => ({ ...prev, isLoading: true }));
         try {
           await salesService.clearAll();
           setSalesReportItems([]);
-          setConfirmModal(prev => ({ ...prev, isOpen: false, isLoading: false }));
+          setConfirmModal((prev: any) => ({ ...prev, isOpen: false, isLoading: false }));
         } catch (e: any) {
           alert("Failed to clear cloud data: " + (e.message || "Unknown error"));
-          setConfirmModal(prev => ({ ...prev, isLoading: false }));
+          setConfirmModal((prev: any) => ({ ...prev, isLoading: false }));
         }
       }
     });
@@ -436,44 +474,54 @@ const App: React.FC = () => {
 
   const handleBulkAddCustomer = async (dataList: Omit<CustomerMasterItem, 'id' | 'createdAt'>[]) => {
     const newItems = await customerService.createBulk(dataList);
-    setCustomerMasterItems(prev => [...newItems, ...prev]);
+    setCustomerMasterItems((prev: CustomerMasterItem[]) => [...newItems, ...prev]);
   };
   const handleAddCustomer = async (data: Omit<CustomerMasterItem, 'id' | 'createdAt'>) => {
     const newItem = await customerService.create(data);
-    setCustomerMasterItems(prev => [newItem, ...prev]);
+    setCustomerMasterItems((prev: CustomerMasterItem[]) => [newItem, ...prev]);
   };
   const handleUpdateCustomer = async (item: CustomerMasterItem) => {
     await customerService.update(item);
-    setCustomerMasterItems(prev => prev.map(i => i.id === item.id ? item : i));
+    setCustomerMasterItems((prev: CustomerMasterItem[]) => prev.map((i: CustomerMasterItem) => i.id === item.id ? item : i));
   };
   const handleDeleteCustomer = async (id: string) => {
     if (!isAdmin) return;
-    if (confirm("Delete customer record?")) {
-      try {
-        await customerService.delete(id);
-        setCustomerMasterItems(prev => prev.filter(i => i.id !== id));
-      } catch (e: any) {
-        alert("Failed to delete from cloud: " + (e.message || "Unknown error"));
+    setConfirmModal({
+      isOpen: true,
+      title: "Delete Customer Record?",
+      message: "This will permanently delete this customer record. This action cannot be undone.",
+      isDanger: true,
+      isLoading: false,
+      onConfirm: async () => {
+        setConfirmModal((prev: any) => ({ ...prev, isLoading: true }));
+        try {
+          await customerService.delete(id);
+          setCustomerMasterItems((prev: CustomerMasterItem[]) => prev.filter((item: CustomerMasterItem) => item.id !== id));
+          setConfirmModal((prev: any) => ({ ...prev, isOpen: false, isLoading: false }));
+        } catch (e: any) {
+          alert('Failed to delete customer: ' + (e.message || 'Unknown error'));
+          setConfirmModal((prev: any) => ({ ...prev, isLoading: false }));
+        }
       }
-    }
+    });
   };
   const handleClearCustomers = async () => {
     if (!isAdmin) return;
     setConfirmModal({
       isOpen: true,
-      title: "Clear All Customers?",
-      message: "DANGER: This will permanently delete ALL Customer Master records. Continue?",
+      title: 'Clear All Customers?',
+      message: 'DANGER: This will permanently delete ALL Customer Master records. This action cannot be undone.',
       isDanger: true,
       isLoading: false,
       onConfirm: async () => {
-        setConfirmModal(prev => ({ ...prev, isLoading: true }));
+        setConfirmModal((prev: any) => ({ ...prev, isLoading: true }));
         try {
           await customerService.clearAll();
           setCustomerMasterItems([]);
-          setConfirmModal(prev => ({ ...prev, isOpen: false, isLoading: false }));
+          setConfirmModal((prev: any) => ({ ...prev, isOpen: false, isLoading: false }));
         } catch (e: any) {
-          alert("Failed to clear cloud data: " + (e.message || "Unknown error"));
-          setConfirmModal(prev => ({ ...prev, isLoading: false }));
+          alert('Failed to clear customer data: ' + (e.message || 'Unknown error'));
+          setConfirmModal((prev: any) => ({ ...prev, isLoading: false }));
         }
       }
     });
@@ -489,44 +537,54 @@ const App: React.FC = () => {
       onConfirmLabel: "Replace All",
       onCancelLabel: "Append Only",
       onConfirm: async () => {
-        setConfirmModal(prev => ({ ...prev, isLoading: true }));
+        setConfirmModal((prev: any) => ({ ...prev, isLoading: true }));
         try {
           await stockService.clearAll();
           const newItems = await stockService.createBulk(items);
           setClosingStockItems(newItems);
-          setConfirmModal(prev => ({ ...prev, isOpen: false, isLoading: false }));
+          setConfirmModal((prev: any) => ({ ...prev, isOpen: false, isLoading: false }));
         } catch (e: any) {
           alert("Import failed: " + (e.message || "Unknown error"));
-          setConfirmModal(prev => ({ ...prev, isLoading: false }));
+          setConfirmModal((prev: any) => ({ ...prev, isLoading: false }));
         }
       },
       onCancel: async () => {
-        setConfirmModal(prev => ({ ...prev, isLoading: true }));
+        setConfirmModal((prev: any) => ({ ...prev, isLoading: true }));
         try {
           const newItems = await stockService.createBulk(items);
-          setClosingStockItems(prev => [...newItems, ...prev]);
-          setConfirmModal(prev => ({ ...prev, isOpen: false, isLoading: false }));
+          setClosingStockItems((prev: ClosingStockItem[]) => [...newItems, ...prev]);
+          setConfirmModal((prev: any) => ({ ...prev, isOpen: false, isLoading: false }));
         } catch (e: any) {
           alert("Import failed: " + (e.message || "Unknown error"));
-          setConfirmModal(prev => ({ ...prev, isLoading: false }));
+          setConfirmModal((prev: any) => ({ ...prev, isLoading: false }));
         }
       }
     });
   };
   const handleUpdateStock = async (item: ClosingStockItem) => {
     await stockService.update(item);
-    setClosingStockItems(prev => prev.map(i => i.id === item.id ? item : i));
+    setClosingStockItems((prev: ClosingStockItem[]) => prev.map((i: ClosingStockItem) => i.id === item.id ? item : i));
   };
   const handleDeleteStock = async (id: string) => {
     if (!isAdmin) return;
-    if (confirm("Delete stock record?")) {
-      try {
-        await stockService.delete(id);
-        setClosingStockItems(prev => prev.filter(i => i.id !== id));
-      } catch (e: any) {
-        alert("Failed to delete from cloud: " + (e.message || "Unknown error"));
+    setConfirmModal({
+      isOpen: true,
+      title: "Delete Stock Record?",
+      message: "This will permanently delete this closing stock record. This action cannot be undone.",
+      isDanger: true,
+      isLoading: false,
+      onConfirm: async () => {
+        setConfirmModal((prev: any) => ({ ...prev, isLoading: true }));
+        try {
+          await stockService.delete(id);
+          setClosingStockItems((prev: ClosingStockItem[]) => prev.filter((i: ClosingStockItem) => i.id !== id));
+          setConfirmModal((prev: any) => ({ ...prev, isOpen: false, isLoading: false }));
+        } catch (e: any) {
+          alert("Failed to delete from cloud: " + (e.message || "Unknown error"));
+          setConfirmModal((prev: any) => ({ ...prev, isLoading: false }));
+        }
       }
-    }
+    });
   };
   const handleClearStock = async () => {
     if (!isAdmin) return;
@@ -537,14 +595,14 @@ const App: React.FC = () => {
       isDanger: true,
       isLoading: false,
       onConfirm: async () => {
-        setConfirmModal(prev => ({ ...prev, isLoading: true }));
+        setConfirmModal((prev: any) => ({ ...prev, isLoading: true }));
         try {
           await stockService.clearAll();
           setClosingStockItems([]);
-          setConfirmModal(prev => ({ ...prev, isOpen: false, isLoading: false }));
+          setConfirmModal((prev: any) => ({ ...prev, isOpen: false, isLoading: false }));
         } catch (e: any) {
           alert("Failed to clear data: " + (e.message || "Unknown error"));
-          setConfirmModal(prev => ({ ...prev, isLoading: false }));
+          setConfirmModal((prev: any) => ({ ...prev, isLoading: false }));
         }
       }
     });
@@ -560,44 +618,54 @@ const App: React.FC = () => {
       onConfirmLabel: "Replace All",
       onCancelLabel: "Append Only",
       onConfirm: async () => {
-        setConfirmModal(prev => ({ ...prev, isLoading: true }));
+        setConfirmModal((prev: any) => ({ ...prev, isLoading: true }));
         try {
           await soService.clearAll();
           const newItems = await soService.createBulk(items);
           setPendingSOItems(newItems);
-          setConfirmModal(prev => ({ ...prev, isOpen: false, isLoading: false }));
+          setConfirmModal((prev: any) => ({ ...prev, isOpen: false, isLoading: false }));
         } catch (e: any) {
           alert("Import failed: " + (e.message || "Unknown error"));
-          setConfirmModal(prev => ({ ...prev, isLoading: false }));
+          setConfirmModal((prev: any) => ({ ...prev, isLoading: false }));
         }
       },
       onCancel: async () => {
-        setConfirmModal(prev => ({ ...prev, isLoading: true }));
+        setConfirmModal((prev: any) => ({ ...prev, isLoading: true }));
         try {
           const newItems = await soService.createBulk(items);
-          setPendingSOItems(prev => [...newItems, ...prev]);
-          setConfirmModal(prev => ({ ...prev, isOpen: false, isLoading: false }));
+          setPendingSOItems((prev: PendingSOItem[]) => [...newItems, ...prev]);
+          setConfirmModal((prev: any) => ({ ...prev, isOpen: false, isLoading: false }));
         } catch (e: any) {
           alert("Import failed: " + (e.message || "Unknown error"));
-          setConfirmModal(prev => ({ ...prev, isLoading: false }));
+          setConfirmModal((prev: any) => ({ ...prev, isLoading: false }));
         }
       }
     });
   };
   const handleUpdateSO = async (item: PendingSOItem) => {
     await soService.update(item);
-    setPendingSOItems(prev => prev.map(i => i.id === item.id ? item : i));
+    setPendingSOItems((prev: PendingSOItem[]) => prev.map((i: PendingSOItem) => i.id === item.id ? item : i));
   };
   const handleDeleteSO = async (id: string) => {
     if (!isAdmin) return;
-    if (confirm("Delete pending sales order?")) {
-      try {
-        await soService.delete(id);
-        setPendingSOItems(prev => prev.filter(i => i.id !== id));
-      } catch (e: any) {
-        alert("Failed to delete from cloud: " + (e.message || "Unknown error"));
+    setConfirmModal({
+      isOpen: true,
+      title: "Delete Sales Order?",
+      message: "This will permanently delete this pending sales order. This action cannot be undone.",
+      isDanger: true,
+      isLoading: false,
+      onConfirm: async () => {
+        setConfirmModal((prev: any) => ({ ...prev, isLoading: true }));
+        try {
+          await soService.delete(id);
+          setPendingSOItems((prev: PendingSOItem[]) => prev.filter((i: PendingSOItem) => i.id !== id));
+          setConfirmModal((prev: any) => ({ ...prev, isOpen: false, isLoading: false }));
+        } catch (e: any) {
+          alert("Failed to delete from cloud: " + (e.message || "Unknown error"));
+          setConfirmModal((prev: any) => ({ ...prev, isLoading: false }));
+        }
       }
-    }
+    });
   };
   const handleClearSO = async () => {
     if (!isAdmin) return;
@@ -608,14 +676,14 @@ const App: React.FC = () => {
       isDanger: true,
       isLoading: false,
       onConfirm: async () => {
-        setConfirmModal(prev => ({ ...prev, isLoading: true }));
+        setConfirmModal((prev: any) => ({ ...prev, isLoading: true }));
         try {
           await soService.clearAll();
           setPendingSOItems([]);
-          setConfirmModal(prev => ({ ...prev, isOpen: false, isLoading: false }));
+          setConfirmModal((prev: any) => ({ ...prev, isOpen: false, isLoading: false }));
         } catch (e: any) {
           alert("Failed to clear data: " + (e.message || "Unknown error"));
-          setConfirmModal(prev => ({ ...prev, isLoading: false }));
+          setConfirmModal((prev: any) => ({ ...prev, isLoading: false }));
         }
       }
     });
@@ -631,44 +699,54 @@ const App: React.FC = () => {
       onConfirmLabel: "Replace All",
       onCancelLabel: "Append Only",
       onConfirm: async () => {
-        setConfirmModal(prev => ({ ...prev, isLoading: true }));
+        setConfirmModal((prev: any) => ({ ...prev, isLoading: true }));
         try {
           await poService.clearAll();
           const newItems = await poService.createBulk(items);
           setPendingPOItems(newItems);
-          setConfirmModal(prev => ({ ...prev, isOpen: false, isLoading: false }));
+          setConfirmModal((prev: any) => ({ ...prev, isOpen: false, isLoading: false }));
         } catch (e: any) {
           alert("Import failed: " + (e.message || "Unknown error"));
-          setConfirmModal(prev => ({ ...prev, isLoading: false }));
+          setConfirmModal((prev: any) => ({ ...prev, isLoading: false }));
         }
       },
       onCancel: async () => {
-        setConfirmModal(prev => ({ ...prev, isLoading: true }));
+        setConfirmModal((prev: any) => ({ ...prev, isLoading: true }));
         try {
           const newItems = await poService.createBulk(items);
-          setPendingPOItems(prev => [...newItems, ...prev]);
-          setConfirmModal(prev => ({ ...prev, isOpen: false, isLoading: false }));
+          setPendingPOItems((prev: PendingPOItem[]) => [...newItems, ...prev]);
+          setConfirmModal((prev: any) => ({ ...prev, isOpen: false, isLoading: false }));
         } catch (e: any) {
           alert("Import failed: " + (e.message || "Unknown error"));
-          setConfirmModal(prev => ({ ...prev, isLoading: false }));
+          setConfirmModal((prev: any) => ({ ...prev, isLoading: false }));
         }
       }
     });
   };
   const handleUpdatePO = async (item: PendingPOItem) => {
     await poService.update(item);
-    setPendingPOItems(prev => prev.map(i => i.id === item.id ? item : i));
+    setPendingPOItems((prev: PendingPOItem[]) => prev.map((i: PendingPOItem) => i.id === item.id ? item : i));
   };
   const handleDeletePO = async (id: string) => {
     if (!isAdmin) return;
-    if (confirm("Delete pending purchase order?")) {
-      try {
-        await poService.delete(id);
-        setPendingPOItems(prev => prev.filter(i => i.id !== id));
-      } catch (e: any) {
-        alert("Failed to delete from cloud: " + (e.message || "Unknown error"));
+    setConfirmModal({
+      isOpen: true,
+      title: "Delete Purchase Order?",
+      message: "This will permanently delete this pending purchase order. This action cannot be undone.",
+      isDanger: true,
+      isLoading: false,
+      onConfirm: async () => {
+        setConfirmModal((prev: any) => ({ ...prev, isLoading: true }));
+        try {
+          await poService.delete(id);
+          setPendingPOItems((prev: PendingPOItem[]) => prev.filter((i: PendingPOItem) => i.id !== id));
+          setConfirmModal((prev: any) => ({ ...prev, isOpen: false, isLoading: false }));
+        } catch (e: any) {
+          alert("Failed to delete from cloud: " + (e.message || "Unknown error"));
+          setConfirmModal((prev: any) => ({ ...prev, isLoading: false }));
+        }
       }
-    }
+    });
   };
   const handleClearPO = async () => {
     if (!isAdmin) return;
@@ -679,14 +757,14 @@ const App: React.FC = () => {
       isDanger: true,
       isLoading: false,
       onConfirm: async () => {
-        setConfirmModal(prev => ({ ...prev, isLoading: true }));
+        setConfirmModal((prev: any) => ({ ...prev, isLoading: true }));
         try {
           await poService.clearAll();
           setPendingPOItems([]);
-          setConfirmModal(prev => ({ ...prev, isOpen: false, isLoading: false }));
+          setConfirmModal((prev: any) => ({ ...prev, isOpen: false, isLoading: false }));
         } catch (e: any) {
           alert("Failed to clear data: " + (e.message || "Unknown error"));
-          setConfirmModal(prev => ({ ...prev, isLoading: false }));
+          setConfirmModal((prev: any) => ({ ...prev, isLoading: false }));
         }
       }
     });
@@ -694,19 +772,19 @@ const App: React.FC = () => {
 
   const makeStats = useMemo(() => {
     const counts: Record<string, number> = {};
-    materials.forEach(m => {
+    materials.forEach((m: Material) => {
       const makeKey = getMergedMakeName(m.make || 'Unspecified').toUpperCase();
       counts[makeKey] = (counts[makeKey] || 0) + 1;
     });
-    return Object.entries(counts).sort((a, b) => b[1] - a[1]);
+    return Object.entries(counts).sort((a: [string, number], b: [string, number]) => b[1] - a[1]);
   }, [materials]);
 
   const filteredMaterials = useMemo(() => {
     if (selectedMake === 'ALL') return materials;
-    return materials.filter(m => getMergedMakeName(m.make || 'Unspecified').toUpperCase() === selectedMake);
+    return materials.filter((m: Material) => getMergedMakeName(m.make || 'Unspecified').toUpperCase() === selectedMake);
   }, [materials, selectedMake]);
 
-  const SidebarItem = ({ id, label, icon: Icon, count, onClick }: any) => (
+  const SidebarItem = ({ id, label, icon: Icon, count, onClick }: { id: ActiveTab, label: string, icon: any, count?: number, onClick: (id: ActiveTab) => void }) => (
     <button
       onClick={() => {
         onClick(id);
@@ -859,17 +937,39 @@ const App: React.FC = () => {
             </button>
             <div className="h-4 w-[1px] bg-gray-200 mx-2 hidden md:block" />
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">{activeTab}</span>
+              <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">{TAB_LABELS[activeTab as ActiveTab]}</span>
               <ChevronRight className="w-3 h-3 text-gray-300" />
               <span className="text-[10px] font-bold text-gray-400">CONTROL CENTER</span>
             </div>
           </div>
 
           <div className="flex items-center gap-4">
-            <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-green-50 rounded-full border border-green-100">
-              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-              <span className="text-[9px] font-black text-green-700 uppercase">System Synchronized</span>
-            </div>
+            {isSyncing ? (
+              <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-blue-50 rounded-full border border-blue-100">
+                <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                <span className="text-[9px] font-black text-blue-700 uppercase">Syncing...</span>
+              </div>
+            ) : dbStatus === 'connected' ? (
+              <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-green-50 rounded-full border border-green-100">
+                <div className="w-2 h-2 rounded-full bg-green-500" />
+                <span className="text-[9px] font-black text-green-700 uppercase">Cloud Synced</span>
+              </div>
+            ) : dbStatus === 'partial' ? (
+              <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-yellow-50 rounded-full border border-yellow-100">
+                <div className="w-2 h-2 rounded-full bg-yellow-500" />
+                <span className="text-[9px] font-black text-yellow-700 uppercase">Partial Sync</span>
+              </div>
+            ) : dbStatus === 'error' ? (
+              <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-red-50 rounded-full border border-red-100">
+                <div className="w-2 h-2 rounded-full bg-red-500" />
+                <span className="text-[9px] font-black text-red-700 uppercase">Sync Error</span>
+              </div>
+            ) : (
+              <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-gray-50 rounded-full border border-gray-200">
+                <div className="w-2 h-2 rounded-full bg-gray-400" />
+                <span className="text-[9px] font-black text-gray-500 uppercase">Local Only</span>
+              </div>
+            )}
             <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-black text-xs shadow-lg shadow-indigo-100">
               {currentUser.username.charAt(0).toUpperCase()}
             </div>
@@ -914,7 +1014,7 @@ const App: React.FC = () => {
                   {/* Make wise summary */}
                   <div className="flex items-center gap-2 overflow-x-auto pb-2 custom-scrollbar">
                     <span className="text-[9px] font-black text-gray-400 uppercase whitespace-nowrap mr-2">Inventory by Make:</span>
-                    {makeStats.map(([make, count]) => (
+                    {makeStats.map(([make, count]: [string, number]) => (
                       <div key={make} className="flex-shrink-0 flex items-center gap-2 px-3 py-1.5 bg-gray-50 border border-gray-100 rounded-xl shadow-sm">
                         <span className="text-[10px] font-black text-gray-700 uppercase">{make}</span>
                         <span className="text-[10px] font-bold bg-blue-600 text-white px-1.5 rounded-md min-w-[20px] text-center">{count}</span>
@@ -950,7 +1050,7 @@ const App: React.FC = () => {
         confirmLabel={confirmModal.onConfirmLabel}
         cancelLabel={confirmModal.onCancelLabel}
         onConfirm={confirmModal.onConfirm}
-        onCancel={confirmModal.onCancel || (() => setConfirmModal(prev => ({ ...prev, isOpen: false })))}
+        onCancel={confirmModal.onCancel || (() => setConfirmModal((prev: any) => ({ ...prev, isOpen: false })))}
       />
 
       {showPasswordChange && (

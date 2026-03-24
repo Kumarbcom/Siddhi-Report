@@ -748,6 +748,14 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
         const matByPartNo = new Map<string, { make: string, group: string }>();
         const matByDesc = new Map<string, { make: string, group: string }>();
+        const dateCache = new Map<any, Date>();
+        const getDateFast = (val: any) => {
+            if (!val) return new Date();
+            if (dateCache.has(val)) return dateCache.get(val)!;
+            const res = parseDate(val);
+            dateCache.set(val, res);
+            return res;
+        };
 
         materials.forEach(m => {
             const info = { make: m.make, group: m.materialGroup };
@@ -756,7 +764,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         });
 
         return salesReportItems.map(item => {
-            const dateObj = parseDate(item.date);
+            const dateObj = getDateFast(item.date);
             const fi = getFiscalInfo(dateObj);
             const cust = custMap.get(String(item.customerName || '').toLowerCase().trim());
 
@@ -1105,6 +1113,16 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             }
         });
 
+        // Fast date cache for heavy loops
+        const dateCache = new Map<any, Date>();
+        const getDateFast = (val: any) => {
+            if (!val) return new Date(0);
+            if (dateCache.has(val)) return dateCache.get(val)!;
+            const res = parseDate(val);
+            dateCache.set(val, res);
+            return res;
+        };
+
         // 2. Closing Stock
         closingStock.forEach(item => {
             const lower = (item.description || '').toLowerCase().trim();
@@ -1122,7 +1140,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             const target = materialMap.get(partLower) || materialMap.get(nameLower);
 
             if (target) {
-                const due = parseDate(item.dueDate);
+                const due = getDateFast(item.dueDate);
                 if (due <= monthEnd) target.soDue += (item.balanceQty || 0);
                 else target.soSched += (item.balanceQty || 0);
             }
@@ -1135,7 +1153,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             const target = materialMap.get(partLower) || materialMap.get(nameLower);
 
             if (target) {
-                const due = parseDate(item.dueDate);
+                const due = getDateFast(item.dueDate);
                 if (due <= monthEnd) target.poDue += (item.balanceQty || 0);
                 else target.poSched += (item.balanceQty || 0);
             }
@@ -1151,7 +1169,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             const target = materialMap.get(desc);
 
             if (target) {
-                const itemDate = parseDate(item.date);
+                const itemDate = getDateFast(item.date);
                 const isProject = desc.includes('project') || (item.customerName || '').toLowerCase().includes('project');
 
                 if (item.fiscalYear === currentFY) {
@@ -1257,7 +1275,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             const matchesGroup = stockSlicers.group === 'ALL' || d.group === stockSlicers.group;
             const matchesStrat = stockSlicers.strategy === 'ALL' || d.strategy === stockSlicers.strategy;
             const matchesClass = stockSlicers.class === 'ALL' || d.classification === stockSlicers.class;
-            const matchesSearch = !stockSearchTerm || d.description.toLowerCase().includes(stockSearchTerm.toLowerCase()) || (d.partNo || '').toLowerCase().includes(stockSearchTerm.toLowerCase());
+            const matchesSearch = !stockSearchTerm || (d.description || '').toLowerCase().includes(stockSearchTerm.toLowerCase()) || (d.partNo || '').toLowerCase().includes(stockSearchTerm.toLowerCase());
 
             const matchesQuick = stockQuickFilter === 'ALL' ||
                 (stockQuickFilter === 'SHORTAGE' && d.netQty < d.minStock) ||
@@ -1364,6 +1382,15 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         // Build maps for O(1) matching
         const matByPartNo = new Map<string, { make: string, group: string }>();
         const matByDesc = new Map<string, { make: string, group: string }>();
+        const dateCache = new Map<any, Date>();
+        const getDateFast = (val: any) => {
+            if (!val) return new Date();
+            if (dateCache.has(val)) return dateCache.get(val)!;
+            const res = parseDate(val);
+            dateCache.set(val, res);
+            return res;
+        };
+
         (materials || []).forEach(m => {
             if (!m) return;
             const info = { make: m.make || 'Unspecified', group: m.materialGroup || 'Unspecified' };
@@ -1519,11 +1546,20 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         });
 
         const tempStock = new Map(stockMap);
+        const dateCache = new Map<any, Date>();
+        const getDateFast = (val: any) => {
+            if (!val) return new Date();
+            if (dateCache.has(val)) return dateCache.get(val)!;
+            const res = parseDate(val);
+            dateCache.set(val, res);
+            return res;
+        };
+
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
         // Sort by due date for fair stock allocation
-        const sortedSO = [...pendingSO].sort((a, b) => parseDate(a.dueDate).getTime() - parseDate(b.dueDate).getTime());
+        const sortedSO = [...pendingSO].sort((a, b) => getDateFast(a.dueDate).getTime() - getDateFast(b.dueDate).getTime());
 
         const enrichedItems = sortedSO.map(i => {
             const pName = (i.partyName || 'Unknown').trim();
@@ -1534,7 +1570,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             if (i.orderNo) soSet.add(i.orderNo);
 
             const days = i.overDueDays || 0;
-            const dueDate = parseDate(i.dueDate);
+            const dueDate = getDateFast(i.dueDate);
             const isDue = days > 0 || (dueDate.getTime() > 0 && dueDate <= today);
 
             const qty = i.balanceQty || 0;
@@ -1603,6 +1639,15 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         const weekEnd = new Date(today);
         weekEnd.setDate(today.getDate() + 7);
 
+        const dateCache = new Map<any, Date>();
+        const getDateFast = (val: any) => {
+            if (!val) return new Date();
+            if (dateCache.has(val)) return dateCache.get(val)!;
+            const res = parseDate(val);
+            dateCache.set(val, res);
+            return res;
+        };
+
         (pendingPO || []).forEach(i => {
             const vName = (i.partyName || 'Unknown').trim();
             vendorMap.set(vName, (vendorMap.get(vName) || 0) + (i.value || 0));
@@ -1612,7 +1657,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             const group = mat ? (mat.materialGroup || 'Unspecified') : 'Unspecified';
             groupMap.set(group, (groupMap.get(group) || 0) + (i.value || 0));
 
-            const dueDate = parseDate(i.dueDate);
+            const dueDate = getDateFast(i.dueDate);
             if (dueDate < today) statusMap['Overdue'] += (i.value || 0);
             else if (dueDate.getTime() === today.getTime()) statusMap['Due Today'] += (i.value || 0);
             else if (dueDate <= weekEnd) statusMap['Due This Week'] += (i.value || 0);

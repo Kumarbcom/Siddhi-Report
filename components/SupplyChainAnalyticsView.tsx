@@ -194,12 +194,28 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
         }
 
         let matchedCount = 0;
+        const fyCache = new Map<any, string>();
+        const getFYFast = (val: any) => {
+            if (fyCache.has(val)) return fyCache.get(val)!;
+            const fy = getFY(val);
+            fyCache.set(val, fy);
+            return fy;
+        };
+
+        const dateCache = new Map<any, Date>();
+        const getDateFast = (val: any) => {
+            if (dateCache.has(val)) return dateCache.get(val)!;
+            const d = parseDate(val);
+            dateCache.set(val, d);
+            return d;
+        };
+
         salesReportItems.forEach(item => {
             const key = (item.particulars || '').trim().toLowerCase();
             const m = materialMap.get(key);
             if (m) {
                 matchedCount++;
-                const fy = getFY(item.date);
+                const fy = getFYFast(item.date);
                 if (m.fyData[fy]) {
                     m.fyData[fy].totalRawQty += (item.quantity || 0);
                 }
@@ -213,8 +229,8 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
         // Pass 2: Categorize sales into Regular or Project
         uniqueMaterials.forEach(m => {
             m.sales.forEach((item: any) => {
-                const fy = getFY(item.date);
-                const d = parseDate(item.date);
+                const fy = getFYFast(item.date);
+                const d = getDateFast(item.date);
                 const monthKey = `${d.getFullYear()}-${d.getMonth() + 1}`;
 
                 const isProjectKeyword = (item.particulars || '').toLowerCase().includes('project') || (item.customerName || '').toLowerCase().includes('project');
@@ -264,14 +280,14 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
             // Movement Classification (Rolling 12 Months)
             const rollingMonths = new Set();
             m.sales.forEach((s: any) => {
-                const sd = parseDate(s.date);
+                const sd = getDateFast(s.date);
                 if (sd >= twelveMonthsAgo) {
                     rollingMonths.add(`${sd.getFullYear()}-${sd.getMonth() + 1}`);
                 }
             });
 
             const activeMonthsRolling = rollingMonths.size;
-            const lastSaleDate = m.sales.length > 0 ? new Date(Math.max(...m.sales.map((s: any) => parseDate(s.date).getTime()))) : new Date(0);
+            const lastSaleDate = m.sales.length > 0 ? new Date(Math.max(...m.sales.map((s: any) => getDateFast(s.date).getTime()))) : new Date(0);
 
             let movementClass = 'NON-MOVING';
             if (lastSaleDate >= twelveMonthsAgo) {
@@ -343,24 +359,20 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
         if (selectedClass !== 'All') data = data.filter(d => d.movementClass === selectedClass);
         if (deferredSearch) {
             const q = deferredSearch.toLowerCase();
-            data = data.filter(d => d.description.toLowerCase().includes(q) || d.group.toLowerCase().includes(q) || d.make.toLowerCase().includes(q));
+            data = data.filter(d => (d.description || '').toLowerCase().includes(q) || (d.group || '').toLowerCase().includes(q) || (d.make || '').toLowerCase().includes(q));
         }
 
         // Sorting
         if (sortConfig) {
+            const keys = sortConfig.key.split('.');
             data.sort((a, b) => {
-                let valA: any, valB: any;
-                if (sortConfig.key.includes('.')) {
-                    const keys = sortConfig.key.split('.');
-                    valA = a;
-                    valB = b;
-                    keys.forEach(k => { valA = valA[k]; valB = valB[k]; });
-                } else {
-                    valA = (a as any)[sortConfig.key];
-                    valB = (b as any)[sortConfig.key];
+                let valA: any = a, valB: any = b;
+                for (let i = 0; i < keys.length; i++) {
+                    if (valA) valA = valA[keys[i]];
+                    if (valB) valB = valB[keys[i]];
                 }
 
-                if (typeof valA === 'string') {
+                if (typeof valA === 'string' && typeof valB === 'string') {
                     return sortConfig.direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
                 }
                 return sortConfig.direction === 'asc' ? valA - valB : valB - valA;
