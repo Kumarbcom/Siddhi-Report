@@ -185,10 +185,21 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
     }, [materials, closingStock, pendingSO, pendingPO, salesReportItems]);
 
     const slicerOptions = useMemo(() => {
-        const makes = new Set<string>(); const groups = new Set<string>();
-        pivotData.forEach(i => { if(i.make) makes.add(i.make); if(i.materialGroup) groups.add(i.materialGroup); });
-        return { makes: ['ALL', ...Array.from(makes).sort()], groups: ['ALL', ...Array.from(groups).sort()] };
-    }, [pivotData]);
+        const makes = new Set<string>();
+        const groups = new Set<string>();
+        
+        pivotData.forEach(i => {
+            if (i.make) makes.add(i.make);
+            if (slicerMake === 'ALL' || i.make === slicerMake) {
+                if (i.materialGroup) groups.add(i.materialGroup);
+            }
+        });
+
+        return {
+            makes: ['ALL', ...Array.from(makes).sort()],
+            groups: ['ALL', ...Array.from(groups).sort()]
+        };
+    }, [pivotData, slicerMake]);
 
     const filteredData = useMemo(() => {
         let d = pivotData;
@@ -234,6 +245,11 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
 
     const handleHeaderSort = (key: SortPath) => setSortConfig(p => ({ key, direction: p.key === key && p.direction === 'desc' ? 'asc' : 'desc' }));
 
+    const handleMakeChange = (m: string) => {
+        setSlicerMake(m);
+        setSlicerGroup('ALL');
+    };
+
     return (
         <div className="flex flex-col h-full gap-3">
             <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200 flex flex-col gap-3">
@@ -249,7 +265,7 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                 </div>
                 <div className="flex flex-wrap items-center gap-4 border-t pt-3">
                     <div className="flex items-center gap-2 bg-gray-50 px-2 py-1 rounded-lg border">
-                        <select value={slicerMake} onChange={e => setSlicerMake(e.target.value)} className="bg-transparent text-xs font-bold outline-none">{slicerOptions.makes.map(m => <option key={m} value={m}>{m}</option>)}</select>
+                        <select value={slicerMake} onChange={e => handleMakeChange(e.target.value)} className="bg-transparent text-xs font-bold outline-none">{slicerOptions.makes.map(m => <option key={m} value={m}>{m}</option>)}</select>
                         <select value={slicerGroup} onChange={e => setSlicerGroup(e.target.value)} className="bg-transparent text-xs font-bold outline-none">{slicerOptions.groups.map(g => <option key={g} value={g}>{g}</option>)}</select>
                         <input type="text" placeholder="Description..." value={filterDescription} onChange={e => setFilterDescription(e.target.value)} className="bg-transparent text-xs outline-none w-32 border-l pl-2" />
                     </div>
