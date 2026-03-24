@@ -61,7 +61,7 @@ const getSmoothPath = (points: [number, number][]) => {
     return d;
 };
 
-const SalesTrendChart = ({ data, maxVal }: { data: { labels: string[], series: any[] }, maxVal: number }) => {
+const SalesTrendChart = React.memo(({ data, maxVal }: { data: { labels: string[], series: any[] }, maxVal: number }) => {
     const [hoverIndex, setHoverIndex] = useState<number | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const chartId = useMemo(() => Math.random().toString(36).substring(7), []);
@@ -203,14 +203,14 @@ const SalesTrendChart = ({ data, maxVal }: { data: { labels: string[], series: a
             </div>
         </div>
     );
-};
+});
 
 const ModernDonutChartDashboard: React.FC<{
     data: { label: string; value: number; color?: string }[],
     title: string,
     isCurrency?: boolean,
     centerColorClass?: string
-}> = ({ data, title, isCurrency, centerColorClass }) => {
+}> = React.memo(({ data, title, isCurrency, centerColorClass }) => {
     const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
     if (data.length === 0) return <div className="h-48 flex items-center justify-center text-gray-400 text-[10px] font-bold uppercase">No records found</div>;
 
@@ -298,10 +298,10 @@ const ModernDonutChartDashboard: React.FC<{
             </div>
         </div>
     );
-};
+});
 
 
-const HorizontalBarChart = ({
+const HorizontalBarChart = React.memo(({
     data,
     title,
     color,
@@ -386,7 +386,7 @@ const HorizontalBarChart = ({
             </div>
         </div>
     );
-};
+});
 
 interface GroupedCustomerAnalysisProps {
     data: { group: string, total: number, totalPrevious: number, customers: { name: string, current: number, previous: number, diff: number }[] }[];
@@ -395,7 +395,7 @@ interface GroupedCustomerAnalysisProps {
     setGroupingMode: (mode: 'RAW' | 'MERGED') => void;
 }
 
-const GroupedCustomerAnalysis: React.FC<GroupedCustomerAnalysisProps> = ({
+const GroupedCustomerAnalysis: React.FC<GroupedCustomerAnalysisProps> = React.memo(({
     data,
     compareLabel = 'PY',
     groupingMode,
@@ -599,7 +599,7 @@ const GroupedCustomerAnalysis: React.FC<GroupedCustomerAnalysisProps> = ({
             </div>
         </div >
     );
-};
+});
 
 type Metric = 'quantity' | 'value';
 
@@ -616,7 +616,7 @@ interface DashboardViewProps {
     isAdmin?: boolean;
 }
 
-const DashboardView: React.FC<DashboardViewProps> = ({
+const DashboardView: React.FC<DashboardViewProps> = React.memo(({
     materials = [],
     closingStock = [],
     pendingSO = [],
@@ -626,6 +626,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     setActiveTab,
     isAdmin = false
 }) => {
+    const [invDisplayLimit, setInvDisplayLimit] = useState(100);
     const [activeSubTab, setActiveSubTab] = useState<'sales' | 'inventory' | 'so' | 'po' | 'weekly' | 'stockPlanning' | 'customerAnalysis'>('sales');
     const [relatedMomId, setRelatedMomId] = useState<string | null>(null);
     const [weeklyBenchmarks, setWeeklyBenchmarks] = useState<{ [key: string]: any }>(() => {
@@ -1975,7 +1976,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                             {processedInventoryItems.length === 0 ? (
                                                 <tr><td colSpan={7} className="p-8 text-center text-gray-400">No records found matching filters</td></tr>
                                             ) : (
-                                                processedInventoryItems.map((item, idx) => (
+                                                processedInventoryItems.slice(0, invDisplayLimit).map((item, idx) => (
                                                     <tr key={idx} className="hover:bg-emerald-50/30 even:bg-gray-50/20 transition-colors group">
                                                         <td className="py-1 px-2 border border-gray-200 text-center text-gray-400  text-[9px] select-none">{idx + 1}</td>
                                                         <td className="py-1 px-3 border border-gray-200 font-black text-gray-700 truncate max-w-[300px]" title={item.description}>{item.description}</td>
@@ -1990,6 +1991,17 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                         </tbody>
                                     </table>
                                 </div>
+                                {processedInventoryItems.length > invDisplayLimit && (
+                                    <div className="p-4 flex justify-center bg-gray-50/50 border-t border-gray-100">
+                                        <button
+                                            onClick={() => setInvDisplayLimit(prev => prev + 200)}
+                                            className="px-6 py-2 bg-white border border-emerald-200 text-emerald-700 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-50 transition-all shadow-sm flex items-center gap-2 group"
+                                        >
+                                            <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform" />
+                                            Load More Inventory ({processedInventoryItems.length - invDisplayLimit} remaining)
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     ) : activeSubTab === 'so' ? (
@@ -3121,7 +3133,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
         </div >
     );
-};
+});
 
 
 export default DashboardView;

@@ -77,6 +77,7 @@ const getFY = (dateInput: string | number | Date) => {
 };
 
 const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, materials, closingStock, pendingSO, pendingPO }) => {
+    const [displayLimit, setDisplayLimit] = useState(100);
     // Slicer States
     const [selectedMake, setSelectedMake] = useState<string>('All');
     const [selectedGroup, setSelectedGroup] = useState<string>('All');
@@ -592,7 +593,7 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
                         </tr>
                     </thead>
                     <tbody className="text-[10px]">
-                        {filteredData.map((item, idx) => (
+                        {filteredData.slice(0, displayLimit).map((item, idx) => (
                             <tr key={idx} className="hover:bg-green-50/30 even:bg-gray-50/20 transition-colors group">
                                 <td className="border border-gray-200 px-2 py-1 text-center text-gray-400 font-mono select-none">{idx + 1}</td>
                                 {visibleColumns.makeGroup && (
@@ -680,6 +681,16 @@ const SupplyChainAnalyticsView: React.FC<AnalyticsProps> = ({ salesReportItems, 
                         ))}
                     </tbody>
                 </table>
+                {filteredData.length > displayLimit && (
+                    <div className="p-4 flex justify-center bg-gray-50 border-t border-gray-200">
+                        <button
+                            onClick={() => setDisplayLimit(prev => prev + 200)}
+                            className="bg-green-700 text-white px-8 py-2 rounded-xl text-xs font-black uppercase shadow-lg hover:bg-green-800 transition-all flex items-center gap-2"
+                        >
+                            Load More Data ({filteredData.length - displayLimit} remaining)
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* Excel Status Bar */}

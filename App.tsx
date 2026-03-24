@@ -980,7 +980,6 @@ const App: React.FC = () => {
 
 
           <div className="h-full w-full">
-            {/* Persist heavy report state by using hidden/block instead of unmounting (Keep-Alive) */}
             <div className={activeTab === 'dashboard' ? 'h-full w-full' : 'hidden'}>
               <DashboardView isAdmin={isAdmin} materials={materials} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} salesReportItems={salesReportItems} customers={customerMasterItems} sales1Year={sales1Year} sales3Months={sales3Months} setActiveTab={setActiveTab} />
             </div>
