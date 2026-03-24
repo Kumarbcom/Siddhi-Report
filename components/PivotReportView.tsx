@@ -209,8 +209,16 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
         return [...d].sort((a, b) => {
             let vA: any = a, vB: any = b;
             keys.forEach(k => { vA = vA?.[k]; vB = vB?.[k]; });
-            if (typeof vA === 'string' && typeof vB === 'string') return sortConfig.direction === 'asc' ? vA.localeCompare(vB) : vB.localeCompare(vA);
-            return sortConfig.direction === 'asc' ? (Number(vA) - Number(vB)) : (Number(vB) - Number(vA));
+            
+            // Handle null/undef
+            vA = vA ?? 0; vB = vB ?? 0;
+
+            if (typeof vA === 'string' && typeof vB === 'string') {
+                return sortConfig.direction === 'asc' ? vA.localeCompare(vB) : vB.localeCompare(vA);
+            }
+            const nA = Number(vA); const nB = Number(vB);
+            if (isNaN(nA) || isNaN(nB)) return 0;
+            return sortConfig.direction === 'asc' ? (nA - nB) : (nB - nA);
         });
     }, [pivotData, searchTerm, slicerMake, slicerGroup, filterDescription, showExcessStock, showExcessPO, showPONeed, showExpedite, sortConfig]);
 
@@ -291,10 +299,14 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                                 <th onClick={() => handleHeaderSort('levels.min.qty')} className="p-2 text-right text-emerald-700">Min</th>
                                 <th onClick={() => handleHeaderSort('levels.reorder.qty')} className="p-2 text-right text-emerald-700">Re</th>
                                 <th onClick={() => handleHeaderSort('levels.max.qty')} className="p-2 text-right border-r text-emerald-700">Max</th>
-                                <th onClick={() => handleHeaderSort('actions.excessStock.qty')} className="p-2 text-right">Qty</th><th className="p-2 text-right border-r">Val</th>
-                                <th onClick={() => handleHeaderSort('actions.excessPO.qty')} className="p-2 text-right">Qty</th><th className="p-2 text-right border-r">Val</th>
-                                <th onClick={() => handleHeaderSort('actions.poNeed.qty')} className="p-2 text-right">Qty</th><th className="p-2 text-right border-r">Val</th>
-                                <th onClick={() => handleHeaderSort('actions.expedite.qty')} className="p-2 text-right">Qty</th><th className="p-2 text-right">Val</th>
+                                <th onClick={() => handleHeaderSort('actions.excessStock.qty')} className="p-2 text-right">Qty</th>
+                                <th onClick={() => handleHeaderSort('actions.excessStock.val')} className="p-2 text-right border-r">Val</th>
+                                <th onClick={() => handleHeaderSort('actions.excessPO.qty')} className="p-2 text-right">Qty</th>
+                                <th onClick={() => handleHeaderSort('actions.excessPO.val')} className="p-2 text-right border-r">Val</th>
+                                <th onClick={() => handleHeaderSort('actions.poNeed.qty')} className="p-2 text-right">Qty</th>
+                                <th onClick={() => handleHeaderSort('actions.poNeed.val')} className="p-2 text-right border-r">Val</th>
+                                <th onClick={() => handleHeaderSort('actions.expedite.qty')} className="p-2 text-right">Qty</th>
+                                <th onClick={() => handleHeaderSort('actions.expedite.val')} className="p-2 text-right">Val</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y text-[10px]">
