@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Siddhi Kabel – Business Review & Strategy FY 2025-26</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Segoe UI',sans-serif; background:#0f172a; color:#fff; overflow:hidden; height:100vh; }
+  .deck { width:100vw; height:100vh; position:relative; }
+  .slide { display:none; width:100%; height:100%; position:absolute; top:0; left:0; padding:44px 60px 44px 60px; flex-direction:column; }
+  .slide.active { display:flex; }
+
+  /* NAV */
+  .nav { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); display:flex; gap:12px; align-items:center; z-index:100; background:rgba(255,255,255,0.05); backdrop-filter:blur(10px); padding:10px 20px; border-radius:50px; border:1px solid rgba(255,255,255,0.1); }
+  .nav button { background:rgba(255,255,255,0.1); border:none; color:#fff; padding:6px 18px; border-radius:20px; cursor:pointer; font-size:13px; font-weight:600; transition:all .2s; }
+  .nav button:hover { background:rgba(255,255,255,0.25); }
+  .slide-counter { font-size:12px; color:rgba(255,255,255,0.5); min-width:60px; text-align:center; }
+
+  /* COMMON */
+  .tag { display:inline-flex; align-items:center; gap:6px; font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; padding:4px 12px; border-radius:20px; }
+  .tag-blue { background:rgba(59,130,246,.2); color:#60a5fa; border:1px solid rgba(59,130,246,.3); }
+  .tag-green { background:rgba(16,185,129,.2); color:#34d399; border:1px solid rgba(16,185,129,.3); }
+  .tag-orange { background:rgba(249,115,22,.2); color:#fb923c; border:1px solid rgba(249,115,22,.3); }
+  .tag-purple { background:rgba(139,92,246,.2); color:#a78bfa; border:1px solid rgba(139,92,246,.3); }
+  .tag-red { background:rgba(239,68,68,.2); color:#f87171; border:1px solid rgba(239,68,68,.3); }
+
+  .section-title { font-size:11px; font-weight:800; letter-spacing:.2em; text-transform:uppercase; color:rgba(255,255,255,.4); margin-bottom:8px; }
+  .main-title { font-size:36px; font-weight:900; line-height:1.15; }
+  .sub-title { font-size:17px; font-weight:700; color:rgba(255,255,255,.7); margin-top:8px; }
+  .divider { height:2px; border-radius:2px; margin:20px 0; }
+  .divider-blue { background:linear-gradient(90deg,#3b82f6,transparent); }
+  .divider-green { background:linear-gradient(90deg,#10b981,transparent); }
+  .divider-purple { background:linear-gradient(90deg,#8b5cf6,transparent); }
+  .divider-orange { background:linear-gradient(90deg,#f59e0b,transparent); }
+
+  /* CARD GRID */
+  .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; }
+  .grid-4 { display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:12px; }
+  .card { background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08); border-radius:14px; padding:18px; transition:all .2s; }
+  .card:hover { background:rgba(255,255,255,.08); border-color:rgba(255,255,255,.15); }
+  .card-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:rgba(255,255,255,.5); margin-bottom:8px; }
+  .card-value { font-size:28px; font-weight:900; line-height:1; }
+  .card-sub { font-size:11px; color:rgba(255,255,255,.5); margin-top:6px; }
+  .card-blue { border-left:3px solid #3b82f6; }
+  .card-green { border-left:3px solid #10b981; }
+  .card-purple { border-left:3px solid #8b5cf6; }
+  .card-orange { border-left:3px solid #f59e0b; }
+  .card-red { border-left:3px solid #ef4444; }
+  .card-cyan { border-left:3px solid #06b6d4; }
+
+  /* TABLE */
+  .tbl { width:100%; border-collapse:collapse; font-size:12px; }
+  .tbl th { background:rgba(255,255,255,.06); padding:8px 12px; text-align:left; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:rgba(255,255,255,.5); border-bottom:1px solid rgba(255,255,255,.08); }
+  .tbl td { padding:8px 12px; border-bottom:1px solid rgba(255,255,255,.04); color:rgba(255,255,255,.85); }
+  .tbl tr:hover td { background:rgba(255,255,255,.03); }
+  .badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:10px; font-weight:700; }
+  .badge-green { background:rgba(16,185,129,.2); color:#34d399; }
+  .badge-red { background:rgba(239,68,68,.2); color:#f87171; }
+  .badge-orange { background:rgba(249,115,22,.2); color:#fb923c; }
+  .badge-blue { background:rgba(59,130,246,.2); color:#60a5fa; }
+  .badge-gray { background:rgba(255,255,255,.1); color:rgba(255,255,255,.6); }
+
+  /* PROGRESS */
+  .prog-bar { height:6px; border-radius:4px; background:rgba(255,255,255,.08); overflow:hidden; margin-top:6px; }
+  .prog-fill { height:100%; border-radius:4px; transition:width .8s ease; }
+
+  /* SLIDE SPECIFIC BGs */
+  .slide-cover { background:linear-gradient(135deg,#0f172a 0%,#1e1b4b 50%,#0f172a 100%); }
+  .slide-blue { background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%); }
+  .slide-green { background:linear-gradient(135deg,#0f172a 0%,#064e3b 100%); }
+  .slide-purple { background:linear-gradient(135deg,#0f172a 0%,#2e1065 100%); }
+  .slide-orange { background:linear-gradient(135deg,#0f172a 0%,#431407 100%); }
+  .slide-dark { background:#0f172a; }
+
+  /* ICON */
+  .icon-big { font-size:48px; margin-bottom:12px; }
+  .dot { width:8px; height:8px; border-radius:50%; display:inline-block; margin-right:8px; }
+  .dot-green { background:#10b981; }
+  .dot-red { background:#ef4444; }
+  .dot-orange { background:#f59e0b; }
+  .dot-blue { background:#3b82f6; }
+
+  ul.styled { list-style:none; display:flex; flex-direction:column; gap:8px; }
+  ul.styled li { display:flex; align-items:flex-start; gap:10px; font-size:13px; color:rgba(255,255,255,.8); line-height:1.5; }
+  ul.styled li::before { content:"→"; color:#3b82f6; font-weight:700; flex-shrink:0; margin-top:1px; }
+
+  .highlight-box { background:rgba(59,130,246,.08); border:1px solid rgba(59,130,246,.2); border-radius:12px; padding:16px 20px; }
+  .highlight-box-green { background:rgba(16,185,129,.08); border:1px solid rgba(16,185,129,.2); border-radius:12px; padding:16px 20px; }
+  .highlight-box-orange { background:rgba(249,115,22,.08); border:1px solid rgba(249,115,22,.2); border-radius:12px; padding:16px 20px; }
+
+  .flex-row { display:flex; gap:16px; align-items:flex-start; }
+  .flex-col { display:flex; flex-direction:column; gap:12px; }
+  .mt-4 { margin-top:16px; }
+  .mt-2 { margin-top:8px; }
+  .text-sm { font-size:12px; color:rgba(255,255,255,.6); }
+  .text-xs { font-size:11px; color:rgba(255,255,255,.5); }
+  .font-bold { font-weight:700; }
+  .text-green { color:#34d399; }
+  .text-red { color:#f87171; }
+  .text-orange { color:#fb923c; }
+  .text-blue { color:#60a5fa; }
+  .text-purple { color:#a78bfa; }
+
+  .roadmap-item { display:flex; gap:14px; align-items:flex-start; padding:10px 0; border-bottom:1px solid rgba(255,255,255,.05); }
+  .roadmap-num { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; flex-shrink:0; }
+  .roadmap-content { flex:1; }
+  .roadmap-title { font-size:13px; font-weight:700; margin-bottom:3px; }
+  .roadmap-desc { font-size:11px; color:rgba(255,255,255,.55); line-height:1.5; }
+</style>
+</head>
+<body>
+<div class="deck">
+
+<!-- SLIDE 1: COVER -->
+<div class="slide slide-cover active">
+  <div style="flex:1;display:flex;flex-direction:column;justify-content:center;max-width:800px;">
+    <div class="tag tag-blue" style="margin-bottom:20px;">📊 Annual Business Review</div>
+    <div class="main-title" style="font-size:48px;">Siddhi Kabel<br><span style="color:#60a5fa;">Enterprise Hub</span></div>
+    <div class="sub-title" style="margin-top:16px;">Strategic Analysis · FY 2025-26<br>Sales Review · Stock Planning · Growth Roadmap</div>
+    <div class="divider divider-blue" style="max-width:300px;margin-top:30px;"></div>
+    <div class="text-sm" style="margin-top:16px;">Prepared: March 27, 2026 &nbsp;|&nbsp; Confidential – Internal Use Only</div>
+  </div>
+  <div style="position:absolute;right:60px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:14px;opacity:.6;">
+    <div class="tag tag-green">LAPP</div>
+    <div class="tag tag-blue">Eaton</div>
+    <div class="tag tag-orange">Hager</div>
+    <div class="tag tag-purple">Luker</div>
+  </div>
+  <div style="position:absolute;bottom:80px;left:60px;" class="text-xs">Use ← → arrow keys or buttons below to navigate</div>
+</div>
+
+<!-- SLIDE 2: BUSINESS OVERVIEW -->
+<div class="slide slide-dark">
+  <div class="section-title">01 · Company Profile</div>
+  <div class="main-title" style="font-size:30px;">Siddhi Kabel – Business Snapshot</div>
+  <div class="divider divider-blue"></div>
+  <div class="grid-4" style="margin-top:4px;">
+    <div class="card card-blue">
+      <div class="card-title">Business Type</div>
+      <div class="card-value" style="font-size:18px;">Industrial<br>Distribution</div>
+      <div class="card-sub">Cables, Connectors, Electrical Components</div>
+    </div>
+    <div class="card card-green">
+      <div class="card-title">Key Brands</div>
+      <div class="card-value" style="font-size:18px;">4+ Makes</div>
+      <div class="card-sub">LAPP · Eaton · Hager · Luker &amp; others</div>
+    </div>
+    <div class="card card-purple">
+      <div class="card-title">Sales Channels</div>
+      <div class="card-value" style="font-size:18px;">Project +<br>Regular</div>
+      <div class="card-sub">Group, Online, Project &amp; OEM segments</div>
+    </div>
+    <div class="card card-orange">
+      <div class="card-title">Operations</div>
+      <div class="card-value" style="font-size:18px;">Cloud ERP</div>
+      <div class="card-sub">Supabase + IndexedDB + React Dashboard</div>
+    </div>
+  </div>
+  <div class="grid-2" style="margin-top:14px;">
+    <div class="highlight-box">
+      <div class="card-title">Customer Segments Tracked</div>
+      <div class="flex-col" style="margin-top:8px;gap:6px;">
+        <div class="text-sm"><span class="dot dot-green"></span><strong>Repeat</strong> – Bought in both current &amp; last period</div>
+        <div class="text-sm"><span class="dot dot-blue"></span><strong>New</strong> – First time buyers this FY</div>
+        <div class="text-sm"><span class="dot dot-orange"></span><strong>Rebuild</strong> – Re-engaged after gap (skip year)</div>
+        <div class="text-sm"><span class="dot dot-red"></span><strong>Lost</strong> – Active last period, silent this period</div>
+      </div>
+    </div>
+    <div class="highlight-box">
+      <div class="card-title">Product Classification System</div>
+      <div class="flex-col" style="margin-top:8px;gap:6px;">
+        <div class="text-sm"><span class="badge badge-green">FAST RUNNER</span> &nbsp;≥9 active months (rolling 12M)</div>
+        <div class="text-sm"><span class="badge badge-orange">SLOW RUNNER</span> &nbsp;3–8 active months</div>
+        <div class="text-sm"><span class="badge badge-gray">NON-MOVING</span> &nbsp;No sale in last 12 months</div>
+        <div class="text-sm" style="margin-top:4px;"><strong style="color:#60a5fa;">Strategy:</strong> General Stock · Against Order · Made-to-Order</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 3: APPLICATION REVIEW -->
+<div class="slide slide-blue">
+  <div class="section-title">02 · Application Assessment</div>
+  <div class="main-title" style="font-size:28px;">Website & App – What's Working Well ✅</div>
+  <div class="divider divider-blue"></div>
+  <div class="grid-3" style="margin-top:8px;">
+    <div class="card card-green">
+      <div class="card-title">🏗️ Architecture</div>
+      <ul class="styled" style="margin-top:4px;">
+        <li>React 18 + Vite – fast HMR build</li>
+        <li>Supabase cloud + IndexedDB local fallback</li>
+        <li>Background sync – UI never blocked</li>
+        <li>Role-based access (Admin / Viewer)</li>
+      </ul>
+    </div>
+    <div class="card card-blue">
+      <div class="card-title">📊 Analytics Depth</div>
+      <ul class="styled" style="margin-top:4px;">
+        <li>Multi-FY sales trend with weekly view</li>
+        <li>Customer FY Analysis (New/Repeat/Lost)</li>
+        <li>Supply Chain Planning with Min/Re/Max</li>
+        <li>Strategy Report with 25+ planning columns</li>
+      </ul>
+    </div>
+    <div class="card card-purple">
+      <div class="card-title">🎨 UI / UX</div>
+      <ul class="styled" style="margin-top:4px;">
+        <li>Interactive donut &amp; trend charts (SVG)</li>
+        <li>Collapsible grouped pivot tables</li>
+        <li>Excel-style slicers for filtering</li>
+        <li>Export to Excel from every major view</li>
+      </ul>
+    </div>
+  </div>
+  <div class="mt-4">
+    <div class="card-title" style="color:rgba(255,255,255,.4);">Modules Available</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">
+      <span class="tag tag-blue">Dashboard</span>
+      <span class="tag tag-green">Strategy Report</span>
+      <span class="tag tag-purple">SC Planning</span>
+      <span class="tag tag-orange">Customer FY Analysis</span>
+      <span class="tag tag-blue">Sales Report</span>
+      <span class="tag tag-green">Pending SO/PO</span>
+      <span class="tag tag-purple">Material Master</span>
+      <span class="tag tag-orange">Customer Master</span>
+      <span class="tag tag-blue">AI Analyst Chat</span>
+      <span class="tag tag-green">Weekly MOM</span>
+      <span class="tag tag-purple">User Management</span>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 4: APP IMPROVEMENTS -->
+<div class="slide slide-dark">
+  <div class="section-title">03 · Application Improvements</div>
+  <div class="main-title" style="font-size:28px;">Recommended App Enhancements 🚀</div>
+  <div class="divider divider-purple"></div>
+  <div class="grid-2" style="margin-top:8px;gap:14px;">
+    <div class="flex-col" style="gap:10px;">
+      <div class="roadmap-item">
+        <div class="roadmap-num" style="background:#3b82f6;color:#fff;">1</div>
+        <div class="roadmap-content">
+          <div class="roadmap-title">📱 Mobile Responsive Layout</div>
+          <div class="roadmap-desc">Sidebar collapses, tables scroll horizontally. Add hamburger nav for field sales team access on phones/tablets.</div>
+        </div>
+      </div>
+      <div class="roadmap-item">
+        <div class="roadmap-num" style="background:#10b981;color:#fff;">2</div>
+        <div class="roadmap-content">
+          <div class="roadmap-title">🔔 Alerts & Smart Notifications</div>
+          <div class="roadmap-desc">Auto-alert when stock falls below Min level, SO overdue &gt;7 days, or a "Lost" customer hasn't ordered in 60+ days.</div>
+        </div>
+      </div>
+      <div class="roadmap-item">
+        <div class="roadmap-num" style="background:#8b5cf6;color:#fff;">3</div>
+        <div class="roadmap-content">
+          <div class="roadmap-title">📤 Quotation Generator</div>
+          <div class="roadmap-desc">Create PDF quotations directly from Pending SO view with GST, payment terms, and company letterhead auto-filled.</div>
+        </div>
+      </div>
+      <div class="roadmap-item">
+        <div class="roadmap-num" style="background:#f59e0b;color:#fff;">4</div>
+        <div class="roadmap-content">
+          <div class="roadmap-title">🗓️ Customer Visit Tracker</div>
+          <div class="roadmap-desc">Log visits, follow-ups, and next action dates per customer. Link to MOM and sales history.</div>
+        </div>
+      </div>
+    </div>
+    <div class="flex-col" style="gap:10px;">
+      <div class="roadmap-item">
+        <div class="roadmap-num" style="background:#ef4444;color:#fff;">5</div>
+        <div class="roadmap-content">
+          <div class="roadmap-title">📦 PO Tracking with ETA</div>
+          <div class="roadmap-desc">Add Expected Delivery Date column to PO view. Show heat-map of overdue POs with supplier-wise delay summary.</div>
+        </div>
+      </div>
+      <div class="roadmap-item">
+        <div class="roadmap-num" style="background:#06b6d4;color:#fff;">6</div>
+        <div class="roadmap-content">
+          <div class="roadmap-title">🤖 AI Sales Prediction</div>
+          <div class="roadmap-desc">Use rolling 3M/12M averages already computed to forecast next month's likely demand per SKU and flag "order now" items.</div>
+        </div>
+      </div>
+      <div class="roadmap-item">
+        <div class="roadmap-num" style="background:#d946ef;color:#fff;">7</div>
+        <div class="roadmap-content">
+          <div class="roadmap-title">📊 Shareable Dashboard Link</div>
+          <div class="roadmap-desc">One-click "Share Report" that generates a read-only link for management/investors without login needed.</div>
+        </div>
+      </div>
+      <div class="roadmap-item">
+        <div class="roadmap-num" style="background:#84cc16;color:#000;">8</div>
+        <div class="roadmap-content">
+          <div class="roadmap-title">🏷️ Customer Health Score</div>
+          <div class="roadmap-desc">Auto-compute a score (0–100) per customer based on recency, frequency, and value. Show at-risk customers automatically.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 5: FY 25-26 SALES REVIEW -->
+<div class="slide slide-green">
+  <div class="section-title">04 · Sales Performance · FY 2025-26</div>
+  <div class="main-title" style="font-size:28px;">Current Year Sales Analysis</div>
+  <div class="divider divider-green"></div>
+  <div class="grid-4" style="margin-top:4px;">
+    <div class="card card-green">
+      <div class="card-title">Revenue (FY 25-26)</div>
+      <div class="card-value" style="color:#34d399;">Live Data</div>
+      <div class="card-sub">Pulled from Sales Report module in real-time</div>
+    </div>
+    <div class="card card-blue">
+      <div class="card-title">Active Customers</div>
+      <div class="card-value" style="color:#60a5fa;">→ App</div>
+      <div class="card-sub">Customer FY Analysis → Total Active card</div>
+    </div>
+    <div class="card card-orange">
+      <div class="card-title">Avg Monthly Run Rate</div>
+      <div class="card-value" style="color:#fb923c;">→ App</div>
+      <div class="card-sub">Dashboard → Sales tab → Monthly trend line</div>
+    </div>
+    <div class="card card-purple">
+      <div class="card-title">Top Contributor</div>
+      <div class="card-value" style="color:#a78bfa;">→ App</div>
+      <div class="card-sub">Dashboard → Customer Pivot → Sort by Current</div>
+    </div>
+  </div>
+  <div class="grid-2" style="margin-top:14px;">
+    <div>
+      <div class="card-title" style="margin-bottom:10px;">FY 25-26 Key Focus Areas (By Segment)</div>
+      <table class="tbl">
+        <thead><tr><th>Segment</th><th>This FY</th><th>vs LY</th><th>Action</th></tr></thead>
+        <tbody>
+          <tr><td>LAPP Cables</td><td class="text-green">Strong</td><td>↑ Growing</td><td><span class="badge badge-green">Maintain Stock</span></td></tr>
+          <tr><td>Eaton Products</td><td class="text-orange">Project-led</td><td>Volatile</td><td><span class="badge badge-orange">MTO Strategy</span></td></tr>
+          <tr><td>Online Business</td><td class="text-blue">Emerging</td><td>↑ New Channel</td><td><span class="badge badge-blue">Grow Focus</span></td></tr>
+          <tr><td>Group-1 Giridhar</td><td class="text-purple">Core</td><td>Stable</td><td><span class="badge badge-blue">Retain</span></td></tr>
+          <tr><td>New Customers</td><td class="text-green">Onboarded</td><td>—</td><td><span class="badge badge-green">Nurture</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="highlight-box-green">
+      <div class="card-title">How to Read Your Sales Data in the App</div>
+      <ul class="styled" style="margin-top:8px;">
+        <li><strong>Dashboard → Sales Tab</strong> → FY toggle for monthly breakdown</li>
+        <li><strong>Customer FY Analysis</strong> → Full/YTD toggle → Group expand</li>
+        <li><strong>Strategy Report</strong> → Avg3M vs Avg1Y trend column</li>
+        <li><strong>SC Planning</strong> → Sort by YoY% to see winners &amp; losers</li>
+        <li><strong>Pivot: Group "G" mode</strong> → See consolidated group performance</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 6: FY 24-25 COMPARISON -->
+<div class="slide slide-dark">
+  <div class="section-title">05 · Year-on-Year Comparison</div>
+  <div class="main-title" style="font-size:28px;">FY 25-26 vs FY 24-25 – Framework</div>
+  <div class="divider divider-blue"></div>
+  <div class="grid-3" style="margin-top:8px;">
+    <div class="card card-green">
+      <div class="card-title">✅ Positive Signals to Track</div>
+      <ul class="styled" style="margin-top:6px;font-size:12px;">
+        <li>Customer count growth (Total Active)</li>
+        <li>New customer additions this FY</li>
+        <li>Rebuild customers returning</li>
+        <li>Groups with &gt;15% YoY value growth</li>
+        <li>FAST RUNNER items with rising 3M avg</li>
+      </ul>
+    </div>
+    <div class="card card-red">
+      <div class="card-title">⚠️ Risk Areas to Watch</div>
+      <ul class="styled" style="margin-top:6px;font-size:12px;">
+        <li>Lost customers (active LY, silent this FY)</li>
+        <li>SLOW RUNNER items with falling 3M avg</li>
+        <li>NON-MOVING stock tying up capital</li>
+        <li>Overdue SOs &gt;30 days (delivery risk)</li>
+        <li>Excess PO vs Max stock level gap</li>
+      </ul>
+    </div>
+    <div class="card card-blue">
+      <div class="card-title">📋 Comparison Metrics</div>
+      <ul class="styled" style="margin-top:6px;font-size:12px;">
+        <li>Revenue per customer (value / count)</li>
+        <li>Repeat rate % = Repeat ÷ LY Total</li>
+        <li>Customer acquisition rate (New ÷ Total)</li>
+        <li>Avg order value per transaction</li>
+        <li>Revenue per SKU (Product concentration)</li>
+      </ul>
+    </div>
+  </div>
+  <div class="highlight-box" style="margin-top:14px;">
+    <div class="card-title">Key Interpretation Rule for the Dashboard</div>
+    <div class="flex-row" style="margin-top:8px;gap:30px;">
+      <div class="text-sm"><strong class="text-green">Growth &gt;20%:</strong> Expand inventory, increase credit limit, prioritize visits</div>
+      <div class="text-sm"><strong class="text-orange">Growth 0–20%:</strong> Monitor closely, maintain current strategy</div>
+      <div class="text-sm"><strong class="text-red">Decline &gt;0%:</strong> Investigate reason: lost to competition, project ended, or credit issue</div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 7: STOCK PLANNING -->
+<div class="slide slide-purple">
+  <div class="section-title">06 · Inventory Management</div>
+  <div class="main-title" style="font-size:28px;">Stock Planning Framework</div>
+  <div class="divider divider-purple"></div>
+  <div class="grid-3" style="margin-top:8px;">
+    <div class="card card-green">
+      <div class="card-title">📗 Min Level</div>
+      <div class="card-value" style="color:#34d399;font-size:24px;">= Avg1Y × 1</div>
+      <div class="card-sub">Safety buffer. If stock falls below this → place PO immediately.</div>
+      <div class="prog-bar" style="margin-top:12px;"><div class="prog-fill" style="width:33%;background:#10b981;"></div></div>
+    </div>
+    <div class="card card-orange">
+      <div class="card-title">📙 Reorder Level</div>
+      <div class="card-value" style="color:#fb923c;font-size:24px;">= Avg1Y × 1.5</div>
+      <div class="card-sub">Trigger PO at this level to account for lead time from supplier.</div>
+      <div class="prog-bar" style="margin-top:12px;"><div class="prog-fill" style="width:66%;background:#f59e0b;"></div></div>
+    </div>
+    <div class="card card-red">
+      <div class="card-title">📕 Max Level</div>
+      <div class="card-value" style="color:#f87171;font-size:24px;">= Avg1Y × 3</div>
+      <div class="card-sub">Do not exceed this. Excess stock beyond Max = capital locked unnecessarily.</div>
+      <div class="prog-bar" style="margin-top:12px;"><div class="prog-fill" style="width:100%;background:#ef4444;"></div></div>
+    </div>
+  </div>
+  <div class="grid-2" style="margin-top:14px;">
+    <div>
+      <div class="card-title" style="margin-bottom:8px;">Stock Strategy Decision Matrix</div>
+      <table class="tbl">
+        <thead><tr><th>Annual Qty</th><th>Customer Count</th><th>Strategy</th></tr></thead>
+        <tbody>
+          <tr><td>&gt;500 units/year</td><td>10+ customers</td><td><span class="badge badge-blue">GENERAL STOCK</span></td></tr>
+          <tr><td>100–499 units/year</td><td>5–9 customers</td><td><span class="badge badge-orange">AGAINST ORDER</span></td></tr>
+          <tr><td>&lt;100 units/year</td><td>&lt;5 customers</td><td><span class="badge badge-gray">MADE TO ORDER</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="highlight-box">
+      <div class="card-title">4 Action Signals in Strategy Report</div>
+      <div class="flex-col" style="margin-top:8px;gap:6px;">
+        <div class="text-sm"><span class="badge badge-red">Ex Stock</span> &nbsp;Stock &gt; Max → Consider liquidation or return</div>
+        <div class="text-sm"><span class="badge badge-red">Ex PO</span> &nbsp;Net Qty &gt; Max → Cancel or defer PO</div>
+        <div class="text-sm"><span class="badge badge-green">PO Need</span> &nbsp;Net Qty &lt; Max → Place fresh PO</div>
+        <div class="text-sm"><span class="badge badge-blue">Expedite</span> &nbsp;SO due &amp; stock low → Pull in existing PO</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 8: PROJECTION PLANNING -->
+<div class="slide slide-dark">
+  <div class="section-title">07 · Demand Forecasting</div>
+  <div class="main-title" style="font-size:28px;">Sales Projection & Planning</div>
+  <div class="divider divider-orange"></div>
+  <div class="grid-2" style="margin-top:8px;">
+    <div class="flex-col" style="gap:12px;">
+      <div class="card card-blue">
+        <div class="card-title">📈 3-Month Rolling Average (3M Avg)</div>
+        <div class="text-sm" style="margin-top:6px;">Best for <strong>short-term PO planning</strong>. Captures seasonal demand, recent project wins, or new customer additions. If 3M &gt; 1Y avg → demand is accelerating → stock up.</div>
+      </div>
+      <div class="card card-purple">
+        <div class="card-title">📊 12-Month Average (1Y Avg)</div>
+        <div class="text-sm" style="margin-top:6px;">Best for <strong>long-term Min/Max levels</strong>. Smooths out seasonal spikes. Use for setting safety stock and annual PO planning with suppliers.</div>
+      </div>
+      <div class="card card-orange">
+        <div class="card-title">📉 YoY Trend Signal</div>
+        <div class="text-sm" style="margin-top:6px;"><strong class="text-green">3M &gt; 1Y:</strong> Growing demand → increase Max level by 20%<br><strong class="text-red">3M &lt; 1Y:</strong> Declining demand → reduce Max level by 20%<br><strong>Equal:</strong> Stable – maintain current levels</div>
+      </div>
+    </div>
+    <div>
+      <div class="card-title" style="margin-bottom:10px;">FY 2025-26 Projection Template</div>
+      <table class="tbl">
+        <thead><tr><th>Method</th><th>Formula</th><th>Use When</th></tr></thead>
+        <tbody>
+          <tr><td>Conservative</td><td>LY × 1.05</td><td>Flat market, no new deals</td></tr>
+          <tr><td>Base Case</td><td>LY × 1.15</td><td>Normal growth trajectory</td></tr>
+          <tr><td>Optimistic</td><td>LY × 1.25</td><td>New customer + project wins</td></tr>
+          <tr><td>Data-Led</td><td>3M Avg × 12</td><td>Recent trend is reliable</td></tr>
+        </tbody>
+      </table>
+      <div class="highlight-box-orange" style="margin-top:12px;">
+        <div class="card-title">Planning Recommendation</div>
+        <div class="text-sm" style="margin-top:6px;">For <strong>FAST RUNNER</strong> items use <strong>3M Avg × 14</strong> (buffer for lead time). For <strong>SLOW RUNNER</strong> use <strong>1Y Avg × 1.2</strong>. Do NOT stock NON-MOVING items proactively.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 9: CUSTOMER STRATEGY -->
+<div class="slide slide-blue">
+  <div class="section-title">08 · Customer Intelligence</div>
+  <div class="main-title" style="font-size:28px;">Customer Retention & Growth Strategy</div>
+  <div class="divider divider-blue"></div>
+  <div class="grid-4" style="margin-top:8px;">
+    <div class="card card-green">
+      <div class="card-title" style="font-size:9px;">🔁 Repeat Customers</div>
+      <div class="text-sm" style="margin-top:6px;color:rgba(255,255,255,.8);">Offer volume discounts, priority delivery, and quarterly review meetings. Never let a repeat customer feel ignored.</div>
+    </div>
+    <div class="card card-blue">
+      <div class="card-title" style="font-size:9px;">🆕 New Customers</div>
+      <div class="text-sm" style="margin-top:6px;color:rgba(255,255,255,.8);">Assign 90-day nurture plan. First 3 orders should be flawless. Offer credit terms only after 2nd payment.</div>
+    </div>
+    <div class="card card-orange">
+      <div class="card-title" style="font-size:9px;">♻️ Rebuild Customers</div>
+      <div class="text-sm" style="margin-top:6px;color:rgba(255,255,255,.8);">They left but came back. Find out WHY they left and fix the root cause. These are high-risk high-reward accounts.</div>
+    </div>
+    <div class="card card-red">
+      <div class="card-title" style="font-size:9px;">❌ Lost Customers</div>
+      <div class="text-sm" style="margin-top:6px;color:rgba(255,255,255,.8);">Contact within 30 days of identifying as "Lost". Lost to competition = pricing issue. Lost to silence = relationship issue.</div>
+    </div>
+  </div>
+  <div class="grid-2" style="margin-top:14px;">
+    <div class="highlight-box">
+      <div class="card-title">Customer Concentration Risk</div>
+      <ul class="styled" style="margin-top:8px;font-size:12px;">
+        <li>If top 3 customers &gt;50% of revenue → HIGH RISK. Diversify immediately.</li>
+        <li>If any 1 customer &gt;25% of revenue → Single-point-of-failure. Develop alternatives.</li>
+        <li>Target: No single group &gt;20% of total revenue</li>
+      </ul>
+    </div>
+    <div class="highlight-box-green">
+      <div class="card-title">Online Business – Growth Opportunity</div>
+      <ul class="styled" style="margin-top:8px;font-size:12px;">
+        <li>Online Business channel is a new segment – track separately</li>
+        <li>Set up competitive pricing vs Amazon / IndiaMART</li>
+        <li>Fast response time SLA: Quote within 4 hours for online leads</li>
+        <li>Track conversion: Inquiry → Quote → Order rate monthly</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 10: SC PLANNING ACTIONS -->
+<div class="slide slide-dark">
+  <div class="section-title">09 · Supply Chain Actions</div>
+  <div class="main-title" style="font-size:28px;">Immediate Supply Chain Priorities</div>
+  <div class="divider divider-green"></div>
+  <div class="grid-3" style="margin-top:8px;">
+    <div class="card card-red">
+      <div class="card-title">🚨 Expedite Now</div>
+      <div class="text-sm" style="margin-top:8px;color:rgba(255,255,255,.8);">Open SC Planning → Filter "Expedite" → All items where SO is due AND stock is insufficient. Pull in PO delivery dates from suppliers TODAY.</div>
+      <div style="margin-top:10px;" class="text-xs">Use Strategy Report → Exp filter button</div>
+    </div>
+    <div class="card card-orange">
+      <div class="card-title">⚠️ Place Fresh POs</div>
+      <div class="text-sm" style="margin-top:8px;color:rgba(255,255,255,.8);">Filter "PO Need" in Strategy Report. Sort by value descending. First 20 items should be your immediate PO targets for this week.</div>
+      <div style="margin-top:10px;" class="text-xs">Strategy Report → PO Need button</div>
+    </div>
+    <div class="card card-blue">
+      <div class="card-title">💡 Reduce Excess</div>
+      <div class="text-sm" style="margin-top:8px;color:rgba(255,255,255,.8);">Filter "Excess Stock" + "Excess PO". These are capital blockers. Consider returning excess stock to supplier or offering special prices to move inventory.</div>
+      <div style="margin-top:10px;" class="text-xs">Strategy Report → Ex Stock / Ex PO filters</div>
+    </div>
+  </div>
+  <div class="grid-2" style="margin-top:14px;">
+    <div>
+      <div class="card-title" style="margin-bottom:8px;">Movement Class → Action Map</div>
+      <table class="tbl">
+        <thead><tr><th>Class</th><th>Stock Now</th><th>Recommended Action</th></tr></thead>
+        <tbody>
+          <tr><td><span class="badge badge-green">FAST RUNNER</span></td><td>Below Reorder</td><td class="text-red font-bold">Place PO this week</td></tr>
+          <tr><td><span class="badge badge-green">FAST RUNNER</span></td><td>Above Max</td><td class="text-orange">Defer next PO</td></tr>
+          <tr><td><span class="badge badge-orange">SLOW RUNNER</span></td><td>Below Min</td><td class="text-orange">Review &amp; place if SO exists</td></tr>
+          <tr><td><span class="badge badge-gray">NON-MOVING</span></td><td>Any</td><td class="text-red">Do NOT reorder. Liquidate.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="highlight-box">
+      <div class="card-title">Weekly Review Rhythm (MOM Integration)</div>
+      <ul class="styled" style="margin-top:8px;font-size:12px;">
+        <li><strong>Every Thursday:</strong> Review Expedite list + overdue SOs</li>
+        <li><strong>Every Monday:</strong> Update Closing Stock → recalculate Net Qty</li>
+        <li><strong>Monthly:</strong> Re-run SC Planning to update Fast/Slow/Non-Moving</li>
+        <li><strong>Quarterly:</strong> Re-evaluate Min/Reorder/Max levels based on new 3M avg</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 11: GROWTH OPPORTUNITIES -->
+<div class="slide slide-orange">
+  <div class="section-title">10 · Growth Strategy</div>
+  <div class="main-title" style="font-size:28px;">Top 6 Growth Opportunities</div>
+  <div class="divider divider-orange"></div>
+  <div class="grid-2" style="margin-top:8px;">
+    <div class="flex-col" style="gap:10px;">
+      <div class="roadmap-item">
+        <div class="roadmap-num" style="background:#f59e0b;color:#000;">1</div>
+        <div class="roadmap-content">
+          <div class="roadmap-title">🌐 Digital / Online Channel Expansion</div>
+          <div class="roadmap-desc">Online Business is a new segment with high growth potential. List products on IndiaMart, Amazon Business. Set up GST-ready quick quotes.</div>
+        </div>
+      </div>
+      <div class="roadmap-item">
+        <div class="roadmap-num" style="background:#10b981;color:#fff;">2</div>
+        <div class="roadmap-content">
+          <div class="roadmap-title">🏭 Project Business Penetration</div>
+          <div class="roadmap-desc">Track project customers (Rinac, DISA, Kennametal etc.). Assign dedicated relationship manager for project accounts with special pricing.</div>
+        </div>
+      </div>
+      <div class="roadmap-item">
+        <div class="roadmap-num" style="background:#8b5cf6;color:#fff;">3</div>
+        <div class="roadmap-content">
+          <div class="roadmap-title">📦 Planned Stock for Key Accounts</div>
+          <div class="roadmap-desc">For Eaton/LAPP planned stock groups, pre-agree quantities with customer upfront. Reduces their procurement effort – creates loyalty.</div>
+        </div>
+      </div>
+    </div>
+    <div class="flex-col" style="gap:10px;">
+      <div class="roadmap-item">
+        <div class="roadmap-num" style="background:#3b82f6;color:#fff;">4</div>
+        <div class="roadmap-content">
+          <div class="roadmap-title">🔄 Rebuild Customer Win-Back Campaign</div>
+          <div class="roadmap-desc">Rebuild customers (active 23-24, gap in 24-25, back in 25-26) need personalized outreach. Offer them a "Welcome Back" discount or priority delivery.</div>
+        </div>
+      </div>
+      <div class="roadmap-item">
+        <div class="roadmap-num" style="background:#ef4444;color:#fff;">5</div>
+        <div class="roadmap-content">
+          <div class="roadmap-title">📊 Supplier Terms Negotiation</div>
+          <div class="roadmap-desc">Use your FAST RUNNER volume data as leverage. Top 10 SKUs by volume are your bargaining chips for better price, credit, or lead time from LAPP/Eaton.</div>
+        </div>
+      </div>
+      <div class="roadmap-item">
+        <div class="roadmap-num" style="background:#06b6d4;color:#fff;">6</div>
+        <div class="roadmap-content">
+          <div class="roadmap-title">👥 Expand Repeat Customer Base</div>
+          <div class="roadmap-desc">Target: Repeat rate &gt;70% of total active customers. Track monthly. Build service quality checklist for every order to improve repeat conversion.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 12: KPI TARGETS -->
+<div class="slide slide-dark">
+  <div class="section-title">11 · Performance Targets</div>
+  <div class="main-title" style="font-size:28px;">Suggested KPIs for FY 2025-26</div>
+  <div class="divider divider-blue"></div>
+  <div class="grid-2" style="margin-top:8px;gap:14px;">
+    <div>
+      <div class="card-title" style="margin-bottom:8px;">Business KPIs</div>
+      <table class="tbl">
+        <thead><tr><th>Metric</th><th>Target</th><th>Where to Track</th></tr></thead>
+        <tbody>
+          <tr><td>Revenue Growth (YoY)</td><td class="text-green font-bold">≥ 15%</td><td>Dashboard → Sales FY toggle</td></tr>
+          <tr><td>Repeat Customer Rate</td><td class="text-green font-bold">≥ 70%</td><td>Customer FY Analysis</td></tr>
+          <tr><td>New Customer Additions</td><td class="text-blue font-bold">≥ 10/FY</td><td>Customer FY → New card</td></tr>
+          <tr><td>Lost Customer Rate</td><td class="text-orange font-bold">&lt; 15%</td><td>Customer FY → Lost card</td></tr>
+          <tr><td>Stock Fill Rate (SO delivery)</td><td class="text-green font-bold">≥ 90%</td><td>Pending SO → Overdue count</td></tr>
+          <tr><td>Excess Stock Value</td><td class="text-red font-bold">&lt; 10% of total</td><td>Strategy Report → Ex Stock</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <div class="card-title" style="margin-bottom:8px;">Inventory KPIs</div>
+      <table class="tbl">
+        <thead><tr><th>Metric</th><th>Target</th><th>Action</th></tr></thead>
+        <tbody>
+          <tr><td>FAST RUNNER in stock</td><td class="text-green font-bold">100%</td><td>Never stockout</td></tr>
+          <tr><td>NON-MOVING items</td><td class="text-red font-bold">↓ 25%/quarter</td><td>Liquidate or return</td></tr>
+          <tr><td>PO-to-delivery accuracy</td><td class="text-blue font-bold">≥ 85% on time</td><td>Supplier scorecard</td></tr>
+          <tr><td>Stock above Max level</td><td class="text-orange font-bold">&lt; 5 SKUs</td><td>Weekly review</td></tr>
+          <tr><td>Items needing expedite</td><td class="text-red font-bold">0 on Mon morning</td><td>Thursday review</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 13: ROADMAP -->
+<div class="slide slide-purple">
+  <div class="section-title">12 · Implementation Roadmap</div>
+  <div class="main-title" style="font-size:28px;">90-Day Action Plan</div>
+  <div class="divider divider-purple"></div>
+  <div class="grid-3" style="margin-top:8px;">
+    <div class="card card-green">
+      <div class="card-title">🟢 Month 1 – Foundation (Apr 2026)</div>
+      <ul class="styled" style="margin-top:8px;font-size:12px;">
+        <li>Update Customer Master – fill all Group fields</li>
+        <li>Upload fresh Closing Stock data</li>
+        <li>Run SC Planning → identify all "Expedite" items</li>
+        <li>Contact top 5 Lost customers</li>
+        <li>Set weekly Thursday review rhythm</li>
+      </ul>
+    </div>
+    <div class="card card-blue">
+      <div class="card-title">🔵 Month 2 – Optimize (May 2026)</div>
+      <ul class="styled" style="margin-top:8px;font-size:12px;">
+        <li>Finalize Min/Reorder/Max for top 50 SKUs</li>
+        <li>Set up customer visit tracker in MOM</li>
+        <li>Launch Online Business channel formally</li>
+        <li>Negotiate supplier terms using volume data</li>
+        <li>Review all NON-MOVING stock – liquidate plan</li>
+      </ul>
+    </div>
+    <div class="card card-purple">
+      <div class="card-title">🟣 Month 3 – Scale (Jun 2026)</div>
+      <ul class="styled" style="margin-top:8px;font-size:12px;">
+        <li>Mobile responsive app upgrade</li>
+        <li>Implement smart stock alerts</li>
+        <li>Customer health score feature</li>
+        <li>Q1 performance review vs KPI targets</li>
+        <li>Plan H2 FY 25-26 stock &amp; customer targets</li>
+      </ul>
+    </div>
+  </div>
+  <div class="highlight-box" style="margin-top:14px;">
+    <div class="card-title">✅ Quick Wins You Can Do Today (No Dev Work Needed)</div>
+    <div style="display:flex;gap:20px;flex-wrap:wrap;margin-top:8px;">
+      <div class="text-sm">📌 Export SC Planning Sheet → Share with team for PO planning</div>
+      <div class="text-sm">📌 Open Customer FY Analysis → Note all "Lost" customer names → Call them this week</div>
+      <div class="text-sm">📌 Strategy Report → Expedite filter → Confirm with suppliers TODAY</div>
+      <div class="text-sm">📌 Dashboard → Customer Pivot → Identify top 3 groups → Plan visits</div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 14: CLOSING -->
+<div class="slide slide-cover">
+  <div style="flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;">
+    <div style="font-size:60px;margin-bottom:16px;">🎯</div>
+    <div class="main-title" style="font-size:40px;">Summary</div>
+    <div class="sub-title" style="margin-top:12px;max-width:750px;line-height:1.7;">
+      Siddhi Kabel has a <strong style="color:#34d399;">mature data infrastructure</strong> and a <strong style="color:#60a5fa;">comprehensive analytics platform</strong>.<br>
+      The next phase is converting data into <strong style="color:#fb923c;">daily decisions</strong> — stock, customer, and growth.
+    </div>
+    <div class="divider divider-blue" style="max-width:400px;margin:24px auto;"></div>
+    <div class="grid-3" style="max-width:700px;margin-top:4px;gap:12px;">
+      <div class="card card-green" style="text-align:center;">
+        <div style="font-size:24px;">📈</div>
+        <div style="font-size:12px;font-weight:700;margin-top:6px;">Grow Revenue</div>
+        <div class="text-xs" style="margin-top:4px;">15%+ YoY target</div>
+      </div>
+      <div class="card card-blue" style="text-align:center;">
+        <div style="font-size:24px;">🏪</div>
+        <div style="font-size:12px;font-weight:700;margin-top:6px;">Right Inventory</div>
+        <div class="text-xs" style="margin-top:4px;">Zero stockout, zero excess</div>
+      </div>
+      <div class="card card-purple" style="text-align:center;">
+        <div style="font-size:24px;">🤝</div>
+        <div style="font-size:12px;font-weight:700;margin-top:6px;">Retain Customers</div>
+        <div class="text-xs" style="margin-top:4px;">70%+ repeat rate</div>
+      </div>
+    </div>
+    <div class="text-xs" style="margin-top:24px;">Siddhi Kabel Enterprise Hub · FY 2025-26 · Confidential</div>
+  </div>
+</div>
+
+</div><!-- /deck -->
+
+<!-- NAVIGATION -->
+<div class="nav">
+  <button onclick="changeSlide(-1)">← Prev</button>
+  <span class="slide-counter" id="counter">1 / 14</span>
+  <button onclick="changeSlide(1)">Next →</button>
+  <button onclick="window.print()" style="background:rgba(16,185,129,.2);color:#34d399;">🖨 Print</button>
+</div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  let current = 0;
+  function showSlide(n) {
+    slides[current].classList.remove('active');
+    current = (n + slides.length) % slides.length;
+    slides[current].classList.add('active');
+    document.getElementById('counter').textContent = `${current + 1} / ${slides.length}`;
+  }
+  function changeSlide(dir) { showSlide(current + dir); }
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') changeSlide(1);
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') changeSlide(-1);
+  });
+</script>
+</body>
+</html>
