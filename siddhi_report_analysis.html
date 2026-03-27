@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Siddhi Kabel – Business Review & Strategy FY 2025-26</title>
+<!-- Include Chart.js and DataLabels plugin -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
   body { font-family:'Segoe UI',sans-serif; background:#f8fafc; color:#1e293b; overflow:hidden; height:100vh; }
@@ -109,22 +112,7 @@
   .roadmap-desc { font-size:11px; color:#475569; line-height:1.5; font-weight:500; }
 
   /* GRAPH STYLES */
-  .graph-container { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:16px; height:200px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05); display:flex; flex-direction:column; }
-  .bar-chart { flex:1; display:flex; align-items:flex-end; gap:8px; margin-top:10px; padding-bottom:5px; border-bottom:2px solid #e2e8f0; position:relative; }
-  .bar-wrap { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; position:relative; cursor:pointer; }
-  .bar { width:100%; border-radius:4px 4px 0 0; transition:all 0.3s ease; box-shadow:0 2px 4px rgba(0,0,0,0.1); }
-  .bar:hover { filter:brightness(1.1); }
-  .bar-label { font-size:9px; font-weight:800; color:#64748b; margin-top:4px; text-transform:uppercase; z-index:10; }
-  .bar-val { position:absolute; top:-20px; font-size:10px; font-weight:800; color:#0f172a; opacity:0; transition:opacity 0.2s; background:#fff; padding:2px 6px; border-radius:4px; border:1px solid #e2e8f0; box-shadow:0 2px 4px rgba(0,0,0,0.05); z-index:20; white-space:nowrap; }
-  .bar-wrap:hover .bar-val { opacity:1; }
-
-  .pie-chart { width:110px; height:110px; border-radius:50%; background:conic-gradient(#10b981 0% 60%, #3b82f6 60% 85%, #f59e0b 85% 95%, #ef4444 95% 100%); margin:0 auto; box-shadow:0 10px 15px -3px rgba(0,0,0,0.1); border:4px solid #fff; transition:transform 0.3s; }
-  .pie-chart:hover { transform:scale(1.05); }
-  .pie-legend { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:16px; justify-items:center; }
-  .pie-legend-item { display:flex; align-items:center; gap:6px; font-size:10px; font-weight:700; color:#475569; }
-
-  /* CUSTOM CHART ADDITIONS */
-  .line-chart-svg { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:90; }
+  .graph-container { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:16px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05); display:flex; flex-direction:column; justify-content:center; }
 </style>
 </head>
 <body>
@@ -134,7 +122,7 @@
 <div class="slide slide-cover active">
   <div style="flex:1;display:flex;flex-direction:column;justify-content:center;max-width:800px;">
     <div class="tag tag-blue" style="margin-bottom:20px;align-self:flex-start;">📊 Annual Business Review</div>
-    <div class="main-title" style="font-size:54px;">Siddhi Kabel<br><span style="color:#2563eb;">Enterprise Hub</span></div>
+    <div class="main-title" style="font-size:54px;">Siddhi Kabel<br>Corporation Pvt Ltd</div>
     <div class="sub-title" style="margin-top:20px;font-size:18px;">Strategic Analysis · FY 2025-26<br>Sales · Stock Planning · Growth Roadmap</div>
     <div class="divider divider-blue" style="max-width:300px;margin-top:30px;"></div>
     <div class="text-sm" style="margin-top:16px;color:#64748b;font-weight:700;">Prepared: March 27, 2026 &nbsp;|&nbsp; Confidential – Internal Use</div>
@@ -151,10 +139,10 @@
 <!-- SLIDE 2: BUSINESS OVERVIEW & VISUALS -->
 <div class="slide slide-light">
   <div class="section-title">01 · Company Profile</div>
-  <div class="main-title" style="font-size:30px;">Siddhi Kabel – Business Snapshot</div>
+  <div class="main-title" style="font-size:30px;">Siddhi Kabel Corporation Pvt Ltd</div>
   <div class="divider divider-blue"></div>
   
-  <div class="grid-2" style="margin-top:4px;">
+  <div class="grid-3" style="margin-top:4px;">
     <div class="flex-col">
       <div class="card card-blue" style="padding:14px;">
         <div class="card-title">Business Segments</div>
@@ -168,23 +156,20 @@
       </div>
     </div>
     
-    <div class="graph-container">
+    <div class="graph-container" style="height:230px;">
       <div class="card-title" style="margin-bottom:0;text-align:center;">Revenue Make Breakdown</div>
-      <div style="position:relative; width:110px; height:110px; margin:8px auto 0 auto;">
-        <div class="pie-chart" style="margin:0; position:absolute; top:0; left:0;"></div>
-        <!-- Data Labels superimposed on the pie chart -->
-        <span style="position:absolute; top:30%; left:25%; font-size:10px; font-weight:800; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,0.5); z-index:10; pointer-events:none;">60%</span>
-        <span style="position:absolute; top:25%; right:15%; font-size:9px; font-weight:800; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,0.5); z-index:10; pointer-events:none;">25%</span>
-        <span style="position:absolute; bottom:25%; right:22%; font-size:8px; font-weight:800; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,0.5); z-index:10; pointer-events:none;">10%</span>
-        <span style="position:absolute; bottom:15%; left:35%; font-size:8px; font-weight:800; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,0.5); z-index:10; pointer-events:none;">5%</span>
+      <div style="position:relative; width:100%; height:100%; display:flex; justify-content:center; align-items:center;">
+        <canvas id="makePieChart"></canvas>
       </div>
-      <div class="pie-legend">
-        <div class="pie-legend-item"><div class="dot" style="background:#10b981;"></div> LAPP</div>
-        <div class="pie-legend-item"><div class="dot" style="background:#3b82f6;"></div> Eaton</div>
+    </div>
+    
+    <div class="graph-container" style="height:230px;">
+      <div class="card-title" style="margin-bottom:0;text-align:center;">Customer Categories YTD</div>
+      <div style="position:relative; width:100%; height:140px; display:flex; justify-content:center; align-items:center;">
+        <canvas id="customerDoughnutChart"></canvas>
       </div>
-      <div class="pie-legend" style="margin-top:6px;">
-        <div class="pie-legend-item"><div class="dot" style="background:#f59e0b;"></div> Hager</div>
-        <div class="pie-legend-item"><div class="dot" style="background:#ef4444;"></div> Luker</div>
+      <div class="text-xs" style="margin-top:12px;text-align:center;line-height:1.4;">
+        <strong style="color:#059669;">Repeat Core Focus</strong>. We must ensure zero defect handling for the massive 71% Repeat segment while aggressively growing 15% New wins.
       </div>
     </div>
   </div>
@@ -210,22 +195,10 @@
       </table>
     </div>
 
-    <div class="graph-container" style="height:140px; padding:12px 16px;">
+    <div class="graph-container" style="height:150px; padding:12px 16px;">
       <div class="card-title">Projected FY 26 Run Rate Overlay</div>
-      <div class="bar-chart z-10" style="margin-top:2px;">
-        <!-- Bars -->
-        <div class="bar-wrap"><div class="bar-val">Q1 (Act)</div><div class="bar" style="height:40%;background:#cbd5e1;"></div><div class="bar-label">Apr-Jun</div></div>
-        <div class="bar-wrap"><div class="bar-val">Q2 (Act)</div><div class="bar" style="height:55%;background:#cbd5e1;"></div><div class="bar-label">Jul-Sep</div></div>
-        <div class="bar-wrap"><div class="bar-val">Q3 (Proj)</div><div class="bar" style="height:70%;background:#60a5fa;"></div><div class="bar-label">Oct-Dec</div></div>
-        <div class="bar-wrap"><div class="bar-val">Q4 (Proj)</div><div class="bar" style="height:85%;background:#3b82f6;"></div><div class="bar-label">Jan-Mar</div></div>
-        <!-- Trend line overlay mockup -->
-        <svg class="line-chart-svg" viewBox="0 0 100 100" preserveAspectRatio="none">
-          <path d="M 12 60 L 37 45 L 62 30 L 87 15" fill="none" stroke="#2563eb" stroke-width="2" stroke-dasharray="4" />
-          <circle cx="87" cy="15" r="2.5" fill="#2563eb" stroke="#fff" stroke-width="1" />
-          <circle cx="62" cy="30" r="2.5" fill="#2563eb" stroke="#fff" stroke-width="1" />
-          <circle cx="37" cy="45" r="2.5" fill="#94a3b8" stroke="#fff" stroke-width="1" />
-          <circle cx="12" cy="60" r="2.5" fill="#94a3b8" stroke="#fff" stroke-width="1" />
-        </svg>
+      <div style="position:relative; width:100%; height:100%; margin-top:2px;">
+        <canvas id="runRateChart"></canvas>
       </div>
     </div>
   </div>
@@ -632,7 +605,126 @@
   <button onclick="window.print()" style="background:#ecfdf5;border-color:#a7f3d0;color:#059669;margin-left:8px;">🖨 Print / PDF</button>
 </div>
 
+<!-- INITIALIZE CHART.JS -->
 <script>
+  Chart.register(ChartDataLabels);
+  Chart.defaults.font.family = "'Segoe UI', sans-serif";
+  Chart.defaults.color = "#475569";
+
+  // Pie Chart (Make Breakdown)
+  const ctxPie = document.getElementById('makePieChart');
+  if (ctxPie) {
+    new Chart(ctxPie, {
+      type: 'pie',
+      data: {
+        labels: ['LAPP', 'Eaton', 'Hager', 'Luker'],
+        datasets: [{
+          data: [60, 25, 10, 5],
+          backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'],
+          borderWidth: 2,
+          borderColor: '#ffffff'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10, weight: '700' } } },
+          datalabels: {
+            color: '#fff',
+            font: { weight: 'bold', size: 11 },
+            formatter: (value) => value + '%',
+            textShadowColor: 'rgba(0,0,0,0.5)',
+            textShadowBlur: 2
+          },
+          tooltip: {
+            callbacks: { label: (ctx) => ' ' + ctx.label + ': ' + ctx.raw + '%' }
+          }
+        }
+      }
+    });
+  }
+
+  // Doughnut Chart (Customer Count YTD)
+  const ctxDoughnut = document.getElementById('customerDoughnutChart');
+  if (ctxDoughnut) {
+    new Chart(ctxDoughnut, {
+      type: 'doughnut',
+      data: {
+        labels: ['Repeat', 'New', 'Rebuild', 'Lost'],
+        datasets: [{
+          data: [210, 45, 12, 28],
+          backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'],
+          borderWidth: 2,
+          borderColor: '#ffffff'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '65%',
+        plugins: {
+          legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10, weight: '700' } } },
+          datalabels: {
+            color: '#fff',
+            font: { weight: 'bold', size: 10 },
+            formatter: (value, ctx) => {
+              if (value < 15) return ''; // hide tiny labels
+              return value;
+            },
+            textShadowColor: 'rgba(0,0,0,0.5)',
+            textShadowBlur: 2
+          }
+        }
+      }
+    });
+  }
+
+  // Bar Combo Chart (Run Rate)
+  const ctxRunRate = document.getElementById('runRateChart');
+  if (ctxRunRate) {
+    new Chart(ctxRunRate, {
+      type: 'bar',
+      data: {
+        labels: ['Q1 (Act)', 'Q2 (Act)', 'Q3 (Proj)', 'Q4 (Proj)'],
+        datasets: [
+          {
+            type: 'line',
+            label: 'Trend Outlook',
+            data: [30, 45, 65, 85],
+            borderColor: '#2563eb',
+            borderWidth: 3,
+            borderDash: [5, 5],
+            pointBackgroundColor: '#fff',
+            pointBorderColor: '#2563eb',
+            pointRadius: 4,
+            tension: 0.3
+          },
+          {
+            type: 'bar',
+            label: 'Run Rate Volume',
+            data: [40, 55, 70, 85],
+            backgroundColor: ['#cbd5e1', '#cbd5e1', '#60a5fa', '#3b82f6'],
+            borderRadius: 4
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: { display: false, beginAtZero: true },
+          x: { grid: { display: false }, ticks: { font: { size: 10, weight: 'bold' } } }
+        },
+        plugins: {
+          legend: { display: false },
+          datalabels: { display: false }
+        }
+      }
+    });
+  }
+
+  // Slide Deck Logic
   const slides = document.querySelectorAll('.slide');
   let current = 0;
   function showSlide(n) {
