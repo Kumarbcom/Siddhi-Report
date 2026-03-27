@@ -154,7 +154,7 @@
   <div class="main-title" style="font-size:30px;">Siddhi Kabel – Business Snapshot</div>
   <div class="divider divider-blue"></div>
   
-  <div class="grid-3" style="margin-top:4px;">
+  <div class="grid-2" style="margin-top:4px;">
     <div class="flex-col">
       <div class="card card-blue" style="padding:14px;">
         <div class="card-title">Business Segments</div>
@@ -170,121 +170,29 @@
     
     <div class="graph-container">
       <div class="card-title" style="margin-bottom:0;text-align:center;">Revenue Make Breakdown</div>
-      <div class="pie-chart" style="margin-top:8px;" title="60% LAPP, 25% Eaton, 10% Hager, 5% Luker"></div>
+      <div style="position:relative; width:110px; height:110px; margin:8px auto 0 auto;">
+        <div class="pie-chart" style="margin:0; position:absolute; top:0; left:0;"></div>
+        <!-- Data Labels superimposed on the pie chart -->
+        <span style="position:absolute; top:30%; left:25%; font-size:10px; font-weight:800; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,0.5); z-index:10; pointer-events:none;">60%</span>
+        <span style="position:absolute; top:25%; right:15%; font-size:9px; font-weight:800; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,0.5); z-index:10; pointer-events:none;">25%</span>
+        <span style="position:absolute; bottom:25%; right:22%; font-size:8px; font-weight:800; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,0.5); z-index:10; pointer-events:none;">10%</span>
+        <span style="position:absolute; bottom:15%; left:35%; font-size:8px; font-weight:800; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,0.5); z-index:10; pointer-events:none;">5%</span>
+      </div>
       <div class="pie-legend">
         <div class="pie-legend-item"><div class="dot" style="background:#10b981;"></div> LAPP</div>
         <div class="pie-legend-item"><div class="dot" style="background:#3b82f6;"></div> Eaton</div>
+      </div>
+      <div class="pie-legend" style="margin-top:6px;">
         <div class="pie-legend-item"><div class="dot" style="background:#f59e0b;"></div> Hager</div>
         <div class="pie-legend-item"><div class="dot" style="background:#ef4444;"></div> Luker</div>
       </div>
     </div>
-
-    <div class="graph-container">
-      <div class="card-title">Customer Categories YTD</div>
-      <div class="bar-chart">
-        <div class="bar-wrap"><div class="bar-val">210 (Repeat)</div><div class="bar" style="height:75%;background:#10b981;"></div><div class="bar-label">Rep</div></div>
-        <div class="bar-wrap"><div class="bar-val">45 (New)</div><div class="bar" style="height:35%;background:#3b82f6;"></div><div class="bar-label">New</div></div>
-        <div class="bar-wrap"><div class="bar-val">12 (Rebuild)</div><div class="bar" style="height:15%;background:#f59e0b;"></div><div class="bar-label">Reb</div></div>
-        <div class="bar-wrap"><div class="bar-val">28 (Lost)</div><div class="bar" style="height:25%;background:#ef4444;"></div><div class="bar-label">Lost</div></div>
-      </div>
-    </div>
   </div>
 </div>
 
-<!-- SLIDE 3: APP REVIEW -->
-<div class="slide slide-blue">
-  <div class="section-title">02 · Application Assessment</div>
-  <div class="main-title" style="font-size:28px;">Website & Dashboard – Current Strengths ✅</div>
-  <div class="divider divider-blue"></div>
-  <div class="grid-3" style="margin-top:8px;">
-    <div class="card card-green">
-      <div class="card-title">🏗️ Robust Architecture</div>
-      <ul class="styled" style="margin-top:4px;">
-        <li>Lightning fast React 18 + Vite UI</li>
-        <li>Supabase cloud data backend</li>
-        <li>IndexedDB ensures data works offline</li>
-        <li>Secure role-based access system</li>
-      </ul>
-    </div>
-    <div class="card card-blue">
-      <div class="card-title">📊 Deep Analytics Engine</div>
-      <ul class="styled" style="margin-top:4px;">
-        <li>Multi-Fiscal Year trend analysis</li>
-        <li>Live Customer mapping (New/Lost)</li>
-        <li>Complex Supply Chain planning math</li>
-        <li>25+ column Pivot Strategy Report</li>
-      </ul>
-    </div>
-    <div class="card card-purple">
-      <div class="card-title">🎨 Excellent UI/UX</div>
-      <ul class="styled" style="margin-top:4px;">
-        <li>High-performance vector SVG graphs</li>
-        <li>Interactive data slicers & filters</li>
-        <li>Expandable grouped pivot tables</li>
-        <li>Universal Export to Excel mapping</li>
-      </ul>
-    </div>
-  </div>
-</div>
-
-<!-- SLIDE 4: APP ENHANCEMENTS DETAILED -->
-<div class="slide slide-light">
-  <div class="section-title">03 · Application Enhancements</div>
-  <div class="main-title" style="font-size:28px;">Recommended Tech & Feature Upgrades 🚀</div>
-  <div class="divider divider-purple"></div>
-  <div class="grid-2" style="margin-top:4px;gap:14px;">
-    <div class="flex-col" style="gap:8px;">
-      <div class="roadmap-item">
-        <div class="roadmap-num" style="background:#3b82f6;color:#fff;">1</div>
-        <div class="roadmap-content">
-          <div class="roadmap-title">📱 Responsive Field-Sales App Mode</div>
-          <div class="roadmap-desc"><strong>Why:</strong> Sales reps are on the road. The current wide tables are built for desktop monitors.<br><strong>Fix:</strong> Implement mobile media queries. Add collapsible sidebars, horizontal scrolling for tables, and card-based mobile views so reps can check stock instantly on their phones.</div>
-        </div>
-      </div>
-      <div class="roadmap-item">
-        <div class="roadmap-num" style="background:#10b981;color:#fff;">2</div>
-        <div class="roadmap-content">
-          <div class="roadmap-title">🔔 Automated "Smart" Alerts</div>
-          <div class="roadmap-desc"><strong>Why:</strong> You shouldn't have to manually check the dashboard to find emergencies.<br><strong>Fix:</strong> Generate a push or dashboard alert when: (a) A FAST RUNNER hits Minimum stock, (b) An SO is overdue &gt;7 days, (c) A top customer hasn't ordered in 60 days.</div>
-        </div>
-      </div>
-      <div class="roadmap-item">
-        <div class="roadmap-num" style="background:#8b5cf6;color:#fff;">3</div>
-        <div class="roadmap-content">
-          <div class="roadmap-title">📤 One-Click PDF Quotation Generator</div>
-          <div class="roadmap-desc"><strong>Why:</strong> Repetitive manual quote creation leads to errors and delivery delays.<br><strong>Fix:</strong> Connect Customer Master + Material Pricing → Auto-generate professional GST quotations in PDF with standard payment terms directly from the UI.</div>
-        </div>
-      </div>
-    </div>
-    <div class="flex-col" style="gap:8px;">
-      <div class="roadmap-item">
-        <div class="roadmap-num" style="background:#f59e0b;color:#fff;">4</div>
-        <div class="roadmap-content">
-          <div class="roadmap-title">🤖 AI-Driven Sales Projection</div>
-          <div class="roadmap-desc"><strong>Why:</strong> We currently rely heavily on static 3M / 12M averages.<br><strong>Fix:</strong> Feed sales history into a forecasting model to parse trends across seasons and automatically flag items predicted to run out <em>before</em> they hit Minimum levels.</div>
-        </div>
-      </div>
-      <div class="roadmap-item">
-        <div class="roadmap-num" style="background:#ef4444;color:#fff;">5</div>
-        <div class="roadmap-content">
-          <div class="roadmap-title">📦 Advanced PO Supplier Tracking</div>
-          <div class="roadmap-desc"><strong>Why:</strong> We track Pending PO quantity, but evaluating supplier reliability is hard.<br><strong>Fix:</strong> Add an "Expected Delivery Date" column. Build a Supplier Reliability Dashboard showing which suppliers (e.g., LAPP vs Eaton) are consistently late vs on-time.</div>
-        </div>
-      </div>
-      <div class="roadmap-item">
-        <div class="roadmap-num" style="background:#06b6d4;color:#fff;">6</div>
-        <div class="roadmap-content">
-          <div class="roadmap-title">🏷️ "At-Risk" Customer Health Score</div>
-          <div class="roadmap-desc"><strong>Why:</strong> It's cheaper to retain a customer than find a new one.<br><strong>Fix:</strong> Auto-compute a 1-100 score based on Reorder Frequency, Order Size, & Recency. Display falling scores in red so sales reps know who to call today to prevent churn.</div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- SLIDE 5: SALES FY REVIEW -->
+<!-- SLIDE 3: SALES FY REVIEW -->
 <div class="slide slide-green">
-  <div class="section-title">04 · Sales Performance · FY 2025-26</div>
+  <div class="section-title">02 · Sales Performance · FY 2025-26</div>
   <div class="main-title" style="font-size:28px;">Current Year Sales Snapshot & Strategy</div>
   <div class="divider divider-green"></div>
   
@@ -296,18 +204,18 @@
         <tbody>
           <tr><td>LAPP Cables</td><td class="text-green font-bold">Strong Core</td><td>🟢 Growing</td><td><span class="badge badge-green">Lock Supplier Credit</span></td></tr>
           <tr><td>Eaton Parts</td><td class="text-blue font-bold">Project Heavy</td><td>🔵 Spiking</td><td><span class="badge badge-blue">Just-In-Time PO Drops</span></td></tr>
-          <tr><td>Online Branch</td><td class="text-orange font-bold">Emerging</td><td>🟠 Up 50%+ </td><td><span class="badge badge-orange">Expand Listings</span></td></tr>
-          <tr><td>Group-1 Accounts</td><td class="text-purple font-bold">Cash Cow</td><td>🟣 Stable</td><td><span class="badge badge-gray">VIP Relationship Mgmt</span></td></tr>
+          <tr><td>Online Branch</td><td class="text-orange font-bold">Emerging</td><td>🟠 Up 50%+ </td><td><span class="badge badge-orange">Expand Fast SLA</span></td></tr>
+          <tr><td>Group-1 Accounts</td><td class="text-purple font-bold">Cash Cow</td><td>🟣 Stable</td><td><span class="badge badge-gray">VIP Retention</span></td></tr>
         </tbody>
       </table>
     </div>
 
-    <div class="graph-container">
+    <div class="graph-container" style="height:140px; padding:12px 16px;">
       <div class="card-title">Projected FY 26 Run Rate Overlay</div>
-      <div class="bar-chart z-10">
+      <div class="bar-chart z-10" style="margin-top:2px;">
         <!-- Bars -->
-        <div class="bar-wrap"><div class="bar-val">Q1 (Actual)</div><div class="bar" style="height:40%;background:#cbd5e1;"></div><div class="bar-label">Apr-Jun</div></div>
-        <div class="bar-wrap"><div class="bar-val">Q2 (Actual)</div><div class="bar" style="height:55%;background:#cbd5e1;"></div><div class="bar-label">Jul-Sep</div></div>
+        <div class="bar-wrap"><div class="bar-val">Q1 (Act)</div><div class="bar" style="height:40%;background:#cbd5e1;"></div><div class="bar-label">Apr-Jun</div></div>
+        <div class="bar-wrap"><div class="bar-val">Q2 (Act)</div><div class="bar" style="height:55%;background:#cbd5e1;"></div><div class="bar-label">Jul-Sep</div></div>
         <div class="bar-wrap"><div class="bar-val">Q3 (Proj)</div><div class="bar" style="height:70%;background:#60a5fa;"></div><div class="bar-label">Oct-Dec</div></div>
         <div class="bar-wrap"><div class="bar-val">Q4 (Proj)</div><div class="bar" style="height:85%;background:#3b82f6;"></div><div class="bar-label">Jan-Mar</div></div>
         <!-- Trend line overlay mockup -->
@@ -321,11 +229,21 @@
       </div>
     </div>
   </div>
+
+  <div class="highlight-box-green" style="margin-top:14px; padding:12px 20px;">
+    <div class="card-title" style="margin-bottom:6px; color:#059669;">Detailed Execution Strategy (What This Means)</div>
+    <ul class="styled" style="font-size:12px; line-height:1.4;">
+      <li><strong>LAPP Cables (High Volume Driver):</strong> Given consistent massive growth, use this volume to negotiate an extended 30-day credit bump from suppliers. Never stockout on core FAST RUNNERS.</li>
+      <li><strong>Eaton Parts (Project Based):</strong> Order patterns are chunky and volatile. Shift to a "Just-In-Time" (JIT) procurement model to prevent capital from getting locked in warehouse dead-stock.</li>
+      <li><strong>Online Business:</strong> Traffic is surging but digital buyers are highly price-sensitive and impatient. Guarantee a strict &lt; 2-hour quote turnaround to prevent cart abandonment.</li>
+      <li><strong>Group-1 / VIP Accounts:</strong> This is a predictable revenue backbone. Protect them from competition by signing Pre-Planned Stock MOUs ("we reserve stock safely, you guarantee the orders").</li>
+    </ul>
+  </div>
 </div>
 
-<!-- SLIDE 6: FY 24-25 COMPARISON -->
+<!-- SLIDE 4: FY 24-25 COMPARISON -->
 <div class="slide slide-light">
-  <div class="section-title">05 · Year-on-Year Comparison</div>
+  <div class="section-title">03 · Year-on-Year Comparison</div>
   <div class="main-title" style="font-size:28px;">Evaluating Growth vs FY 24-25</div>
   <div class="divider divider-blue"></div>
   <div class="grid-3" style="margin-top:8px;">
@@ -368,9 +286,9 @@
   </div>
 </div>
 
-<!-- SLIDE 7: STOCK PLANNING EXPANDED -->
+<!-- SLIDE 5: STOCK PLANNING EXPANDED -->
 <div class="slide slide-purple">
-  <div class="section-title">06 · Inventory Management</div>
+  <div class="section-title">04 · Inventory Management</div>
   <div class="main-title" style="font-size:28px;">Supply Chain Math & Replenishment</div>
   <div class="divider divider-purple"></div>
   
@@ -423,9 +341,9 @@
   </div>
 </div>
 
-<!-- SLIDE 8: DEMAND FORECASTING -->
+<!-- SLIDE 6: DEMAND FORECASTING -->
 <div class="slide slide-orange">
-  <div class="section-title">07 · Demand Forecasting</div>
+  <div class="section-title">05 · Demand Forecasting</div>
   <div class="main-title" style="font-size:28px;">Trend Analysis & Procurement Planning</div>
   <div class="divider divider-orange"></div>
   
@@ -453,9 +371,9 @@
   </div>
 </div>
 
-<!-- SLIDE 9: CUSTOMER GROW STRAT -->
+<!-- SLIDE 7: CUSTOMER GROW STRAT -->
 <div class="slide slide-light">
-  <div class="section-title">08 · Customer Intelligence</div>
+  <div class="section-title">06 · Customer Intelligence</div>
   <div class="main-title" style="font-size:28px;">Customer Segmentation & Retention Tactics</div>
   <div class="divider divider-blue"></div>
   
@@ -498,9 +416,9 @@
   </div>
 </div>
 
-<!-- SLIDE 10: IMMEDIATE SUPPLY CHAIN DO'S -->
+<!-- SLIDE 8: IMMEDIATE SUPPLY CHAIN DO'S -->
 <div class="slide slide-dark" style="background:#f1f5f9;">
-  <div class="section-title">09 · Urgent Supply Chain Actions</div>
+  <div class="section-title">07 · Urgent Supply Chain Actions</div>
   <div class="main-title" style="font-size:28px;">Dashboard "To-Do" List Implementation</div>
   <div class="divider divider-green"></div>
   
@@ -531,9 +449,9 @@
   </div>
 </div>
 
-<!-- SLIDE 11: 6 GROWTH PLAYS -->
+<!-- SLIDE 9: 6 GROWTH PLAYS -->
 <div class="slide slide-orange">
-  <div class="section-title">10 · Top-Line Revenue Expanders</div>
+  <div class="section-title">08 · Top-Line Revenue Expanders</div>
   <div class="main-title" style="font-size:28px;">6 Strategic Plays for Real Growth</div>
   <div class="divider divider-orange"></div>
   
@@ -587,9 +505,9 @@
   </div>
 </div>
 
-<!-- SLIDE 12: KPI SCORECARD -->
+<!-- SLIDE 10: KPI SCORECARD -->
 <div class="slide slide-light">
-  <div class="section-title">11 · Performance Scorecard</div>
+  <div class="section-title">09 · Performance Scorecard</div>
   <div class="main-title" style="font-size:28px;">Target KPIs for FY 2025-26</div>
   <div class="divider divider-purple"></div>
   
@@ -626,9 +544,9 @@
   </div>
 </div>
 
-<!-- SLIDE 13: 90 DAY PLAN -->
+<!-- SLIDE 11: 90 DAY PLAN -->
 <div class="slide slide-blue">
-  <div class="section-title">12 · Implementation Roadmap</div>
+  <div class="section-title">10 · Implementation Roadmap</div>
   <div class="main-title" style="font-size:28px;">The 90-Day Execution Sprint</div>
   <div class="divider divider-blue"></div>
   
@@ -668,7 +586,7 @@
   </div>
 </div>
 
-<!-- SLIDE 14: SUMMARY -->
+<!-- SLIDE 12: SUMMARY -->
 <div class="slide slide-cover">
   <div style="flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;">
     <div style="font-size:60px;margin-bottom:16px;">🎯</div>
@@ -709,7 +627,7 @@
 <!-- NAVIGATION -->
 <div class="nav">
   <button onclick="changeSlide(-1)">← Prev</button>
-  <span class="slide-counter" id="counter">1 / 14</span>
+  <span class="slide-counter" id="counter">1 / 12</span>
   <button onclick="changeSlide(1)">Next →</button>
   <button onclick="window.print()" style="background:#ecfdf5;border-color:#a7f3d0;color:#059669;margin-left:8px;">🖨 Print / PDF</button>
 </div>
