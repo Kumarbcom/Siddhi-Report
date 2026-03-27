@@ -30,6 +30,14 @@ const parseDate = (val: any): Date | null => {
     return isNaN(parsed.getTime()) ? null : parsed;
 };
 
+// Normalizes group names — merges variants like "Online business - Giridhar" → "Online Business"
+const getNormalizedGroup = (group: string | undefined): string => {
+    if (!group) return 'Ungrouped';
+    const g = group.trim();
+    if (g.toLowerCase().startsWith('online business')) return 'Online Business';
+    return g;
+};
+
 const fmt = (v: number) => Math.round(v).toLocaleString('en-IN');
 
 const GrowthBadge = ({ curr, prev }: { curr: number; prev: number }) => {
@@ -59,7 +67,7 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
 
     const uniqueGroups = useMemo(() => {
         const groups = new Set<string>();
-        customers.forEach(c => groups.add(c.group || 'Ungrouped'));
+        customers.forEach(c => groups.add(getNormalizedGroup(c.group)));
         return Array.from(groups).sort();
     }, [customers]);
 
@@ -129,7 +137,7 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
             if (!data[custName]) {
                 data[custName] = {
                     customerName: custName,
-                    group: custInfo?.group || 'Ungrouped',
+                    group: getNormalizedGroup(custInfo?.group),
                     customerGroup: custInfo?.customerGroup || 'Unspecified',
                     fy202324: { qty: 0, value: 0 },
                     fy202425: { qty: 0, value: 0 },
