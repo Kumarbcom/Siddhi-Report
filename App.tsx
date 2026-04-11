@@ -1,23 +1,25 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
 import { Material, MaterialFormData, PendingSOItem, PendingPOItem, SalesRecord, ClosingStockItem, SalesReportItem, CustomerMasterItem } from './types';
 import MaterialTable from './components/MaterialTable';
 
-import PendingSOView from './components/PendingSOView';
-import PendingPOView from './components/PendingPOView';
-import SalesHistoryView from './components/SalesHistoryView';
-import ClosingStockView from './components/ClosingStockView';
-import SalesReportView from './components/SalesReportView';
-import CustomerMasterView from './components/CustomerMasterView';
-import DashboardView from './components/DashboardView';
-import PivotReportView from './components/PivotReportView';
-import MOMView from './components/MOMView';
-import AttendeeMasterView from './components/AttendeeMasterView';
-import ChatView from './components/ChatView';
-import UserManagementView from './components/UserManagementView';
-import SupplyChainAnalyticsView from './components/SupplyChainAnalyticsView';
-import CustomerFYAnalysisView from './components/CustomerFYAnalysisView';
-import ConfirmationModal from './components/ConfirmationModal';
+// Lazy load non-critical components for faster initial load
+const PendingSOView = lazy(() => import('./components/PendingSOView'));
+const PendingPOView = lazy(() => import('./components/PendingPOView'));
+const SalesHistoryView = lazy(() => import('./components/SalesHistoryView'));
+const ClosingStockView = lazy(() => import('./components/ClosingStockView'));
+const SalesReportView = lazy(() => import('./components/SalesReportView'));
+const CustomerMasterView = lazy(() => import('./components/CustomerMasterView'));
+const DashboardView = lazy(() => import('./components/DashboardView'));
+const PivotReportView = lazy(() => import('./components/PivotReportView'));
+const MOMView = lazy(() => import('./components/MOMView'));
+const AttendeeMasterView = lazy(() => import('./components/AttendeeMasterView'));
+const ChatView = lazy(() => import('./components/ChatView'));
+const UserManagementView = lazy(() => import('./components/UserManagementView'));
+const SupplyChainAnalyticsView = lazy(() => import('./components/SupplyChainAnalyticsView'));
+const CustomerFYAnalysisView = lazy(() => import('./components/CustomerFYAnalysisView'));
+const ConfirmationModal = lazy(() => import('./components/ConfirmationModal'));
+
 import {
   Database,
   AlertCircle,
@@ -77,6 +79,16 @@ const getMergedMakeName = (makeName: string) => {
   if (lowerM.includes('luker')) return 'Luker';
   return m;
 };
+
+// Loading fallback component
+const LoadingFallback = () => (
+  <div className="flex items-center justify-center h-full w-full">
+    <div className="flex flex-col items-center gap-4">
+      <div className="w-12 h-12 border-4 border-blue-100 rounded-full animate-spin border-t-blue-600"></div>
+      <span className="text-sm font-semibold text-gray-600">Loading view...</span>
+    </div>
+  </div>
+);
 
 type ActiveTab = 'dashboard' | 'chat' | 'master' | 'customerMaster' | 'closingStock' | 'pendingSO' | 'pendingPO' | 'salesReport' | 'pivotReport' | 'customerFYAnalysis' | 'mom' | 'attendees' | 'userManagement' | 'supplyChain' | 'changePass';
 
@@ -302,19 +314,22 @@ const App: React.FC = () => {
 
   useEffect(() => { loadAllData(); }, []);
 
-  const handleBulkAddMaterial = async (dataList: MaterialFormData[]) => {
+  const handleBulkAddMaterial = useCallback(async (dataList: MaterialFormData[]) => {
     const newItems = await materialService.createBulk(dataList);
     setMaterials((prev: Material[]) => [...newItems, ...prev]);
-  };
-  const handleAddMaterial = async (data: MaterialFormData) => {
+  }, []);
+
+  const handleAddMaterial = useCallback(async (data: MaterialFormData) => {
     const newItem = await materialService.create(data);
     setMaterials((prev: Material[]) => [newItem, ...prev]);
-  };
-  const handleUpdateMaterial = async (item: Material) => {
+  }, []);
+
+  const handleUpdateMaterial = useCallback(async (item: Material) => {
     await materialService.update(item);
     setMaterials((prev: Material[]) => prev.map((m: Material) => m.id === item.id ? item : m));
-  };
-  const handleDeleteMaterial = async (id: string) => {
+  }, []);
+
+  const handleDeleteMaterial = useCallback(async (id: string) => {
     if (!isAdmin) return;
     setConfirmModal({
       isOpen: true,
@@ -334,7 +349,7 @@ const App: React.FC = () => {
         }
       }
     });
-  };
+  }, [isAdmin]);
   const handleClearMaterials = async () => {
     if (!isAdmin) return;
     setConfirmModal({
@@ -977,23 +992,35 @@ const App: React.FC = () => {
         </header>
 
         <main className="flex-1 overflow-hidden p-4 relative">
-
-
           <div className="h-full w-full">
-            <div className={activeTab === 'dashboard' ? 'h-full w-full' : 'hidden'}>
-              <DashboardView isAdmin={isAdmin} materials={materials} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} salesReportItems={salesReportItems} customers={customerMasterItems} sales1Year={sales1Year} sales3Months={sales3Months} setActiveTab={setActiveTab} />
-            </div>
+            {/* Critical Dashboard Views - Use Suspense for lazy loading */}
+            {activeTab === 'dashboard' && (
+              <Suspense fallback={<LoadingFallback />}>
+                <DashboardView isAdmin={isAdmin} materials={materials} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} salesReportItems={salesReportItems} customers={customerMasterItems} sales1Year={sales1Year} sales3Months={sales3Months} setActiveTab={setActiveTab} />
+              </Suspense>
+            )}
             
-            <div className={activeTab === 'pivotReport' ? 'h-full w-full' : 'hidden'}>
-              <PivotReportView isAdmin={isAdmin} materials={materials} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} salesReportItems={salesReportItems} />
-            </div>
+            {activeTab === 'pivotReport' && (
+              <Suspense fallback={<LoadingFallback />}>
+                <PivotReportView isAdmin={isAdmin} materials={materials} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} salesReportItems={salesReportItems} />
+              </Suspense>
+            )}
             
-            <div className={activeTab === 'supplyChain' ? 'h-full w-full' : 'hidden'}>
-              <SupplyChainAnalyticsView materials={materials} salesReportItems={salesReportItems} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} />
-            </div>
+            {activeTab === 'supplyChain' && (
+              <Suspense fallback={<LoadingFallback />}>
+                <SupplyChainAnalyticsView materials={materials} salesReportItems={salesReportItems} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} />
+              </Suspense>
+            )}
 
-            {/* Other views can remain conditionally rendered to save initial mount time */}
-            {activeTab === 'chat' && <div className="h-full w-full max-w-4xl mx-auto flex flex-col gap-4"><ChatView isAdmin={isAdmin} materials={materials} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} salesReportItems={salesReportItems} customers={customerMasterItems} /></div>}
+            {/* Other lazy-loaded views with Suspense boundaries */}
+            {activeTab === 'chat' && (
+              <Suspense fallback={<LoadingFallback />}>
+                <div className="h-full w-full max-w-4xl mx-auto flex flex-col gap-4">
+                  <ChatView isAdmin={isAdmin} materials={materials} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} salesReportItems={salesReportItems} customers={customerMasterItems} />
+                </div>
+              </Suspense>
+            )}
+            
             {activeTab === 'master' && (
               <div className="flex flex-col h-full gap-4">
                 <div className="bg-white border border-gray-100 p-4 rounded-3xl shadow-sm flex flex-col items-stretch gap-4">
@@ -1038,32 +1065,77 @@ const App: React.FC = () => {
                 </div>
               </div>
             )}
-            {activeTab === 'customerMaster' && <div className="h-full w-full"><CustomerMasterView isAdmin={isAdmin} items={customerMasterItems} onBulkAdd={handleBulkAddCustomer} onUpdate={handleUpdateCustomer} onDelete={handleDeleteCustomer} onClear={handleClearCustomers} /></div>}
-            {activeTab === 'closingStock' && <div className="h-full w-full"><ClosingStockView isAdmin={isAdmin} items={closingStockItems} materials={materials} onBulkAdd={handleBulkAddStock} onUpdate={handleUpdateStock} onDelete={handleDeleteStock} onClear={handleClearStock} /></div>}
-            {activeTab === 'pendingSO' && <div className="h-full w-full"><PendingSOView isAdmin={isAdmin} items={pendingSOItems} materials={materials} closingStockItems={closingStockItems} onBulkAdd={handleBulkAddSO} onUpdate={handleUpdateSO} onDelete={handleDeleteSO} onClear={handleClearSO} onAddMaterial={handleAddMaterial} /></div>}
-            {activeTab === 'pendingPO' && <div className="h-full w-full"><PendingPOView isAdmin={isAdmin} items={pendingPOItems} materials={materials} closingStockItems={closingStockItems} pendingSOItems={pendingSOItems} salesReportItems={salesReportItems} onBulkAdd={handleBulkAddPO} onUpdate={handleUpdatePO} onDelete={handleDeletePO} onClear={handleClearPO} onAddMaterial={handleAddMaterial} /></div>}
-            {activeTab === 'salesReport' && <div className="h-full w-full"><SalesReportView isAdmin={isAdmin} items={salesReportItems} materials={materials} customers={customerMasterItems} onBulkAdd={handleBulkAddSales} onUpdate={handleUpdateSales} onDelete={handleDeleteSales} onClear={handleClearSales} onAddMaterial={handleAddMaterial} onAddCustomer={handleAddCustomer} onRefresh={handleRefreshSales} /></div>}
-            {activeTab === 'customerFYAnalysis' && <div className="h-full w-full"><CustomerFYAnalysisView salesReportItems={salesReportItems} customers={customerMasterItems} /></div>}
-            <div className={activeTab === 'mom' ? 'h-full w-full' : 'hidden'}>
-              <MOMView isAdmin={isAdmin} materials={materials} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} salesReportItems={salesReportItems} customers={customerMasterItems} />
-            </div>
-            {activeTab === 'attendees' && <div className="h-full w-full"><AttendeeMasterView isAdmin={isAdmin} /></div>}
-            {activeTab === 'userManagement' && isAdmin && <div className="h-full w-full"><UserManagementView /></div>}
+            
+            {activeTab === 'customerMaster' && (
+              <Suspense fallback={<LoadingFallback />}>
+                <CustomerMasterView isAdmin={isAdmin} items={customerMasterItems} onBulkAdd={handleBulkAddCustomer} onUpdate={handleUpdateCustomer} onDelete={handleDeleteCustomer} onClear={handleClearCustomers} />
+              </Suspense>
+            )}
+            
+            {activeTab === 'closingStock' && (
+              <Suspense fallback={<LoadingFallback />}>
+                <ClosingStockView isAdmin={isAdmin} items={closingStockItems} materials={materials} onBulkAdd={handleBulkAddStock} onUpdate={handleUpdateStock} onDelete={handleDeleteStock} onClear={handleClearStock} />
+              </Suspense>
+            )}
+            
+            {activeTab === 'pendingSO' && (
+              <Suspense fallback={<LoadingFallback />}>
+                <PendingSOView isAdmin={isAdmin} items={pendingSOItems} materials={materials} closingStockItems={closingStockItems} onBulkAdd={handleBulkAddSO} onUpdate={handleUpdateSO} onDelete={handleDeleteSO} onClear={handleClearSO} onAddMaterial={handleAddMaterial} />
+              </Suspense>
+            )}
+            
+            {activeTab === 'pendingPO' && (
+              <Suspense fallback={<LoadingFallback />}>
+                <PendingPOView isAdmin={isAdmin} items={pendingPOItems} materials={materials} closingStockItems={closingStockItems} pendingSOItems={pendingSOItems} salesReportItems={salesReportItems} onBulkAdd={handleBulkAddPO} onUpdate={handleUpdatePO} onDelete={handleDeletePO} onClear={handleClearPO} onAddMaterial={handleAddMaterial} />
+              </Suspense>
+            )}
+            
+            {activeTab === 'salesReport' && (
+              <Suspense fallback={<LoadingFallback />}>
+                <SalesReportView isAdmin={isAdmin} items={salesReportItems} materials={materials} customers={customerMasterItems} onBulkAdd={handleBulkAddSales} onUpdate={handleUpdateSales} onDelete={handleDeleteSales} onClear={handleClearSales} onAddMaterial={handleAddMaterial} onAddCustomer={handleAddCustomer} onRefresh={handleRefreshSales} />
+              </Suspense>
+            )}
+            
+            {activeTab === 'customerFYAnalysis' && (
+              <Suspense fallback={<LoadingFallback />}>
+                <CustomerFYAnalysisView salesReportItems={salesReportItems} customers={customerMasterItems} />
+              </Suspense>
+            )}
+            
+            {activeTab === 'mom' && (
+              <Suspense fallback={<LoadingFallback />}>
+                <MOMView isAdmin={isAdmin} materials={materials} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} salesReportItems={salesReportItems} customers={customerMasterItems} />
+              </Suspense>
+            )}
+            
+            {activeTab === 'attendees' && (
+              <Suspense fallback={<LoadingFallback />}>
+                <AttendeeMasterView isAdmin={isAdmin} />
+              </Suspense>
+            )}
+            
+            {activeTab === 'userManagement' && isAdmin && (
+              <Suspense fallback={<LoadingFallback />}>
+                <UserManagementView />
+              </Suspense>
+            )}
           </div>
         </main>
       </div>
 
-      <ConfirmationModal
-        isOpen={confirmModal.isOpen}
-        title={confirmModal.title}
-        message={confirmModal.message}
-        isDanger={confirmModal.isDanger}
-        isLoading={confirmModal.isLoading}
-        confirmLabel={confirmModal.onConfirmLabel}
-        cancelLabel={confirmModal.onCancelLabel}
-        onConfirm={confirmModal.onConfirm}
-        onCancel={confirmModal.onCancel || (() => setConfirmModal((prev: any) => ({ ...prev, isOpen: false })))}
-      />
+      <Suspense fallback={null}>
+        <ConfirmationModal
+          isOpen={confirmModal.isOpen}
+          title={confirmModal.title}
+          message={confirmModal.message}
+          isDanger={confirmModal.isDanger}
+          isLoading={confirmModal.isLoading}
+          confirmLabel={confirmModal.onConfirmLabel}
+          cancelLabel={confirmModal.onCancelLabel}
+          onConfirm={confirmModal.onConfirm}
+          onCancel={confirmModal.onCancel || (() => setConfirmModal((prev: any) => ({ ...prev, isOpen: false })))}
+        />
+      </Suspense>
 
       {showPasswordChange && (
         <PasswordChangeModal
