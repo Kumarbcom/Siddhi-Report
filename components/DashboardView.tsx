@@ -80,126 +80,128 @@ const SalesTrendChart = React.memo(({ data, maxVal }: { data: { labels: string[]
 
     const labelCount = data.labels.length;
     const chartMax = Math.max(maxVal, 1);
+    const barWidth = 100 / (labelCount * (data.series.length + 1));
 
     return (
-        <div
-            className="flex flex-col h-full select-none cursor-crosshair overflow-visible px-4"
-            ref={containerRef}
-            onMouseMove={handleMouseMove}
-            onMouseLeave={() => setHoverIndex(null)}
-        >
-            <div className="flex-1 relative min-h-0 pt-6">
-                {/* Value Tags for peaks - only for active series */}
-                {data.series.map((s: any, sIdx: number) =>
-                    s.active && s.data.map((val: number, i: number) => {
-                        if (val === 0 || isNaN(val)) return null;
-                        const x = (i / (labelCount - 1)) * 100;
-                        const y = 100 - ((val / chartMax) * 100);
-                        const isHovered = hoverIndex === i;
-                        return (
-                            <div
-                                key={`${sIdx}-${i}`}
-                                className={`absolute text-[8px] font-bold bg-white/95 px-1 rounded shadow-sm border border-gray-100 z-10 pointer-events-none transform -translate-x-1/2 -translate-y-full transition-all duration-200 ${isHovered ? 'scale-125 z-20 border-blue-200' : 'opacity-80'}`}
-                                style={{ left: `${x}%`, top: `${y}%`, color: s.color, opacity: hoverIndex !== null && hoverIndex !== i ? 0.2 : 1 }}
-                            >
-                                {formatLargeValue(val, true)}
-                            </div>
-                        );
-                    })
-                )}
-
-                {/* Tooltip */}
-                {hoverIndex !== null && (
-                    <div className="absolute z-30 bg-gray-900/95 backdrop-blur-md text-white text-[10px] p-3 rounded-xl shadow-2xl border border-gray-700 pointer-events-none transition-all duration-100 ease-out min-w-[140px]" style={{ left: `${(hoverIndex / (labelCount - 1)) * 100}%`, top: '0', transform: `translateX(${hoverIndex > labelCount / 2 ? '-110%' : '10%'})` }}>
-                        <div className="font-bold border-b border-gray-600 pb-2 mb-2 text-gray-100 text-center uppercase tracking-wider text-[11px]">{data.labels[hoverIndex]}</div>
-                        <div className="flex flex-col gap-2">
-                            {data.series.map((s: any, i: number) => (
-                                <div key={i} className={`flex items-center justify-between gap-4 ${!s.active ? 'opacity-50' : ''}`}>
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: s.color }}></div>
-                                        <span className="text-gray-300 font-medium whitespace-nowrap">{s.name}</span>
-                                    </div>
-                                    <span className=" font-bold text-white text-xs">{formatLargeValue(s.data[hoverIndex], true)}</span>
-                                </div>
-                            ))}
-                        </div>
+        <div className="flex flex-col h-full w-full bg-gradient-to-b from-white/50 to-gray-50/30 rounded-lg p-3">
+            {/* Legend */}
+            <div className="flex flex-wrap gap-3 mb-3 pb-2 border-b border-gray-200">
+                {data.series.map((s: any, i: number) => (
+                    <div key={i} className="flex items-center gap-2 text-[10px]">
+                        <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: s.color }}></div>
+                        <span className="font-bold text-gray-700">{s.name}</span>
                     </div>
-                )}
-
-                {/* SVG Chart */}
-                <svg className="w-full h-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
-                    <defs>
-                        <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-                            <feGaussianBlur stdDeviation="1.5" result="blur" />
-                            <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                        </filter>
-                        {data.series.map((s: any, i: number) => (
-                            <linearGradient key={i} id={`grad-${chartId}-${i}`} x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor={s.color} stopOpacity="0.4" />
-                                <stop offset="100%" stopColor={s.color} stopOpacity="0" />
-                            </linearGradient>
-                        ))}
-                    </defs>
-
-                    {/* X-Axis Rule */}
-                    <line x1="0" y1="100" x2="100" y2="100" stroke="#f3f4f6" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-
-                    {data.series.map((s: any, i: number) => {
-                        if (!s.active) return null;
-                        const denom = labelCount > 1 ? labelCount - 1 : 1;
-                        const points: [number, number][] = s.data.map((val: number, idx: number) => [(idx / denom) * 100, 100 - ((val / chartMax) * 100)]).filter((p: any) => !isNaN(p[1]));
-                        if (points.length === 0) return null;
-                        const pathD = points.length >= 2 ? (getSmoothPath(points) || `M ${points.map(p => p.join(',')).join(' L ')}`) : null;
-                        return (
-                            <g key={i}>
-                                {pathD && <path d={`${pathD} L ${points[points.length - 1][0]} 100 L ${points[0][0]} 100 Z`} fill={`url(#grad-${chartId}-${i})`} className="transition-opacity duration-500" style={{ opacity: hoverIndex !== null ? 0.8 : 0.6 }} />}
-                                {pathD && (
-                                    <path
-                                        d={pathD}
-                                        fill="none"
-                                        stroke={s.color}
-                                        strokeWidth="2.5"
-                                        vectorEffect="non-scaling-stroke"
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        filter="url(#glow)"
-                                        className="transition-all duration-300"
-                                        strokeDasharray={s.dotted ? "4 2" : "0"}
-                                    />
-                                )}
-                                {points.map((p, pIdx) => (
-                                    <circle
-                                        key={pIdx}
-                                        cx={p[0]}
-                                        cy={p[1]}
-                                        r={points.length === 1 ? "2" : (hoverIndex === pIdx ? "3" : "1.5")}
-                                        fill={hoverIndex === pIdx ? s.color : "white"}
-                                        stroke={s.color}
-                                        strokeWidth="1.5"
-                                        vectorEffect="non-scaling-stroke"
-                                        className="transition-all duration-200"
-                                    />
-                                ))}
-                            </g>
-                        )
-                    })}
-                </svg>
+                ))}
             </div>
 
-            {/* X-Axis Labels Row */}
-            <div className="h-6 relative mt-2 border-t border-gray-100">
-                {data.labels.map((label, i) => {
-                    const labelCount = data.labels.length;
-                    const skip = labelCount > 15 && i % 5 !== 0 && i !== labelCount - 1;
-                    if (skip) return null;
-                    const x = (i / (labelCount - 1)) * 100;
-                    return (
-                        <div key={i} className="absolute top-0 flex flex-col items-center transform -translate-x-1/2" style={{ left: `${x}%` }}>
-                            <div className="h-1.5 w-px bg-gray-300 mb-1" />
-                            <span className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter whitespace-nowrap">{label}</span>
+            <div
+                className="flex flex-col h-full select-none overflow-visible px-2 relative"
+                ref={containerRef}
+                onMouseMove={handleMouseMove}
+                onMouseLeave={() => setHoverIndex(null)}
+            >
+                <div className="flex-1 relative min-h-0 pt-4 pb-2">
+                    {/* Value Labels Above Bars */}
+                    {data.series.map((s: any, sIdx: number) =>
+                        s.active && s.data.map((val: number, i: number) => {
+                            if (val === 0 || isNaN(val)) return null;
+                            const xPos = ((i + 0.5) / labelCount) * 100 + (sIdx - (data.series.length - 1) / 2) * (100 / (labelCount * data.series.length)) * 0.8;
+                            const yPos = 100 - ((val / chartMax) * 100);
+                            const isHovered = hoverIndex === i;
+                            return (
+                                <div
+                                    key={`${sIdx}-${i}`}
+                                    className={`absolute text-[7px] font-bold bg-white/95 px-1 rounded shadow-sm border border-gray-100 z-10 pointer-events-none transform -translate-x-1/2 -translate-y-full transition-all duration-200 ${isHovered ? 'scale-125 z-20 border-blue-300' : 'opacity-70'}`}
+                                    style={{ left: `${xPos}%`, top: `${yPos}%`, color: s.color, opacity: hoverIndex !== null && hoverIndex !== i ? 0.2 : 1 }}
+                                >
+                                    {formatLargeValue(val, true)}
+                                </div>
+                            );
+                        })
+                    )}
+
+                    {/* SVG Bar Chart */}
+                    <svg className="w-full h-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
+                        {/* Grid Lines */}
+                        {[25, 50, 75].map((line, i) => (
+                            <line key={i} x1="0" y1={line} x2="100" y2={line} stroke="#e5e7eb" strokeWidth="0.5" vectorEffect="non-scaling-stroke" opacity="0.5" />
+                        ))}
+                        <line x1="0" y1="100" x2="100" y2="100" stroke="#d1d5db" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+
+                        {/* Bars */}
+                        {data.series.map((s: any, sIdx: number) => {
+                            if (!s.active) return null;
+                            return s.data.map((val: number, i: number) => {
+                                const barHeight = (val / chartMax) * 100;
+                                const barGroupWidth = 100 / labelCount;
+                                const barIndividualWidth = barGroupWidth / (data.series.length + 0.5);
+                                const xStart = (i / labelCount) * 100 + (sIdx + 0.25) * barIndividualWidth;
+                                const isHovered = hoverIndex === i;
+
+                                return (
+                                    <g key={`${sIdx}-${i}`}>
+                                        <rect
+                                            x={xStart}
+                                            y={100 - barHeight}
+                                            width={barIndividualWidth * 0.85}
+                                            height={barHeight}
+                                            fill={s.color}
+                                            opacity={isHovered ? 1 : 0.85}
+                                            className="transition-all duration-200 cursor-pointer hover:opacity-100"
+                                            onMouseEnter={() => setHoverIndex(i)}
+                                            onMouseLeave={() => setHoverIndex(null)}
+                                            rx="0.5"
+                                        />
+                                        {/* Bar shadow */}
+                                        <rect
+                                            x={xStart}
+                                            y={100}
+                                            width={barIndividualWidth * 0.85}
+                                            height="0.5"
+                                            fill={s.color}
+                                            opacity="0.2"
+                                            rx="0.25"
+                                        />
+                                    </g>
+                                );
+                            });
+                        })}
+                    </svg>
+
+                    {/* Tooltip */}
+                    {hoverIndex !== null && (
+                        <div className="absolute z-30 bg-gray-900/95 backdrop-blur-md text-white text-[9px] p-3 rounded-lg shadow-2xl border border-gray-700 pointer-events-none transition-all duration-100 min-w-[150px]" style={{ left: `${(hoverIndex / (labelCount - 1)) * 100}%`, top: '5%', transform: `translateX(${hoverIndex > labelCount / 2 ? '-110%' : '10%'})` }}>
+                            <div className="font-bold border-b border-gray-600 pb-2 mb-2 text-gray-100 text-center uppercase tracking-wider text-[10px]">{data.labels[hoverIndex]}</div>
+                            <div className="flex flex-col gap-1.5">
+                                {data.series.map((s: any, i: number) => (
+                                    <div key={i} className={`flex items-center justify-between gap-3 ${!s.active ? 'opacity-50' : ''}`}>
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-2 h-2 rounded-sm" style={{ backgroundColor: s.color }}></div>
+                                            <span className="text-gray-300 font-semibold whitespace-nowrap">{s.name}</span>
+                                        </div>
+                                        <span className="font-bold text-white text-[10px]">{formatLargeValue(s.data[hoverIndex], true)}</span>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
-                    );
-                })}
+                    )}
+                </div>
+
+                {/* X-Axis Labels */}
+                <div className="h-6 relative border-t border-gray-200 pt-1">
+                    {data.labels.map((label, i) => {
+                        const labelCount = data.labels.length;
+                        const skip = labelCount > 15 && i % 3 !== 0 && i !== labelCount - 1;
+                        if (skip) return null;
+                        const x = ((i + 0.5) / labelCount) * 100;
+                        return (
+                            <div key={i} className="absolute top-0 flex flex-col items-center transform -translate-x-1/2" style={{ left: `${x}%` }}>
+                                <div className="h-1 w-px bg-gray-400 mb-0.5" />
+                                <span className="text-[8px] font-black text-gray-500 uppercase tracking-tight whitespace-nowrap">{label}</span>
+                            </div>
+                        );
+                    })}
+                </div>
             </div>
         </div>
     );
@@ -209,13 +211,14 @@ const ModernDonutChartDashboard: React.FC<{
     data: { label: string; value: number; color?: string }[],
     title: string,
     isCurrency?: boolean,
-    centerColorClass?: string
-}> = React.memo(({ data, title, isCurrency, centerColorClass }) => {
+    centerColorClass?: string,
+    showDataLabels?: boolean
+}> = React.memo(({ data, title, isCurrency, centerColorClass, showDataLabels = true }) => {
     const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
     if (data.length === 0) return <div className="h-48 flex items-center justify-center text-gray-400 text-[10px] font-bold uppercase">No records found</div>;
 
     const total = data.reduce((a, b) => a + (b.value || 0), 0);
-    const colorPalette = ['#10B981', '#3B82F6', '#6366F1', '#8B5CF6', '#EC4899', '#F59E0B', '#EF4444', '#6B7280', '#059669', '#2563EB'];
+    const colorPalette = ['#FF6B6B', '#4ECDC4', '#FFE66D', '#95E1D3', '#F38181', '#AA96DA', '#FCBAD3', '#A8D8EA', '#AA96DA', '#C7CEEA'];
 
     let cumulativePercent = 0;
     const slices = data.map((slice, i) => {
@@ -248,23 +251,43 @@ const ModernDonutChartDashboard: React.FC<{
                 {title}
             </h4>
             <div className="flex flex-col items-center gap-4 flex-1 min-h-0">
-                <div className="relative w-36 h-36 flex-shrink-0 group">
-                    <div className="absolute inset-0 bg-gray-100 rounded-full scale-95 opacity-50"></div>
-                    <svg viewBox="-1 -1 2 2" style={{ transform: 'rotate(-90deg)' }} className="w-full h-full drop-shadow-[0_8px_16px_rgba(0,0,0,0.1)] relative z-10">
+                <div className="relative w-40 h-40 flex-shrink-0 group">
+                    <div className="absolute inset-0 bg-gradient-to-br from-gray-50 to-gray-100 rounded-full scale-95 opacity-40"></div>
+                    <svg viewBox="-1 -1 2 2" style={{ transform: 'rotate(-90deg)' }} className="w-full h-full drop-shadow-[0_8px_24px_rgba(0,0,0,0.12)] relative z-10">
                         {slices.map((slice, i) => {
                             if (slice.percent >= 0.999) return <circle key={i} cx="0" cy="0" r="0.85" fill="none" stroke={slice.color} strokeWidth="0.3" onMouseEnter={() => setHoveredIndex(i)} onMouseLeave={() => setHoveredIndex(null)} className="transition-all cursor-pointer hover:opacity-80" />;
                             const [startX, startY] = getCoordinatesForPercent(slice.startPercent);
                             const [endX, endY] = getCoordinatesForPercent(slice.startPercent + slice.percent);
                             const largeArcFlag = slice.percent > 0.5 ? 1 : 0;
+                            const midPercent = slice.startPercent + slice.percent / 2;
+                            const [labelX, labelY] = getCoordinatesForPercent(midPercent);
+                            
                             return (
-                                <path
-                                    key={i}
-                                    d={`M ${startX} ${startY} A 1 1 0 ${largeArcFlag} 1 ${endX} ${endY} L ${endX * 0.72} ${endY * 0.72} A 0.72 0.72 0 ${largeArcFlag} 0 ${startX * 0.72} ${startY * 0.72} Z`}
-                                    fill={slice.color}
-                                    className={`transition-all duration-400 cursor-pointer ${hoveredIndex === i ? 'opacity-100 scale-[1.05] stroke-[0.03] stroke-white shadow-2xl' : 'opacity-90 hover:opacity-100 hover:scale-[1.03]'}`}
-                                    onMouseEnter={() => setHoveredIndex(i)}
-                                    onMouseLeave={() => setHoveredIndex(null)}
-                                />
+                                <g key={i}>
+                                    <path
+                                        d={`M ${startX} ${startY} A 1 1 0 ${largeArcFlag} 1 ${endX} ${endY} L ${endX * 0.72} ${endY * 0.72} A 0.72 0.72 0 ${largeArcFlag} 0 ${startX * 0.72} ${startY * 0.72} Z`}
+                                        fill={slice.color}
+                                        className={`transition-all duration-400 cursor-pointer ${hoveredIndex === i ? 'opacity-100 scale-[1.05] stroke-[0.03] stroke-white shadow-2xl' : 'opacity-90 hover:opacity-100 hover:scale-[1.03]'}`}
+                                        onMouseEnter={() => setHoveredIndex(i)}
+                                        onMouseLeave={() => setHoveredIndex(null)}
+                                    />
+                                    {/* Data Labels on Pie Chart */}
+                                    {showDataLabels && slice.percent > 0.08 && (
+                                        <text
+                                            x={labelX * 0.85}
+                                            y={labelY * 0.85}
+                                            textAnchor="middle"
+                                            dominantBaseline="middle"
+                                            fontSize="0.16"
+                                            fontWeight="900"
+                                            fill="white"
+                                            pointerEvents="none"
+                                            style={{ textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}
+                                        >
+                                            {((slice.value / total) * 100).toFixed(0)}%
+                                        </text>
+                                    )}
+                                </g>
                             );
                         })}
                     </svg>
@@ -279,17 +302,17 @@ const ModernDonutChartDashboard: React.FC<{
                         {slices.map((item, i) => (
                             <div
                                 key={i}
-                                className={`flex items-center justify-between text-[10px] p-1 rounded transition-all cursor-pointer ${hoveredIndex === i ? 'bg-gray-100' : 'hover:bg-gray-50'}`}
+                                className={`flex items-center justify-between text-[9px] p-1.5 rounded transition-all cursor-pointer border border-transparent ${hoveredIndex === i ? 'bg-gray-100 border-gray-300' : 'hover:bg-gray-50'}`}
                                 onMouseEnter={() => setHoveredIndex(i)}
                                 onMouseLeave={() => setHoveredIndex(null)}
                             >
                                 <div className="flex items-center gap-2 min-w-0 flex-1">
-                                    <span className="w-2 h-2 rounded-full flex-shrink-0 shadow-sm" style={{ backgroundColor: item.color }}></span>
+                                    <span className="w-3 h-3 rounded-full flex-shrink-0 shadow-sm border border-white/50" style={{ backgroundColor: item.color }}></span>
                                     <span className={`truncate font-bold ${hoveredIndex === i ? 'text-gray-900' : 'text-gray-600'}`} title={String(item.label)}>{item.label}</span>
                                 </div>
                                 <div className="flex gap-2 items-center flex-shrink-0 ml-2">
-                                    <span className="text-gray-400 font-bold text-[9px]">{total > 0 ? ((item.value / total) * 100).toFixed(0) : 0}%</span>
-                                    <span className={`font-black text-right w-16 ${hoveredIndex === i ? 'text-blue-600' : 'text-gray-900'}`}>{isCurrency ? formatLargeValue(item.value, true) : Math.round(item.value).toLocaleString()}</span>
+                                    <span className="text-gray-500 font-bold text-[8px] bg-gray-50 px-1.5 py-0.5 rounded">{total > 0 ? ((item.value / total) * 100).toFixed(1) : 0}%</span>
+                                    <span className={`font-black text-right min-w-[55px] ${hoveredIndex === i ? 'text-blue-600' : 'text-gray-900'}`}>{isCurrency ? formatLargeValue(item.value, true) : Math.round(item.value).toLocaleString()}</span>
                                 </div>
                             </div>
                         ))}
@@ -1590,13 +1613,16 @@ const DashboardView: React.FC<DashboardViewProps> = React.memo(({
         const prevSeries = getSeries(prevFY, i => (timeView === 'FY' || (timeView === 'MONTH' && i.fiscalMonthIndex === selectedMonth) || (timeView === 'WEEK' && i.weekNumber === selectedWeek)));
         const ppyFY = `${startYear - 2}-${(startYear - 1).toString().slice(-2)}`;
         const ppySeries = getSeries(ppyFY, i => (timeView === 'FY' || (timeView === 'MONTH' && i.fiscalMonthIndex === selectedMonth) || (timeView === 'WEEK' && i.weekNumber === selectedWeek)));
+        const pppyFY = `${startYear - 3}-${(startYear - 2).toString().slice(-2)}`;
+        const pppySeries = getSeries(pppyFY, i => (timeView === 'FY' || (timeView === 'MONTH' && i.fiscalMonthIndex === selectedMonth) || (timeView === 'WEEK' && i.weekNumber === selectedWeek)));
 
         return {
             labels,
             series: [
-                { name: selectedFY, data: currentSeries, color: '#3b82f6', active: true },
-                { name: prevFY, data: prevSeries, color: '#a855f7', active: true },
-                { name: ppyFY, data: ppySeries, color: '#10B981', active: true },
+                { name: selectedFY, data: currentSeries, color: '#FF6B6B', active: true },
+                { name: prevFY, data: prevSeries, color: '#4ECDC4', active: true },
+                { name: ppyFY, data: ppySeries, color: '#FFE66D', active: true },
+                { name: pppyFY, data: pppySeries, color: '#95E1D3', active: true },
             ]
         };
     }, [selectedFY, enrichedSales, timeView, selectedMonth, selectedWeek]);
