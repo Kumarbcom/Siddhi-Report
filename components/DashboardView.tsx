@@ -219,6 +219,7 @@ const ModernDonutChartDashboard: React.FC<{
 
     const total = data.reduce((a, b) => a + (b.value || 0), 0);
     const colorPalette = ['#FF6B6B', '#4ECDC4', '#FFE66D', '#95E1D3', '#F38181', '#AA96DA', '#FCBAD3', '#A8D8EA', '#AA96DA', '#C7CEEA'];
+    const labelColorPalette = ['#FF6B6B', '#4ECDC4', '#FFE66D', '#95E1D3', '#F38181', '#AA96DA', '#FCBAD3', '#A8D8EA', '#AA96DA', '#C7CEEA'];
 
     let cumulativePercent = 0;
     const slices = data.map((slice, i) => {
@@ -229,7 +230,8 @@ const ModernDonutChartDashboard: React.FC<{
             ...slice,
             percent,
             startPercent,
-            color: slice.color || colorPalette[i % colorPalette.length]
+            color: slice.color || colorPalette[i % colorPalette.length],
+            labelColor: labelColorPalette[i % labelColorPalette.length]
         };
     });
 
@@ -250,54 +252,61 @@ const ModernDonutChartDashboard: React.FC<{
                 <PieIcon className="w-3.5 h-3.5 text-blue-500" />
                 {title}
             </h4>
-            <div className="flex flex-col items-center gap-4 flex-1 min-h-0">
-                <div className="relative w-40 h-40 flex-shrink-0 group">
-                    <div className="absolute inset-0 bg-gradient-to-br from-gray-50 to-gray-100 rounded-full scale-95 opacity-40"></div>
-                    <svg viewBox="-1 -1 2 2" style={{ transform: 'rotate(-90deg)' }} className="w-full h-full drop-shadow-[0_8px_24px_rgba(0,0,0,0.12)] relative z-10">
-                        {slices.map((slice, i) => {
-                            if (slice.percent >= 0.999) return <circle key={i} cx="0" cy="0" r="0.85" fill="none" stroke={slice.color} strokeWidth="0.3" onMouseEnter={() => setHoveredIndex(i)} onMouseLeave={() => setHoveredIndex(null)} className="transition-all cursor-pointer hover:opacity-80" />;
-                            const [startX, startY] = getCoordinatesForPercent(slice.startPercent);
-                            const [endX, endY] = getCoordinatesForPercent(slice.startPercent + slice.percent);
-                            const largeArcFlag = slice.percent > 0.5 ? 1 : 0;
-                            const midPercent = slice.startPercent + slice.percent / 2;
-                            const [labelX, labelY] = getCoordinatesForPercent(midPercent);
-                            
-                            return (
-                                <g key={i}>
-                                    <path
-                                        d={`M ${startX} ${startY} A 1 1 0 ${largeArcFlag} 1 ${endX} ${endY} L ${endX * 0.72} ${endY * 0.72} A 0.72 0.72 0 ${largeArcFlag} 0 ${startX * 0.72} ${startY * 0.72} Z`}
-                                        fill={slice.color}
-                                        className={`transition-all duration-400 cursor-pointer ${hoveredIndex === i ? 'opacity-100 scale-[1.05] stroke-[0.03] stroke-white shadow-2xl' : 'opacity-90 hover:opacity-100 hover:scale-[1.03]'}`}
-                                        onMouseEnter={() => setHoveredIndex(i)}
-                                        onMouseLeave={() => setHoveredIndex(null)}
-                                    />
-                                    {/* Data Labels on Pie Chart */}
-                                    {showDataLabels && slice.percent > 0.08 && (
-                                        <text
-                                            x={labelX * 0.85}
-                                            y={labelY * 0.85}
-                                            textAnchor="middle"
-                                            dominantBaseline="middle"
-                                            fontSize="0.16"
-                                            fontWeight="900"
-                                            fill="white"
-                                            pointerEvents="none"
-                                            style={{ textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}
-                                        >
-                                            {((slice.value / total) * 100).toFixed(0)}%
-                                        </text>
-                                    )}
-                                </g>
-                            );
-                        })}
-                    </svg>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none px-4 text-center z-20">
-                        <span className="text-[10px] text-gray-400 uppercase font-black tracking-widest truncate w-full mb-0.5">{centerLabel}</span>
-                        <span className={`text-[12px] font-black leading-tight drop-shadow-sm transition-all duration-300 ${hoveredIndex !== null ? 'scale-110' : ''} ${centerColorClass || 'text-gray-900'}`}>{centerValue}</span>
+            <div className="flex gap-4 flex-1 min-h-0">
+                <div className="flex flex-col items-center justify-center gap-4 flex-shrink-0">
+                    <div className="relative w-40 h-40 group">
+                        <div className="absolute inset-0 bg-gradient-to-br from-gray-50 to-gray-100 rounded-full scale-95 opacity-40"></div>
+                        <svg viewBox="-1 -1 2 2" style={{ transform: 'rotate(-90deg)' }} className="w-full h-full drop-shadow-[0_8px_24px_rgba(0,0,0,0.12)] relative z-10">
+                            {slices.map((slice, i) => {
+                                if (slice.percent >= 0.999) return <circle key={i} cx="0" cy="0" r="0.85" fill="none" stroke={slice.color} strokeWidth="0.3" onMouseEnter={() => setHoveredIndex(i)} onMouseLeave={() => setHoveredIndex(null)} className="transition-all cursor-pointer hover:opacity-80" />;
+                                const [startX, startY] = getCoordinatesForPercent(slice.startPercent);
+                                const [endX, endY] = getCoordinatesForPercent(slice.startPercent + slice.percent);
+                                const largeArcFlag = slice.percent > 0.5 ? 1 : 0;
+                                const midPercent = slice.startPercent + slice.percent / 2;
+                                const [labelX, labelY] = getCoordinatesForPercent(midPercent);
+                                
+                                return (
+                                    <g key={i}>
+                                        <path
+                                            d={`M ${startX} ${startY} A 1 1 0 ${largeArcFlag} 1 ${endX} ${endY} L ${endX * 0.72} ${endY * 0.72} A 0.72 0.72 0 ${largeArcFlag} 0 ${startX * 0.72} ${startY * 0.72} Z`}
+                                            fill={slice.color}
+                                            className={`transition-all duration-400 cursor-pointer ${hoveredIndex === i ? 'opacity-100 scale-[1.05] stroke-[0.03] stroke-white shadow-2xl' : 'opacity-90 hover:opacity-100 hover:scale-[1.03]'}`}
+                                            onMouseEnter={() => setHoveredIndex(i)}
+                                            onMouseLeave={() => setHoveredIndex(null)}
+                                        />
+                                        {/* Data Labels on Pie Chart - Vibrant Colors */}
+                                        {showDataLabels && slice.percent > 0.08 && (
+                                            <text
+                                                x={labelX * 0.85}
+                                                y={labelY * 0.85}
+                                                textAnchor="middle"
+                                                dominantBaseline="middle"
+                                                fontSize="0.16"
+                                                fontWeight="900"
+                                                fill={slice.labelColor}
+                                                pointerEvents="none"
+                                                style={{ 
+                                                    textShadow: '0 1px 3px rgba(255,255,255,0.8)',
+                                                    paintOrder: 'stroke',
+                                                    strokeWidth: '0.01',
+                                                    stroke: 'white'
+                                                }}
+                                            >
+                                                {((slice.value / total) * 100).toFixed(0)}%
+                                            </text>
+                                        )}
+                                    </g>
+                                );
+                            })}
+                        </svg>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none px-4 text-center z-20">
+                            <span className="text-[10px] text-gray-400 uppercase font-black tracking-widest truncate w-full mb-0.5">{centerLabel}</span>
+                            <span className={`text-[12px] font-black leading-tight drop-shadow-sm transition-all duration-300 ${hoveredIndex !== null ? 'scale-110' : ''} ${centerColorClass || 'text-gray-900'}`}>{centerValue}</span>
+                        </div>
                     </div>
                 </div>
 
-                <div className="flex-1 w-full overflow-y-auto custom-scrollbar pr-1">
+                <div className="flex-1 overflow-y-auto custom-scrollbar pr-1">
                     <div className="space-y-1">
                         {slices.map((item, i) => (
                             <div
@@ -308,7 +317,7 @@ const ModernDonutChartDashboard: React.FC<{
                             >
                                 <div className="flex items-center gap-2 min-w-0 flex-1">
                                     <span className="w-3 h-3 rounded-full flex-shrink-0 shadow-sm border border-white/50" style={{ backgroundColor: item.color }}></span>
-                                    <span className={`truncate font-bold ${hoveredIndex === i ? 'text-gray-900' : 'text-gray-600'}`} title={String(item.label)}>{item.label}</span>
+                                    <span className={`truncate font-bold`} style={{ color: item.labelColor }} title={String(item.label)}>{item.label}</span>
                                 </div>
                                 <div className="flex gap-2 items-center flex-shrink-0 ml-2">
                                     <span className="text-gray-500 font-bold text-[8px] bg-gray-50 px-1.5 py-0.5 rounded">{total > 0 ? ((item.value / total) * 100).toFixed(1) : 0}%</span>
@@ -333,7 +342,7 @@ const HorizontalBarChart = React.memo(({
     isStacked = false,
     secondaryLabel = 'Scheduled'
 }: {
-    data: { label: string; value: number, secondaryValue?: number, previous?: number, share?: number }[],
+    data: { label: string; value: number, secondaryValue?: number, previous?: number, share?: number, latest?: number }[],
     title: string,
     color: string,
     totalForPercentage?: number,
@@ -350,12 +359,17 @@ const HorizontalBarChart = React.memo(({
         <div className="flex flex-col h-full w-full overflow-hidden">
             <h4 className="text-[10px] font-black text-gray-500 uppercase mb-2 border-b border-gray-100 pb-1 flex justify-between items-center">
                 <span>{title}</span>
-                {isStacked && (
-                    <div className="flex gap-2 items-center">
-                        <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-sm bg-red-500"></div><span className="text-[8px]">Due</span></div>
-                        <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-sm bg-blue-500"></div><span className="text-[8px]">{secondaryLabel}</span></div>
-                    </div>
-                )}
+                <div className="flex gap-3 items-center text-[9px]">
+                    {isStacked && (
+                        <div className="flex gap-2 items-center">
+                            <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-sm bg-red-500"></div><span className="text-[8px]">Due</span></div>
+                            <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-sm bg-blue-500"></div><span className="text-[8px]">{secondaryLabel}</span></div>
+                        </div>
+                    )}
+                    {!isStacked && sorted.some(s => s.latest !== undefined) && (
+                        <div className="flex items-center gap-1"><div className="w-1.5 h-4 bg-red-500 rounded-full"></div><span className="text-[8px] font-bold">Latest</span></div>
+                    )}
+                </div>
             </h4>
             <div className="flex-1 overflow-y-auto custom-scrollbar pr-1.5 mt-0.5">
                 <div className="flex flex-col gap-2.5">
@@ -379,6 +393,9 @@ const HorizontalBarChart = React.memo(({
                                                 <span className="text-blue-500">S: {formatLargeValue(item.secondaryValue || 0, true)}</span>
                                             </div>
                                         )}
+                                        {!isStacked && item.latest !== undefined && item.latest > 0 && (
+                                            <div className="text-[8px] font-bold text-red-600">Latest: {formatLargeValue(item.latest, true)}</div>
+                                        )}
                                     </div>
 
                                     <div className="flex flex-col items-end min-w-[60px] bg-white pl-1">
@@ -400,6 +417,9 @@ const HorizontalBarChart = React.memo(({
                                     <div className={`h-full ${barColorClass} transition-all duration-700 relative z-10`} style={{ width: `${(item.value / maxVal) * 100}%` }}></div>
                                     {item.secondaryValue !== undefined && (
                                         <div className={`h-full ${secondaryColorClass} transition-all duration-700 relative z-10`} style={{ width: `${(item.secondaryValue / maxVal) * 100}%` }}></div>
+                                    )}
+                                    {item.latest !== undefined && item.latest > 0 && (
+                                        <div className="absolute h-full w-1.5 bg-red-500 rounded-full shadow-md" style={{ left: `${(item.latest / maxVal) * 100}%`, transform: 'translateX(-50%)', zIndex: 20 }} title={`Latest: ${formatLargeValue(item.latest, true)}`}></div>
                                     )}
                                 </div>
                             </div>
@@ -1065,20 +1085,26 @@ const DashboardView: React.FC<DashboardViewProps> = React.memo(({
     }, [currentData, previousDataForComparison, yoyData, timeView]);
 
     const topTenCustomers = useMemo(() => {
-        const custMap = new Map<string, { current: number, previous: number }>();
+        const custMap = new Map<string, { current: number, previous: number, latest: number }>();
+        
+        // Current period data
         currentData.forEach(i => {
             const name = String(i.customerName || 'Unknown');
-            if (!custMap.has(name)) custMap.set(name, { current: 0, previous: 0 });
+            if (!custMap.has(name)) custMap.set(name, { current: 0, previous: 0, latest: 0 });
             custMap.get(name)!.current += (i.value || 0);
+            custMap.get(name)!.latest = Math.max(custMap.get(name)!.latest, i.value || 0);
         });
+        
+        // Previous period data for comparison
         const compData = timeView === 'FY' ? yoyData : previousDataForComparison;
         compData.forEach(i => {
             const name = String(i.customerName || 'Unknown');
-            if (!custMap.has(name)) custMap.set(name, { current: 0, previous: 0 });
+            if (!custMap.has(name)) custMap.set(name, { current: 0, previous: 0, latest: 0 });
             custMap.get(name)!.previous += (i.value || 0);
         });
+        
         return Array.from(custMap.entries())
-            .map(([label, v]) => ({ label, value: v.current, previous: v.previous }))
+            .map(([label, v]) => ({ label, value: v.current, previous: v.previous, latest: v.latest }))
             .sort((a, b) => b.value - a.value)
             .slice(0, 10);
     }, [currentData, previousDataForComparison, yoyData, timeView]);
@@ -1700,16 +1726,34 @@ const DashboardView: React.FC<DashboardViewProps> = React.memo(({
             )}
 
             <div className="bg-white border-b border-gray-200 px-4 py-3 flex flex-col lg:flex-row gap-4 items-center justify-between flex-shrink-0 shadow-sm z-10 sticky top-0 bg-white/90 backdrop-blur-md">
-                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-7 gap-1 bg-gray-100/80 p-1 rounded-xl border border-gray-200 shadow-inner w-full xl:flex-1">
-                    {(['sales', 'inventory', 'so', 'po', 'weekly', 'customerAnalysis'] as const).map(tab => (
-                        <button
-                            key={tab}
-                            onClick={() => setActiveSubTab(tab)}
-                            className={`w-full py-2.5 rounded-lg text-[10px] xl:text-xs font-black uppercase tracking-wider transition-all duration-300 transform active:scale-95 flex items-center justify-center ${activeSubTab === tab ? 'bg-white text-indigo-700 shadow-sm scale-[1.02]' : 'text-gray-500 hover:text-indigo-600 hover:bg-white/40'}`}
-                        >
-                            {tab === 'so' ? 'Pending SO' : tab === 'po' ? 'Pending PO' : tab === 'weekly' ? 'Weekly Report' : tab === 'customerAnalysis' ? 'Cust Analysis' : tab}
-                        </button>
-                    ))}
+                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-7 gap-2 p-1 rounded-xl w-full xl:flex-1">
+                    {(['sales', 'inventory', 'so', 'po', 'weekly', 'customerAnalysis'] as const).map(tab => {
+                        const vibrantColors: Record<string, string> = {
+                            sales: 'bg-red-100 text-red-700 border-2 border-red-300',
+                            inventory: 'bg-cyan-100 text-cyan-700 border-2 border-cyan-300',
+                            so: 'bg-amber-100 text-amber-700 border-2 border-amber-300',
+                            po: 'bg-emerald-100 text-emerald-700 border-2 border-emerald-300',
+                            weekly: 'bg-purple-100 text-purple-700 border-2 border-purple-300',
+                            customerAnalysis: 'bg-pink-100 text-pink-700 border-2 border-pink-300'
+                        };
+                        const activeColors: Record<string, string> = {
+                            sales: 'bg-red-600 text-white border-2 border-red-800 shadow-lg',
+                            inventory: 'bg-cyan-600 text-white border-2 border-cyan-800 shadow-lg',
+                            so: 'bg-amber-600 text-white border-2 border-amber-800 shadow-lg',
+                            po: 'bg-emerald-600 text-white border-2 border-emerald-800 shadow-lg',
+                            weekly: 'bg-purple-600 text-white border-2 border-purple-800 shadow-lg',
+                            customerAnalysis: 'bg-pink-600 text-white border-2 border-pink-800 shadow-lg'
+                        };
+                        return (
+                            <button
+                                key={tab}
+                                onClick={() => setActiveSubTab(tab)}
+                                className={`w-full py-2.5 rounded-lg text-[10px] xl:text-xs font-black uppercase tracking-wider transition-all duration-300 transform active:scale-95 flex items-center justify-center ${activeSubTab === tab ? activeColors[tab] + ' scale-[1.03]' : vibrantColors[tab] + ' hover:scale-[1.02]'}`}
+                            >
+                                {tab === 'so' ? 'Pending SO' : tab === 'po' ? 'Pending PO' : tab === 'weekly' ? 'Weekly Report' : tab === 'customerAnalysis' ? 'Cust Analysis' : tab}
+                            </button>
+                        );
+                    })}
                 </div>
                 {activeSubTab === 'sales' && (
 
