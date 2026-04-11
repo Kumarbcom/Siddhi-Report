@@ -582,7 +582,7 @@ const GroupedCustomerAnalysis: React.FC<GroupedCustomerAnalysisProps> = React.me
                                     </td>
                                     <td className="py-2 px-2 text-right font-black text-gray-900">{formatLargeValue(group.total, true)}</td>
                                     <td className="py-2 px-2 text-right font-medium text-gray-500 ">{formatLargeValue(group.totalPrevious, true)}</td>
-                                    <td className="py-2 px-2 text-right font-bold hidden sm:table-cell">
+                                    <td className="py-2 px-2 text-right font-bold hidden sm:table-cell whitespace-nowrap">
                                         <span className={group.total - group.totalPrevious >= 0 ? "text-emerald-600" : "text-rose-600"}>
                                             {formatLargeValue(group.total - group.totalPrevious, true)}
                                         </span>
@@ -604,7 +604,7 @@ const GroupedCustomerAnalysis: React.FC<GroupedCustomerAnalysisProps> = React.me
                                         </td>
                                         <td className="py-1.5 px-2 text-right font-bold text-gray-700">{formatLargeValue(cust.current, true)}</td>
                                         <td className="py-1.5 px-2 text-right text-gray-400">{formatLargeValue(cust.previous, true)}</td>
-                                        <td className="py-1.5 px-2 text-right font-medium hidden sm:table-cell">
+                                        <td className="py-1.5 px-2 text-right font-medium hidden sm:table-cell whitespace-nowrap">
                                             <span className={cust.diff >= 0 ? "text-emerald-600" : "text-rose-500"}>
                                                 {formatLargeValue(cust.diff, true)}
                                             </span>
@@ -1891,7 +1891,7 @@ const DashboardView: React.FC<DashboardViewProps> = React.memo(({
                                 <div className="lg:col-span-2 bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col h-72 overflow-hidden transition-all hover:shadow-md">
                                     <h3 className="text-[11px] font-black text-gray-800 mb-3 flex items-center gap-2 uppercase tracking-widest border-b border-gray-50 pb-2">
                                         <TrendingUp className="w-4 h-4 text-blue-600" />
-                                        3-Year Sales Trend
+                                        4-Year Sales Trend
                                     </h3>
                                     <div className="flex flex-1 pt-1 overflow-hidden">
                                         <div className="flex flex-col justify-between text-[9px] font-bold text-gray-400 pr-3 pb-8 text-right w-12 border-r border-gray-50">
