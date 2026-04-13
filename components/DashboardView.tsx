@@ -281,14 +281,14 @@ const ModernDonutChartDashboard: React.FC<{
                                                 y={labelY * 0.85}
                                                 textAnchor="middle"
                                                 dominantBaseline="middle"
-                                                fontSize="0.16"
+                                                fontSize="0.18"
                                                 fontWeight="900"
-                                                fill={slice.labelColor}
+                                                fill="#000000"
                                                 pointerEvents="none"
                                                 style={{ 
-                                                    textShadow: '0 1px 3px rgba(255,255,255,0.8)',
+                                                    textShadow: '0 1px 3px rgba(255,255,255,0.9)',
                                                     paintOrder: 'stroke',
-                                                    strokeWidth: '0.01',
+                                                    strokeWidth: '0.02',
                                                     stroke: 'white'
                                                 }}
                                             >
@@ -352,7 +352,7 @@ const HorizontalBarChart = React.memo(({
 }) => {
     const sorted = [...data].sort((a, b) => ((b.value || 0) + (b.secondaryValue || 0)) - ((a.value || 0) + (a.secondaryValue || 0))).slice(0, 10);
     const maxVal = Math.max(sorted[0] ? (sorted[0].value + (sorted[0].secondaryValue || 0)) : 1, 1);
-    const barColorClass = (color === 'blue' && isStacked) ? 'bg-red-500' : color === 'blue' ? 'bg-blue-500' : color === 'emerald' ? 'bg-emerald-500' : color === 'purple' ? 'bg-purple-500' : color === 'rose' ? 'bg-rose-500' : 'bg-orange-500';
+    const barColorClass = (color === 'blue' && isStacked) ? 'bg-rose-600' : color === 'blue' ? 'bg-blue-600' : color === 'emerald' ? 'bg-emerald-600' : color === 'purple' ? 'bg-purple-600' : color === 'rose' ? 'bg-rose-600' : 'bg-orange-600';
     const secondaryColorClass = (color === 'blue' && isStacked) ? 'bg-blue-500' : color === 'blue' ? 'bg-indigo-300' : color === 'emerald' ? 'bg-teal-300' : 'bg-gray-300';
 
     return (
@@ -1645,10 +1645,10 @@ const DashboardView: React.FC<DashboardViewProps> = React.memo(({
         return {
             labels,
             series: [
-                { name: selectedFY, data: currentSeries, color: '#FF6B6B', active: true },
-                { name: prevFY, data: prevSeries, color: '#4ECDC4', active: true },
-                { name: ppyFY, data: ppySeries, color: '#FFE66D', active: true },
-                { name: pppyFY, data: pppySeries, color: '#95E1D3', active: true },
+                { name: selectedFY, data: currentSeries, color: '#FF3B3B', active: true },
+                { name: prevFY, data: prevSeries, color: '#00D1C1', active: true },
+                { name: ppyFY, data: ppySeries, color: '#FFD700', active: true },
+                { name: pppyFY, data: pppySeries, color: '#3B82F6', active: true },
             ]
         };
     }, [selectedFY, enrichedSales, timeView, selectedMonth, selectedWeek]);
@@ -1960,7 +1960,7 @@ const DashboardView: React.FC<DashboardViewProps> = React.memo(({
                                     <div className="mt-2 h-1 w-12 bg-white/30 rounded-full"></div>
                                 </div>
                             </div>
-                            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 gap-4">
                                 <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80 flex flex-col">
                                     <ModernDonutChartDashboard
                                         data={inventoryStats.makeMix}

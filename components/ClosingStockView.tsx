@@ -17,7 +17,7 @@ const formatLargeValue = (val: number, compact: boolean = false) => {
 
 type Metric = 'quantity' | 'value';
 
-const COLORS = ['#10B981', '#3B82F6', '#6366F1', '#8B5CF6', '#EC4899', '#F59E0B', '#EF4444', '#6B7280', '#059669', '#2563EB'];
+const COLORS = ['#059669', '#2563EB', '#7C3AED', '#DB2777', '#EA580C', '#DC2626', '#1E293B', '#4F46E5', '#0891B2', '#4D7C0F'];
 
 const Toggle: React.FC<{ value: Metric; onChange: (m: Metric) => void; colorClass: string }> = ({ value, onChange, colorClass }) => (
   <div className="flex bg-gray-100 p-0.5 rounded-md border border-gray-200">
@@ -382,11 +382,11 @@ const ClosingStockView: React.FC<ClosingStockViewProps> = ({
       {/* Analytics Row */}
       {items.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 flex-shrink-0">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-2.5 flex flex-col h-60">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-2.5 flex flex-col h-72 transition-all hover:shadow-md">
             <div className="flex justify-between items-center mb-1.5 border-b border-gray-50 pb-1 flex-shrink-0"><div className="flex items-center gap-1.5"><PieChartIcon className="w-3.5 h-3.5 text-purple-600" /><h3 className="text-[10px] font-black text-gray-800 uppercase tracking-tight">Make Mix</h3></div><Toggle value={makeMetric} onChange={setMakeMetric} colorClass="text-purple-700" /></div>
             <div className="flex-1 min-h-0 overflow-hidden"><ModernDonutChart data={stats.byMake} metric={makeMetric} total={stats.currentMakeTotal} centerColorClass="text-purple-600" /></div>
           </div>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-2.5 flex flex-col h-60">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-2.5 flex flex-col h-72 transition-all hover:shadow-md">
             <div className="flex justify-between items-center mb-1.5 border-b border-gray-50 pb-1 flex-shrink-0"><div className="flex items-center gap-1.5"><BarChart3 className="w-3.5 h-3.5 text-blue-600" /><h3 className="text-[10px] font-black text-gray-800 uppercase tracking-tight">Group Share %</h3></div><Toggle value={groupMetric} onChange={setGroupMetric} colorClass="text-blue-700" /></div>
             <div className="overflow-y-auto custom-scrollbar space-y-1.5 flex-1 pr-1">
               {stats.byGroup.map((group) => {
@@ -397,19 +397,19 @@ const ClosingStockView: React.FC<ClosingStockViewProps> = ({
                     <div className="flex justify-between mb-0.5">
                       <span className="text-gray-700 font-bold truncate w-24 uppercase">{group.label}</span>
                       <div className="flex items-center gap-2">
-                        <span className="text-blue-600 font-black">{group.share.toFixed(1)}%</span>
-                        <span className="text-gray-900 font-black opacity-40">{formatLargeValue(group.value, groupMetric === 'value')}</span>
+                        <span className="text-blue-700 font-extrabold">{group.share.toFixed(1)}%</span>
+                        <span className="text-gray-900 font-black opacity-60">{formatLargeValue(group.value, groupMetric === 'value')}</span>
                       </div>
                     </div>
                     <div className="w-full bg-gray-100 rounded-full h-1 overflow-hidden shadow-inner">
-                      <div className="bg-blue-600 h-1 rounded-full transition-all duration-700 shadow-[0_0_5px_rgba(59,130,246,0.3)]" style={{ width: `${relativePercent}%` }}></div>
+                      <div className="bg-blue-600 h-1 rounded-full transition-all duration-700 shadow-[0_0_8px_rgba(37,99,235,0.4)]" style={{ width: `${relativePercent}%` }}></div>
                     </div>
                   </div>
                 )
               })}
             </div>
           </div>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-2.5 flex flex-col h-60">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-2.5 flex flex-col h-72 transition-all hover:shadow-md">
             <div className="flex justify-between items-center mb-1.5 border-b border-gray-50 pb-1 flex-shrink-0"><div className="flex items-center gap-1.5"><BarChart3 className="w-3.5 h-3.5 text-emerald-600" /><h3 className="text-[10px] font-black text-gray-800 uppercase tracking-tight">High Value Items %</h3></div><Toggle value={topMetric} onChange={setTopMetric} colorClass="text-emerald-700" /></div>
             <div className="space-y-1.5 flex-1 overflow-y-auto custom-scrollbar pr-1">
               {stats.topArticles.map((item, idx) => (

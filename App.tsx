@@ -304,7 +304,7 @@ const App: React.FC = () => {
       } else {
         setDbStatus('unlinked');
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error("Critical Load Error:", e);
       setDbStatus('error');
       setIsDataLoaded(true);
@@ -338,14 +338,14 @@ const App: React.FC = () => {
       isDanger: true,
       isLoading: false,
       onConfirm: async () => {
-        setConfirmModal((prev: { isOpen: boolean; title: string; message: string; onConfirm: () => void; onCancel?: () => void; onConfirmLabel?: string; onCancelLabel?: string; isDanger?: boolean; isLoading?: boolean; }) => ({ ...prev, isLoading: true }));
+        setConfirmModal((prev) => ({ ...prev, isLoading: true }));
         try {
           await materialService.delete(id);
           setMaterials((prev: Material[]) => prev.filter((m: Material) => m.id !== id));
-          setConfirmModal((prev: { isOpen: boolean; title: string; message: string; onConfirm: () => void; onCancel?: () => void; onConfirmLabel?: string; onCancelLabel?: string; isDanger?: boolean; isLoading?: boolean; }) => ({ ...prev, isOpen: false, isLoading: false }));
+          setConfirmModal((prev) => ({ ...prev, isOpen: false, isLoading: false }));
         } catch (e: any) {
           alert("Failed to delete from cloud: " + (e.message || "Unknown error"));
-          setConfirmModal((prev: { isOpen: boolean; title: string; message: string; onConfirm: () => void; onCancel?: () => void; onConfirmLabel?: string; onCancelLabel?: string; isDanger?: boolean; isLoading?: boolean; }) => ({ ...prev, isLoading: false }));
+          setConfirmModal((prev) => ({ ...prev, isLoading: false }));
         }
       }
     });
@@ -799,7 +799,7 @@ const App: React.FC = () => {
     return materials.filter((m: Material) => getMergedMakeName(m.make || 'Unspecified').toUpperCase() === selectedMake);
   }, [materials, selectedMake]);
 
-  const SidebarItem = ({ id, label, icon: Icon, count, onClick }: { id: ActiveTab, label: string, icon: any, count?: number, onClick: (id: ActiveTab) => void }) => (
+  const SidebarItem = ({ id, label, icon: Icon, count, onClick }: { id: ActiveTab, label: string, icon: React.ElementType, count?: number, onClick: (id: ActiveTab) => void }) => (
     <button
       onClick={() => {
         onClick(id);
