@@ -245,11 +245,29 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
     }, [pivotData, searchTerm, slicerMake, slicerGroup, filterDescription, showExcessStock, showExcessPO, showPONeed, showExpedite, sortConfig]);
 
     const totals = useMemo(() => {
-        const t = { stock: 0, so: 0, po: 0, net: 0, exS: 0, exP: 0, need: 0, exp: 0 };
+        const t = {
+            stockQty: 0, stockVal: 0,
+            soCur: 0, soSch: 0, soTot: 0,
+            poCur: 0, poSch: 0, poTot: 0,
+            netQty: 0, netVal: 0,
+            avg3m: 0, avg1y: 0,
+            min: 0, re: 0, max: 0,
+            exSQty: 0, exSVal: 0,
+            exPQty: 0, exPVal: 0,
+            needQty: 0, needVal: 0,
+            expQty: 0, expVal: 0
+        };
         filteredData.forEach(r => {
-            t.stock += r.stock.val; t.so += r.so.val; t.po += r.po.val; t.net += r.net.val;
-            t.exS += r.actions.excessStock.val; t.exP += r.actions.excessPO.val;
-            t.need += r.actions.poNeed.val; t.exp += r.actions.expedite.val;
+            t.stockQty += (r.stock.qty || 0); t.stockVal += (r.stock.val || 0);
+            t.soCur += (r.so.curQty || 0); t.soSch += (r.so.schQty || 0); t.soTot += (r.so.qty || 0);
+            t.poCur += (r.po.curQty || 0); t.poSch += (r.po.schQty || 0); t.poTot += (r.po.qty || 0);
+            t.netQty += (r.net.qty || 0); t.netVal += (r.net.val || 0);
+            t.avg3m += (r.avg3m.qty || 0); t.avg1y += (r.avg1y.qty || 0);
+            t.min += (r.levels.min.qty || 0); t.re += (r.levels.reorder.qty || 0); t.max += (r.levels.max.qty || 0);
+            t.exSQty += (r.actions.excessStock.qty || 0); t.exSVal += (r.actions.excessStock.val || 0);
+            t.exPQty += (r.actions.excessPO.qty || 0); t.exPVal += (r.actions.excessPO.val || 0);
+            t.needQty += (r.actions.poNeed.qty || 0); t.needVal += (r.actions.poNeed.val || 0);
+            t.expQty += (r.actions.expedite.qty || 0); t.expVal += (r.actions.expedite.val || 0);
         });
         return t;
     }, [filteredData]);
@@ -339,6 +357,35 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                                 <th onClick={() => handleHeaderSort('actions.poNeed.val')} className="p-2 text-right border-r">Val {renderSortIcon('actions.poNeed.val')}</th>
                                 <th onClick={() => handleHeaderSort('actions.expedite.qty')} className="p-2 text-right">Qty {renderSortIcon('actions.expedite.qty')}</th>
                                 <th onClick={() => handleHeaderSort('actions.expedite.val')} className="p-2 text-right">Val {renderSortIcon('actions.expedite.val')}</th>
+                            </tr>
+                            <tr className="bg-amber-50 border-b text-[10px] font-black text-gray-900 shadow-sm z-10">
+                                <td className="p-2 border-r sticky left-0 z-20 bg-amber-50">TOTALS</td>
+                                <td className="p-2 border-r sticky left-[70px] z-20 bg-amber-50 text-[8px] text-gray-400">SUM OF FILTERED</td>
+                                <td className="p-2 border-r sticky left-[220px] z-20 bg-amber-50 text-[8px] text-gray-400 text-right">{filteredData.length} ITEMS</td>
+                                <td className="p-2 text-right bg-blue-100/30">{totals.stockQty.toLocaleString()}</td>
+                                <td className="p-2 text-right border-r bg-blue-100/30 text-blue-900">{formatLargeValue(totals.stockVal)}</td>
+                                <td className="p-2 text-right text-orange-700">{totals.soCur.toLocaleString()}</td>
+                                <td className="p-2 text-right text-orange-700">{totals.soSch.toLocaleString()}</td>
+                                <td className="p-2 text-right border-r font-bold">{totals.soTot.toLocaleString()}</td>
+                                <td className="p-2 text-right text-purple-700">{totals.poCur.toLocaleString()}</td>
+                                <td className="p-2 text-right text-purple-700">{totals.poSch.toLocaleString()}</td>
+                                <td className="p-2 text-right border-r font-bold">{totals.poTot.toLocaleString()}</td>
+                                <td className="p-2 text-right bg-slate-200/50">{totals.netQty.toLocaleString()}</td>
+                                <td className="p-2 text-right border-r bg-slate-200/50">{formatLargeValue(totals.netVal)}</td>
+                                <td className="p-2 text-right text-indigo-800">{totals.avg3m.toFixed(0)}</td>
+                                <td className="p-2 text-right text-indigo-800">{totals.avg1y.toFixed(0)}</td>
+                                <td className="p-2 text-center border-r">-</td>
+                                <td className="p-2 text-right text-emerald-800">{totals.min.toLocaleString()}</td>
+                                <td className="p-2 text-right text-emerald-800">{totals.re.toLocaleString()}</td>
+                                <td className="p-2 text-right border-r text-emerald-800 font-bold">{totals.max.toLocaleString()}</td>
+                                <td className="p-2 text-right text-red-700">{totals.exSQty.toLocaleString()}</td>
+                                <td className="p-2 text-right border-r text-red-700">{formatLargeValue(totals.exSVal)}</td>
+                                <td className="p-2 text-right text-red-700">{totals.exPQty.toLocaleString()}</td>
+                                <td className="p-2 text-right border-r text-red-700">{formatLargeValue(totals.exPVal)}</td>
+                                <td className="p-2 text-right text-green-700">{totals.needQty.toLocaleString()}</td>
+                                <td className="p-2 text-right border-r text-green-700">{formatLargeValue(totals.needVal)}</td>
+                                <td className="p-2 text-right text-blue-700">{totals.expQty.toLocaleString()}</td>
+                                <td className="p-2 text-right text-blue-700">{formatLargeValue(totals.expVal)}</td>
                             </tr>
                         </thead>
                         <tbody className="divide-y text-[10px]">
