@@ -149,9 +149,20 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
             const isPl = PLANNED_STOCK_GROUPS.has(grp.toLowerCase());
             let strategy = s1q * 12 >= 500 ? 'GENERAL STOCK' : (s1q > 0 ? 'AGAINST ORDER' : 'MADE TO ORDER');
             
+            const mk = getMergedMakeName(mat.make || '').toUpperCase();
+            const lGrp = grp.toLowerCase();
+
+            let isApplicable = false;
+            if (mk === 'LAPP') {
+                const excluded = ["lapp-planned stock specific customer", "lapp-non moving stocks", "lapp-against customer po", "lapp infra"];
+                isApplicable = !excluded.some(ex => lGrp.includes(ex.toLowerCase()));
+            } else if (mk === 'EATON') {
+                const excluded = ["eaton-non moving stock", "eaton-planned stock specific customer"];
+                isApplicable = !excluded.some(ex => lGrp.includes(ex.toLowerCase()));
+            }
+
             let min = 0, re = 0, max = 0;
-            // Calculate levels for ALL items that have sales
-            if (a1q > 0) {
+            if (isApplicable && a1q > 0) {
                 min = roundToTen(a1q); 
                 re = roundToTen(a1q * 1.5); 
                 max = roundToTen(a1q * 3);
