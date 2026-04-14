@@ -431,6 +431,122 @@ const HorizontalBarChart = React.memo(({
     );
 });
 
+
+const VerticalComparisonChart = React.memo(({
+    data,
+    title,
+    color = 'blue',
+    compareLabel = 'LY',
+    onToggleDeclining,
+    isDecliningOnly
+}: {
+    data: { label: string; value: number, previous?: number }[],
+    title: string,
+    color?: string,
+    compareLabel?: string,
+    onToggleDeclining?: (val: boolean) => void,
+    isDecliningOnly?: boolean
+}) => {
+    const sorted = [...data].sort((a, b) => (b.value || 0) - (a.value || 0)).slice(0, 10);
+    const maxVal = Math.max(...sorted.flatMap(d => [d.value, d.previous || 0]), 1);
+
+    const barColor = color === 'emerald' ? 'bg-emerald-600' : 'bg-blue-600';
+    const prevBarColor = 'bg-gray-300';
+
+    return (
+        <div className="flex flex-col h-full w-full overflow-hidden">
+            <h4 className="text-[10px] font-black text-gray-500 uppercase mb-4 border-b border-gray-100 pb-1 flex justify-between items-center">
+                <span className="flex items-center gap-2">
+                    <BarChart3 className="w-3.5 h-3.5 text-blue-500" />
+                    {title}
+                    {onToggleDeclining && (
+                        <button 
+                            onClick={() => onToggleDeclining(!isDecliningOnly)}
+                            className={`ml-2 px-1.5 py-0.5 rounded text-[7px] transition-all ${isDecliningOnly ? 'bg-rose-600 text-white shadow-sm' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                        >
+                            {isDecliningOnly ? 'Declining Only' : 'All Top 10'}
+                        </button>
+                    )}
+                </span>
+                <div className="flex gap-3 items-center text-[9px]">
+                    <div className="flex items-center gap-1">
+                        <div className={`w-2 h-2 rounded-sm ${barColor}`}></div>
+                        <span className="text-[8px] font-bold text-gray-500">Current</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                        <div className={`w-2 h-2 rounded-sm ${prevBarColor}`}></div>
+                        <span className="text-[8px] font-bold text-gray-400">{compareLabel}</span>
+                    </div>
+                </div>
+            </h4>
+
+            <div className="flex-1 flex items-end justify-between px-2 pt-10 pb-12 relative min-h-0 bg-gray-50/30 rounded-lg">
+                {/* Y-Axis Grid Lines */}
+                <div className="absolute inset-0 pt-10 pb-12 px-2 pointer-events-none">
+                    {[0.25, 0.5, 0.75, 1].map((p, i) => (
+                        <div key={i} className="absolute w-full border-t border-gray-100" style={{ bottom: `${p * 100}%` }}>
+                            <span className="absolute -left-1 transform -translate-x-full -translate-y-1/2 text-[7px] text-gray-400 font-bold bg-white/80 px-1 rounded">
+                                {formatLargeValue(maxVal * p, true)}
+                            </span>
+                        </div>
+                    ))}
+                    <div className="absolute w-full border-b border-gray-300 bottom-0"></div>
+                </div>
+
+                {sorted.map((item, i) => {
+                    const currHeight = (item.value / maxVal) * 100;
+                    const prevHeight = (item.previous || 0) / maxVal * 100;
+                    const diff = item.previous ? ((item.value - item.previous) / item.previous) * 100 : (item.value > 0 ? 100 : 0);
+                    const isPositive = diff >= 0;
+
+                    return (
+                        <div key={i} className="flex flex-col items-center flex-1 h-full relative group mx-0.5">
+                            {/* % Change & Arrow - Floating above bars with glassmorphism effect */}
+                            <div className={`absolute -top-7 flex items-center gap-0.5 px-1.5 py-0.5 rounded-full shadow-sm text-[8px] font-black z-10 transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-md ${isPositive ? 'bg-emerald-100/90 text-emerald-700 border border-emerald-200' : 'bg-rose-100/90 text-rose-700 border border-rose-200'}`}>
+                                {isPositive ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />}
+                                {Math.abs(diff).toFixed(0)}%
+                            </div>
+
+                            <div className="flex items-end h-full gap-[3px] z-10">
+                                {/* Previous FY Bar - Sleek Gray */}
+                                <div
+                                    className={`${prevBarColor} w-2 sm:w-3 md:w-4 rounded-t-sm transition-all duration-700 relative hover:brightness-95`}
+                                    style={{ height: `${prevHeight}%` }}
+                                >
+                                    <div className="absolute -top-5 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 text-[7px] font-black text-gray-500 whitespace-nowrap bg-white/95 backdrop-blur-sm px-1.5 py-0.5 rounded shadow-xl border border-gray-200 z-30 pointer-events-none transition-all duration-200">
+                                        {formatLargeValue(item.previous || 0, true)}
+                                    </div>
+                                </div>
+                                {/* Current FY Bar - Vibrant Blue/Green */}
+                                <div
+                                    className={`${barColor} w-2 sm:w-3 md:w-4 rounded-t-sm transition-all duration-700 relative shadow-[0_4px_12px_rgba(0,0,0,0.1)] group-hover:brightness-110 group-hover:scale-x-110 cursor-pointer overflow-hidden`}
+                                    style={{ height: `${currHeight}%` }}
+                                >
+                                    {/* Glass reflection effect on bar */}
+                                    <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent opacity-30"></div>
+                                    <div className="absolute -top-5 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 text-[7px] font-black text-blue-700 whitespace-nowrap bg-white/95 backdrop-blur-sm px-1.5 py-0.5 rounded shadow-xl border border-blue-200 z-30 pointer-events-none transition-all duration-200">
+                                        {formatLargeValue(item.value, true)}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Label - Angled for space efficiency */}
+                            <div className="absolute -bottom-1 w-[200%] h-12 overflow-visible flex justify-center pointer-events-none">
+                                <span
+                                    className="text-[8px] font-black text-gray-500 text-center truncate w-32 transform -rotate-45 origin-top-center mt-3 pr-2 transition-colors group-hover:text-blue-600"
+                                    title={item.label}
+                                >
+                                    {item.label}
+                                </span>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+});
+
 interface GroupedCustomerAnalysisProps {
     data: { group: string, total: number, totalPrevious: number, customers: { name: string, current: number, previous: number, diff: number }[] }[];
     compareLabel?: string;
@@ -671,6 +787,7 @@ const DashboardView: React.FC<DashboardViewProps> = React.memo(({
 }) => {
     const [invDisplayLimit, setInvDisplayLimit] = useState(100);
     const [activeSubTab, setActiveSubTab] = useState<'sales' | 'inventory' | 'so' | 'po' | 'weekly' | 'stockPlanning' | 'customerAnalysis'>('sales');
+    const [decliningOnlyTopTen, setDecliningOnlyTopTen] = useState(false);
     const [relatedMomId, setRelatedMomId] = useState<string | null>(null);
     const [weeklyBenchmarks, setWeeklyBenchmarks] = useState<{ [key: string]: any }>(() => {
         const saved = localStorage.getItem('weeklyBenchmarks');
@@ -1103,11 +1220,17 @@ const DashboardView: React.FC<DashboardViewProps> = React.memo(({
             custMap.get(name)!.previous += (i.value || 0);
         });
         
-        return Array.from(custMap.entries())
-            .map(([label, v]) => ({ label, value: v.current, previous: v.previous, latest: v.latest }))
+        let items = Array.from(custMap.entries())
+            .map(([label, v]) => ({ label, value: v.current, previous: v.previous, latest: v.latest }));
+
+        if (decliningOnlyTopTen) {
+            items = items.filter(i => i.value < (i.previous || 0));
+        }
+
+        return items
             .sort((a, b) => b.value - a.value)
             .slice(0, 10);
-    }, [currentData, previousDataForComparison, yoyData, timeView]);
+    }, [currentData, previousDataForComparison, yoyData, timeView, decliningOnlyTopTen]);
 
     const normalizeCustomerName = (name: string): string => {
         if (!name) return 'Unknown';
@@ -1917,11 +2040,13 @@ const DashboardView: React.FC<DashboardViewProps> = React.memo(({
                             </div>
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
                                 <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm h-[380px] flex flex-col overflow-hidden transition-all hover:shadow-md">
-                                    <HorizontalBarChart
+                                    <VerticalComparisonChart
                                         data={topTenCustomers}
                                         title="Universal Top 10 Customers"
                                         color="emerald"
                                         compareLabel={timeView === 'WEEK' ? 'Prev Week' : timeView === 'MONTH' ? 'Prev Month' : 'LY (YTD)'}
+                                        isDecliningOnly={decliningOnlyTopTen}
+                                        onToggleDeclining={setDecliningOnlyTopTen}
                                     />
                                 </div>
                                 <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm h-[380px] flex flex-col overflow-hidden transition-all hover:shadow-md">
