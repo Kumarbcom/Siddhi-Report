@@ -547,6 +547,75 @@ const VerticalComparisonChart = React.memo(({
     );
 });
 
+
+const SimpleVerticalBarChart = React.memo(({
+    data,
+    title,
+    color = 'blue',
+    isCurrency = false
+}: {
+    data: { label: string; value: number, color?: string }[],
+    title: string,
+    color?: string,
+    isCurrency?: boolean
+}) => {
+    // Take top 10 for readability
+    const sorted = [...data].sort((a, b) => (b.value || 0) - (a.value || 0)).slice(0, 10);
+    const maxVal = Math.max(...sorted.map(d => d.value), 1);
+
+    const barColor = color === 'emerald' ? 'bg-emerald-600' : color === 'purple' ? 'bg-purple-600' : color === 'rose' ? 'bg-rose-600' : 'bg-blue-600';
+
+    return (
+        <div className="flex flex-col h-full w-full overflow-hidden">
+            <h4 className="text-[10px] font-black text-gray-500 uppercase mb-4 border-b border-gray-100 pb-1 flex justify-between items-center">
+                <span className="flex items-center gap-2">
+                    <BarChart3 className="w-3.5 h-3.5 text-blue-500" />
+                    {title}
+                </span>
+            </h4>
+
+            <div className="flex-1 flex items-end justify-between px-2 pt-10 pb-12 relative min-h-0 bg-gray-50/30 rounded-lg">
+                <div className="absolute inset-0 pt-10 pb-12 px-2 pointer-events-none">
+                    {[0.25, 0.5, 0.75, 1].map((p, i) => (
+                        <div key={i} className="absolute w-full border-t border-gray-100" style={{ bottom: `${p * 100}%` }}>
+                            <span className="absolute -left-1 transform -translate-x-full -translate-y-1/2 text-[7px] text-gray-400 font-bold bg-white/80 px-1 rounded whitespace-nowrap">
+                                {formatLargeValue(maxVal * p, isCurrency)}
+                            </span>
+                        </div>
+                    ))}
+                    <div className="absolute w-full border-b border-gray-300 bottom-0"></div>
+                </div>
+
+                {sorted.map((item, i) => {
+                    const height = (item.value / maxVal) * 100;
+                    return (
+                        <div key={i} className="flex flex-col items-center flex-1 h-full relative group mx-0.5">
+                            <div
+                                className={`${barColor} w-[60%] sm:w-[50%] rounded-t-sm transition-all duration-700 relative shadow-sm group-hover:brightness-110 group-hover:scale-x-110 cursor-pointer overflow-hidden`}
+                                style={{ height: `${height}%` }}
+                            >
+                                <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent opacity-20"></div>
+                                <div className="absolute -top-5 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 text-[8px] font-black text-blue-700 whitespace-nowrap bg-white/95 backdrop-blur-sm px-1.5 py-0.5 rounded shadow-xl border border-blue-200 z-30 pointer-events-none transition-all duration-200">
+                                    {formatLargeValue(item.value, isCurrency)}
+                                </div>
+                            </div>
+                            <div className="absolute -bottom-1 w-[200%] h-12 overflow-visible flex justify-center pointer-events-none">
+                                <span
+                                    className="text-[8px] font-black text-gray-400 text-center truncate w-24 transform -rotate-30 md:-rotate-45 origin-top-center mt-3 pr-2 transition-colors group-hover:text-blue-600"
+                                    title={item.label}
+                                >
+                                    {item.label}
+                                </span>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+});
+
+
 interface GroupedCustomerAnalysisProps {
     data: { group: string, total: number, totalPrevious: number, customers: { name: string, current: number, previous: number, diff: number }[] }[];
     compareLabel?: string;
@@ -2030,11 +2099,11 @@ const DashboardView: React.FC<DashboardViewProps> = React.memo(({
 
                                 {/* Revenue Mix (1/3 width) */}
                                 <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex flex-col h-72 overflow-hidden transition-all hover:shadow-md">
-                                    <ModernDonutChartDashboard
+                                    <SimpleVerticalBarChart
                                         data={groupedCustomerData.map(g => ({ label: g.group, value: g.total }))}
                                         title={`Revenue by ${groupingMode === 'RAW' ? 'Customer Group' : 'Merged Group'}`}
                                         isCurrency={true}
-                                        centerColorClass="text-blue-700"
+                                        color="blue"
                                     />
                                 </div>
                             </div>
@@ -2087,35 +2156,35 @@ const DashboardView: React.FC<DashboardViewProps> = React.memo(({
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 gap-4">
                                 <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80 flex flex-col">
-                                    <ModernDonutChartDashboard
+                                    <SimpleVerticalBarChart
                                         data={inventoryStats.makeMix}
                                         title={`Inventory by Make (${invGroupMetric === 'value' ? 'Val' : 'Qty'})`}
                                         isCurrency={invGroupMetric === 'value'}
-                                        centerColorClass="text-emerald-600"
+                                        color="emerald"
                                     />
                                 </div>
-                                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80 flex flex-col">
-                                    <ModernDonutChartDashboard
+                                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80 flex flex-col transition-all hover:shadow-md">
+                                    <SimpleVerticalBarChart
                                         data={inventoryStats.groupMix}
                                         title={`Inventory by Group (${invGroupMetric === 'value' ? 'Val' : 'Qty'})`}
                                         isCurrency={invGroupMetric === 'value'}
-                                        centerColorClass="text-blue-600"
+                                        color="blue"
                                     />
                                 </div>
-                                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80 flex flex-col">
-                                    <HorizontalBarChart
+                                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80 flex flex-col transition-all hover:shadow-md">
+                                    <SimpleVerticalBarChart
                                         data={inventoryStats.topStock}
                                         title="Top 10 High Value Stock Items"
                                         color="emerald"
-                                        totalForPercentage={inventoryStats.totalVal}
+                                        isCurrency={true}
                                     />
                                 </div>
-                                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80 flex flex-col">
-                                    <HorizontalBarChart
+                                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80 flex flex-col transition-all hover:shadow-md">
+                                    <SimpleVerticalBarChart
                                         data={inventoryStats.topExcess}
                                         title="Top 10 Excess Stock Items"
                                         color="rose"
-                                        totalForPercentage={inventoryStats.totalExcessVal}
+                                        isCurrency={true}
                                     />
                                 </div>
                             </div>
@@ -2284,14 +2353,14 @@ const DashboardView: React.FC<DashboardViewProps> = React.memo(({
                                 </div>
                             </div>
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80">
-                                    <ModernDonutChartDashboard data={soStats.ageing} title="SO Ageing Analysis" isCurrency={true} centerColorClass="text-blue-600" />
+                                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80 transition-all hover:shadow-md">
+                                    <SimpleVerticalBarChart data={soStats.ageing} title="SO Ageing Analysis" isCurrency={true} color="blue" />
                                 </div>
-                                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80">
-                                    <ModernDonutChartDashboard data={soStats.groupMix} title="SO by Material Group" isCurrency={true} centerColorClass="text-emerald-600" />
+                                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80 transition-all hover:shadow-md">
+                                    <SimpleVerticalBarChart data={soStats.groupMix} title="SO by Material Group" isCurrency={true} color="emerald" />
                                 </div>
-                                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80">
-                                    <ModernDonutChartDashboard data={soStats.custMix} title="Customer Concentration" isCurrency={true} centerColorClass="text-indigo-600" />
+                                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80 transition-all hover:shadow-md">
+                                    <SimpleVerticalBarChart data={soStats.custMix} title="Customer Concentration" isCurrency={true} color="purple" />
                                 </div>
                             </div>
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -2337,13 +2406,12 @@ const DashboardView: React.FC<DashboardViewProps> = React.memo(({
                                         </table>
                                     </div>
                                 </div>
-                                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm min-h-96">
-                                    <HorizontalBarChart
+                                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm min-h-96 transition-all hover:shadow-md">
+                                    <SimpleVerticalBarChart
                                         data={soStats.custMix}
                                         title="Pending SO by Customer"
                                         color="blue"
-                                        isStacked={true}
-                                        secondaryLabel="Scheduled"
+                                        isCurrency={true}
                                     />
                                 </div>
                             </div>
@@ -2373,14 +2441,14 @@ const DashboardView: React.FC<DashboardViewProps> = React.memo(({
                                 </div>
                             </div>
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80">
-                                    <ModernDonutChartDashboard data={poStats.dueMix} title="PO Delivery Schedule" isCurrency={true} centerColorClass="text-emerald-600" />
+                                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80 transition-all hover:shadow-md">
+                                    <SimpleVerticalBarChart data={poStats.dueMix} title="PO Delivery Schedule" isCurrency={true} color="emerald" />
                                 </div>
-                                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80">
-                                    <ModernDonutChartDashboard data={poStats.groupMix} title="PO by Material Group" isCurrency={true} centerColorClass="text-blue-600" />
+                                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80 transition-all hover:shadow-md">
+                                    <SimpleVerticalBarChart data={poStats.groupMix} title="PO by Material Group" isCurrency={true} color="blue" />
                                 </div>
-                                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80">
-                                    <ModernDonutChartDashboard data={poStats.vendorMix} title="Vendor Concentration" isCurrency={true} centerColorClass="text-purple-600" />
+                                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80 transition-all hover:shadow-md">
+                                    <SimpleVerticalBarChart data={poStats.vendorMix} title="Vendor Concentration" isCurrency={true} color="purple" />
                                 </div>
                             </div>
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -2399,8 +2467,8 @@ const DashboardView: React.FC<DashboardViewProps> = React.memo(({
                                         </table>
                                     </div>
                                 </div>
-                                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm min-h-96">
-                                    <HorizontalBarChart data={poStats.vendorMix} title="Pending PO by Vendor" color="emerald" />
+                                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm min-h-96 transition-all hover:shadow-md">
+                                    <SimpleVerticalBarChart data={poStats.vendorMix} title="Pending PO by Vendor" color="emerald" isCurrency={true} />
                                 </div>
                             </div>
                         </div>
@@ -2921,13 +2989,12 @@ const DashboardView: React.FC<DashboardViewProps> = React.memo(({
                                             const refillCount = filteredStockPlanning.filter(i => i.netQty >= i.minStock && i.netQty < i.rol).length;
                                             const healthyCount = filteredStockPlanning.filter(i => i.netQty >= i.rol).length;
                                             return (
-                                                <ModernDonutChartDashboard
+                                                <SimpleVerticalBarChart
                                                     title="STOCK HEALTH"
-                                                    centerColorClass="text-indigo-600"
                                                     data={[
-                                                        { label: 'CRITICAL', value: shortageCount, color: '#e11d48' },
-                                                        { label: 'NEED REFILL', value: refillCount, color: '#f59e0b' },
-                                                        { label: 'HEALTHY', value: healthyCount, color: '#10b981' }
+                                                        { label: 'CRITICAL', value: shortageCount, color: 'rose' },
+                                                        { label: 'NEED REFILL', value: refillCount, color: 'orange' },
+                                                        { label: 'HEALTHY', value: healthyCount, color: 'emerald' }
                                                     ]}
                                                 />
                                             );
