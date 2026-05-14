@@ -280,78 +280,87 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
     };
 
     const handleExport = () => {
-        if (filteredData.length === 0) {
-            alert("No data to export");
-            return;
+        console.log("🚀 Exporting Strategy Report...");
+        try {
+            if (filteredData.length === 0) {
+                alert("No data to export");
+                return;
+            }
+
+            const exportData = filteredData.map(r => ({
+                'Make': r.make || '',
+                'Group': r.materialGroup || '',
+                'Description': r.description || '',
+                'Stock Qty': Number(r.stock.qty) || 0,
+                'Stock Val': Math.round(Number(r.stock.val)) || 0,
+                'SO Cur Qty': Number(r.so.curQty) || 0,
+                'SO Sch Qty': Number(r.so.schQty) || 0,
+                'SO Total Qty': Number(r.so.qty) || 0,
+                'PO Cur Qty': Number(r.po.curQty) || 0,
+                'PO Sch Qty': Number(r.po.schQty) || 0,
+                'PO Total Qty': Number(r.po.qty) || 0,
+                'Net Qty': Number(r.net.qty) || 0,
+                'Net Val': Math.round(Number(r.net.val)) || 0,
+                'Avg 3M Qty': (Number(r.avg3m.qty) || 0).toFixed(2),
+                'Avg 1Y Qty': (Number(r.avg1y.qty) || 0).toFixed(2),
+                'Trend %': (Math.round(Number(r.growth.pct)) || 0) + '%',
+                'Min Level': Number(r.levels.min.qty) || 0,
+                'Reorder Level': Number(r.levels.reorder.qty) || 0,
+                'Max Level': Number(r.levels.max.qty) || 0,
+                'Excess Stock Qty': Number(r.actions.excessStock.qty) || 0,
+                'Excess Stock Val': Math.round(Number(r.actions.excessStock.val)) || 0,
+                'Excess PO Qty': Number(r.actions.excessPO.qty) || 0,
+                'Excess PO Val': Math.round(Number(r.actions.excessPO.val)) || 0,
+                'PO Need Qty': Number(r.actions.poNeed.qty) || 0,
+                'PO Need Val': Math.round(Number(r.actions.poNeed.val)) || 0,
+                'Expedite Qty': Number(r.actions.expedite.qty) || 0,
+                'Expedite Val': Math.round(Number(r.actions.expedite.val)) || 0
+            }));
+
+            const ws = utils.json_to_sheet(exportData);
+            const wb = utils.book_new();
+            utils.book_append_sheet(wb, ws, "Strategy_Report");
+            
+            // Add summary row
+            const summaryRow = {
+                'Make': 'TOTALS',
+                'Group': '',
+                'Description': `${filteredData.length} ITEMS`,
+                'Stock Qty': totals.stockQty,
+                'Stock Val': Math.round(totals.stockVal),
+                'SO Cur Qty': totals.soCur,
+                'SO Sch Qty': totals.soSch,
+                'SO Total Qty': totals.soTot,
+                'PO Cur Qty': totals.poCur,
+                'PO Sch Qty': totals.poSch,
+                'PO Total Qty': totals.poTot,
+                'Net Qty': totals.netQty,
+                'Net Val': Math.round(totals.netVal),
+                'Avg 3M Qty': totals.avg3m.toFixed(2),
+                'Avg 1Y Qty': totals.avg1y.toFixed(2),
+                'Trend %': '',
+                'Min Level': totals.min,
+                'Reorder Level': totals.re,
+                'Max Level': totals.max,
+                'Excess Stock Qty': totals.exSQty,
+                'Excess Stock Val': Math.round(totals.exSVal),
+                'Excess PO Qty': totals.exPQty,
+                'Excess PO Val': Math.round(totals.exPVal),
+                'PO Need Qty': totals.needQty,
+                'PO Need Val': Math.round(totals.needVal),
+                'Expedite Qty': totals.expQty,
+                'Expedite Val': Math.round(totals.expVal)
+            };
+            
+            utils.sheet_add_json(ws, [summaryRow], { skipHeader: true, origin: -1 });
+
+            const fileName = `Strategy_Report_${new Date().toISOString().split('T')[0]}.xlsx`;
+            writeFile(wb, fileName);
+            console.log("✅ Export successful:", fileName);
+        } catch (error) {
+            console.error("❌ Export failed:", error);
+            alert("Export failed: " + (error instanceof Error ? error.message : String(error)));
         }
-
-        const exportData = filteredData.map(r => ({
-            'Make': r.make,
-            'Group': r.materialGroup,
-            'Description': r.description,
-            'Stock Qty': r.stock.qty,
-            'Stock Val': Math.round(r.stock.val),
-            'SO Cur Qty': r.so.curQty,
-            'SO Sch Qty': r.so.schQty,
-            'SO Total Qty': r.so.qty,
-            'PO Cur Qty': r.po.curQty,
-            'PO Sch Qty': r.po.schQty,
-            'PO Total Qty': r.po.qty,
-            'Net Qty': r.net.qty,
-            'Net Val': Math.round(r.net.val),
-            'Avg 3M Qty': r.avg3m.qty.toFixed(2),
-            'Avg 1Y Qty': r.avg1y.qty.toFixed(2),
-            'Trend %': Math.round(r.growth.pct) + '%',
-            'Min Level': r.levels.min.qty,
-            'Reorder Level': r.levels.reorder.qty,
-            'Max Level': r.levels.max.qty,
-            'Excess Stock Qty': r.actions.excessStock.qty,
-            'Excess Stock Val': Math.round(r.actions.excessStock.val),
-            'Excess PO Qty': r.actions.excessPO.qty,
-            'Excess PO Val': Math.round(r.actions.excessPO.val),
-            'PO Need Qty': r.actions.poNeed.qty,
-            'PO Need Val': Math.round(r.actions.poNeed.val),
-            'Expedite Qty': r.actions.expedite.qty,
-            'Expedite Val': Math.round(r.actions.expedite.val)
-        }));
-
-        const ws = utils.json_to_sheet(exportData);
-        const wb = utils.book_new();
-        utils.book_append_sheet(wb, ws, "Strategy_Report");
-        
-        // Add summary row
-        const summaryData = [{
-            'Make': 'TOTALS',
-            'Group': '',
-            'Description': `${filteredData.length} ITEMS`,
-            'Stock Qty': totals.stockQty,
-            'Stock Val': Math.round(totals.stockVal),
-            'SO Cur Qty': totals.soCur,
-            'SO Sch Qty': totals.soSch,
-            'SO Total Qty': totals.soTot,
-            'PO Cur Qty': totals.poCur,
-            'PO Sch Qty': totals.poSch,
-            'PO Total Qty': totals.poTot,
-            'Net Qty': totals.netQty,
-            'Net Val': Math.round(totals.netVal),
-            'Avg 3M Qty': totals.avg3m.toFixed(2),
-            'Avg 1Y Qty': totals.avg1y.toFixed(2),
-            'Trend %': '',
-            'Min Level': totals.min,
-            'Reorder Level': totals.re,
-            'Max Level': totals.max,
-            'Excess Stock Qty': totals.exSQty,
-            'Excess Stock Val': Math.round(totals.exSVal),
-            'Excess PO Qty': totals.exPQty,
-            'Excess PO Val': Math.round(totals.exPVal),
-            'PO Need Qty': totals.needQty,
-            'PO Need Val': Math.round(totals.needVal),
-            'Expedite Qty': totals.expQty,
-            'Expedite Val': Math.round(totals.expVal)
-        }];
-        utils.sheet_add_json(ws, summaryData, { skipHeader: true, origin: -1 });
-
-        writeFile(wb, `Strategy_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
     };
 
     const renderSortIcon = (key: SortPath) => {
