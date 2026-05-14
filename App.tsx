@@ -258,7 +258,7 @@ const App: React.FC = () => {
         if (storedS1Y) setSales1Year(JSON.parse(storedS1Y));
         const storedS3M = localStorage.getItem(STORAGE_KEY_SALES_3M);
         if (storedS3M) setSales3Months(JSON.parse(storedS3M));
-      } catch (e) { console.error("Parse Error:", e); }
+      } catch (e: any) { console.error("Parse Error:", e); }
 
       // 3. Mark app as loaded so user sees UI immediately
       setIsDataLoaded(true);
@@ -295,7 +295,7 @@ const App: React.FC = () => {
           setSalesReportItems(syncedSales);
 
           console.log('✅ Background sync complete.');
-        } catch (e) {
+        } catch (e: any) {
           console.error("Background sync failed:", e);
           setDbStatus('partial');
         } finally {

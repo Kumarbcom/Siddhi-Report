@@ -279,6 +279,81 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
         setSlicerGroup('ALL');
     };
 
+    const handleExport = () => {
+        if (filteredData.length === 0) {
+            alert("No data to export");
+            return;
+        }
+
+        const exportData = filteredData.map(r => ({
+            'Make': r.make,
+            'Group': r.materialGroup,
+            'Description': r.description,
+            'Stock Qty': r.stock.qty,
+            'Stock Val': Math.round(r.stock.val),
+            'SO Cur Qty': r.so.curQty,
+            'SO Sch Qty': r.so.schQty,
+            'SO Total Qty': r.so.qty,
+            'PO Cur Qty': r.po.curQty,
+            'PO Sch Qty': r.po.schQty,
+            'PO Total Qty': r.po.qty,
+            'Net Qty': r.net.qty,
+            'Net Val': Math.round(r.net.val),
+            'Avg 3M Qty': r.avg3m.qty.toFixed(2),
+            'Avg 1Y Qty': r.avg1y.qty.toFixed(2),
+            'Trend %': Math.round(r.growth.pct) + '%',
+            'Min Level': r.levels.min.qty,
+            'Reorder Level': r.levels.reorder.qty,
+            'Max Level': r.levels.max.qty,
+            'Excess Stock Qty': r.actions.excessStock.qty,
+            'Excess Stock Val': Math.round(r.actions.excessStock.val),
+            'Excess PO Qty': r.actions.excessPO.qty,
+            'Excess PO Val': Math.round(r.actions.excessPO.val),
+            'PO Need Qty': r.actions.poNeed.qty,
+            'PO Need Val': Math.round(r.actions.poNeed.val),
+            'Expedite Qty': r.actions.expedite.qty,
+            'Expedite Val': Math.round(r.actions.expedite.val)
+        }));
+
+        const ws = utils.json_to_sheet(exportData);
+        const wb = utils.book_new();
+        utils.book_append_sheet(wb, ws, "Strategy_Report");
+        
+        // Add summary row
+        const summaryData = [{
+            'Make': 'TOTALS',
+            'Group': '',
+            'Description': `${filteredData.length} ITEMS`,
+            'Stock Qty': totals.stockQty,
+            'Stock Val': Math.round(totals.stockVal),
+            'SO Cur Qty': totals.soCur,
+            'SO Sch Qty': totals.soSch,
+            'SO Total Qty': totals.soTot,
+            'PO Cur Qty': totals.poCur,
+            'PO Sch Qty': totals.poSch,
+            'PO Total Qty': totals.poTot,
+            'Net Qty': totals.netQty,
+            'Net Val': Math.round(totals.netVal),
+            'Avg 3M Qty': totals.avg3m.toFixed(2),
+            'Avg 1Y Qty': totals.avg1y.toFixed(2),
+            'Trend %': '',
+            'Min Level': totals.min,
+            'Reorder Level': totals.re,
+            'Max Level': totals.max,
+            'Excess Stock Qty': totals.exSQty,
+            'Excess Stock Val': Math.round(totals.exSVal),
+            'Excess PO Qty': totals.exPQty,
+            'Excess PO Val': Math.round(totals.exPVal),
+            'PO Need Qty': totals.needQty,
+            'PO Need Val': Math.round(totals.needVal),
+            'Expedite Qty': totals.expQty,
+            'Expedite Val': Math.round(totals.expVal)
+        }];
+        utils.sheet_add_json(ws, summaryData, { skipHeader: true, origin: -1 });
+
+        writeFile(wb, `Strategy_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+    };
+
     const renderSortIcon = (key: SortPath) => {
         if (!sortConfig || sortConfig.key !== key) return <ArrowUpDown className="w-2 h-2 text-gray-300 ml-1" />;
         return sortConfig.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5 text-indigo-600 ml-1" /> : <ArrowDown className="w-2.5 h-2.5 text-indigo-600 ml-1" />;
@@ -294,7 +369,7 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                     </div>
                     <div className="flex items-center gap-2">
                         <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" /><input type="text" placeholder="Search..." className="pl-9 pr-3 py-1.5 border border-gray-300 rounded-lg text-xs outline-none w-64" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} /></div>
-                        <button onClick={() => {}} className="flex items-center gap-1 px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs font-bold border border-green-100"><FileDown className="w-3.5 h-3.5" /> Export</button>
+                        <button onClick={handleExport} className="flex items-center gap-1 px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs font-bold border border-green-100 hover:bg-green-100 transition-colors shadow-sm"><FileDown className="w-3.5 h-3.5" /> Export</button>
                     </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-4 border-t pt-3">
