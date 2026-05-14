@@ -55,10 +55,9 @@ const GrowthBadge = ({ curr, prev }: { curr: number; prev: number }) => {
 };
 
 const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
-    salesReportItems,
-    customers
+    salesReportItems = [],
+    customers = []
 }) => {
-    const [viewMode, setViewMode] = useState<'count' | 'value'>('value');
     const [comparisonMode, setComparisonMode] = useState<'ytd' | 'full'>('full');
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedGroup, setSelectedGroup] = useState<string>('ALL');

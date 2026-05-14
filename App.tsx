@@ -17,7 +17,7 @@ const AttendeeMasterView = lazy(() => import('./components/AttendeeMasterView'))
 const ChatView = lazy(() => import('./components/ChatView'));
 const UserManagementView = lazy(() => import('./components/UserManagementView'));
 const SupplyChainAnalyticsView = lazy(() => import('./components/SupplyChainAnalyticsView'));
-const CustomerFYAnalysisView = lazy(() => import('./components/CustomerFYAnalysisView'));
+import CustomerFYAnalysisView from './components/CustomerFYAnalysisView';
 const ConfirmationModal = lazy(() => import('./components/ConfirmationModal'));
 
 import {
@@ -904,7 +904,7 @@ const App: React.FC = () => {
                 <SidebarItem id="pendingSO" label="Pending SO" icon={ClipboardList} count={pendingSOItems.length} onClick={setActiveTab} />
                 <SidebarItem id="pendingPO" label="Pending PO" icon={ShoppingCart} count={pendingPOItems.length} onClick={setActiveTab} />
                 <SidebarItem id="salesReport" label="Sales Report" icon={FileBarChart} count={salesReportItems.length} onClick={setActiveTab} />
-                <SidebarItem id="customerFYAnalysis" label="Customer FY Analysis" icon={TrendingUp} onClick={setActiveTab} />
+                <SidebarItem id="customerFYAnalysis" label="Customer Analysis" icon={TrendingUp} onClick={setActiveTab} />
                 <SidebarItem id="mom" label="Weekly MOM" icon={ClipboardList} onClick={setActiveTab} />
                 <SidebarItem id="attendees" label="Attendee Master" icon={UserCircle} onClick={setActiveTab} />
               </div>
