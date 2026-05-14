@@ -63,7 +63,7 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedGroup, setSelectedGroup] = useState<string>('ALL');
     const [pivotBy, setPivotBy] = useState<'group' | 'customerGroup'>('group');
-    const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>({ key: 'fy202526_value', direction: 'desc' });
+    const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>({ key: 'f3_value', direction: 'desc' });
 
     const uniqueGroups = useMemo(() => {
         const groups = new Set<string>();
@@ -103,14 +103,26 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
 
     const currentFY = getFiscalYear(lastSalesDate);
 
-    const customerSalesByFY = useMemo(() => {
-        const data: Record<string, any> = {};
-        const fy24Start = new Date(2024, 3, 1);   // April 1, 2024
-        const fy25Start = new Date(2025, 3, 1);   // April 1, 2025
-
-        // YTD cutoff: same day last year for prior, this year for current
+    const fyInfo = useMemo(() => {
+        const currentFYStr = getFiscalYear(lastSalesDate);
+        const [currStartYear] = currentFYStr.split('-').map(Number);
+        
+        const f3 = currentFYStr;
+        const f2 = `${currStartYear - 1}-${currStartYear.toString().slice(-2)}`;
+        const f1 = `${currStartYear - 2}-${(currStartYear - 1).toString().slice(-2)}`;
+        
+        const f3Start = new Date(currStartYear, 3, 1);
+        const f2Start = new Date(currStartYear - 1, 3, 1);
+        const f1Start = new Date(currStartYear - 2, 3, 1);
+        
         const currentYTDEnd = lastSalesDate;
         const prevYTDEnd = new Date(lastSalesDate.getFullYear() - 1, lastSalesDate.getMonth(), lastSalesDate.getDate());
+        
+        return { f1, f2, f3, f1Start, f2Start, f3Start, currentYTDEnd, prevYTDEnd };
+    }, [lastSalesDate]);
+
+    const customerSalesByFY = useMemo(() => {
+        const data: Record<string, any> = {};
 
         const dateCache = new Map<any, Date>();
         const getDateFast = (val: any) => {
@@ -126,12 +138,10 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
             if (!invoiceDate) return;
             const fy = getFiscalYear(invoiceDate);
 
-            // Case-insensitive + trimmed customer name matching
             const rawName = (sale.customerName || '').trim();
             const lookupKey = rawName.toLowerCase();
             const custInfo = customerMap.get(lookupKey);
 
-            // Use the canonical name from master if found, else use the sales name
             const custName = custInfo ? custInfo.customerName : rawName || 'Unknown Customer';
 
             if (!data[custName]) {
@@ -139,36 +149,35 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
                     customerName: custName,
                     group: getNormalizedGroup(custInfo?.group),
                     customerGroup: custInfo?.customerGroup || 'Unspecified',
-                    fy202324: { qty: 0, value: 0 },
-                    fy202425: { qty: 0, value: 0 },
-                    fy202526: { qty: 0, value: 0 },
-                    ytd202425: { qty: 0, value: 0 },
-                    ytd202526: { qty: 0, value: 0 }
+                    f1: { qty: 0, value: 0 },
+                    f2: { qty: 0, value: 0 },
+                    f3: { qty: 0, value: 0 },
+                    ytdF2: { qty: 0, value: 0 },
+                    ytdF3: { qty: 0, value: 0 }
                 };
             }
 
             const qty = parseFloat(String(sale.quantity || 0));
             const value = parseFloat(String(sale.value || 0));
 
-            if (fy === '2023-24') { data[custName].fy202324.qty += qty; data[custName].fy202324.value += value; }
-            else if (fy === '2024-25') { data[custName].fy202425.qty += qty; data[custName].fy202425.value += value; }
-            else if (fy === '2025-26') { data[custName].fy202526.qty += qty; data[custName].fy202526.value += value; }
+            if (fy === fyInfo.f1) { data[custName].f1.qty += qty; data[custName].f1.value += value; }
+            else if (fy === fyInfo.f2) { data[custName].f2.qty += qty; data[custName].f2.value += value; }
+            else if (fy === fyInfo.f3) { data[custName].f3.qty += qty; data[custName].f3.value += value; }
 
-            // YTD 24-25: Apr 1, 2024 → same date last year
-            if (invoiceDate >= fy24Start && invoiceDate <= prevYTDEnd) {
-                data[custName].ytd202425.qty += qty; data[custName].ytd202425.value += value;
+            // YTD Logic
+            if (invoiceDate >= fyInfo.f2Start && invoiceDate <= fyInfo.prevYTDEnd) {
+                data[custName].ytdF2.qty += qty; data[custName].ytdF2.value += value;
             }
-            // YTD 25-26: Apr 1, 2025 → lastSalesDate
-            if (invoiceDate >= fy25Start && invoiceDate <= currentYTDEnd) {
-                data[custName].ytd202526.qty += qty; data[custName].ytd202526.value += value;
+            if (invoiceDate >= fyInfo.f3Start && invoiceDate <= fyInfo.currentYTDEnd) {
+                data[custName].ytdF3.qty += qty; data[custName].ytdF3.value += value;
             }
         });
         return Object.values(data);
-    }, [salesReportItems, customerMap, lastSalesDate]);
+    }, [salesReportItems, customerMap, fyInfo]);
 
     // Get value for current/previous periods respecting comparisonMode
-    const getCurrVal = (c: any) => comparisonMode === 'full' ? c.fy202526.value : c.ytd202526.value;
-    const getPrevVal = (c: any) => comparisonMode === 'full' ? c.fy202425.value : c.ytd202425.value;
+    const getCurrVal = (c: any) => comparisonMode === 'full' ? c.f3.value : c.ytdF3.value;
+    const getPrevVal = (c: any) => comparisonMode === 'full' ? c.f2.value : c.ytdF2.value;
 
     const customerCategories = useMemo(() => {
         const total = new Set<string>();
@@ -178,19 +187,18 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
         const lost = new Set<string>();
 
         customerSalesByFY.forEach(cust => {
-            const has2324 = cust.fy202324.value > 0;
-            const has2425 = cust.fy202425.value > 0;    // always full FY for category context
-            const hasCurr = getCurrVal(cust) > 0;       // current period (mode-aware)
-            const hasPrev = getPrevVal(cust) > 0;        // previous period (mode-aware)
+            const hasPrev2 = cust.f1.value > 0;
+            const hasPrev = cust.f2.value > 0;
+            const hasCurr = getCurrVal(cust) > 0;
+            const hasPrevPeriod = getPrevVal(cust) > 0;
 
             if (hasCurr) {
                 total.add(cust.customerName);
-                if (hasPrev) repeat.add(cust.customerName);                  // bought in both periods
-                else if (!has2324 && !hasPrev) newCust.add(cust.customerName); // brand new
-                else rebuild.add(cust.customerName);                          // was inactive prev period
+                if (hasPrevPeriod) repeat.add(cust.customerName);
+                else if (!hasPrev2 && !hasPrev) newCust.add(cust.customerName);
+                else rebuild.add(cust.customerName);
             }
-            // Lost: had prev period but not current
-            if (hasPrev && !hasCurr) lost.add(cust.customerName);
+            if (hasPrevPeriod && !hasCurr) lost.add(cust.customerName);
         });
 
         return { total, repeat, newCust, rebuild, lost };
@@ -234,7 +242,7 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
                     const bPrev = getPrevVal(b), bCurr = getCurrVal(b);
                     aVal = aPrev > 0 ? ((aCurr - aPrev) / aPrev) * 100 : (aCurr > 0 ? 999 : 0);
                     bVal = bPrev > 0 ? ((bCurr - bPrev) / bPrev) * 100 : (bCurr > 0 ? 999 : 0);
-                } else if (sortConfig.key.includes('qty') || sortConfig.key.includes('value')) {
+                } else if (sortConfig.key.includes('f') && sortConfig.key.includes('_')) {
                     const [fy, metric] = sortConfig.key.split('_');
                     aVal = a[fy][metric]; bVal = b[fy][metric];
                 }
@@ -263,25 +271,25 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
     }, [filteredData, pivotBy]);
 
     const calculateTotals = (items: any[]) => items.reduce((acc, curr) => ({
-        fy2324_qty: acc.fy2324_qty + curr.fy202324.qty,
-        fy2324_val: acc.fy2324_val + curr.fy202324.value,
-        fy2425_qty: acc.fy2425_qty + (comparisonMode === 'full' ? curr.fy202425.qty : curr.ytd202425.qty),
-        fy2425_val: acc.fy2425_val + (comparisonMode === 'full' ? curr.fy202425.value : curr.ytd202425.value),
-        fy2526_qty: acc.fy2526_qty + (comparisonMode === 'full' ? curr.fy202526.qty : curr.ytd202526.qty),
-        fy2526_val: acc.fy2526_val + (comparisonMode === 'full' ? curr.fy202526.value : curr.ytd202526.value),
-        count2425: acc.count2425 + ((comparisonMode === 'full' ? curr.fy202425.value : curr.ytd202425.value) > 0 ? 1 : 0),
-        count2526: acc.count2526 + ((comparisonMode === 'full' ? curr.fy202526.value : curr.ytd202526.value) > 0 ? 1 : 0),
-    }), { fy2324_qty: 0, fy2324_val: 0, fy2425_qty: 0, fy2425_val: 0, fy2526_qty: 0, fy2526_val: 0, count2425: 0, count2526: 0 });
+        f1_qty: acc.f1_qty + curr.f1.qty,
+        f1_val: acc.f1_val + curr.f1.value,
+        f2_qty: acc.f2_qty + (comparisonMode === 'full' ? curr.f2.qty : curr.ytdF2.qty),
+        f2_val: acc.f2_val + (comparisonMode === 'full' ? curr.f2.value : curr.ytdF2.value),
+        f3_qty: acc.f3_qty + (comparisonMode === 'full' ? curr.f3.qty : curr.ytdF3.qty),
+        f3_val: acc.f3_val + (comparisonMode === 'full' ? curr.f3.value : curr.ytdF3.value),
+        countF2: acc.countF2 + ((comparisonMode === 'full' ? curr.f2.value : curr.ytdF2.value) > 0 ? 1 : 0),
+        countF3: acc.countF3 + ((comparisonMode === 'full' ? curr.f3.value : curr.ytdF3.value) > 0 ? 1 : 0),
+    }), { f1_qty: 0, f1_val: 0, f2_qty: 0, f2_val: 0, f3_qty: 0, f3_val: 0, countF2: 0, countF3: 0 });
 
     const handleSort = (key: string) => setSortConfig(prev => ({ key, direction: prev?.key === key && prev.direction === 'asc' ? 'desc' : 'asc' }));
 
     const handleExportToExcel = () => {
         const dataToExport = filteredData.map(c => ({
             'Group': c.group, 'Customer Group': c.customerGroup, 'Customer Name': c.customerName,
-            'FY 23-24 Qty': c.fy202324.qty, 'Value 23-24': c.fy202324.value,
-            'FY 24-25 Qty': c.fy202425.qty, 'Value 24-25': c.fy202425.value,
-            'FY 25-26 Qty': c.fy202526.qty, 'Value 25-26': c.fy202526.value,
-            'YTD 24-25 Value': c.ytd202425.value, 'YTD 25-26 Value': c.ytd202526.value,
+            [`FY ${fyInfo.f1} Qty`]: c.f1.qty, [`Value ${fyInfo.f1}`]: c.f1.value,
+            [`FY ${fyInfo.f2} Qty`]: c.f2.qty, [`Value ${fyInfo.f2}`]: c.f2.value,
+            [`FY ${fyInfo.f3} Qty`]: c.f3.qty, [`Value ${fyInfo.f3}`]: c.f3.value,
+            [`YTD ${fyInfo.f2} Value`]: c.ytdF2.value, [`YTD ${fyInfo.f3} Value`]: c.ytdF3.value,
         }));
         const ws = utils.json_to_sheet(dataToExport);
         const wb = utils.book_new(); utils.book_append_sheet(wb, ws, "Customer Analysis");
@@ -298,10 +306,10 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
                 <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
                     <div className="flex items-center justify-between">
                         <div>
-                            <h1 className="text-2xl font-black text-gray-900 uppercase tracking-tight">Customer Sales – FY Analysis</h1>
+                            <h1 className="text-2xl font-black text-gray-900 uppercase tracking-tight">Customer Analysis {fyInfo.f3}</h1>
                             <p className="text-sm text-gray-500 font-medium mt-1">
                                 Tracking <span className="font-black text-blue-700">{customerSalesByFY.length}</span> unique customers ·{' '}
-                                <span className="font-black text-purple-700">{customerCategories.total.size}</span> active in {periodLabel} 25-26 ·{' '}
+                                <span className="font-black text-purple-700">{customerCategories.total.size}</span> active in {periodLabel} {fyInfo.f3} ·{' '}
                                 <span className="font-black text-indigo-700">{customerSalesByFY.filter(c => getPrevVal(c) > 0).length}</span> active in {lyLabel}
                             </p>
                         </div>
@@ -343,7 +351,7 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
                             </div>
                         </div>
                         <div className="text-3xl font-black text-gray-900 mb-1 tabular-nums">{kpis.total.current.toLocaleString('en-IN')}</div>
-                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Active Customers</div>
+                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">ACTIVE CUSTOMERS</div>
                         <div className="text-[9px] text-gray-400 mt-0.5">vs {kpis.total.previous} in {lyLabel}</div>
                     </div>
 
@@ -356,7 +364,7 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
                             </div>
                         </div>
                         <div className="text-3xl font-black text-gray-900 mb-1 tabular-nums">{kpis.repeat.current.toLocaleString('en-IN')}</div>
-                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Repeat Customers</div>
+                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">REPEAT CUSTOMERS</div>
                         <div className="text-[9px] text-gray-400 mt-0.5">Bought in both {lyLabel} &amp; now</div>
                     </div>
 
@@ -367,7 +375,7 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
                             <span className="text-[10px] font-black px-2 py-1 rounded-lg bg-sky-50 text-sky-700">New</span>
                         </div>
                         <div className="text-3xl font-black text-gray-900 mb-1 tabular-nums">{kpis.new.current.toLocaleString('en-IN')}</div>
-                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">New Customers</div>
+                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">NEW CUSTOMERS</div>
                         <div className="text-[9px] text-gray-400 mt-0.5">First time buyers this period</div>
                     </div>
 
@@ -378,7 +386,7 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
                             <span className="text-[10px] font-black px-2 py-1 rounded-lg bg-orange-50 text-orange-700">Re-engaged</span>
                         </div>
                         <div className="text-3xl font-black text-gray-900 mb-1 tabular-nums">{kpis.rebuild.current.toLocaleString('en-IN')}</div>
-                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Rebuild Customers</div>
+                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">REBUILD CUSTOMERS</div>
                         <div className="text-[9px] text-gray-400 mt-0.5">Silent last period, active now</div>
                     </div>
 
@@ -389,7 +397,7 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
                             <span className={`text-[10px] font-black px-2 py-1 rounded-lg ${kpis.lost.current > 0 ? 'bg-rose-50 text-rose-700' : 'bg-gray-50 text-gray-500'}`}>At Risk</span>
                         </div>
                         <div className="text-3xl font-black text-gray-900 mb-1 tabular-nums">{kpis.lost.current.toLocaleString('en-IN')}</div>
-                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Lost Customers</div>
+                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">LOST CUSTOMERS</div>
                         <div className="text-[9px] text-gray-400 mt-0.5">Active in {lyLabel}, silent now</div>
                     </div>
                 </div>
@@ -419,9 +427,9 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
                                     <th className="sticky left-0 z-50 py-1 px-4 text-left border-r border-gray-300 bg-gray-100 w-[300px]">
                                         <div className="flex items-center gap-2"><Layers className="w-3 h-3 text-gray-400" />{pivotBy === 'group' ? 'Group / Customer Group / Customer' : 'Customer Group / Group / Customer'}</div>
                                     </th>
-                                    <th colSpan={2} className="py-1 px-2 text-center border-r border-gray-300 bg-blue-50/50">FY 23-24 (Full)</th>
-                                    <th colSpan={2} className="py-1 px-2 text-center border-r border-gray-300 bg-indigo-50/50">FY 24-25 {comparisonMode === 'ytd' ? '(YTD)' : '(Full)'}</th>
-                                    <th colSpan={2} className="py-1 px-2 text-center border-r border-gray-300 bg-purple-50/50">FY 25-26 {comparisonMode === 'ytd' ? '(YTD)' : '(Full)'}</th>
+                                    <th colSpan={2} className="py-1 px-2 text-center border-r border-gray-300 bg-blue-50/50">FY {fyInfo.f1} (Full)</th>
+                                    <th colSpan={2} className="py-1 px-2 text-center border-r border-gray-300 bg-indigo-50/50">FY {fyInfo.f2} {comparisonMode === 'ytd' ? '(YTD)' : '(Full)'}</th>
+                                    <th colSpan={2} className="py-1 px-2 text-center border-r border-gray-300 bg-purple-50/50">FY {fyInfo.f3} {comparisonMode === 'ytd' ? '(YTD)' : '(Full)'}</th>
                                     <th className="py-1 px-2 text-center bg-gray-200 whitespace-nowrap">Growth vs {lyLabel}</th>
                                     <th className="py-1 px-2 text-center bg-yellow-50/50 text-yellow-800">Share %</th>
                                 </tr>
@@ -436,7 +444,7 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
                             </thead>
                             <tbody className="divide-y divide-gray-100 text-[10px] text-gray-700">
                                 {(() => {
-                                    const totalFY2526 = filteredData.reduce((acc, c) => acc + getCurrVal(c), 0);
+                                    const totalCurrentFY = filteredData.reduce((acc, c) => acc + getCurrVal(c), 0);
                                     return Object.entries(groupedData).map(([groupName, subGroups]) => {
                                         const groupItems = Object.values(subGroups).flat();
                                         const gTotal = calculateTotals(groupItems);
@@ -449,21 +457,21 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
                                                             {isExpanded ? <ChevronDown className="w-3 h-3 text-blue-600 flex-shrink-0" /> : <ChevronRight className="w-3 h-3 text-gray-400 flex-shrink-0" />}
                                                             {groupName}
                                                             <span className="ml-2 text-[9px] font-bold bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded">
-                                                                {gTotal.count2526} / {gTotal.count2425} cust
+                                                                {gTotal.countF3} / {gTotal.countF2} cust
                                                             </span>
                                                         </div>
                                                     </td>
-                                                    <td className="py-2 px-2 text-right font-bold">{fmt(gTotal.fy2324_qty)}</td>
-                                                    <td className="py-2 px-2 text-right border-r font-bold">{fmt(gTotal.fy2324_val)}</td>
-                                                    <td className="py-2 px-2 text-right font-bold">{fmt(gTotal.fy2425_qty)}</td>
-                                                    <td className="py-2 px-2 text-right border-r font-bold">{fmt(gTotal.fy2425_val)}</td>
-                                                    <td className="py-2 px-2 text-right font-black">{fmt(gTotal.fy2526_qty)}</td>
-                                                    <td className="py-2 px-2 text-right border-r font-black">{fmt(gTotal.fy2526_val)}</td>
+                                                    <td className="py-2 px-2 text-right font-bold">{fmt(gTotal.f1_qty)}</td>
+                                                    <td className="py-2 px-2 text-right border-r font-bold">{fmt(gTotal.f1_val)}</td>
+                                                    <td className="py-2 px-2 text-right font-bold">{fmt(gTotal.f2_qty)}</td>
+                                                    <td className="py-2 px-2 text-right border-r font-bold">{fmt(gTotal.f2_val)}</td>
+                                                    <td className="py-2 px-2 text-right font-black">{fmt(gTotal.f3_qty)}</td>
+                                                    <td className="py-2 px-2 text-right border-r font-black">{fmt(gTotal.f3_val)}</td>
                                                     <td className="py-2 px-2 text-center font-bold">
-                                                        <GrowthBadge curr={gTotal.fy2526_val} prev={gTotal.fy2425_val} />
+                                                        <GrowthBadge curr={gTotal.f3_val} prev={gTotal.f2_val} />
                                                     </td>
                                                     <td className="py-2 px-2 text-center font-bold bg-yellow-50/50 text-yellow-800">
-                                                        {totalFY2526 > 0 ? ((gTotal.fy2526_val / totalFY2526) * 100).toFixed(1) : 0}%
+                                                        {totalCurrentFY > 0 ? ((gTotal.f3_val / totalCurrentFY) * 100).toFixed(1) : 0}%
                                                     </td>
                                                 </tr>
                                                 {isExpanded && Object.entries(subGroups).map(([subGroupName, subCustomers]) => {
@@ -478,35 +486,35 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
                                                                         {isSgExpanded ? <ChevronDown className="w-3 h-3 text-indigo-500 flex-shrink-0" /> : <ChevronRight className="w-3 h-3 text-gray-400 flex-shrink-0" />}
                                                                         {subGroupName}
                                                                         <span className="text-[9px] font-bold bg-gray-200 text-gray-500 px-1.5 py-0.5 rounded">
-                                                                            {sgTotal.count2526}/{sgTotal.count2425}
+                                                                            {sgTotal.countF3}/{sgTotal.countF2}
                                                                         </span>
                                                                     </div>
                                                                 </td>
-                                                                <td className="py-1.5 px-2 text-right text-gray-500">{fmt(sgTotal.fy2324_qty)}</td>
-                                                                <td className="py-1.5 px-2 text-right border-r text-gray-500">{fmt(sgTotal.fy2324_val)}</td>
-                                                                <td className="py-1.5 px-2 text-right text-indigo-600">{fmt(sgTotal.fy2425_qty)}</td>
-                                                                <td className="py-1.5 px-2 text-right border-r text-indigo-600">{fmt(sgTotal.fy2425_val)}</td>
-                                                                <td className="py-1.5 px-2 text-right text-purple-700 font-bold">{fmt(sgTotal.fy2526_qty)}</td>
-                                                                <td className="py-1.5 px-2 text-right border-r text-purple-700 font-bold">{fmt(sgTotal.fy2526_val)}</td>
+                                                                <td className="py-1.5 px-2 text-right text-gray-500">{fmt(sgTotal.f1_qty)}</td>
+                                                                <td className="py-1.5 px-2 text-right border-r text-gray-500">{fmt(sgTotal.f1_val)}</td>
+                                                                <td className="py-1.5 px-2 text-right text-indigo-600">{fmt(sgTotal.f2_qty)}</td>
+                                                                <td className="py-1.5 px-2 text-right border-r text-indigo-600">{fmt(sgTotal.f2_val)}</td>
+                                                                <td className="py-1.5 px-2 text-right text-purple-700 font-bold">{fmt(sgTotal.f3_qty)}</td>
+                                                                <td className="py-1.5 px-2 text-right border-r text-purple-700 font-bold">{fmt(sgTotal.f3_val)}</td>
                                                                 <td className="py-1.5 px-2 text-center font-bold">
-                                                                    <GrowthBadge curr={sgTotal.fy2526_val} prev={sgTotal.fy2425_val} />
+                                                                    <GrowthBadge curr={sgTotal.f3_val} prev={sgTotal.f2_val} />
                                                                 </td>
                                                                 <td className="py-1.5 px-2 text-center text-yellow-700 font-medium">
-                                                                    {totalFY2526 > 0 ? ((sgTotal.fy2526_val / totalFY2526) * 100).toFixed(1) : 0}%
+                                                                    {totalCurrentFY > 0 ? ((sgTotal.f3_val / totalCurrentFY) * 100).toFixed(1) : 0}%
                                                                 </td>
                                                             </tr>
                                                             {isSgExpanded && subCustomers.map((cust: any) => {
                                                                 const valCurr = getCurrVal(cust);
                                                                 const valPrev = getPrevVal(cust);
-                                                                const qtyCurr = comparisonMode === 'full' ? cust.fy202526.qty : cust.ytd202526.qty;
-                                                                const qtyPrev = comparisonMode === 'full' ? cust.fy202425.qty : cust.ytd202425.qty;
+                                                                const qtyCurr = comparisonMode === 'full' ? cust.f3.qty : cust.ytdF3.qty;
+                                                                const qtyPrev = comparisonMode === 'full' ? cust.f2.qty : cust.ytdF2.qty;
                                                                 return (
                                                                     <tr key={cust.customerName} className="hover:bg-blue-50/20 border-b border-gray-50">
                                                                         <td className="sticky left-0 z-10 py-1 px-4 pl-12 border-r truncate text-gray-600 bg-white max-w-[260px]" title={cust.customerName}>
                                                                             {cust.customerName}
                                                                         </td>
-                                                                        <td className="py-1 px-2 text-right text-gray-400">{fmt(cust.fy202324.qty)}</td>
-                                                                        <td className="py-1 px-2 text-right border-r text-gray-400">{fmt(cust.fy202324.value)}</td>
+                                                                        <td className="py-1 px-2 text-right text-gray-400">{fmt(cust.f1.qty)}</td>
+                                                                        <td className="py-1 px-2 text-right border-r text-gray-400">{fmt(cust.f1.value)}</td>
                                                                         <td className="py-1 px-2 text-right text-indigo-600/70">{fmt(qtyPrev)}</td>
                                                                         <td className="py-1 px-2 text-right border-r text-indigo-600/70">{fmt(valPrev)}</td>
                                                                         <td className="py-1 px-2 text-right text-purple-700 font-bold">{fmt(qtyCurr)}</td>
@@ -515,7 +523,7 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
                                                                             <GrowthBadge curr={valCurr} prev={valPrev} />
                                                                         </td>
                                                                         <td className="py-1 px-2 text-center text-gray-500">
-                                                                            {totalFY2526 > 0 ? ((valCurr / totalFY2526) * 100).toFixed(1) : 0}%
+                                                                            {totalCurrentFY > 0 ? ((valCurr / totalCurrentFY) * 100).toFixed(1) : 0}%
                                                                         </td>
                                                                     </tr>
                                                                 );

@@ -110,7 +110,7 @@ const App: React.FC = () => {
     pendingPO: 'Pending PO',
     salesReport: 'Sales Report',
     pivotReport: 'Strategy Report',
-    customerFYAnalysis: 'Customer FY Analysis',
+    customerFYAnalysis: 'Customer Analysis',
     mom: 'Weekly MOM',
     attendees: 'Attendee Master',
     userManagement: 'User Management',
