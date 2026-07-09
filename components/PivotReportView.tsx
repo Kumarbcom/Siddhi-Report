@@ -75,6 +75,8 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
     const [searchTerm, setSearchTerm] = useState('');
     const [slicerMake, setSlicerMake] = useState('ALL');
     const [slicerGroup, setSlicerGroup] = useState('ALL');
+    const [slicerLappCategory, setSlicerLappCategory] = useState('ALL');
+    const [slicerLappSubCategory, setSlicerLappSubCategory] = useState('ALL');
     const [filterDescription, setFilterDescription] = useState('');
     const [showExcessStock, setShowExcessStock] = useState(false);
     const [showExcessPO, setShowExcessPO] = useState(false);
@@ -174,10 +176,44 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
             const expGap = (so.curQty + max) - stock.qty;
             const expQty = (expGap > 0 && po.qty > 0) ? Math.min(po.qty, expGap) : 0;
 
+            let lappCategory = '';
+            let lappSubCategory = '';
+            
+            if (mk === 'LAPP') {
+                const desc = (mat.description || '').toUpperCase();
+                
+                if (desc.includes('UNIPLUS')) {
+                    lappCategory = 'Uniplus';
+                    if (desc.includes('FRLSH')) lappSubCategory = 'FRLSH';
+                    else if (desc.includes('HFFR')) lappSubCategory = 'HFFR';
+                    else if (desc.includes('FR')) lappSubCategory = 'FR';
+                    else lappSubCategory = 'Other Products';
+                } else if (desc.includes('OLFLEX') || desc.includes('ÖLFLEX')) {
+                    lappCategory = 'Olflex';
+                    if (desc.includes('100I') || desc.includes('100 I')) lappSubCategory = '100I';
+                    else if (desc.includes('100')) lappSubCategory = '100';
+                    else if (desc.includes('110')) lappSubCategory = '110';
+                    else if (desc.includes('INFRA')) lappSubCategory = 'Infra';
+                    else lappSubCategory = 'Other Products';
+                } else if (desc.includes('UNITRONIC')) {
+                    lappCategory = 'UNITRONIC';
+                    if (desc.includes('LIYCY (TP)')) lappSubCategory = 'LIYCY (TP)';
+                    else if (desc.includes('LIYY (TP)')) lappSubCategory = 'LIYY (TP)';
+                    else if (desc.includes('LIYCY')) lappSubCategory = 'LIYCY';
+                    else if (desc.includes('LIYY')) lappSubCategory = 'LIYY';
+                    else lappSubCategory = 'Other Products';
+                } else {
+                    lappCategory = 'Other Products';
+                    lappSubCategory = 'Other Products';
+                }
+            }
+
             return {
                 ...mat,
                 make: getMergedMakeName(mat.make || '').toUpperCase(),
                 materialGroup: grp,
+                lappCategory,
+                lappSubCategory,
                 stock, so, po, net: { qty: netQty, val: netQty * rate },
                 avg3m: { qty: a3q, val: a3q * (s3q > 0 ? s3v / s3q : rate) },
                 avg1y: { qty: a1q, val: a1q * r1y },
@@ -198,24 +234,38 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
     const slicerOptions = useMemo(() => {
         const makes = new Set<string>();
         const groups = new Set<string>();
+        const lappCats = new Set<string>();
+        const lappSubCats = new Set<string>();
         
         pivotData.forEach(i => {
             if (i.make) makes.add(i.make);
             if (slicerMake === 'ALL' || i.make === slicerMake) {
                 if (i.materialGroup) groups.add(i.materialGroup);
+                if (i.make === 'LAPP') {
+                    if (i.lappCategory) lappCats.add(i.lappCategory);
+                    if (slicerLappCategory === 'ALL' || i.lappCategory === slicerLappCategory) {
+                        if (i.lappSubCategory) lappSubCats.add(i.lappSubCategory);
+                    }
+                }
             }
         });
 
         return {
             makes: ['ALL', ...Array.from(makes).sort()],
-            groups: ['ALL', ...Array.from(groups).sort()]
+            groups: ['ALL', ...Array.from(groups).sort()],
+            lappCategories: ['ALL', ...Array.from(lappCats).sort()],
+            lappSubCategories: ['ALL', ...Array.from(lappSubCats).sort()]
         };
-    }, [pivotData, slicerMake]);
+    }, [pivotData, slicerMake, slicerLappCategory]);
 
     const filteredData = useMemo(() => {
         let d = pivotData;
         if (slicerMake !== 'ALL') d = d.filter(i => i.make === slicerMake);
         if (slicerGroup !== 'ALL') d = d.filter(i => i.materialGroup === slicerGroup);
+        if (slicerMake === 'LAPP') {
+            if (slicerLappCategory !== 'ALL') d = d.filter(i => (i as any).lappCategory === slicerLappCategory);
+            if (slicerLappSubCategory !== 'ALL') d = d.filter(i => (i as any).lappSubCategory === slicerLappSubCategory);
+        }
         if (filterDescription) {
             const l = filterDescription.toLowerCase();
             d = d.filter(i => i.description?.toLowerCase().includes(l));
@@ -242,7 +292,7 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
             if (isNaN(nA) || isNaN(nB)) return 0;
             return sortConfig.direction === 'asc' ? (nA - nB) : (nB - nA);
         });
-    }, [pivotData, searchTerm, slicerMake, slicerGroup, filterDescription, showExcessStock, showExcessPO, showPONeed, showExpedite, sortConfig]);
+    }, [pivotData, searchTerm, slicerMake, slicerGroup, slicerLappCategory, slicerLappSubCategory, filterDescription, showExcessStock, showExcessPO, showPONeed, showExpedite, sortConfig]);
 
     const totals = useMemo(() => {
         const t = {
@@ -277,6 +327,8 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
     const handleMakeChange = (m: string) => {
         setSlicerMake(m);
         setSlicerGroup('ALL');
+        setSlicerLappCategory('ALL');
+        setSlicerLappSubCategory('ALL');
     };
 
     const handleExport = () => {
@@ -385,6 +437,12 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                     <div className="flex items-center gap-2 bg-gray-50 px-2 py-1 rounded-lg border">
                         <select value={slicerMake} onChange={e => handleMakeChange(e.target.value)} className="bg-transparent text-xs font-bold outline-none">{slicerOptions.makes.map(m => <option key={m} value={m}>{m}</option>)}</select>
                         <select value={slicerGroup} onChange={e => setSlicerGroup(e.target.value)} className="bg-transparent text-xs font-bold outline-none">{slicerOptions.groups.map(g => <option key={g} value={g}>{g}</option>)}</select>
+                        {slicerMake === 'LAPP' && (
+                            <>
+                                <select value={slicerLappCategory} onChange={e => { setSlicerLappCategory(e.target.value); setSlicerLappSubCategory('ALL'); }} className="bg-transparent text-xs font-bold outline-none border-l pl-2 text-indigo-700">{slicerOptions.lappCategories.map(c => <option key={c} value={c}>{c}</option>)}</select>
+                                <select value={slicerLappSubCategory} onChange={e => setSlicerLappSubCategory(e.target.value)} className="bg-transparent text-xs font-bold outline-none border-l pl-2 text-indigo-700">{slicerOptions.lappSubCategories.map(c => <option key={c} value={c}>{c}</option>)}</select>
+                            </>
+                        )}
                         <input type="text" placeholder="Description..." value={filterDescription} onChange={e => setFilterDescription(e.target.value)} className="bg-transparent text-xs outline-none w-32 border-l pl-2" />
                     </div>
                     <div className="flex gap-1.5">
