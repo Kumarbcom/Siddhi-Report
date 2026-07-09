@@ -75,6 +75,7 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
     const [searchTerm, setSearchTerm] = useState('');
     const [slicerMake, setSlicerMake] = useState('ALL');
     const [slicerGroup, setSlicerGroup] = useState('ALL');
+    const [slicerItemCategory, setSlicerItemCategory] = useState('ALL');
     const [slicerLappCategory, setSlicerLappCategory] = useState('ALL');
     const [slicerLappSubCategory, setSlicerLappSubCategory] = useState('ALL');
     const [filterDescription, setFilterDescription] = useState('');
@@ -207,12 +208,31 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                 }
             }
 
+            const customers = new Set([...(sD?.customers || []), ...(sP && sP !== sD ? sP.customers : [])]);
+            const billedMonths = new Set([...(sD?.billedMonths || []), ...(sP && sP !== sD ? sP.billedMonths : [])]);
+            const custCount = customers.size;
+            const monthCount = billedMonths.size;
+
+            let itemCategory = 'Non-Moving';
+            if (monthCount > 0) {
+                if (custCount >= 10 && monthCount >= 8) {
+                    itemCategory = 'Fast Runner';
+                } else if (custCount >= 4 && custCount <= 9 && monthCount >= 8) {
+                    itemCategory = 'Slow Runner';
+                } else if (custCount <= 3 && monthCount >= 8) {
+                    itemCategory = 'Specific Customer';
+                } else {
+                    itemCategory = 'Irregular Runner';
+                }
+            }
+
             return {
                 ...mat,
                 make: getMergedMakeName(mat.make || '').toUpperCase(),
                 materialGroup: grp,
                 lappCategory,
                 lappSubCategory,
+                itemCategory,
                 stock, so, po, net: { qty: netQty, val: netQty * rate },
                 avg3m: { qty: a3q, val: a3q * (s3q > 0 ? s3v / s3q : rate) },
                 avg1y: { qty: a1q, val: a1q * r1y },
@@ -261,6 +281,7 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
         let d = pivotData;
         if (slicerMake !== 'ALL') d = d.filter(i => i.make === slicerMake);
         if (slicerGroup !== 'ALL') d = d.filter(i => i.materialGroup === slicerGroup);
+        if (slicerItemCategory !== 'ALL') d = d.filter(i => (i as any).itemCategory === slicerItemCategory);
         if (slicerMake === 'LAPP') {
             if (slicerLappCategory !== 'ALL') d = d.filter(i => (i as any).lappCategory === slicerLappCategory);
             if (slicerLappSubCategory !== 'ALL') d = d.filter(i => (i as any).lappSubCategory === slicerLappSubCategory);
@@ -291,7 +312,7 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
             if (isNaN(nA) || isNaN(nB)) return 0;
             return sortConfig.direction === 'asc' ? (nA - nB) : (nB - nA);
         });
-    }, [pivotData, searchTerm, slicerMake, slicerGroup, slicerLappCategory, slicerLappSubCategory, filterDescription, showExcessStock, showExcessPO, showPONeed, showExpedite, sortConfig]);
+    }, [pivotData, searchTerm, slicerMake, slicerGroup, slicerItemCategory, slicerLappCategory, slicerLappSubCategory, filterDescription, showExcessStock, showExcessPO, showPONeed, showExpedite, sortConfig]);
 
     const totals = useMemo(() => {
         const t = {
@@ -326,6 +347,7 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
     const handleMakeChange = (m: string) => {
         setSlicerMake(m);
         setSlicerGroup('ALL');
+        setSlicerItemCategory('ALL');
         setSlicerLappCategory('ALL');
         setSlicerLappSubCategory('ALL');
     };
@@ -436,6 +458,9 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                     <div className="flex items-center gap-2 bg-gray-50 px-2 py-1 rounded-lg border">
                         <select value={slicerMake} onChange={e => handleMakeChange(e.target.value)} className="bg-transparent text-xs font-bold outline-none">{slicerOptions.makes.map(m => <option key={m} value={m}>{m}</option>)}</select>
                         <select value={slicerGroup} onChange={e => setSlicerGroup(e.target.value)} className="bg-transparent text-xs font-bold outline-none">{slicerOptions.groups.map(g => <option key={g} value={g}>{g}</option>)}</select>
+                        <select value={slicerItemCategory} onChange={e => setSlicerItemCategory(e.target.value)} className="bg-transparent text-xs font-bold outline-none border-l pl-2 text-indigo-700">
+                            {['ALL', 'Fast Runner', 'Slow Runner', 'Specific Customer', 'Irregular Runner', 'Non-Moving'].map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
                         {slicerMake === 'LAPP' && (
                             <>
                                 <select value={slicerLappCategory} onChange={e => { setSlicerLappCategory(e.target.value); setSlicerLappSubCategory('ALL'); }} className="bg-transparent text-xs font-bold outline-none border-l pl-2 text-indigo-700">{slicerOptions.lappCategories.map(c => <option key={c} value={c}>{c}</option>)}</select>

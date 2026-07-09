@@ -6,6 +6,8 @@ export interface SalesSummary {
   val3m: number;
   qty1y: number;
   val1y: number;
+  customers: Set<string>;
+  billedMonths: Set<string>;
 }
 
 export type SalesSummaryMap = Map<string, SalesSummary>;
@@ -64,12 +66,16 @@ class FastSalesService {
 
         let summary = summaries.get(key);
         if (!summary) {
-            summary = { qty3m: 0, val3m: 0, qty1y: 0, val1y: 0 };
+            summary = { qty3m: 0, val3m: 0, qty1y: 0, val1y: 0, customers: new Set(), billedMonths: new Set() };
             summaries.set(key, summary);
         }
 
         const qty = item.quantity || 0;
         const val = item.value || 0;
+        
+        if (item.customerName) summary.customers.add(item.customerName.trim().toUpperCase());
+        const dateObj = new Date(time);
+        summary.billedMonths.add(`${dateObj.getFullYear()}-${dateObj.getMonth()}`);
 
         summary.qty1y += qty;
         summary.val1y += val;
