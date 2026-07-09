@@ -1002,7 +1002,7 @@ const App: React.FC = () => {
             
             {activeTab === 'pivotReport' && (
               <Suspense fallback={<LoadingFallback />}>
-                <PivotReportView isAdmin={isAdmin} materials={materials} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} salesReportItems={salesReportItems} />
+                <PivotReportView isAdmin={isAdmin} materials={materials} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} salesReportItems={salesReportItems} customers={customerMasterItems} />
               </Suspense>
             )}
             

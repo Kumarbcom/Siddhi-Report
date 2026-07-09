@@ -1,7 +1,7 @@
 
 import React, { useMemo, useState } from 'react';
-import { Material, ClosingStockItem, PendingSOItem, PendingPOItem, SalesReportItem } from '../types';
-import { FileDown, Search, ArrowUp, ArrowDown, Filter, AlertTriangle, Minus, ArrowUpDown, Layers, AlignLeft, Eye, EyeOff } from 'lucide-react';
+import { Material, ClosingStockItem, PendingSOItem, PendingPOItem, SalesReportItem, CustomerMasterItem } from '../types';
+import { FileDown, Search, ArrowUp, ArrowDown, Filter, AlertTriangle, Minus, ArrowUpDown, Layers, AlignLeft, Eye, EyeOff, X, Plus, ChevronRight, ChevronDown } from 'lucide-react';
 import { utils, writeFile } from 'xlsx';
 import { fastSalesService } from '../services/fastSalesService';
 
@@ -11,6 +11,7 @@ interface PivotReportViewProps {
     pendingSO: PendingSOItem[];
     pendingPO: PendingPOItem[];
     salesReportItems: SalesReportItem[];
+    customers: CustomerMasterItem[];
     isAdmin?: boolean;
 }
 
@@ -70,13 +71,24 @@ type SortPath =
     | 'actions.expedite.qty' | 'actions.expedite.val';
 
 const PivotReportView: React.FC<PivotReportViewProps> = ({
-    materials, closingStock, pendingSO, pendingPO, salesReportItems, isAdmin = false
+    materials, closingStock, pendingSO, pendingPO, salesReportItems, customers, isAdmin = false
 }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [slicerMake, setSlicerMake] = useState('ALL');
     const [slicerGroup, setSlicerGroup] = useState('ALL');
     const [slicerItemCategory, setSlicerItemCategory] = useState('ALL');
     const [slicerLappCategory, setSlicerLappCategory] = useState('ALL');
+    const [selectedPopupItem, setSelectedPopupItem] = useState<any>(null);
+    const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+
+    const toggleGroup = (group: string) => {
+        setExpandedGroups(prev => {
+            const next = new Set(prev);
+            if (next.has(group)) next.delete(group);
+            else next.add(group);
+            return next;
+        });
+    };
     const [slicerLappSubCategory, setSlicerLappSubCategory] = useState('ALL');
     const [filterDescription, setFilterDescription] = useState('');
     const [showExcessStock, setShowExcessStock] = useState(false);
@@ -352,6 +364,86 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
         setSlicerLappSubCategory('ALL');
     };
 
+    const popupData = useMemo(() => {
+        if (!selectedPopupItem) return null;
+
+        const targetDesc = selectedPopupItem.description?.toLowerCase().trim();
+        const targetPart = selectedPopupItem.partNo?.toLowerCase().trim();
+        
+        const now = Date.now();
+        const oneYearAgo = now - (365 * 24 * 60 * 60 * 1000);
+
+        const itemSales = salesReportItems.filter(s => {
+            const time = new Date(s.date).getTime();
+            if (time < oneYearAgo) return false;
+            const p = s.particulars?.toLowerCase().trim();
+            return p === targetDesc || (targetPart && p === targetPart);
+        });
+
+        const custMap = new Map<string, { qty: number; val: number; months: Set<string> }>();
+        let totalItemQty = 0;
+        let totalItemVal = 0;
+
+        itemSales.forEach(s => {
+            const cName = (s.customerName || 'UNKNOWN').trim().toUpperCase();
+            const ex = custMap.get(cName) || { qty: 0, val: 0, months: new Set() };
+            const q = Number(s.quantity) || 0;
+            const v = Number(s.value) || 0;
+            ex.qty += q;
+            ex.val += v;
+            
+            const d = new Date(s.date);
+            if (!isNaN(d.getTime())) {
+                ex.months.add(`${d.getFullYear()}-${d.getMonth()}`);
+            }
+            
+            custMap.set(cName, ex);
+            totalItemQty += q;
+            totalItemVal += v;
+        });
+
+        const groupLookup = new Map<string, string>();
+        customers.forEach(c => {
+            groupLookup.set((c.customerName || '').trim().toUpperCase(), c.customerGroup || 'Uncategorized');
+        });
+
+        const groupsMap = new Map<string, {
+            groupName: string;
+            customers: { name: string; qty: number; val: number; billedMonths: number; consumptionPct: number }[];
+            totalQty: number;
+            totalVal: number;
+            totalCustomers: number;
+        }>();
+
+        custMap.forEach((data, cName) => {
+            const gName = groupLookup.get(cName) || 'Uncategorized';
+            const exG = groupsMap.get(gName) || { groupName: gName, customers: [], totalQty: 0, totalVal: 0, totalCustomers: 0 };
+            
+            exG.customers.push({
+                name: cName,
+                qty: data.qty,
+                val: data.val,
+                billedMonths: data.months.size,
+                consumptionPct: totalItemQty > 0 ? (data.qty / totalItemQty) * 100 : 0
+            });
+            
+            exG.totalQty += data.qty;
+            exG.totalVal += data.val;
+            
+            groupsMap.set(gName, exG);
+        });
+
+        const groupedArray = Array.from(groupsMap.values());
+        groupedArray.forEach(g => {
+            g.totalCustomers = g.customers.length;
+            g.customers.sort((a, b) => b.qty - a.qty);
+        });
+        
+        groupedArray.sort((a, b) => b.totalQty - a.totalQty);
+
+        return { groups: groupedArray, totalItemQty, totalItemVal };
+    }, [selectedPopupItem, salesReportItems, customers]);
+
     const handleExport = () => {
         console.log("🚀 Exporting Strategy Report...");
         try {
@@ -559,7 +651,13 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                                 <tr key={i} className="hover:bg-gray-50">
                                     <td className="p-1 border-r sticky left-0 z-10 bg-white font-bold">{r.make}</td>
                                     <td className="p-1 border-r sticky left-[70px] z-10 bg-white truncate max-w-[150px] text-gray-600" title={r.materialGroup}>{r.materialGroup}</td>
-                                    <td className="p-1 border-r sticky left-[220px] z-10 bg-white truncate max-w-[250px] font-medium" title={r.description}>{r.description}</td>
+                                    <td 
+                                        className="p-1 border-r sticky left-[220px] z-10 bg-white truncate max-w-[250px] font-medium cursor-pointer hover:text-indigo-600 hover:underline underline-offset-2 transition-colors" 
+                                        title={`${r.description} (Click for Customer Breakdown)`}
+                                        onClick={() => setSelectedPopupItem(r)}
+                                    >
+                                        {r.description}
+                                    </td>
                                     <td className="p-1 text-right bg-blue-50/5 font-bold">{r.stock.qty || '-'}</td>
                                     <td className="p-1 text-right border-r text-gray-500">{r.stock.val ? Math.round(r.stock.val).toLocaleString() : '-'}</td>
                                     <td className="p-1 text-right text-orange-600">{r.so.curQty || '-'}</td>
@@ -600,6 +698,83 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                     </table>
                 </div>
             </div>
+
+            {/* Right-aligned Popup Panel */}
+            {selectedPopupItem && popupData && (
+                <div className="fixed inset-0 z-[100] flex justify-end bg-black/20 backdrop-blur-sm transition-all" onClick={() => setSelectedPopupItem(null)}>
+                    <div className="w-[800px] h-full bg-white shadow-2xl flex flex-col animate-slide-in-right overflow-hidden" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between p-4 border-b bg-indigo-50">
+                            <div>
+                                <h3 className="font-bold text-indigo-900 text-sm">Customer Breakdown (Last 12 Months)</h3>
+                                <p className="text-xs text-indigo-700 font-medium mt-1 truncate max-w-[700px]" title={selectedPopupItem.description}>{selectedPopupItem.description}</p>
+                            </div>
+                            <button onClick={() => setSelectedPopupItem(null)} className="p-1 hover:bg-indigo-100 rounded-full text-indigo-900"><X className="w-5 h-5" /></button>
+                        </div>
+                        <div className="flex-1 overflow-auto p-4 bg-gray-50">
+                            <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
+                                <table className="w-full text-left text-xs">
+                                    <thead className="bg-gray-100 text-gray-600 font-bold border-b">
+                                        <tr>
+                                            <th className="p-2 w-8"></th>
+                                            <th className="p-2">Customer Group / Name</th>
+                                            <th className="p-2 text-center">Billed Months</th>
+                                            <th className="p-2 text-right">Qty</th>
+                                            <th className="p-2 text-right">Value (₹)</th>
+                                            <th className="p-2 text-right">Consumption %</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y">
+                                        {popupData.groups.length === 0 && (
+                                            <tr><td colSpan={6} className="p-4 text-center text-gray-500 italic">No sales found in the last 12 months.</td></tr>
+                                        )}
+                                        {popupData.groups.map(g => {
+                                            const isExpanded = expandedGroups.has(g.groupName);
+                                            const groupConsumption = popupData.totalItemQty > 0 ? (g.totalQty / popupData.totalItemQty) * 100 : 0;
+                                            return (
+                                                <React.Fragment key={g.groupName}>
+                                                    <tr className="bg-slate-50 hover:bg-slate-100 cursor-pointer font-bold border-b-[1px] border-slate-200" onClick={() => toggleGroup(g.groupName)}>
+                                                        <td className="p-2 text-center text-indigo-600">
+                                                            {isExpanded ? <ChevronDown className="w-4 h-4 mx-auto" /> : <ChevronRight className="w-4 h-4 mx-auto" />}
+                                                        </td>
+                                                        <td className="p-2">
+                                                            <span className="text-indigo-900">{g.groupName}</span>
+                                                            <span className="ml-2 text-[10px] px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full border border-indigo-200">{g.totalCustomers} {g.totalCustomers === 1 ? 'Customer' : 'Customers'}</span>
+                                                        </td>
+                                                        <td className="p-2 text-center text-gray-500">-</td>
+                                                        <td className="p-2 text-right text-indigo-700">{g.totalQty.toLocaleString()}</td>
+                                                        <td className="p-2 text-right text-gray-700">{Math.round(g.totalVal).toLocaleString()}</td>
+                                                        <td className="p-2 text-right text-emerald-700">{groupConsumption.toFixed(1)}%</td>
+                                                    </tr>
+                                                    {isExpanded && g.customers.map((c, i) => (
+                                                        <tr key={`${g.groupName}-${c.name}-${i}`} className="hover:bg-indigo-50/30 bg-white">
+                                                            <td className="p-2"></td>
+                                                            <td className="p-2 pl-4 border-l-2 border-indigo-200 text-gray-700 font-medium truncate max-w-[300px]" title={c.name}>{c.name}</td>
+                                                            <td className="p-2 text-center font-bold text-gray-600">{c.billedMonths}</td>
+                                                            <td className="p-2 text-right font-bold">{c.qty.toLocaleString()}</td>
+                                                            <td className="p-2 text-right text-gray-600">{Math.round(c.val).toLocaleString()}</td>
+                                                            <td className="p-2 text-right font-bold text-emerald-600">{c.consumptionPct.toFixed(1)}%</td>
+                                                        </tr>
+                                                    ))}
+                                                </React.Fragment>
+                                            );
+                                        })}
+                                    </tbody>
+                                    {popupData.groups.length > 0 && (
+                                        <tfoot className="bg-gray-800 text-white font-bold text-xs">
+                                            <tr>
+                                                <td colSpan={3} className="p-2 text-right">TOTAL (LAST 12 MONTHS):</td>
+                                                <td className="p-2 text-right text-blue-300">{popupData.totalItemQty.toLocaleString()}</td>
+                                                <td className="p-2 text-right text-gray-300">{Math.round(popupData.totalItemVal).toLocaleString()}</td>
+                                                <td className="p-2 text-right text-green-400">100%</td>
+                                            </tr>
+                                        </tfoot>
+                                    )}
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
