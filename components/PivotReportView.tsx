@@ -184,10 +184,9 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                 
                 if (desc.includes('UNIPLUS')) {
                     lappCategory = 'Uniplus';
-                    if (desc.includes('FRLSH')) lappSubCategory = 'FRLSH';
+                    if (desc.includes('FRLSH') || desc.includes('FR-LSH') || desc.includes('FRLS')) lappSubCategory = 'FRLSH';
                     else if (desc.includes('HFFR')) lappSubCategory = 'HFFR';
-                    else if (desc.includes('FR')) lappSubCategory = 'FR';
-                    else lappSubCategory = 'Other Products';
+                    else lappSubCategory = 'FR';
                 } else if (desc.includes('OLFLEX') || desc.includes('ÖLFLEX')) {
                     lappCategory = 'Olflex';
                     if (desc.includes('100I') || desc.includes('100 I')) lappSubCategory = '100I';
