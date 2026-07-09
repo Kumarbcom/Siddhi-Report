@@ -38,9 +38,12 @@ class FastSalesService {
   }
 
   getSummaries(sales: SalesReportItem[]): SalesSummaryMap {
-    // Return cache if it's the same dataset
+    // Return cache if it's the same dataset and not older than 1 hour
     if (this.summaryCache && this.summaryCache.sourceLength === sales.length) {
-      return this.summaryCache.data;
+      const isCacheStale = Date.now() - this.summaryCache.timestamp > 3600000; // 1 hour
+      if (!isCacheStale) {
+        return this.summaryCache.data;
+      }
     }
 
     console.time('🚀 FastSalesService.getSummaries');

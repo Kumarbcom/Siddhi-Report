@@ -165,7 +165,7 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
             if (isApplicable && a1q > 0) {
                 min = roundToTen(a1q); 
                 re = roundToTen(a1q * 1.5); 
-                max = roundToTen(a1q * 3);
+                max = min * 2;
             }
 
             const exStock = Math.max(0, stock.qty - (so.qty + max));
