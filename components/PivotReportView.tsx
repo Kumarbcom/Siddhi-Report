@@ -372,41 +372,66 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
         const targetPart = selectedPopupItem.partNo?.toLowerCase().trim();
         
         const now = Date.now();
-        const duration = popupPeriod === '1Y' ? 365 : 90;
-        const currentPeriodStart = now - (duration * 24 * 60 * 60 * 1000);
-        const previousPeriodStart = currentPeriodStart - (duration * 24 * 60 * 60 * 1000);
+        const dayMs = 24 * 60 * 60 * 1000;
+        
+        // Current periods
+        const start1Y = now - (365 * dayMs);
+        const start3M = now - (90 * dayMs);
+        
+        // Last Year (LY) same periods
+        const startLY1Y = start1Y - (365 * dayMs);
+        const endLY1Y = start1Y; // up to exactly 1 year ago
+        
+        const startLY3M = start3M - (365 * dayMs);
+        const endLY3M = now - (365 * dayMs);
 
-        const custMap = new Map<string, { qty: number; val: number; months: Set<string>; prevQty: number; prevVal: number }>();
-        let totalItemQty = 0;
-        let totalItemVal = 0;
-        let prevTotalItemQty = 0;
-        let prevTotalItemVal = 0;
+        const custMap = new Map<string, {
+            qty3m: number; val3m: number;
+            qty1y: number; val1y: number;
+            lyQty3m: number; lyQty1y: number;
+            months: Set<string>;
+        }>();
+        
+        let total3m = 0; let valTotal3m = 0;
+        let total1y = 0; let valTotal1y = 0;
+        let lyTotal3m = 0; let lyTotal1y = 0;
 
         salesReportItems.forEach(s => {
             const time = new Date(s.date).getTime();
-            if (time < previousPeriodStart) return;
+            if (time < startLY1Y) return;
             const p = s.particulars?.toLowerCase().trim();
             if (!(p === targetDesc || (targetPart && p === targetPart))) return;
 
-            const isCurrent = time >= currentPeriodStart;
-            
             const cName = (s.customerName || 'UNKNOWN').trim().toUpperCase();
-            const ex = custMap.get(cName) || { qty: 0, val: 0, months: new Set(), prevQty: 0, prevVal: 0 };
+            const ex = custMap.get(cName) || { qty3m: 0, val3m: 0, qty1y: 0, val1y: 0, lyQty3m: 0, lyQty1y: 0, months: new Set() };
             const q = Number(s.quantity) || 0;
             const v = Number(s.value) || 0;
             
-            if (isCurrent) {
-                ex.qty += q;
-                ex.val += v;
-                totalItemQty += q;
-                totalItemVal += v;
+            // Current 1Y
+            if (time >= start1Y) {
+                ex.qty1y += q;
+                ex.val1y += v;
+                total1y += q;
+                valTotal1y += v;
                 const d = new Date(s.date);
                 if (!isNaN(d.getTime())) ex.months.add(`${d.getFullYear()}-${d.getMonth()}`);
-            } else {
-                ex.prevQty += q;
-                ex.prevVal += v;
-                prevTotalItemQty += q;
-                prevTotalItemVal += v;
+            }
+            // Current 3M
+            if (time >= start3M) {
+                ex.qty3m += q;
+                ex.val3m += v;
+                total3m += q;
+                valTotal3m += v;
+            }
+            // LY 1Y
+            if (time >= startLY1Y && time < endLY1Y) {
+                ex.lyQty1y += q;
+                lyTotal1y += q;
+            }
+            // LY 3M
+            if (time >= startLY3M && time < endLY3M) {
+                ex.lyQty3m += q;
+                lyTotal3m += q;
             }
             
             custMap.set(cName, ex);
@@ -419,54 +444,59 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
 
         const groupsMap = new Map<string, {
             groupName: string;
-            customers: { name: string; qty: number; val: number; prevQty: number; prevVal: number; billedMonths: number; consumptionPct: number; growthPct: number }[];
-            totalQty: number;
-            totalVal: number;
-            prevTotalQty: number;
-            prevTotalVal: number;
+            customers: {
+                name: string; 
+                qty3m: number; val3m: number;
+                qty1y: number; val1y: number;
+                lyQty3m: number; lyQty1y: number;
+                billedMonths: number;
+            }[];
+            gQty3m: number; gVal3m: number;
+            gQty1y: number; gVal1y: number;
+            gLyQty3m: number; gLyQty1y: number;
             totalCustomers: number;
         }>();
 
         custMap.forEach((data, cName) => {
-            // Include customers that ordered in current OR previous period
-            if (data.qty === 0 && data.prevQty === 0) return;
+            if (data.qty1y === 0 && data.lyQty1y === 0) return;
 
             const gName = groupLookup.get(cName) || 'Uncategorized';
-            const exG = groupsMap.get(gName) || { groupName: gName, customers: [], totalQty: 0, totalVal: 0, prevTotalQty: 0, prevTotalVal: 0, totalCustomers: 0 };
-            
-            const growthPct = data.prevQty > 0 ? ((data.qty - data.prevQty) / data.prevQty) * 100 : (data.qty > 0 ? 100 : 0);
+            const exG = groupsMap.get(gName) || { 
+                groupName: gName, customers: [], 
+                gQty3m: 0, gVal3m: 0, gQty1y: 0, gVal1y: 0, gLyQty3m: 0, gLyQty1y: 0, 
+                totalCustomers: 0 
+            };
             
             exG.customers.push({
                 name: cName,
-                qty: data.qty,
-                val: data.val,
-                prevQty: data.prevQty,
-                prevVal: data.prevVal,
-                billedMonths: data.months.size,
-                consumptionPct: totalItemQty > 0 ? (data.qty / totalItemQty) * 100 : 0,
-                growthPct
+                qty3m: data.qty3m, val3m: data.val3m,
+                qty1y: data.qty1y, val1y: data.val1y,
+                lyQty3m: data.lyQty3m, lyQty1y: data.lyQty1y,
+                billedMonths: data.months.size
             });
             
-            exG.totalQty += data.qty;
-            exG.totalVal += data.val;
-            exG.prevTotalQty += data.prevQty;
-            exG.prevTotalVal += data.prevVal;
+            exG.gQty3m += data.qty3m; exG.gVal3m += data.val3m;
+            exG.gQty1y += data.qty1y; exG.gVal1y += data.val1y;
+            exG.gLyQty3m += data.lyQty3m; exG.gLyQty1y += data.lyQty1y;
             
             groupsMap.set(gName, exG);
         });
 
         const groupedArray = Array.from(groupsMap.values());
         groupedArray.forEach(g => {
-            g.totalCustomers = g.customers.filter(c => c.qty > 0).length; // only count active in current period
-            g.customers.sort((a, b) => b.qty - a.qty);
+            g.totalCustomers = g.customers.filter(c => c.qty1y > 0).length;
+            g.customers.sort((a, b) => b.qty1y - a.qty1y);
         });
         
-        groupedArray.sort((a, b) => b.totalQty - a.totalQty);
+        groupedArray.sort((a, b) => b.gQty1y - a.gQty1y);
 
-        const totalGrowthPct = prevTotalItemQty > 0 ? ((totalItemQty - prevTotalItemQty) / prevTotalItemQty) * 100 : (totalItemQty > 0 ? 100 : 0);
-
-        return { groups: groupedArray, totalItemQty, totalItemVal, prevTotalItemQty, prevTotalItemVal, totalGrowthPct };
-    }, [selectedPopupItem, popupPeriod, salesReportItems, customers]);
+        return { 
+            groups: groupedArray, 
+            total3m, valTotal3m, 
+            total1y, valTotal1y, 
+            lyTotal3m, lyTotal1y 
+        };
+    }, [selectedPopupItem, salesReportItems, customers]);
 
     const handleExport = () => {
         console.log("🚀 Exporting Strategy Report...");
@@ -724,115 +754,144 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
             </div>
 
             {/* Right-aligned Popup Panel */}
-            {selectedPopupItem && popupData && (
-                <div className="fixed inset-0 z-[100] flex justify-end bg-black/20 backdrop-blur-sm transition-all" onClick={() => setSelectedPopupItem(null)}>
-                    <div className="w-[850px] h-full bg-white shadow-2xl flex flex-col animate-slide-in-right overflow-hidden" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-between p-4 border-b bg-indigo-50">
-                            <div>
-                                <div className="flex items-center gap-3">
-                                    <h3 className="font-bold text-indigo-900 text-sm">Customer Breakdown</h3>
-                                    <div className="flex bg-white rounded-lg border p-0.5 shadow-sm">
-                                        <button onClick={() => setPopupPeriod('3M')} className={`px-2.5 py-0.5 text-[10px] font-bold rounded-md transition-colors ${popupPeriod === '3M' ? 'bg-indigo-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>3 Months</button>
-                                        <button onClick={() => setPopupPeriod('1Y')} className={`px-2.5 py-0.5 text-[10px] font-bold rounded-md transition-colors ${popupPeriod === '1Y' ? 'bg-indigo-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>1 Year</button>
-                                    </div>
-                                </div>
-                                <p className="text-xs text-indigo-700 font-medium mt-1.5 truncate max-w-[700px]" title={selectedPopupItem.description}>{selectedPopupItem.description}</p>
-                            </div>
-                            <button onClick={() => setSelectedPopupItem(null)} className="p-1 hover:bg-indigo-100 rounded-full text-indigo-900"><X className="w-5 h-5" /></button>
-                        </div>
-                        <div className="flex-1 overflow-auto p-4 bg-gray-50">
-                            <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
-                                <table className="w-full text-left text-xs">
-                                    <thead className="bg-gray-100 text-gray-600 font-bold border-b">
-                                        <tr>
-                                            <th className="p-2 w-8"></th>
-                                            <th className="p-2">Customer Group / Name</th>
-                                            <th className="p-2 text-center">Billed Months</th>
-                                            <th className="p-2 text-right">Qty</th>
-                                            <th className="p-2 text-right">Value (₹)</th>
-                                            <th className="p-2 text-right">Consumption %</th>
-                                            <th className="p-2 text-center">Trend %</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y">
-                                        {popupData.groups.length === 0 && (
-                                            <tr><td colSpan={7} className="p-4 text-center text-gray-500 italic">No sales found in the selected period.</td></tr>
-                                        )}
-                                        {popupData.groups.map(g => {
-                                            const isExpanded = expandedGroups.has(g.groupName);
-                                            const groupConsumption = popupData.totalItemQty > 0 ? (g.totalQty / popupData.totalItemQty) * 100 : 0;
-                                            
-                                            // Group growth vs previous period
-                                            const groupGrowth = g.prevTotalQty > 0 ? ((g.totalQty - g.prevTotalQty) / g.prevTotalQty) * 100 : (g.totalQty > 0 ? 100 : 0);
+            {selectedPopupItem && popupData && (() => {
+                const is3M = popupPeriod === '3M';
+                const totalQty = is3M ? popupData.total3m : popupData.total1y;
+                const totalVal = is3M ? popupData.valTotal3m : popupData.valTotal1y;
+                const lyTotal = is3M ? popupData.lyTotal3m : popupData.lyTotal1y;
+                const totalGrowthPct = lyTotal > 0 ? ((totalQty - lyTotal) / lyTotal) * 100 : (totalQty > 0 ? 100 : 0);
 
-                                            return (
-                                                <React.Fragment key={g.groupName}>
-                                                    <tr className="bg-slate-50 hover:bg-slate-100 cursor-pointer font-bold border-b-[1px] border-slate-200" onClick={() => toggleGroup(g.groupName)}>
-                                                        <td className="p-2 text-center text-indigo-600">
-                                                            {isExpanded ? <ChevronDown className="w-4 h-4 mx-auto" /> : <ChevronRight className="w-4 h-4 mx-auto" />}
-                                                        </td>
-                                                        <td className="p-2">
-                                                            <span className="text-indigo-900">{g.groupName}</span>
-                                                            <span className="ml-2 text-[10px] px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full border border-indigo-200">{g.totalCustomers} {g.totalCustomers === 1 ? 'Customer' : 'Customers'}</span>
-                                                        </td>
-                                                        <td className="p-2 text-center text-gray-500">-</td>
-                                                        <td className="p-2 text-right text-indigo-700">{g.totalQty.toLocaleString()}</td>
-                                                        <td className="p-2 text-right text-gray-700">{Math.round(g.totalVal).toLocaleString()}</td>
-                                                        <td className="p-2 text-right text-emerald-700">{groupConsumption.toFixed(1)}%</td>
-                                                        <td className="p-2 text-center">
-                                                            {(g.totalQty > 0 || g.prevTotalQty > 0) && (
-                                                                <div className={`flex items-center justify-center gap-0.5 text-[10px] ${groupGrowth >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                                                                    {groupGrowth >= 0 ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />}
-                                                                    <span>{Math.abs(Math.round(groupGrowth))}%</span>
-                                                                </div>
-                                                            )}
-                                                        </td>
-                                                    </tr>
-                                                    {isExpanded && g.customers.map((c, i) => (
-                                                        <tr key={`${g.groupName}-${c.name}-${i}`} className={`hover:bg-indigo-50/30 ${c.qty === 0 ? 'bg-red-50/20' : 'bg-white'}`}>
-                                                            <td className="p-2"></td>
-                                                            <td className="p-2 pl-4 border-l-2 border-indigo-200 text-gray-700 font-medium truncate max-w-[300px]" title={c.name}>
-                                                                {c.name}
-                                                                {c.qty === 0 && <span className="ml-2 text-[8px] bg-red-100 text-red-600 px-1 py-px rounded font-bold uppercase">Stopped</span>}
+                return (
+                    <div className="fixed inset-0 z-[100] flex justify-end bg-black/20 backdrop-blur-sm transition-all" onClick={() => setSelectedPopupItem(null)}>
+                        <div className="w-[900px] h-full bg-white shadow-2xl flex flex-col animate-slide-in-right overflow-hidden" onClick={e => e.stopPropagation()}>
+                            <div className="flex items-center justify-between p-4 border-b bg-indigo-50">
+                                <div>
+                                    <div className="flex items-center gap-3">
+                                        <h3 className="font-bold text-indigo-900 text-sm">Customer Breakdown</h3>
+                                        <div className="flex bg-white rounded-lg border p-0.5 shadow-sm">
+                                            <button onClick={() => setPopupPeriod('3M')} className={`px-2.5 py-0.5 text-[10px] font-bold rounded-md transition-colors ${is3M ? 'bg-indigo-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>3 Months (vs LY)</button>
+                                            <button onClick={() => setPopupPeriod('1Y')} className={`px-2.5 py-0.5 text-[10px] font-bold rounded-md transition-colors ${!is3M ? 'bg-indigo-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>1 Year (vs LY)</button>
+                                        </div>
+                                    </div>
+                                    <p className="text-xs text-indigo-700 font-medium mt-1.5 truncate max-w-[700px]" title={selectedPopupItem.description}>{selectedPopupItem.description}</p>
+                                </div>
+                                <button onClick={() => setSelectedPopupItem(null)} className="p-1 hover:bg-indigo-100 rounded-full text-indigo-900"><X className="w-5 h-5" /></button>
+                            </div>
+                            <div className="flex-1 overflow-auto p-4 bg-gray-50">
+                                <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
+                                    <table className="w-full text-left text-xs">
+                                        <thead className="bg-gray-100 text-gray-600 font-bold border-b">
+                                            <tr>
+                                                <th className="p-2 w-8"></th>
+                                                <th className="p-2">Customer Group / Name</th>
+                                                <th className="p-2 text-center">Billed Months</th>
+                                                <th className="p-2 text-right bg-indigo-50/50">3M Qty</th>
+                                                <th className="p-2 text-right bg-indigo-50/50">1Y Qty</th>
+                                                <th className="p-2 text-right">Value (₹)</th>
+                                                <th className="p-2 text-right">Consumption %</th>
+                                                <th className="p-2 text-center text-indigo-800">Trend (vs LY)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y">
+                                            {popupData.groups.length === 0 && (
+                                                <tr><td colSpan={8} className="p-4 text-center text-gray-500 italic">No sales found.</td></tr>
+                                            )}
+                                            {popupData.groups.map(g => {
+                                                const isExpanded = expandedGroups.has(g.groupName);
+                                                const gQty = is3M ? g.gQty3m : g.gQty1y;
+                                                const gVal = is3M ? g.gVal3m : g.gVal1y;
+                                                const gLyQty = is3M ? g.gLyQty3m : g.gLyQty1y;
+                                                
+                                                const groupGrowth = gLyQty > 0 ? ((gQty - gLyQty) / gLyQty) * 100 : (gQty > 0 ? 100 : 0);
+                                                const groupConsumption = totalQty > 0 ? (gQty / totalQty) * 100 : 0;
+
+                                                // Only show group if it has activity in either current 1Y or last 1Y
+                                                if (g.gQty1y === 0 && g.gLyQty1y === 0) return null;
+
+                                                return (
+                                                    <React.Fragment key={g.groupName}>
+                                                        <tr className="bg-slate-50 hover:bg-slate-100 cursor-pointer font-bold border-b-[1px] border-slate-200" onClick={() => toggleGroup(g.groupName)}>
+                                                            <td className="p-2 text-center text-indigo-600">
+                                                                {isExpanded ? <ChevronDown className="w-4 h-4 mx-auto" /> : <ChevronRight className="w-4 h-4 mx-auto" />}
                                                             </td>
-                                                            <td className="p-2 text-center font-bold text-gray-600">{c.billedMonths}</td>
-                                                            <td className="p-2 text-right font-bold">{c.qty.toLocaleString()}</td>
-                                                            <td className="p-2 text-right text-gray-600">{Math.round(c.val).toLocaleString()}</td>
-                                                            <td className="p-2 text-right font-bold text-emerald-600">{c.consumptionPct.toFixed(1)}%</td>
-                                                            <td className="p-2 text-center">
-                                                                <div className={`flex items-center justify-center gap-0.5 text-[9px] font-black ${c.growthPct >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                                                                    {c.growthPct >= 0 ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />}
-                                                                    <span>{Math.abs(Math.round(c.growthPct))}%</span>
-                                                                </div>
+                                                            <td className="p-2">
+                                                                <span className="text-indigo-900">{g.groupName}</span>
+                                                                <span className="ml-2 text-[10px] px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full border border-indigo-200">{g.totalCustomers} {g.totalCustomers === 1 ? 'Customer' : 'Customers'}</span>
+                                                            </td>
+                                                            <td className="p-2 text-center text-gray-500">-</td>
+                                                            <td className="p-2 text-right text-indigo-700 bg-indigo-50/20">{g.gQty3m.toLocaleString()}</td>
+                                                            <td className="p-2 text-right text-indigo-900 bg-indigo-50/20">{g.gQty1y.toLocaleString()}</td>
+                                                            <td className="p-2 text-right text-gray-700">{Math.round(gVal).toLocaleString()}</td>
+                                                            <td className="p-2 text-right text-emerald-700">{groupConsumption.toFixed(1)}%</td>
+                                                            <td className="p-2 text-center bg-gray-50/50">
+                                                                {(gQty > 0 || gLyQty > 0) && (
+                                                                    <div className={`flex items-center justify-center gap-0.5 text-[10px] ${groupGrowth >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                                        {groupGrowth >= 0 ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />}
+                                                                        <span>{Math.abs(Math.round(groupGrowth))}%</span>
+                                                                    </div>
+                                                                )}
                                                             </td>
                                                         </tr>
-                                                    ))}
-                                                </React.Fragment>
-                                            );
-                                        })}
-                                    </tbody>
-                                    {popupData.groups.length > 0 && (
-                                        <tfoot className="bg-gray-800 text-white font-bold text-xs">
-                                            <tr>
-                                                <td colSpan={3} className="p-2 text-right uppercase">TOTAL (LAST {popupPeriod}):</td>
-                                                <td className="p-2 text-right text-blue-300">{popupData.totalItemQty.toLocaleString()}</td>
-                                                <td className="p-2 text-right text-gray-300">{Math.round(popupData.totalItemVal).toLocaleString()}</td>
-                                                <td className="p-2 text-right text-green-400">100%</td>
-                                                <td className="p-2 text-center">
-                                                    <div className={`flex items-center justify-center gap-0.5 ${popupData.totalGrowthPct >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                                        {popupData.totalGrowthPct >= 0 ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
-                                                        <span>{Math.abs(Math.round(popupData.totalGrowthPct))}%</span>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        </tfoot>
-                                    )}
-                                </table>
+                                                        {isExpanded && g.customers.map((c, i) => {
+                                                            const cQty = is3M ? c.qty3m : c.qty1y;
+                                                            const cVal = is3M ? c.val3m : c.val1y;
+                                                            const cLyQty = is3M ? c.lyQty3m : c.lyQty1y;
+                                                            const cGrowth = cLyQty > 0 ? ((cQty - cLyQty) / cLyQty) * 100 : (cQty > 0 ? 100 : 0);
+                                                            const cConsumption = totalQty > 0 ? (cQty / totalQty) * 100 : 0;
+                                                            
+                                                            const isStopped = cQty === 0 && cLyQty > 0;
+
+                                                            return (
+                                                                <tr key={`${g.groupName}-${c.name}-${i}`} className={`hover:bg-indigo-50/30 ${isStopped ? 'bg-red-50/20' : 'bg-white'}`}>
+                                                                    <td className="p-2"></td>
+                                                                    <td className="p-2 pl-4 border-l-2 border-indigo-200 text-gray-700 font-medium truncate max-w-[280px]" title={c.name}>
+                                                                        {c.name}
+                                                                        {isStopped && <span className="ml-2 text-[8px] bg-red-100 text-red-600 px-1 py-px rounded font-bold uppercase">Stopped</span>}
+                                                                    </td>
+                                                                    <td className="p-2 text-center font-bold text-gray-600">{c.billedMonths}</td>
+                                                                    <td className="p-2 text-right font-bold text-indigo-600 bg-indigo-50/10">{c.qty3m.toLocaleString()}</td>
+                                                                    <td className="p-2 text-right font-bold text-indigo-900 bg-indigo-50/10">{c.qty1y.toLocaleString()}</td>
+                                                                    <td className="p-2 text-right text-gray-600">{Math.round(cVal).toLocaleString()}</td>
+                                                                    <td className="p-2 text-right font-bold text-emerald-600">{cConsumption.toFixed(1)}%</td>
+                                                                    <td className="p-2 text-center bg-gray-50/30">
+                                                                        {(cQty > 0 || cLyQty > 0) && (
+                                                                            <div className={`flex items-center justify-center gap-0.5 text-[9px] font-black ${cGrowth >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                                                {cGrowth >= 0 ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />}
+                                                                                <span>{Math.abs(Math.round(cGrowth))}%</span>
+                                                                            </div>
+                                                                        )}
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })}
+                                                    </React.Fragment>
+                                                );
+                                            })}
+                                        </tbody>
+                                        {popupData.groups.length > 0 && (
+                                            <tfoot className="bg-gray-800 text-white font-bold text-xs">
+                                                <tr>
+                                                    <td colSpan={3} className="p-2 text-right uppercase">TOTAL (BASED ON {popupPeriod}):</td>
+                                                    <td className="p-2 text-right text-indigo-300">{popupData.total3m.toLocaleString()}</td>
+                                                    <td className="p-2 text-right text-indigo-300">{popupData.total1y.toLocaleString()}</td>
+                                                    <td className="p-2 text-right text-gray-300">{Math.round(totalVal).toLocaleString()}</td>
+                                                    <td className="p-2 text-right text-green-400">100%</td>
+                                                    <td className="p-2 text-center bg-gray-900">
+                                                        <div className={`flex items-center justify-center gap-0.5 ${totalGrowthPct >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                                            {totalGrowthPct >= 0 ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
+                                                            <span>{Math.abs(Math.round(totalGrowthPct))}%</span>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            </tfoot>
+                                        )}
+                                    </table>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            )}
+                );
+            })()}
         </div>
     );
 };
