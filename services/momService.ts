@@ -20,8 +20,9 @@ export const momService = {
                     .order('date', { ascending: false });
 
                 if (!error && data) {
+                    await dbService.clear(STORES.MOMS);
                     await dbService.putBatch(STORES.MOMS, data);
-                    return data;
+                    return data as MOM[];
                 }
             } catch (e) {
                 console.warn("MOM Sync: Cloud fetch failed, using local.");

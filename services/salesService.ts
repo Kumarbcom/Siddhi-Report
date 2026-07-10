@@ -92,6 +92,9 @@ export const salesService = {
         if (data && data.length > 0) {
           console.log(`🔄 Transforming and Saving ${data.length} records in chunks...`);
 
+          // CRITICAL FIX: Clear old local data before syncing fresh cloud data
+          await dbService.clear(STORES.SALES);
+
           // Process in chunks to avoid blocking UI
           const PROCESS_CHUNK_SIZE = 2000;
           for (let i = 0; i < data.length; i += PROCESS_CHUNK_SIZE) {

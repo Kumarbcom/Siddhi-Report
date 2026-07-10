@@ -71,6 +71,7 @@ export const materialService = {
             createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now(),
             updatedAt: row.updated_at ? new Date(row.updated_at).getTime() : Date.now()
           }));
+          await dbService.clear(STORES.MATERIALS);
           await dbService.putBatch(STORES.MATERIALS, syncedData);
           return syncedData;
         }

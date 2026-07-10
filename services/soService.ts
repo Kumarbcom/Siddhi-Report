@@ -70,6 +70,7 @@ export const soService = {
             overDueDays: Number(row.overdue_days) || 0,
             createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now()
           }));
+          await dbService.clear(STORES.SO);
           await dbService.putBatch(STORES.SO, synced);
           return synced;
         }

@@ -61,6 +61,7 @@ export const stockService = {
             value: Number(row.value) || 0,
             createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now()
           }));
+          await dbService.clear(STORES.STOCK);
           await dbService.putBatch(STORES.STOCK, synced);
           return synced;
         }

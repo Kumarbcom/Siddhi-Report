@@ -27,6 +27,7 @@ export const attendeeService = {
                         imageUrl: row.image_url,
                         createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now()
                     }));
+                    await dbService.clear(STORES.ATTENDEES);
                     await dbService.putBatch(STORES.ATTENDEES, synced);
                     return synced;
                 }

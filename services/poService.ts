@@ -70,6 +70,7 @@ export const poService = {
             overDueDays: Number(row.overdue_days) || 0,
             createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now()
           }));
+          await dbService.clear(STORES.PO);
           await dbService.putBatch(STORES.PO, synced);
           return synced;
         }
