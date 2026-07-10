@@ -3321,8 +3321,6 @@ const DashboardView: React.FC<DashboardViewProps> = React.memo(({
                     ) : null}
                 </div>
             </div>
-            </div>
-
             {ageingPopupLabel && (
                 <div className="fixed inset-0 z-[100] flex justify-end bg-black/20 backdrop-blur-sm transition-all" onClick={() => setAgeingPopupLabel(null)}>
                     <div className="w-[900px] h-full bg-white shadow-2xl flex flex-col animate-slide-in-right overflow-hidden" onClick={e => e.stopPropagation()}>
