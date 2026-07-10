@@ -212,8 +212,9 @@ const ModernDonutChartDashboard: React.FC<{
     title: string,
     isCurrency?: boolean,
     centerColorClass?: string,
-    showDataLabels?: boolean
-}> = React.memo(({ data, title, isCurrency, centerColorClass, showDataLabels = true }) => {
+    showDataLabels?: boolean,
+    onClick?: (label: string) => void
+}> = React.memo(({ data, title, isCurrency, centerColorClass, showDataLabels = true, onClick }) => {
     const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
     if (data.length === 0) return <div className="h-48 flex items-center justify-center text-gray-400 text-[10px] font-bold uppercase">No records found</div>;
 
@@ -273,26 +274,22 @@ const ModernDonutChartDashboard: React.FC<{
                                             className={`transition-all duration-400 cursor-pointer ${hoveredIndex === i ? 'opacity-100 scale-[1.05] stroke-[0.03] stroke-white shadow-2xl' : 'opacity-90 hover:opacity-100 hover:scale-[1.03]'}`}
                                             onMouseEnter={() => setHoveredIndex(i)}
                                             onMouseLeave={() => setHoveredIndex(null)}
+                                            onClick={() => onClick && onClick(slice.label)}
                                         />
                                         {/* Data Labels on Pie Chart - Vibrant Colors */}
                                         {showDataLabels && slice.percent > 0.08 && (
                                             <text
                                                 x={labelX * 0.85}
                                                 y={labelY * 0.85}
-                                                textAnchor="middle"
-                                                dominantBaseline="middle"
-                                                fontSize="0.18"
+                                                fill={slice.labelColor}
+                                                fontSize="0.12"
                                                 fontWeight="900"
-                                                fill="#000000"
-                                                pointerEvents="none"
-                                                style={{ 
-                                                    textShadow: '0 1px 3px rgba(255,255,255,0.9)',
-                                                    paintOrder: 'stroke',
-                                                    strokeWidth: '0.02',
-                                                    stroke: 'white'
-                                                }}
+                                                textAnchor="middle"
+                                                alignmentBaseline="middle"
+                                                className="pointer-events-none drop-shadow-md"
+                                                style={{ textShadow: '0px 0px 4px rgba(0,0,0,0.6)' }}
                                             >
-                                                {((slice.value / total) * 100).toFixed(0)}%
+                                                {isCurrency ? formatLargeValue(slice.value, true) : Math.round(slice.value)}
                                             </text>
                                         )}
                                     </g>
@@ -774,6 +771,8 @@ const DashboardView: React.FC<DashboardViewProps> = React.memo(({
     isAdmin = false
 }) => {
     const [invDisplayLimit, setInvDisplayLimit] = useState(100);
+    const [isExporting, setIsExporting] = useState(false);
+    const [ageingPopupLabel, setAgeingPopupLabel] = useState<string | null>(null);
     const [activeSubTab, setActiveSubTab] = useState<'sales' | 'inventory' | 'so' | 'po' | 'weekly' | 'stockPlanning' | 'customerAnalysis'>('sales');
     const [decliningOnlyTopTen, setDecliningOnlyTopTen] = useState(false);
     const [relatedMomId, setRelatedMomId] = useState<string | null>(null);
@@ -1568,12 +1567,13 @@ const DashboardView: React.FC<DashboardViewProps> = React.memo(({
             itemSet.add(k);
 
             const diff = (today.getTime() - due.getTime()) / (1000 * 3600 * 24);
-            if (diff > 90) aging['90d+'] += val;
-            else if (diff > 60) aging['61-90d'] += val;
-            else if (diff > 30) aging['31-60d'] += val;
-            else if (diff > 0) aging['0-30d'] += val;
+            let bkt = '0-30d';
+            if (diff > 90) { aging['90d+'] += val; bkt = '90d+'; }
+            else if (diff > 60) { aging['61-90d'] += val; bkt = '61-90d'; }
+            else if (diff > 30) { aging['31-60d'] += val; bkt = '31-60d'; }
+            else if (diff > 0) { aging['0-30d'] += val; bkt = '0-30d'; }
 
-            return { ...i, readyVal: rV, shortageVal: shV, readyQty: alloc, shortageQty: qty - alloc };
+            return { ...i, readyVal: rV, shortageVal: shV, readyQty: alloc, shortageQty: qty - alloc, agingBucket: bkt };
         });
 
         console.timeEnd('📑 Dashboard.soStats');
@@ -1582,7 +1582,13 @@ const DashboardView: React.FC<DashboardViewProps> = React.memo(({
             uniqueSOCount: soSet.size, uniqueItemCount: itemSet.size,
             custMix: Array.from(custMap.entries()).map(([label, v]) => ({ label, value: v.due, secondaryValue: v.scheduled })).sort((a,b) => (b.value+b.secondaryValue) - (a.value+a.secondaryValue)),
             groupMix: Array.from(groupMap.entries()).map(([label, value]) => ({ label, value })).sort((a,b) => b.value - a.value),
-            ageing: Object.entries(aging).map(([label, value]) => ({ label, value })),
+            ageing: Object.entries(aging).map(([label, value]) => {
+                let color = '#16a34a';
+                if (label === '90d+') color = '#dc2626';
+                else if (label === '61-90d') color = '#f87171';
+                else if (label === '31-60d') color = '#86efac';
+                return { label, value, color };
+            }),
             topItems: enriched.sort((a,b) => b.value - a.value).slice(0, 10),
             enrichedItems: enriched
         };
@@ -2274,7 +2280,7 @@ const DashboardView: React.FC<DashboardViewProps> = React.memo(({
                             </div>
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                                 <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80">
-                                    <ModernDonutChartDashboard data={soStats.ageing} title="SO Ageing Analysis" isCurrency={true} centerColorClass="text-blue-600" />
+                                    <ModernDonutChartDashboard data={soStats.ageing} title="SO Ageing Analysis" isCurrency={true} centerColorClass="text-blue-600" onClick={(l) => setAgeingPopupLabel(l)} />
                                 </div>
                                 <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm h-80">
                                     <ModernDonutChartDashboard data={soStats.groupMix} title="SO by Material Group" isCurrency={true} centerColorClass="text-emerald-600" />
