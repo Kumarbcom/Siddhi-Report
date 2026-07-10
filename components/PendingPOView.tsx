@@ -298,31 +298,45 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
         return data;
     }, [itemsWithSearch, deferredSearchTerm, sortConfig, actionFilter, supplyMap]);
 
+    const [showTopSummary, setShowTopSummary] = useState(true);
+
     return (
         <div className="flex flex-col h-full gap-4">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex flex-col gap-4 flex-shrink-0">
-                <div className="flex justify-between items-center mb-1">
-                    <div className="flex items-center gap-2">
-                        <div className="bg-orange-100 p-1.5 rounded text-orange-700"><ShoppingCart className="w-4 h-4" /></div>
-                        <h2 className="text-sm font-bold text-gray-800 uppercase tracking-tight">Strategic Supply Planning</h2>
+            {showTopSummary && (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex flex-col gap-4 flex-shrink-0">
+                    <div className="flex justify-between items-center mb-1">
+                        <div className="flex items-center gap-2">
+                            <div className="bg-orange-100 p-1.5 rounded text-orange-700"><ShoppingCart className="w-4 h-4" /></div>
+                            <h2 className="text-sm font-bold text-gray-800 uppercase tracking-tight">Strategic Supply Planning</h2>
+                        </div>
+                        <button onClick={() => setActionFilter('ALL')} className={`text-[10px] font-bold px-2 py-1 rounded transition-colors ${actionFilter === 'ALL' ? 'bg-gray-200 text-gray-700' : 'text-blue-600 hover:bg-blue-50'}`}>Reset Strategy Filters</button>
                     </div>
-                    <button onClick={() => setActionFilter('ALL')} className={`text-[10px] font-bold px-2 py-1 rounded transition-colors ${actionFilter === 'ALL' ? 'bg-gray-200 text-gray-700' : 'text-blue-600 hover:bg-blue-50'}`}>Reset Strategy Filters</button>
-                </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 h-32">
-                    <ActionCard title="PO Need (Shortage)" value={formatCurrency(optimizationStats.need.val)} count={optimizationStats.need.count} color="red" icon={AlertOctagon} active={actionFilter === 'NEED_PLACE'} onClick={() => setActionFilter('NEED_PLACE')} />
-                    <ActionCard title="Expedite List" value={formatCurrency(optimizationStats.expedite.val)} count={optimizationStats.expedite.count} color="blue" icon={CheckCircle2} active={actionFilter === 'EXPEDITE'} onClick={() => setActionFilter('EXPEDITE')} />
-                    <ActionCard title="Excess PO Items" value={formatCurrency(optimizationStats.excess.val)} count={optimizationStats.excess.count} color="orange" icon={AlertTriangle} active={actionFilter === 'EXCESS'} onClick={() => setActionFilter('EXCESS')} />
-                    <button onClick={() => setActionFilter('OVERDUE')} className={`p-3 rounded-xl border flex flex-col justify-between h-full transition-all text-left hover:shadow-md shadow-sm ${actionFilter === 'OVERDUE' ? 'bg-indigo-100 border-indigo-400' : 'bg-white border-gray-200'}`}>
-                        <div className="flex justify-between items-start w-full"><p className="text-[10px] font-bold text-indigo-700 uppercase">PO Overdue</p><Calendar className="w-4 h-4 text-indigo-600" /></div>
-                        <div><h3 className="text-sm font-black text-red-700">{formatCurrency(optimizationStats.overdue.val)}</h3><p className="text-[9px] text-gray-500 font-medium">Overdue Arrivals</p></div>
-                    </button>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 h-32">
+                        <ActionCard title="PO Need (Shortage)" value={formatCurrency(optimizationStats.need.val)} count={optimizationStats.need.count} color="red" icon={AlertOctagon} active={actionFilter === 'NEED_PLACE'} onClick={() => setActionFilter('NEED_PLACE')} />
+                        <ActionCard title="Expedite List" value={formatCurrency(optimizationStats.expedite.val)} count={optimizationStats.expedite.count} color="blue" icon={CheckCircle2} active={actionFilter === 'EXPEDITE'} onClick={() => setActionFilter('EXPEDITE')} />
+                        <ActionCard title="Excess PO Items" value={formatCurrency(optimizationStats.excess.val)} count={optimizationStats.excess.count} color="orange" icon={AlertTriangle} active={actionFilter === 'EXCESS'} onClick={() => setActionFilter('EXCESS')} />
+                        <button onClick={() => setActionFilter('OVERDUE')} className={`p-3 rounded-xl border flex flex-col justify-between h-full transition-all text-left hover:shadow-md shadow-sm ${actionFilter === 'OVERDUE' ? 'bg-indigo-100 border-indigo-400' : 'bg-white border-gray-200'}`}>
+                            <div className="flex justify-between items-start w-full"><p className="text-[10px] font-bold text-indigo-700 uppercase">PO Overdue</p><Calendar className="w-4 h-4 text-indigo-600" /></div>
+                            <div><h3 className="text-sm font-black text-red-700">{formatCurrency(optimizationStats.overdue.val)}</h3><p className="text-[9px] text-gray-500 font-medium">Overdue Arrivals</p></div>
+                        </button>
+                    </div>
                 </div>
-            </div>
+            )}
 
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 flex flex-col gap-3 flex-shrink-0">
                 <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
-                    <h2 className="text-sm font-semibold text-gray-800 flex items-center gap-2"><Filter className="w-4 h-4 text-indigo-500" /> Pending PO List</h2>
+                    <div className="flex items-center gap-3">
+                        <h2 className="text-sm font-semibold text-gray-800 flex items-center gap-2"><Filter className="w-4 h-4 text-indigo-500" /> Pending PO List</h2>
+                        <button
+                            onClick={() => setShowTopSummary(!showTopSummary)}
+                            className="text-[10px] font-bold px-2 py-1 bg-gray-100 text-gray-600 hover:bg-gray-200 rounded transition-colors flex items-center gap-1"
+                            title={showTopSummary ? "Hide Summary Cards" : "Show Summary Cards"}
+                        >
+                            {showTopSummary ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
+                            {showTopSummary ? "COLLAPSE" : "EXPAND"}
+                        </button>
+                    </div>
                     <div className="flex flex-wrap gap-2">
                         {isAdmin && (
                             <>

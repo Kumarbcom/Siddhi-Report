@@ -392,70 +392,84 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
     };
     const renderSortIcon = (key: SortKey) => { if (!sortConfig || sortConfig.key !== key) return <ArrowUpDown className="w-3 h-3 text-gray-400" />; return sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3 text-purple-500" /> : <ArrowDown className="w-3 h-3 text-purple-500" />; };
 
+    const [showTopSummary, setShowTopSummary] = useState(true);
+
     return (
         <div className="flex flex-col h-full gap-4">
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-2.5 flex-shrink-0">
-                <div className="bg-white p-2.5 rounded-lg shadow-[0_4px_12px_-2px_rgba(0,0,0,0.12),0_2px_4px_-1px_rgba(0,0,0,0.07)] border border-gray-100/50 transform transition-all duration-300 hover:scale-[1.02] hover:shadow-indigo-100 hover:border-indigo-100 cursor-default">
-                    <p className="text-[9px] text-gray-400 font-extrabold uppercase mb-0.5 tracking-wider">Total Pending</p>
-                    <div className="flex flex-col">
-                        <span className="text-lg font-black text-indigo-700 leading-tight tracking-tightest">{formatCurrency(totals.value)}</span>
-                        <div className="mt-1 flex items-center justify-between border-t border-gray-50 pt-1">
-                            <span className="text-[9px] font-bold text-gray-500 whitespace-nowrap">Qty: {totals.balance.toLocaleString()}</span>
-                            <span className="text-[9px] font-bold text-indigo-400/80 uppercase">{totals.uniqueOrderCount} SOs</span>
+            {showTopSummary && (
+                <div className="grid grid-cols-2 lg:grid-cols-5 gap-2.5 flex-shrink-0">
+                    <div className="bg-white p-2.5 rounded-lg shadow-[0_4px_12px_-2px_rgba(0,0,0,0.12),0_2px_4px_-1px_rgba(0,0,0,0.07)] border border-gray-100/50 transform transition-all duration-300 hover:scale-[1.02] hover:shadow-indigo-100 hover:border-indigo-100 cursor-default">
+                        <p className="text-[9px] text-gray-400 font-extrabold uppercase mb-0.5 tracking-wider">Total Pending</p>
+                        <div className="flex flex-col">
+                            <span className="text-lg font-black text-indigo-700 leading-tight tracking-tightest">{formatCurrency(totals.value)}</span>
+                            <div className="mt-1 flex items-center justify-between border-t border-gray-50 pt-1">
+                                <span className="text-[9px] font-bold text-gray-500 whitespace-nowrap">Qty: {totals.balance.toLocaleString()}</span>
+                                <span className="text-[9px] font-bold text-indigo-400/80 uppercase">{totals.uniqueOrderCount} SOs</span>
+                            </div>
                         </div>
                     </div>
-                </div>
-                <div className="bg-gradient-to-br from-white to-red-50/30 p-2.5 rounded-lg shadow-[0_4px_12px_-2px_rgba(220,38,38,0.15),0_2px_4px_-1px_rgba(220,38,38,0.08)] border border-red-100/50 flex flex-col justify-between transform transition-all duration-300 hover:scale-[1.02] hover:shadow-red-100 hover:border-red-200 cursor-default">
-                    <div>
-                        <div className="flex items-center justify-between mb-0.5"><p className="text-[9px] text-red-600 font-extrabold uppercase tracking-wider">Due Orders</p><CalendarCheck className="w-3 h-3 text-red-500" /></div>
-                        <p className="text-lg font-black text-red-700 tracking-tightest">{formatCurrency(totals.dueValue)}</p>
-                    </div>
-                    <div className="mt-1 flex items-center justify-between border-t border-red-100/30 pt-1">
-                        <span className="text-[9px] font-bold text-red-600/80">Qty: {totals.dueQty.toLocaleString()}</span>
-                        <span className="text-[9px] font-extrabold text-red-400 uppercase italic tracking-tighter">{totals.dueOrderCount} SOs</span>
-                    </div>
-                </div>
-                <div className="bg-gradient-to-br from-white to-blue-50/30 p-2.5 rounded-lg shadow-[0_4px_12px_-2px_rgba(37,99,235,0.15),0_2px_4px_-1px_rgba(37,99,235,0.08)] border border-blue-100/50 flex flex-col justify-between transform transition-all duration-300 hover:scale-[1.02] hover:shadow-blue-100 hover:border-blue-200 cursor-default">
-                    <div>
-                        <div className="flex items-center justify-between mb-0.5"><p className="text-[9px] text-blue-600 font-extrabold uppercase tracking-wider">Scheduled</p><CalendarDays className="w-3 h-3 text-blue-500" /></div>
-                        <p className="text-lg font-black text-blue-700 tracking-tightest">{formatCurrency(totals.scheduledValue)}</p>
-                    </div>
-                    <div className="mt-1 flex items-center justify-between border-t border-blue-100/30 pt-1">
-                        <span className="text-[9px] font-bold text-blue-600/80">Qty: {totals.scheduledQty.toLocaleString()}</span>
-                        <span className="text-[9px] font-extrabold text-blue-400 uppercase italic tracking-tighter">{totals.scheduledOrderCount} SOs</span>
-                    </div>
-                </div>
-                <div className="bg-gradient-to-br from-white to-emerald-50/30 p-2.5 rounded-lg shadow-[0_4px_12px_-2px_rgba(16,185,129,0.15),0_2px_4px_-1px_rgba(16,185,129,0.08)] border border-emerald-100/50 flex flex-col justify-between transform transition-all duration-300 hover:scale-[1.02] hover:shadow-emerald-100 hover:border-emerald-200 cursor-default">
-                    <div>
-                        <div className="flex items-center justify-between mb-0.5"><p className="text-[9px] text-emerald-600 font-extrabold uppercase tracking-wider">Ready / Reserved</p><Package className="w-3 h-3 text-emerald-500" /></div>
-                        <p className="text-lg font-black text-emerald-700 tracking-tightest">{formatCurrency(totals.readyToDispatchValue)}</p>
-                    </div>
-                    <div className="mt-1 flex flex-col border-t border-emerald-100/30 pt-1">
-                        <div className="flex justify-between items-center">
-                            <span className="text-[9px] font-bold text-emerald-600/80">Qty: {totals.readyToDispatchQty.toLocaleString()}</span>
-                            <span className="text-[8px] text-gray-400 font-medium">Reserve: {formatCurrency(totals.futureAllocatedValue)}</span>
+                    <div className="bg-gradient-to-br from-white to-red-50/30 p-2.5 rounded-lg shadow-[0_4px_12px_-2px_rgba(220,38,38,0.15),0_2px_4px_-1px_rgba(220,38,38,0.08)] border border-red-100/50 flex flex-col justify-between transform transition-all duration-300 hover:scale-[1.02] hover:shadow-red-100 hover:border-red-200 cursor-default">
+                        <div>
+                            <div className="flex items-center justify-between mb-0.5"><p className="text-[9px] text-red-600 font-extrabold uppercase tracking-wider">Due Orders</p><CalendarCheck className="w-3 h-3 text-red-500" /></div>
+                            <p className="text-lg font-black text-red-700 tracking-tightest">{formatCurrency(totals.dueValue)}</p>
+                        </div>
+                        <div className="mt-1 flex items-center justify-between border-t border-red-100/30 pt-1">
+                            <span className="text-[9px] font-bold text-red-600/80">Qty: {totals.dueQty.toLocaleString()}</span>
+                            <span className="text-[9px] font-extrabold text-red-400 uppercase italic tracking-tighter">{totals.dueOrderCount} SOs</span>
                         </div>
                     </div>
-                </div>
-                {totals.toArrange > 0 ? (
-                    <div className="bg-gradient-to-br from-white to-orange-50/40 p-2.5 rounded-lg shadow-[0_4px_12px_-2px_rgba(245,158,11,0.15),0_2px_4px_-1px_rgba(245,158,11,0.08)] border border-orange-200/50 transform transition-all duration-300 hover:scale-[1.02] hover:shadow-orange-100 hover:border-orange-300 cursor-default">
-                        <p className="text-[9px] text-orange-600 font-extrabold uppercase mb-0.5 tracking-wider">Shortage</p>
-                        <p className="text-lg font-black text-orange-700 truncate tracking-tightest" title={formatCurrency(totals.toArrangeValue)}>{formatCurrency(totals.toArrangeValue)}</p>
-                        <div className="flex justify-between items-center mt-1 border-t border-orange-100/30 pt-1">
-                            <span className="text-[9px] text-orange-600/80 font-bold italic">Qty: {totals.toArrange.toLocaleString()}</span>
+                    <div className="bg-gradient-to-br from-white to-blue-50/30 p-2.5 rounded-lg shadow-[0_4px_12px_-2px_rgba(37,99,235,0.15),0_2px_4px_-1px_rgba(37,99,235,0.08)] border border-blue-100/50 flex flex-col justify-between transform transition-all duration-300 hover:scale-[1.02] hover:shadow-blue-100 hover:border-blue-200 cursor-default">
+                        <div>
+                            <div className="flex items-center justify-between mb-0.5"><p className="text-[9px] text-blue-600 font-extrabold uppercase tracking-wider">Scheduled</p><CalendarDays className="w-3 h-3 text-blue-500" /></div>
+                            <p className="text-lg font-black text-blue-700 tracking-tightest">{formatCurrency(totals.scheduledValue)}</p>
+                        </div>
+                        <div className="mt-1 flex items-center justify-between border-t border-blue-100/30 pt-1">
+                            <span className="text-[9px] font-bold text-blue-600/80">Qty: {totals.scheduledQty.toLocaleString()}</span>
+                            <span className="text-[9px] font-extrabold text-blue-400 uppercase italic tracking-tighter">{totals.scheduledOrderCount} SOs</span>
                         </div>
                     </div>
-                ) : (
-                    <div className="bg-gradient-to-br from-white to-green-50/40 p-2.5 rounded-lg shadow-[0_4px_12px_-2px_rgba(34,197,94,0.15),0_2px_4px_-1px_rgba(34,197,94,0.08)] border border-green-200/50 transform transition-all duration-300 hover:scale-[1.02] hover:shadow-green-100 hover:border-green-300 cursor-default">
-                        <p className="text-[9px] text-green-600 font-extrabold uppercase mb-0.5 tracking-wider">Stock Status</p>
-                        <p className="text-xs font-black text-green-700 flex items-center gap-1 mt-1.5"><CheckCircle2 className="w-3 h-3" /> SUFFICIENT</p>
+                    <div className="bg-gradient-to-br from-white to-emerald-50/30 p-2.5 rounded-lg shadow-[0_4px_12px_-2px_rgba(16,185,129,0.15),0_2px_4px_-1px_rgba(16,185,129,0.08)] border border-emerald-100/50 flex flex-col justify-between transform transition-all duration-300 hover:scale-[1.02] hover:shadow-emerald-100 hover:border-emerald-200 cursor-default">
+                        <div>
+                            <div className="flex items-center justify-between mb-0.5"><p className="text-[9px] text-emerald-600 font-extrabold uppercase tracking-wider">Ready / Reserved</p><Package className="w-3 h-3 text-emerald-500" /></div>
+                            <p className="text-lg font-black text-emerald-700 tracking-tightest">{formatCurrency(totals.readyToDispatchValue)}</p>
+                        </div>
+                        <div className="mt-1 flex flex-col border-t border-emerald-100/30 pt-1">
+                            <div className="flex justify-between items-center">
+                                <span className="text-[9px] font-bold text-emerald-600/80">Qty: {totals.readyToDispatchQty.toLocaleString()}</span>
+                                <span className="text-[8px] text-gray-400 font-medium">Reserve: {formatCurrency(totals.futureAllocatedValue)}</span>
+                            </div>
+                        </div>
                     </div>
-                )}
-            </div>
+                    {totals.toArrange > 0 ? (
+                        <div className="bg-gradient-to-br from-white to-orange-50/40 p-2.5 rounded-lg shadow-[0_4px_12px_-2px_rgba(245,158,11,0.15),0_2px_4px_-1px_rgba(245,158,11,0.08)] border border-orange-200/50 transform transition-all duration-300 hover:scale-[1.02] hover:shadow-orange-100 hover:border-orange-300 cursor-default">
+                            <p className="text-[9px] text-orange-600 font-extrabold uppercase mb-0.5 tracking-wider">Shortage</p>
+                            <p className="text-lg font-black text-orange-700 truncate tracking-tightest" title={formatCurrency(totals.toArrangeValue)}>{formatCurrency(totals.toArrangeValue)}</p>
+                            <div className="flex justify-between items-center mt-1 border-t border-orange-100/30 pt-1">
+                                <span className="text-[9px] text-orange-600/80 font-bold italic">Qty: {totals.toArrange.toLocaleString()}</span>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="bg-gradient-to-br from-white to-green-50/40 p-2.5 rounded-lg shadow-[0_4px_12px_-2px_rgba(34,197,94,0.15),0_2px_4px_-1px_rgba(34,197,94,0.08)] border border-green-200/50 transform transition-all duration-300 hover:scale-[1.02] hover:shadow-green-100 hover:border-green-300 cursor-default">
+                            <p className="text-[9px] text-green-600 font-extrabold uppercase mb-0.5 tracking-wider">Stock Status</p>
+                            <p className="text-xs font-black text-green-700 flex items-center gap-1 mt-1.5"><CheckCircle2 className="w-3 h-3" /> SUFFICIENT</p>
+                        </div>
+                    )}
+                </div>
+            )}
 
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 flex flex-col gap-3 flex-shrink-0">
                 <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
-                    <h2 className="text-sm font-semibold text-gray-800 flex items-center gap-2"><ClipboardList className="w-4 h-4 text-purple-600" /> Sales Order Pipeline</h2>
+                    <div className="flex items-center gap-3">
+                        <h2 className="text-sm font-semibold text-gray-800 flex items-center gap-2"><ClipboardList className="w-4 h-4 text-purple-600" /> Sales Order Pipeline</h2>
+                        <button
+                            onClick={() => setShowTopSummary(!showTopSummary)}
+                            className="text-[10px] font-bold px-2 py-1 bg-gray-100 text-gray-600 hover:bg-gray-200 rounded transition-colors flex items-center gap-1"
+                            title={showTopSummary ? "Hide Summary Cards" : "Show Summary Cards"}
+                        >
+                            {showTopSummary ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
+                            {showTopSummary ? "COLLAPSE" : "EXPAND"}
+                        </button>
+                    </div>
                     <div className="flex flex-wrap gap-2">
                         <button onClick={handleExport} className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 transition-colors shadow-sm"><FileDown className="w-3.5 h-3.5" /> Export Filtered</button>
                         {isAdmin && (
