@@ -15,7 +15,7 @@ export type SalesSummaryMap = Map<string, SalesSummary>;
 class FastSalesService {
   private summaryCache: {
     data: SalesSummaryMap;
-    sourceLength: number;
+    sourceArray: SalesReportItem[];
     timestamp: number;
   } | null = null;
 
@@ -40,8 +40,8 @@ class FastSalesService {
   }
 
   getSummaries(sales: SalesReportItem[]): SalesSummaryMap {
-    // Return cache if it's the same dataset and not older than 1 hour
-    if (this.summaryCache && this.summaryCache.sourceLength === sales.length) {
+    // Return cache if it's the exact same array reference and not older than 1 hour
+    if (this.summaryCache && this.summaryCache.sourceArray === sales) {
       const isCacheStale = Date.now() - this.summaryCache.timestamp > 3600000; // 1 hour
       if (!isCacheStale) {
         return this.summaryCache.data;
@@ -88,7 +88,7 @@ class FastSalesService {
 
     this.summaryCache = {
       data: summaries,
-      sourceLength: sales.length,
+      sourceArray: sales,
       timestamp: Date.now()
     };
     
