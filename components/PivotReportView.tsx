@@ -79,6 +79,7 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
     const [slicerItemCategory, setSlicerItemCategory] = useState('ALL');
     const [slicerLappCategory, setSlicerLappCategory] = useState('ALL');
     const [selectedPopupItem, setSelectedPopupItem] = useState<any>(null);
+    const [orderPopup, setOrderPopup] = useState<{ type: 'SO' | 'PO'; itemDescription: string } | null>(null);
     const [popupPeriod, setPopupPeriod] = useState<'1Y' | '3M'>('1Y');
     const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
@@ -105,6 +106,15 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
         key: 'stock.val',
         direction: 'desc'
     });
+
+    const formatDateDisplay = (d?: string | Date | number | null) => {
+        if (!d) return '';
+        try {
+            const date = new Date(d);
+            if (isNaN(date.getTime())) return String(d);
+            return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+        } catch { return String(d); }
+    };
 
     const pivotData = useMemo(() => {
         const salesSummaries = fastSalesService.getSummaries(salesReportItems);
@@ -786,12 +796,12 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                                     </td>
                                     <td className="p-1 text-right bg-blue-50/5 font-bold">{r.stock.qty || '-'}</td>
                                     <td className="p-1 text-right border-r text-gray-500">{r.stock.val ? Math.round(r.stock.val).toLocaleString() : '-'}</td>
-                                    {showSOCols && <td className="p-1 text-right text-orange-600">{r.so.curQty || '-'}</td>}
-                                    {showSOCols && <td className="p-1 text-right text-orange-400">{r.so.schQty || '-'}</td>}
-                                    <td className="p-1 text-right border-r font-bold">{r.so.qty || '-'}</td>
-                                    {showPOCols && <td className="p-1 text-right text-purple-600">{r.po.curQty || '-'}</td>}
-                                    {showPOCols && <td className="p-1 text-right text-purple-400">{r.po.schQty || '-'}</td>}
-                                    <td className="p-1 text-right border-r font-bold">{r.po.qty || '-'}</td>
+                                    {showSOCols && <td className="p-1 text-right text-orange-600 hover:bg-orange-50 cursor-pointer transition-colors" onClick={() => setOrderPopup({ type: 'SO', itemDescription: r.description || '' })} title="Click to view open SOs">{r.so.curQty || '-'}</td>}
+                                    {showSOCols && <td className="p-1 text-right text-orange-400 hover:bg-orange-50 cursor-pointer transition-colors" onClick={() => setOrderPopup({ type: 'SO', itemDescription: r.description || '' })} title="Click to view open SOs">{r.so.schQty || '-'}</td>}
+                                    <td className="p-1 text-right border-r font-bold hover:bg-orange-50 cursor-pointer transition-colors text-orange-900" onClick={() => setOrderPopup({ type: 'SO', itemDescription: r.description || '' })} title="Click to view open SOs">{r.so.qty || '-'}</td>
+                                    {showPOCols && <td className="p-1 text-right text-purple-600 hover:bg-purple-50 cursor-pointer transition-colors" onClick={() => setOrderPopup({ type: 'PO', itemDescription: r.description || '' })} title="Click to view open POs">{r.po.curQty || '-'}</td>}
+                                    {showPOCols && <td className="p-1 text-right text-purple-400 hover:bg-purple-50 cursor-pointer transition-colors" onClick={() => setOrderPopup({ type: 'PO', itemDescription: r.description || '' })} title="Click to view open POs">{r.po.schQty || '-'}</td>}
+                                    <td className="p-1 text-right border-r font-bold hover:bg-purple-50 cursor-pointer transition-colors text-purple-900" onClick={() => setOrderPopup({ type: 'PO', itemDescription: r.description || '' })} title="Click to view open POs">{r.po.qty || '-'}</td>
                                     <td className="p-1 text-right bg-gray-50 font-bold">{r.net.qty}</td>
                                     <td className="p-1 text-right border-r bg-gray-50">{Math.round(r.net.val).toLocaleString()}</td>
                                     <td className="p-1 text-right text-indigo-700">{r.avg3m.qty > 0 ? r.avg3m.qty.toFixed(1) : '0'}</td>
@@ -958,6 +968,83 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                                                             {totalGrowthPct >= 0 ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
                                                             <span>{Math.abs(Math.round(totalGrowthPct))}%</span>
                                                         </div>
+                                                    </td>
+                                                </tr>
+                                            </tfoot>
+                                        )}
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
+
+            {/* Order Details Popup */}
+            {orderPopup && (() => {
+                const isSO = orderPopup.type === 'SO';
+                const rawOrders = isSO ? pendingSO : pendingPO;
+                const searchDesc = orderPopup.itemDescription.toLowerCase().trim();
+                
+                const relevantOrders = rawOrders
+                    .filter(o => {
+                        const itemName = (o.itemName || '').toLowerCase().trim();
+                        if (itemName === searchDesc) return true;
+                        
+                        // Try bridging via Part No
+                        if (o.partNo) {
+                            const partDesc = materials.find(m => m.partNo?.toLowerCase() === o.partNo?.toLowerCase())?.description?.toLowerCase();
+                            if (partDesc === searchDesc) return true;
+                        }
+                        return false;
+                    })
+                    .sort((a, b) => ((b.balanceQty || 0) * (b.rate || 0)) - ((a.balanceQty || 0) * (a.rate || 0)));
+
+                return (
+                    <div className="fixed inset-0 z-[100] flex justify-end bg-black/20 backdrop-blur-sm transition-all" onClick={() => setOrderPopup(null)}>
+                        <div className="w-[800px] h-full bg-white shadow-2xl flex flex-col animate-slide-in-right overflow-hidden" onClick={e => e.stopPropagation()}>
+                            <div className="flex items-center justify-between p-4 border-b bg-indigo-50">
+                                <div>
+                                    <h3 className="font-bold text-indigo-900 text-sm">Pending {isSO ? 'Sales Orders' : 'Purchase Orders'}</h3>
+                                    <p className="text-xs text-indigo-700 font-medium mt-1.5 truncate max-w-[600px]">{orderPopup.itemDescription}</p>
+                                </div>
+                                <button onClick={() => setOrderPopup(null)} className="p-1 hover:bg-indigo-100 rounded-full text-indigo-900"><X className="w-5 h-5" /></button>
+                            </div>
+                            <div className="flex-1 overflow-auto p-4 bg-gray-50">
+                                <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
+                                    <table className="w-full text-left text-xs">
+                                        <thead className="bg-gray-100 text-gray-600 font-bold border-b">
+                                            <tr>
+                                                <th className="p-2">Date</th>
+                                                <th className="p-2">{isSO ? 'Customer Name' : 'Vendor Name'}</th>
+                                                <th className="p-2">{isSO ? 'SO No' : 'PO No'}</th>
+                                                <th className="p-2 text-right">Open Qty</th>
+                                                <th className="p-2 text-right">Open Value (₹)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y">
+                                            {relevantOrders.length === 0 && (
+                                                <tr><td colSpan={5} className="p-4 text-center text-gray-500 italic">No open orders found for this item.</td></tr>
+                                            )}
+                                            {relevantOrders.map((o, i) => (
+                                                <tr key={i} className="hover:bg-slate-50 transition-colors">
+                                                    <td className="p-2 whitespace-nowrap">{formatDateDisplay(o.date)}</td>
+                                                    <td className="p-2 font-medium text-indigo-900">{o.partyName}</td>
+                                                    <td className="p-2 text-gray-500 font-medium">{o.orderNo}</td>
+                                                    <td className="p-2 text-right font-bold text-indigo-600">{(o.balanceQty || 0).toLocaleString()}</td>
+                                                    <td className="p-2 text-right font-bold text-gray-700">{Math.round((o.balanceQty || 0) * (o.rate || 0)).toLocaleString()}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                        {relevantOrders.length > 0 && (
+                                            <tfoot className="bg-gray-800 text-white font-bold text-xs">
+                                                <tr>
+                                                    <td colSpan={3} className="p-2 text-right uppercase">TOTAL:</td>
+                                                    <td className="p-2 text-right text-indigo-300">
+                                                        {relevantOrders.reduce((sum, o) => sum + (o.balanceQty || 0), 0).toLocaleString()}
+                                                    </td>
+                                                    <td className="p-2 text-right text-green-400">
+                                                        {Math.round(relevantOrders.reduce((sum, o) => sum + ((o.balanceQty || 0) * (o.rate || 0)), 0)).toLocaleString()}
                                                     </td>
                                                 </tr>
                                             </tfoot>
