@@ -3321,6 +3321,55 @@ const DashboardView: React.FC<DashboardViewProps> = React.memo(({
                     ) : null}
                 </div>
             </div>
+            </div>
+
+            {ageingPopupLabel && (
+                <div className="fixed inset-0 z-[100] flex justify-end bg-black/20 backdrop-blur-sm transition-all" onClick={() => setAgeingPopupLabel(null)}>
+                    <div className="w-[900px] h-full bg-white shadow-2xl flex flex-col animate-slide-in-right overflow-hidden" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between p-4 border-b bg-indigo-50">
+                            <div>
+                                <h3 className="font-bold text-indigo-900 text-sm">Ageing Breakdown: {ageingPopupLabel}</h3>
+                                <p className="text-xs text-indigo-700 font-medium mt-1.5">Detailed drill-down of pending orders for this period, sorted by value.</p>
+                            </div>
+                            <button onClick={() => setAgeingPopupLabel(null)} className="p-1 hover:bg-indigo-100 rounded-full text-indigo-900"><X className="w-5 h-5" /></button>
+                        </div>
+                        <div className="flex-1 overflow-auto p-4 bg-gray-50">
+                            <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
+                                <table className="w-full text-left text-xs">
+                                    <thead className="bg-gray-100 text-gray-600 font-bold border-b">
+                                        <tr>
+                                            <th className="p-2">Report Date</th>
+                                            <th className="p-2 text-indigo-700">Due Date</th>
+                                            <th className="p-2">Customer Name</th>
+                                            <th className="p-2">Item Name</th>
+                                            <th className="p-2 text-right">Open Qty</th>
+                                            <th className="p-2 text-right">Amount (₹)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y">
+                                        {soStats.enrichedItems
+                                            .filter(i => i.agingBucket === ageingPopupLabel)
+                                            .sort((a, b) => (b.value || 0) - (a.value || 0))
+                                            .map((i, idx) => (
+                                            <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                                                <td className="p-2 whitespace-nowrap">{formatDateDisplay(i.date)}</td>
+                                                <td className="p-2 whitespace-nowrap font-medium text-indigo-600">{formatDateDisplay(i.dueDate)}</td>
+                                                <td className="p-2 font-medium text-indigo-900 truncate max-w-[200px]" title={i.partyName}>{i.partyName}</td>
+                                                <td className="p-2 text-gray-700 truncate max-w-[300px]" title={i.itemName}>{i.itemName}</td>
+                                                <td className="p-2 text-right font-bold text-gray-700">{i.balanceQty?.toLocaleString()}</td>
+                                                <td className="p-2 text-right font-bold text-indigo-700">{Math.round(i.value || 0).toLocaleString()}</td>
+                                            </tr>
+                                        ))}
+                                        {soStats.enrichedItems.filter(i => i.agingBucket === ageingPopupLabel).length === 0 && (
+                                            <tr><td colSpan={6} className="p-4 text-center text-gray-500 italic">No orders found for this ageing period.</td></tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div >
     );
 });

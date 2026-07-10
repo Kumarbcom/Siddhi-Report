@@ -1015,7 +1015,8 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                                     <table className="w-full text-left text-xs">
                                         <thead className="bg-gray-100 text-gray-600 font-bold border-b">
                                             <tr>
-                                                <th className="p-2">Date</th>
+                                                <th className="p-2">Report Date</th>
+                                                <th className="p-2 text-indigo-700">Due Date</th>
                                                 <th className="p-2">{isSO ? 'Customer Name' : 'Vendor Name'}</th>
                                                 <th className="p-2">{isSO ? 'SO No' : 'PO No'}</th>
                                                 <th className="p-2 text-right">Open Qty</th>
@@ -1024,11 +1025,12 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                                         </thead>
                                         <tbody className="divide-y">
                                             {relevantOrders.length === 0 && (
-                                                <tr><td colSpan={5} className="p-4 text-center text-gray-500 italic">No open orders found for this item.</td></tr>
+                                                <tr><td colSpan={6} className="p-4 text-center text-gray-500 italic">No open orders found for this item.</td></tr>
                                             )}
                                             {relevantOrders.map((o, i) => (
                                                 <tr key={i} className="hover:bg-slate-50 transition-colors">
                                                     <td className="p-2 whitespace-nowrap">{formatDateDisplay(o.date)}</td>
+                                                    <td className="p-2 whitespace-nowrap font-medium text-indigo-600">{formatDateDisplay(o.dueDate)}</td>
                                                     <td className="p-2 font-medium text-indigo-900">{o.partyName}</td>
                                                     <td className="p-2 text-gray-500 font-medium">{o.orderNo}</td>
                                                     <td className="p-2 text-right font-bold text-indigo-600">{(o.balanceQty || 0).toLocaleString()}</td>
@@ -1039,7 +1041,7 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                                         {relevantOrders.length > 0 && (
                                             <tfoot className="bg-gray-800 text-white font-bold text-xs">
                                                 <tr>
-                                                    <td colSpan={3} className="p-2 text-right uppercase">TOTAL:</td>
+                                                    <td colSpan={4} className="p-2 text-right uppercase">TOTAL:</td>
                                                     <td className="p-2 text-right text-indigo-300">
                                                         {relevantOrders.reduce((sum, o) => sum + (o.balanceQty || 0), 0).toLocaleString()}
                                                     </td>
