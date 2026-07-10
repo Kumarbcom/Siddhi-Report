@@ -96,6 +96,8 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
     const [showExcessPO, setShowExcessPO] = useState(false);
     const [showPONeed, setShowPONeed] = useState(false);
     const [showExpedite, setShowExpedite] = useState(false);
+    const [showSOCols, setShowSOCols] = useState(true);
+    const [showPOCols, setShowPOCols] = useState(true);
     const [showPlanningColumns, setShowPlanningColumns] = useState(true);
     const [displayLimit, setDisplayLimit] = useState(100);
     const [sortConfig, setSortConfig] = useState<{ key: SortPath; direction: 'asc' | 'desc' }>({
@@ -616,10 +618,10 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                         <input type="text" placeholder="Description..." value={filterDescription} onChange={e => setFilterDescription(e.target.value)} className="bg-transparent text-xs outline-none w-32 border-l pl-2" />
                     </div>
                     <div className="flex gap-1.5">
-                        <button onClick={() => setShowExcessStock(!showExcessStock)} className={`px-2 py-1 rounded text-[10px] font-bold border ${showExcessStock ? 'bg-red-50 text-red-700' : 'bg-white text-gray-500'}`}>Excess Stock</button>
-                        <button onClick={() => setShowExcessPO(!showExcessPO)} className={`px-2 py-1 rounded text-[10px] font-bold border ${showExcessPO ? 'bg-orange-50 text-orange-700' : 'bg-white text-gray-500'}`}>Excess PO</button>
-                        <button onClick={() => setShowPONeed(!showPONeed)} className={`px-2 py-1 rounded text-[10px] font-bold border ${showPONeed ? 'bg-green-50 text-green-700' : 'bg-white text-gray-500'}`}>PO Need</button>
-                        <button onClick={() => setShowExpedite(!showExpedite)} className={`px-2 py-1 rounded text-[10px] font-bold border ${showExpedite ? 'bg-blue-50 text-blue-700' : 'bg-white text-gray-500'}`}>Expedite</button>
+                        <button onClick={() => { setShowExcessStock(!showExcessStock); if(!showExcessStock) {setShowExcessPO(false); setShowPONeed(false); setShowExpedite(false);} }} className={`px-2 py-1 rounded text-[10px] font-bold border ${showExcessStock ? 'bg-red-50 text-red-700' : 'bg-white text-gray-500'}`}>Excess Stock</button>
+                        <button onClick={() => { setShowExcessPO(!showExcessPO); if(!showExcessPO) {setShowExcessStock(false); setShowPONeed(false); setShowExpedite(false);} }} className={`px-2 py-1 rounded text-[10px] font-bold border ${showExcessPO ? 'bg-orange-50 text-orange-700' : 'bg-white text-gray-500'}`}>Excess PO</button>
+                        <button onClick={() => { setShowPONeed(!showPONeed); if(!showPONeed) {setShowExcessStock(false); setShowExcessPO(false); setShowExpedite(false);} }} className={`px-2 py-1 rounded text-[10px] font-bold border ${showPONeed ? 'bg-green-50 text-green-700' : 'bg-white text-gray-500'}`}>PO Need</button>
+                        <button onClick={() => { setShowExpedite(!showExpedite); if(!showExpedite) {setShowExcessStock(false); setShowExcessPO(false); setShowPONeed(false);} }} className={`px-2 py-1 rounded text-[10px] font-bold border ${showExpedite ? 'bg-blue-50 text-blue-700' : 'bg-white text-gray-500'}`}>Expedite</button>
                     </div>
                 </div>
             </div>
@@ -631,15 +633,19 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                             <tr className="bg-gray-100 border-b text-center">
                                 <th colSpan={3} className="p-1 border-r sticky left-0 z-20 bg-gray-100">Master Data</th>
                                 <th colSpan={2} className="p-1 border-r bg-blue-50/50">Stock Inventory</th>
-                                <th colSpan={3} className="p-1 border-r bg-orange-50/50">Sales (SO)</th>
-                                <th colSpan={3} className="p-1 border-r bg-purple-50/50">Purchases (PO)</th>
+                                <th colSpan={showSOCols ? 3 : 1} className="p-1 border-r bg-orange-50/50 cursor-pointer hover:bg-orange-100/50 transition-colors" onClick={() => setShowSOCols(!showSOCols)} title="Toggle SO Details">
+                                    <div className="flex items-center justify-center gap-1">Sales (SO) {showSOCols ? <EyeOff className="w-3 h-3 text-orange-400" /> : <Eye className="w-3 h-3 text-orange-400" />}</div>
+                                </th>
+                                <th colSpan={showPOCols ? 3 : 1} className="p-1 border-r bg-purple-50/50 cursor-pointer hover:bg-purple-100/50 transition-colors" onClick={() => setShowPOCols(!showPOCols)} title="Toggle PO Details">
+                                    <div className="flex items-center justify-center gap-1">Purchases (PO) {showPOCols ? <EyeOff className="w-3 h-3 text-purple-400" /> : <Eye className="w-3 h-3 text-purple-400" />}</div>
+                                </th>
                                 <th colSpan={2} className="p-1 border-r bg-gray-200 text-center">Net</th>
                                 <th colSpan={3} className="p-1 border-r bg-indigo-50/50 text-center">Planning (Avg/Trend)</th>
                                 <th colSpan={3} className="p-1 border-r bg-emerald-50/50 text-center">Levels (Min/Re/Max)</th>
-                                <th colSpan={2} className="p-1 border-r text-red-700 text-center">Ex Stock</th>
-                                <th colSpan={2} className="p-1 border-r text-red-700 text-center">Ex PO</th>
-                                <th colSpan={2} className="p-1 border-r text-green-700 text-center">Need</th>
-                                <th colSpan={2} className="p-1 text-blue-700 text-center">Exp</th>
+                                {(!showExcessStock && !showExcessPO && !showPONeed && !showExpedite || showExcessStock) && <th colSpan={2} className="p-1 border-r text-red-700 text-center">Ex Stock</th>}
+                                {(!showExcessStock && !showExcessPO && !showPONeed && !showExpedite || showExcessPO) && <th colSpan={2} className="p-1 border-r text-red-700 text-center">Ex PO</th>}
+                                {(!showExcessStock && !showExcessPO && !showPONeed && !showExpedite || showPONeed) && <th colSpan={2} className="p-1 border-r text-green-700 text-center">Need</th>}
+                                {(!showExcessStock && !showExcessPO && !showPONeed && !showExpedite || showExpedite) && <th colSpan={2} className="p-1 text-blue-700 text-center">Exp</th>}
                             </tr>
                             <tr className="border-b cursor-pointer">
                                 <th onClick={() => handleHeaderSort('make')} className="p-2 border-r sticky left-0 z-20 bg-gray-50 min-w-[70px]">Make {renderSortIcon('make')}</th>
@@ -647,11 +653,11 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                                 <th onClick={() => handleHeaderSort('description')} className="p-2 border-r sticky left-[220px] z-20 bg-gray-50 min-w-[250px]">Description {renderSortIcon('description')}</th>
                                 <th onClick={() => handleHeaderSort('stock.qty')} className="p-2 text-right bg-blue-50/20 min-w-[80px]">Qty {renderSortIcon('stock.qty')}</th>
                                 <th onClick={() => handleHeaderSort('stock.val')} className="p-2 text-right border-r bg-blue-50/20 min-w-[100px]">Val {renderSortIcon('stock.val')}</th>
-                                <th onClick={() => handleHeaderSort('so.curQty')} className="p-2 text-right text-orange-600 min-w-[60px]">Cur {renderSortIcon('so.curQty')}</th>
-                                <th onClick={() => handleHeaderSort('so.schQty')} className="p-2 text-right text-orange-600 min-w-[60px]">Sch {renderSortIcon('so.schQty')}</th>
+                                {showSOCols && <th onClick={() => handleHeaderSort('so.curQty')} className="p-2 text-right text-orange-600 min-w-[60px]">Cur {renderSortIcon('so.curQty')}</th>}
+                                {showSOCols && <th onClick={() => handleHeaderSort('so.schQty')} className="p-2 text-right text-orange-600 min-w-[60px]">Sch {renderSortIcon('so.schQty')}</th>}
                                 <th onClick={() => handleHeaderSort('so.qty')} className="p-2 text-right border-r min-w-[70px]">Tot {renderSortIcon('so.qty')}</th>
-                                <th onClick={() => handleHeaderSort('po.curQty')} className="p-2 text-right text-purple-600">Cur {renderSortIcon('po.curQty')}</th>
-                                <th onClick={() => handleHeaderSort('po.schQty')} className="p-2 text-right text-purple-600">Sch {renderSortIcon('po.schQty')}</th>
+                                {showPOCols && <th onClick={() => handleHeaderSort('po.curQty')} className="p-2 text-right text-purple-600">Cur {renderSortIcon('po.curQty')}</th>}
+                                {showPOCols && <th onClick={() => handleHeaderSort('po.schQty')} className="p-2 text-right text-purple-600">Sch {renderSortIcon('po.schQty')}</th>}
                                 <th onClick={() => handleHeaderSort('po.qty')} className="p-2 text-right border-r">Tot {renderSortIcon('po.qty')}</th>
                                 <th onClick={() => handleHeaderSort('net.qty')} className="p-2 text-right bg-gray-100">Qty {renderSortIcon('net.qty')}</th>
                                 <th onClick={() => handleHeaderSort('net.val')} className="p-2 text-right border-r bg-gray-100">Val {renderSortIcon('net.val')}</th>
@@ -661,14 +667,14 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                                 <th onClick={() => handleHeaderSort('levels.min.qty')} className="p-2 text-right text-emerald-700">Min {renderSortIcon('levels.min.qty')}</th>
                                 <th onClick={() => handleHeaderSort('levels.reorder.qty')} className="p-2 text-right text-emerald-700">Re {renderSortIcon('levels.reorder.qty')}</th>
                                 <th onClick={() => handleHeaderSort('levels.max.qty')} className="p-2 text-right border-r text-emerald-700">Max {renderSortIcon('levels.max.qty')}</th>
-                                <th onClick={() => handleHeaderSort('actions.excessStock.qty')} className="p-2 text-right">Qty {renderSortIcon('actions.excessStock.qty')}</th>
-                                <th onClick={() => handleHeaderSort('actions.excessStock.val')} className="p-2 text-right border-r">Val {renderSortIcon('actions.excessStock.val')}</th>
-                                <th onClick={() => handleHeaderSort('actions.excessPO.qty')} className="p-2 text-right">Qty {renderSortIcon('actions.excessPO.qty')}</th>
-                                <th onClick={() => handleHeaderSort('actions.excessPO.val')} className="p-2 text-right border-r">Val {renderSortIcon('actions.excessPO.val')}</th>
-                                <th onClick={() => handleHeaderSort('actions.poNeed.qty')} className="p-2 text-right">Qty {renderSortIcon('actions.poNeed.qty')}</th>
-                                <th onClick={() => handleHeaderSort('actions.poNeed.val')} className="p-2 text-right border-r">Val {renderSortIcon('actions.poNeed.val')}</th>
-                                <th onClick={() => handleHeaderSort('actions.expedite.qty')} className="p-2 text-right">Qty {renderSortIcon('actions.expedite.qty')}</th>
-                                <th onClick={() => handleHeaderSort('actions.expedite.val')} className="p-2 text-right">Val {renderSortIcon('actions.expedite.val')}</th>
+                                {(!showExcessStock && !showExcessPO && !showPONeed && !showExpedite || showExcessStock) && <><th onClick={() => handleHeaderSort('actions.excessStock.qty')} className="p-2 text-right">Qty {renderSortIcon('actions.excessStock.qty')}</th>
+                                <th onClick={() => handleHeaderSort('actions.excessStock.val')} className="p-2 text-right border-r">Val {renderSortIcon('actions.excessStock.val')}</th></>}
+                                {(!showExcessStock && !showExcessPO && !showPONeed && !showExpedite || showExcessPO) && <><th onClick={() => handleHeaderSort('actions.excessPO.qty')} className="p-2 text-right">Qty {renderSortIcon('actions.excessPO.qty')}</th>
+                                <th onClick={() => handleHeaderSort('actions.excessPO.val')} className="p-2 text-right border-r">Val {renderSortIcon('actions.excessPO.val')}</th></>}
+                                {(!showExcessStock && !showExcessPO && !showPONeed && !showExpedite || showPONeed) && <><th onClick={() => handleHeaderSort('actions.poNeed.qty')} className="p-2 text-right">Qty {renderSortIcon('actions.poNeed.qty')}</th>
+                                <th onClick={() => handleHeaderSort('actions.poNeed.val')} className="p-2 text-right border-r">Val {renderSortIcon('actions.poNeed.val')}</th></>}
+                                {(!showExcessStock && !showExcessPO && !showPONeed && !showExpedite || showExpedite) && <><th onClick={() => handleHeaderSort('actions.expedite.qty')} className="p-2 text-right">Qty {renderSortIcon('actions.expedite.qty')}</th>
+                                <th onClick={() => handleHeaderSort('actions.expedite.val')} className="p-2 text-right">Val {renderSortIcon('actions.expedite.val')}</th></>}
                             </tr>
                             <tr className="bg-amber-50 border-b text-[10px] font-black text-gray-900 shadow-sm z-10">
                                 <td className="p-2 border-r sticky left-0 z-20 bg-amber-50">TOTALS</td>
@@ -676,11 +682,11 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                                 <td className="p-2 border-r sticky left-[220px] z-20 bg-amber-50 text-[8px] text-gray-400 text-right">{filteredData.length} ITEMS</td>
                                 <td className="p-2 text-right bg-blue-100/30">{totals.stockQty.toLocaleString()}</td>
                                 <td className="p-2 text-right border-r bg-blue-100/30 text-blue-900">{formatLargeValue(totals.stockVal)}</td>
-                                <td className="p-2 text-right text-orange-700">{totals.soCur.toLocaleString()}</td>
-                                <td className="p-2 text-right text-orange-700">{totals.soSch.toLocaleString()}</td>
+                                {showSOCols && <td className="p-2 text-right text-orange-700">{totals.soCur.toLocaleString()}</td>}
+                                {showSOCols && <td className="p-2 text-right text-orange-700">{totals.soSch.toLocaleString()}</td>}
                                 <td className="p-2 text-right border-r font-bold">{totals.soTot.toLocaleString()}</td>
-                                <td className="p-2 text-right text-purple-700">{totals.poCur.toLocaleString()}</td>
-                                <td className="p-2 text-right text-purple-700">{totals.poSch.toLocaleString()}</td>
+                                {showPOCols && <td className="p-2 text-right text-purple-700">{totals.poCur.toLocaleString()}</td>}
+                                {showPOCols && <td className="p-2 text-right text-purple-700">{totals.poSch.toLocaleString()}</td>}
                                 <td className="p-2 text-right border-r font-bold">{totals.poTot.toLocaleString()}</td>
                                 <td className="p-2 text-right bg-slate-200/50">{totals.netQty.toLocaleString()}</td>
                                 <td className="p-2 text-right border-r bg-slate-200/50">{formatLargeValue(totals.netVal)}</td>
@@ -690,14 +696,14 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                                 <td className="p-2 text-right text-emerald-800">{totals.min.toLocaleString()}</td>
                                 <td className="p-2 text-right text-emerald-800">{totals.re.toLocaleString()}</td>
                                 <td className="p-2 text-right border-r text-emerald-800 font-bold">{totals.max.toLocaleString()}</td>
-                                <td className="p-2 text-right text-red-700">{totals.exSQty.toLocaleString()}</td>
-                                <td className="p-2 text-right border-r text-red-700">{formatLargeValue(totals.exSVal)}</td>
-                                <td className="p-2 text-right text-red-700">{totals.exPQty.toLocaleString()}</td>
-                                <td className="p-2 text-right border-r text-red-700">{formatLargeValue(totals.exPVal)}</td>
-                                <td className="p-2 text-right text-green-700">{totals.needQty.toLocaleString()}</td>
-                                <td className="p-2 text-right border-r text-green-700">{formatLargeValue(totals.needVal)}</td>
-                                <td className="p-2 text-right text-blue-700">{totals.expQty.toLocaleString()}</td>
-                                <td className="p-2 text-right text-blue-700">{formatLargeValue(totals.expVal)}</td>
+                                {(!showExcessStock && !showExcessPO && !showPONeed && !showExpedite || showExcessStock) && <><td className="p-2 text-right text-red-700">{totals.exSQty.toLocaleString()}</td>
+                                <td className="p-2 text-right border-r text-red-700">{formatLargeValue(totals.exSVal)}</td></>}
+                                {(!showExcessStock && !showExcessPO && !showPONeed && !showExpedite || showExcessPO) && <><td className="p-2 text-right text-red-700">{totals.exPQty.toLocaleString()}</td>
+                                <td className="p-2 text-right border-r text-red-700">{formatLargeValue(totals.exPVal)}</td></>}
+                                {(!showExcessStock && !showExcessPO && !showPONeed && !showExpedite || showPONeed) && <><td className="p-2 text-right text-green-700">{totals.needQty.toLocaleString()}</td>
+                                <td className="p-2 text-right border-r text-green-700">{formatLargeValue(totals.needVal)}</td></>}
+                                {(!showExcessStock && !showExcessPO && !showPONeed && !showExpedite || showExpedite) && <><td className="p-2 text-right text-blue-700">{totals.expQty.toLocaleString()}</td>
+                                <td className="p-2 text-right text-blue-700">{formatLargeValue(totals.expVal)}</td></>}
                             </tr>
                         </thead>
                         <tbody className="divide-y text-[10px]">
@@ -714,11 +720,11 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                                     </td>
                                     <td className="p-1 text-right bg-blue-50/5 font-bold">{r.stock.qty || '-'}</td>
                                     <td className="p-1 text-right border-r text-gray-500">{r.stock.val ? Math.round(r.stock.val).toLocaleString() : '-'}</td>
-                                    <td className="p-1 text-right text-orange-600">{r.so.curQty || '-'}</td>
-                                    <td className="p-1 text-right text-orange-400">{r.so.schQty || '-'}</td>
+                                    {showSOCols && <td className="p-1 text-right text-orange-600">{r.so.curQty || '-'}</td>}
+                                    {showSOCols && <td className="p-1 text-right text-orange-400">{r.so.schQty || '-'}</td>}
                                     <td className="p-1 text-right border-r font-bold">{r.so.qty || '-'}</td>
-                                    <td className="p-1 text-right text-purple-600">{r.po.curQty || '-'}</td>
-                                    <td className="p-1 text-right text-purple-400">{r.po.schQty || '-'}</td>
+                                    {showPOCols && <td className="p-1 text-right text-purple-600">{r.po.curQty || '-'}</td>}
+                                    {showPOCols && <td className="p-1 text-right text-purple-400">{r.po.schQty || '-'}</td>}
                                     <td className="p-1 text-right border-r font-bold">{r.po.qty || '-'}</td>
                                     <td className="p-1 text-right bg-gray-50 font-bold">{r.net.qty}</td>
                                     <td className="p-1 text-right border-r bg-gray-50">{Math.round(r.net.val).toLocaleString()}</td>
@@ -735,14 +741,14 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                                     <td className="p-1 text-right text-emerald-700 font-bold">{r.levels.min.qty || '0'}</td>
                                     <td className="p-1 text-right text-emerald-700 font-bold">{r.levels.reorder.qty || '0'}</td>
                                     <td className="p-1 text-right border-r text-emerald-700 font-bold">{r.levels.max.qty || '0'}</td>
-                                    <td className="p-1 text-right text-red-600 font-bold">{r.actions.excessStock.qty || ''}</td>
-                                    <td className="p-1 text-right border-r text-red-300">{r.actions.excessStock.val ? Math.round(r.actions.excessStock.val).toLocaleString() : ''}</td>
-                                    <td className="p-1 text-right text-red-600 font-bold">{r.actions.excessPO.qty || ''}</td>
-                                    <td className="p-1 text-right border-r text-red-300">{r.actions.excessPO.val ? Math.round(r.actions.excessPO.val).toLocaleString() : ''}</td>
-                                    <td className="p-1 text-right text-green-600 font-bold">{r.actions.poNeed.qty || ''}</td>
-                                    <td className="p-1 text-right border-r text-green-300">{r.actions.poNeed.val ? Math.round(r.actions.poNeed.val).toLocaleString() : ''}</td>
-                                    <td className="p-1 text-right text-blue-600 font-bold">{r.actions.expedite.qty || ''}</td>
-                                    <td className="p-1 text-right border-r text-blue-300">{r.actions.expedite.val ? Math.round(r.actions.expedite.val).toLocaleString() : ''}</td>
+                                    {(!showExcessStock && !showExcessPO && !showPONeed && !showExpedite || showExcessStock) && <><td className="p-1 text-right text-red-600 font-bold">{r.actions.excessStock.qty || ''}</td>
+                                    <td className="p-1 text-right border-r text-red-300">{r.actions.excessStock.val ? Math.round(r.actions.excessStock.val).toLocaleString() : ''}</td></>}
+                                    {(!showExcessStock && !showExcessPO && !showPONeed && !showExpedite || showExcessPO) && <><td className="p-1 text-right text-red-600 font-bold">{r.actions.excessPO.qty || ''}</td>
+                                    <td className="p-1 text-right border-r text-red-300">{r.actions.excessPO.val ? Math.round(r.actions.excessPO.val).toLocaleString() : ''}</td></>}
+                                    {(!showExcessStock && !showExcessPO && !showPONeed && !showExpedite || showPONeed) && <><td className="p-1 text-right text-green-600 font-bold">{r.actions.poNeed.qty || ''}</td>
+                                    <td className="p-1 text-right border-r text-green-300">{r.actions.poNeed.val ? Math.round(r.actions.poNeed.val).toLocaleString() : ''}</td></>}
+                                    {(!showExcessStock && !showExcessPO && !showPONeed && !showExpedite || showExpedite) && <><td className="p-1 text-right text-blue-600 font-bold">{r.actions.expedite.qty || ''}</td>
+                                    <td className="p-1 text-right border-r text-blue-300">{r.actions.expedite.val ? Math.round(r.actions.expedite.val).toLocaleString() : ''}</td></>}
                                 </tr>
                             ))}
                             {filteredData.length > displayLimit && (
@@ -758,8 +764,10 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                 const is3M = popupPeriod === '3M';
                 const totalQty = is3M ? popupData.total3m : popupData.total1y;
                 const totalVal = is3M ? popupData.valTotal3m : popupData.valTotal1y;
-                const lyTotal = is3M ? popupData.lyTotal3m : popupData.lyTotal1y;
-                const totalGrowthPct = lyTotal > 0 ? ((totalQty - lyTotal) / lyTotal) * 100 : (totalQty > 0 ? 100 : 0);
+                
+                const avgTotal3M = popupData.total3m / 3;
+                const avgTotal1Y = popupData.total1y / 12;
+                const totalGrowthPct = avgTotal1Y > 0 ? ((avgTotal3M - avgTotal1Y) / avgTotal1Y) * 100 : (avgTotal3M > 0 ? 100 : 0);
 
                 return (
                     <div className="fixed inset-0 z-[100] flex justify-end bg-black/20 backdrop-blur-sm transition-all" onClick={() => setSelectedPopupItem(null)}>
@@ -769,8 +777,8 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                                     <div className="flex items-center gap-3">
                                         <h3 className="font-bold text-indigo-900 text-sm">Customer Breakdown</h3>
                                         <div className="flex bg-white rounded-lg border p-0.5 shadow-sm">
-                                            <button onClick={() => setPopupPeriod('3M')} className={`px-2.5 py-0.5 text-[10px] font-bold rounded-md transition-colors ${is3M ? 'bg-indigo-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>3 Months (vs LY)</button>
-                                            <button onClick={() => setPopupPeriod('1Y')} className={`px-2.5 py-0.5 text-[10px] font-bold rounded-md transition-colors ${!is3M ? 'bg-indigo-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>1 Year (vs LY)</button>
+                                            <button onClick={() => setPopupPeriod('3M')} className={`px-2.5 py-0.5 text-[10px] font-bold rounded-md transition-colors ${is3M ? 'bg-indigo-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>3 Months</button>
+                                            <button onClick={() => setPopupPeriod('1Y')} className={`px-2.5 py-0.5 text-[10px] font-bold rounded-md transition-colors ${!is3M ? 'bg-indigo-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>1 Year</button>
                                         </div>
                                     </div>
                                     <p className="text-xs text-indigo-700 font-medium mt-1.5 truncate max-w-[700px]" title={selectedPopupItem.description}>{selectedPopupItem.description}</p>
@@ -789,7 +797,7 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                                                 <th className="p-2 text-right bg-indigo-50/50">1Y Qty</th>
                                                 <th className="p-2 text-right">Value (₹)</th>
                                                 <th className="p-2 text-right">Consumption %</th>
-                                                <th className="p-2 text-center text-indigo-800">Trend (vs LY)</th>
+                                                <th className="p-2 text-center text-indigo-800">Trend (3M vs 1Y)</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y">
@@ -800,13 +808,14 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                                                 const isExpanded = expandedGroups.has(g.groupName);
                                                 const gQty = is3M ? g.gQty3m : g.gQty1y;
                                                 const gVal = is3M ? g.gVal3m : g.gVal1y;
-                                                const gLyQty = is3M ? g.gLyQty3m : g.gLyQty1y;
                                                 
-                                                const groupGrowth = gLyQty > 0 ? ((gQty - gLyQty) / gLyQty) * 100 : (gQty > 0 ? 100 : 0);
+                                                const avgG3M = g.gQty3m / 3;
+                                                const avgG1Y = g.gQty1y / 12;
+                                                const groupGrowth = avgG1Y > 0 ? ((avgG3M - avgG1Y) / avgG1Y) * 100 : (avgG3M > 0 ? 100 : 0);
                                                 const groupConsumption = totalQty > 0 ? (gQty / totalQty) * 100 : 0;
 
-                                                // Only show group if it has activity in either current 1Y or last 1Y
-                                                if (g.gQty1y === 0 && g.gLyQty1y === 0) return null;
+                                                // Only show group if it has activity in 1Y
+                                                if (g.gQty1y === 0) return null;
 
                                                 return (
                                                     <React.Fragment key={g.groupName}>
@@ -824,7 +833,7 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                                                             <td className="p-2 text-right text-gray-700">{Math.round(gVal).toLocaleString()}</td>
                                                             <td className="p-2 text-right text-emerald-700">{groupConsumption.toFixed(1)}%</td>
                                                             <td className="p-2 text-center bg-gray-50/50">
-                                                                {(gQty > 0 || gLyQty > 0) && (
+                                                                {(g.gQty3m > 0 || g.gQty1y > 0) && (
                                                                     <div className={`flex items-center justify-center gap-0.5 text-[10px] ${groupGrowth >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                                                                         {groupGrowth >= 0 ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />}
                                                                         <span>{Math.abs(Math.round(groupGrowth))}%</span>
@@ -835,18 +844,20 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                                                         {isExpanded && g.customers.map((c, i) => {
                                                             const cQty = is3M ? c.qty3m : c.qty1y;
                                                             const cVal = is3M ? c.val3m : c.val1y;
-                                                            const cLyQty = is3M ? c.lyQty3m : c.lyQty1y;
-                                                            const cGrowth = cLyQty > 0 ? ((cQty - cLyQty) / cLyQty) * 100 : (cQty > 0 ? 100 : 0);
+                                                            
+                                                            const avgC3M = c.qty3m / 3;
+                                                            const avgC1Y = c.qty1y / 12;
+                                                            const cGrowth = avgC1Y > 0 ? ((avgC3M - avgC1Y) / avgC1Y) * 100 : (avgC3M > 0 ? 100 : 0);
                                                             const cConsumption = totalQty > 0 ? (cQty / totalQty) * 100 : 0;
                                                             
-                                                            const isStopped = cQty === 0 && cLyQty > 0;
+                                                            const isStopped = c.qty1y === 0;
+                                                            if (isStopped) return null;
 
                                                             return (
-                                                                <tr key={`${g.groupName}-${c.name}-${i}`} className={`hover:bg-indigo-50/30 ${isStopped ? 'bg-red-50/20' : 'bg-white'}`}>
+                                                                <tr key={`${g.groupName}-${c.name}-${i}`} className={`hover:bg-indigo-50/30 bg-white`}>
                                                                     <td className="p-2"></td>
                                                                     <td className="p-2 pl-4 border-l-2 border-indigo-200 text-gray-700 font-medium truncate max-w-[280px]" title={c.name}>
                                                                         {c.name}
-                                                                        {isStopped && <span className="ml-2 text-[8px] bg-red-100 text-red-600 px-1 py-px rounded font-bold uppercase">Stopped</span>}
                                                                     </td>
                                                                     <td className="p-2 text-center font-bold text-gray-600">{c.billedMonths}</td>
                                                                     <td className="p-2 text-right font-bold text-indigo-600 bg-indigo-50/10">{c.qty3m.toLocaleString()}</td>
@@ -854,7 +865,7 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                                                                     <td className="p-2 text-right text-gray-600">{Math.round(cVal).toLocaleString()}</td>
                                                                     <td className="p-2 text-right font-bold text-emerald-600">{cConsumption.toFixed(1)}%</td>
                                                                     <td className="p-2 text-center bg-gray-50/30">
-                                                                        {(cQty > 0 || cLyQty > 0) && (
+                                                                        {(c.qty3m > 0 || c.qty1y > 0) && (
                                                                             <div className={`flex items-center justify-center gap-0.5 text-[9px] font-black ${cGrowth >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                                                                                 {cGrowth >= 0 ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />}
                                                                                 <span>{Math.abs(Math.round(cGrowth))}%</span>
