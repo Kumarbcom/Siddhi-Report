@@ -100,6 +100,7 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
     const [showPOCols, setShowPOCols] = useState(true);
     const [showPlanningColumns, setShowPlanningColumns] = useState(true);
     const [displayLimit, setDisplayLimit] = useState(100);
+    const [isLappSort, setIsLappSort] = useState(false);
     const [sortConfig, setSortConfig] = useState<{ key: SortPath; direction: 'asc' | 'desc' }>({
         key: 'stock.val',
         direction: 'desc'
@@ -312,6 +313,48 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
         if (showExcessStock || showExcessPO || showPONeed || showExpedite) {
             d = d.filter(i => (showExcessStock && i.actions.excessStock.qty > 0) || (showExcessPO && i.actions.excessPO.qty > 0) || (showPONeed && i.actions.poNeed.qty > 0) || (showExpedite && i.actions.expedite.qty > 0));
         }
+
+        if (isLappSort) {
+            const parseCable = (desc: string) => {
+                let cores = 999;
+                let sqmm = 9999;
+                const match = desc.match(/(\d+)\s*(?:G|X)\s*(\d+(?:\.\d+)?)/i);
+                if (match) {
+                    cores = parseInt(match[1], 10);
+                    sqmm = parseFloat(match[2]);
+                } else {
+                    const singleCoreMatch = desc.match(/(?:SQMM|SQ\s*MM|[\s-])(\d+(?:\.\d+)?)\s*(?:SQMM|SQ\s*MM|BK|BN|GY|BU|GNYE|WH|RD)/i) 
+                        || desc.match(/1X(\d+(?:\.\d+)?)/i);
+                    if (singleCoreMatch) {
+                        cores = 1;
+                        sqmm = parseFloat(singleCoreMatch[1]);
+                    }
+                }
+                return { cores, sqmm };
+            };
+
+            const getCatWeight = (c: string) => {
+                if (c === 'Uniplus') return 1;
+                if (c === 'Olflex') return 2;
+                if (c === 'UNITRONIC') return 3;
+                return 4;
+            };
+
+            return [...d].sort((a, b) => {
+                const wA = getCatWeight(a.lappCategory || '');
+                const wB = getCatWeight(b.lappCategory || '');
+                
+                if (wA !== wB) return wA - wB;
+
+                const pA = parseCable(a.description || '');
+                const pB = parseCable(b.description || '');
+                
+                if (pA.sqmm !== pB.sqmm) return pA.sqmm - pB.sqmm;
+                if (pA.cores !== pB.cores) return pA.cores - pB.cores;
+                return (a.partNo || '').localeCompare(b.partNo || '');
+            });
+        }
+
         const keys = sortConfig.key.split('.');
         return [...d].sort((a, b) => {
             let vA: any = a, vB: any = b;
@@ -357,7 +400,26 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
         return t;
     }, [filteredData]);
 
-    const handleHeaderSort = (key: SortPath) => setSortConfig(p => ({ key, direction: p.key === key && p.direction === 'desc' ? 'asc' : 'desc' }));
+    const handleHeaderSort = (key: SortPath) => {
+        setIsLappSort(false);
+        setSortConfig(p => ({ key, direction: p.key === key && p.direction === 'desc' ? 'asc' : 'desc' }));
+    };
+
+    const resetFilters = () => {
+        setSlicerMake('ALL');
+        setSlicerGroup('ALL');
+        setSlicerItemCategory('ALL');
+        setSlicerLappCategory('ALL');
+        setSlicerLappSubCategory('ALL');
+        setFilterDescription('');
+        setSearchTerm('');
+        setShowExcessStock(false);
+        setShowExcessPO(false);
+        setShowPONeed(false);
+        setShowExpedite(false);
+        setIsLappSort(false);
+        setSortConfig({ key: 'stock.val', direction: 'desc' });
+    };
 
     const handleMakeChange = (m: string) => {
         setSlicerMake(m);
@@ -617,11 +679,15 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                         )}
                         <input type="text" placeholder="Description..." value={filterDescription} onChange={e => setFilterDescription(e.target.value)} className="bg-transparent text-xs outline-none w-32 border-l pl-2" />
                     </div>
-                    <div className="flex gap-1.5">
+                    <div className="flex gap-1.5 items-center">
                         <button onClick={() => { setShowExcessStock(!showExcessStock); if(!showExcessStock) {setShowExcessPO(false); setShowPONeed(false); setShowExpedite(false);} }} className={`px-2 py-1 rounded text-[10px] font-bold border ${showExcessStock ? 'bg-red-50 text-red-700' : 'bg-white text-gray-500'}`}>Excess Stock</button>
                         <button onClick={() => { setShowExcessPO(!showExcessPO); if(!showExcessPO) {setShowExcessStock(false); setShowPONeed(false); setShowExpedite(false);} }} className={`px-2 py-1 rounded text-[10px] font-bold border ${showExcessPO ? 'bg-orange-50 text-orange-700' : 'bg-white text-gray-500'}`}>Excess PO</button>
                         <button onClick={() => { setShowPONeed(!showPONeed); if(!showPONeed) {setShowExcessStock(false); setShowExcessPO(false); setShowExpedite(false);} }} className={`px-2 py-1 rounded text-[10px] font-bold border ${showPONeed ? 'bg-green-50 text-green-700' : 'bg-white text-gray-500'}`}>PO Need</button>
                         <button onClick={() => { setShowExpedite(!showExpedite); if(!showExpedite) {setShowExcessStock(false); setShowExcessPO(false); setShowPONeed(false);} }} className={`px-2 py-1 rounded text-[10px] font-bold border ${showExpedite ? 'bg-blue-50 text-blue-700' : 'bg-white text-gray-500'}`}>Expedite</button>
+                        
+                        <div className="h-4 w-px bg-gray-300 mx-1"></div>
+                        <button onClick={resetFilters} className="px-2 py-1 rounded text-[10px] font-bold border bg-white text-gray-600 hover:bg-gray-100 shadow-sm flex items-center gap-1">Reset</button>
+                        <button onClick={() => setIsLappSort(true)} className={`px-2 py-1 rounded text-[10px] font-bold border flex items-center gap-1 shadow-sm transition-colors ${isLappSort ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-white text-indigo-700 border-indigo-200 hover:bg-indigo-50'}`}>LAPP Sort</button>
                     </div>
                 </div>
             </div>
