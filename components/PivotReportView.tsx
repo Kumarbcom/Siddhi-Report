@@ -79,6 +79,7 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
     const [slicerItemCategory, setSlicerItemCategory] = useState('ALL');
     const [slicerLappCategory, setSlicerLappCategory] = useState('ALL');
     const [selectedPopupItem, setSelectedPopupItem] = useState<any>(null);
+    const [popupPeriod, setPopupPeriod] = useState<'1Y' | '3M'>('1Y');
     const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
     const toggleGroup = (group: string) => {
@@ -371,35 +372,44 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
         const targetPart = selectedPopupItem.partNo?.toLowerCase().trim();
         
         const now = Date.now();
-        const oneYearAgo = now - (365 * 24 * 60 * 60 * 1000);
+        const duration = popupPeriod === '1Y' ? 365 : 90;
+        const currentPeriodStart = now - (duration * 24 * 60 * 60 * 1000);
+        const previousPeriodStart = currentPeriodStart - (duration * 24 * 60 * 60 * 1000);
 
-        const itemSales = salesReportItems.filter(s => {
-            const time = new Date(s.date).getTime();
-            if (time < oneYearAgo) return false;
-            const p = s.particulars?.toLowerCase().trim();
-            return p === targetDesc || (targetPart && p === targetPart);
-        });
-
-        const custMap = new Map<string, { qty: number; val: number; months: Set<string> }>();
+        const custMap = new Map<string, { qty: number; val: number; months: Set<string>; prevQty: number; prevVal: number }>();
         let totalItemQty = 0;
         let totalItemVal = 0;
+        let prevTotalItemQty = 0;
+        let prevTotalItemVal = 0;
 
-        itemSales.forEach(s => {
+        salesReportItems.forEach(s => {
+            const time = new Date(s.date).getTime();
+            if (time < previousPeriodStart) return;
+            const p = s.particulars?.toLowerCase().trim();
+            if (!(p === targetDesc || (targetPart && p === targetPart))) return;
+
+            const isCurrent = time >= currentPeriodStart;
+            
             const cName = (s.customerName || 'UNKNOWN').trim().toUpperCase();
-            const ex = custMap.get(cName) || { qty: 0, val: 0, months: new Set() };
+            const ex = custMap.get(cName) || { qty: 0, val: 0, months: new Set(), prevQty: 0, prevVal: 0 };
             const q = Number(s.quantity) || 0;
             const v = Number(s.value) || 0;
-            ex.qty += q;
-            ex.val += v;
             
-            const d = new Date(s.date);
-            if (!isNaN(d.getTime())) {
-                ex.months.add(`${d.getFullYear()}-${d.getMonth()}`);
+            if (isCurrent) {
+                ex.qty += q;
+                ex.val += v;
+                totalItemQty += q;
+                totalItemVal += v;
+                const d = new Date(s.date);
+                if (!isNaN(d.getTime())) ex.months.add(`${d.getFullYear()}-${d.getMonth()}`);
+            } else {
+                ex.prevQty += q;
+                ex.prevVal += v;
+                prevTotalItemQty += q;
+                prevTotalItemVal += v;
             }
             
             custMap.set(cName, ex);
-            totalItemQty += q;
-            totalItemVal += v;
         });
 
         const groupLookup = new Map<string, string>();
@@ -409,40 +419,54 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
 
         const groupsMap = new Map<string, {
             groupName: string;
-            customers: { name: string; qty: number; val: number; billedMonths: number; consumptionPct: number }[];
+            customers: { name: string; qty: number; val: number; prevQty: number; prevVal: number; billedMonths: number; consumptionPct: number; growthPct: number }[];
             totalQty: number;
             totalVal: number;
+            prevTotalQty: number;
+            prevTotalVal: number;
             totalCustomers: number;
         }>();
 
         custMap.forEach((data, cName) => {
+            // Include customers that ordered in current OR previous period
+            if (data.qty === 0 && data.prevQty === 0) return;
+
             const gName = groupLookup.get(cName) || 'Uncategorized';
-            const exG = groupsMap.get(gName) || { groupName: gName, customers: [], totalQty: 0, totalVal: 0, totalCustomers: 0 };
+            const exG = groupsMap.get(gName) || { groupName: gName, customers: [], totalQty: 0, totalVal: 0, prevTotalQty: 0, prevTotalVal: 0, totalCustomers: 0 };
+            
+            const growthPct = data.prevQty > 0 ? ((data.qty - data.prevQty) / data.prevQty) * 100 : (data.qty > 0 ? 100 : 0);
             
             exG.customers.push({
                 name: cName,
                 qty: data.qty,
                 val: data.val,
+                prevQty: data.prevQty,
+                prevVal: data.prevVal,
                 billedMonths: data.months.size,
-                consumptionPct: totalItemQty > 0 ? (data.qty / totalItemQty) * 100 : 0
+                consumptionPct: totalItemQty > 0 ? (data.qty / totalItemQty) * 100 : 0,
+                growthPct
             });
             
             exG.totalQty += data.qty;
             exG.totalVal += data.val;
+            exG.prevTotalQty += data.prevQty;
+            exG.prevTotalVal += data.prevVal;
             
             groupsMap.set(gName, exG);
         });
 
         const groupedArray = Array.from(groupsMap.values());
         groupedArray.forEach(g => {
-            g.totalCustomers = g.customers.length;
+            g.totalCustomers = g.customers.filter(c => c.qty > 0).length; // only count active in current period
             g.customers.sort((a, b) => b.qty - a.qty);
         });
         
         groupedArray.sort((a, b) => b.totalQty - a.totalQty);
 
-        return { groups: groupedArray, totalItemQty, totalItemVal };
-    }, [selectedPopupItem, salesReportItems, customers]);
+        const totalGrowthPct = prevTotalItemQty > 0 ? ((totalItemQty - prevTotalItemQty) / prevTotalItemQty) * 100 : (totalItemQty > 0 ? 100 : 0);
+
+        return { groups: groupedArray, totalItemQty, totalItemVal, prevTotalItemQty, prevTotalItemVal, totalGrowthPct };
+    }, [selectedPopupItem, popupPeriod, salesReportItems, customers]);
 
     const handleExport = () => {
         console.log("🚀 Exporting Strategy Report...");
@@ -702,11 +726,17 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
             {/* Right-aligned Popup Panel */}
             {selectedPopupItem && popupData && (
                 <div className="fixed inset-0 z-[100] flex justify-end bg-black/20 backdrop-blur-sm transition-all" onClick={() => setSelectedPopupItem(null)}>
-                    <div className="w-[800px] h-full bg-white shadow-2xl flex flex-col animate-slide-in-right overflow-hidden" onClick={e => e.stopPropagation()}>
+                    <div className="w-[850px] h-full bg-white shadow-2xl flex flex-col animate-slide-in-right overflow-hidden" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-between p-4 border-b bg-indigo-50">
                             <div>
-                                <h3 className="font-bold text-indigo-900 text-sm">Customer Breakdown (Last 12 Months)</h3>
-                                <p className="text-xs text-indigo-700 font-medium mt-1 truncate max-w-[700px]" title={selectedPopupItem.description}>{selectedPopupItem.description}</p>
+                                <div className="flex items-center gap-3">
+                                    <h3 className="font-bold text-indigo-900 text-sm">Customer Breakdown</h3>
+                                    <div className="flex bg-white rounded-lg border p-0.5 shadow-sm">
+                                        <button onClick={() => setPopupPeriod('3M')} className={`px-2.5 py-0.5 text-[10px] font-bold rounded-md transition-colors ${popupPeriod === '3M' ? 'bg-indigo-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>3 Months</button>
+                                        <button onClick={() => setPopupPeriod('1Y')} className={`px-2.5 py-0.5 text-[10px] font-bold rounded-md transition-colors ${popupPeriod === '1Y' ? 'bg-indigo-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>1 Year</button>
+                                    </div>
+                                </div>
+                                <p className="text-xs text-indigo-700 font-medium mt-1.5 truncate max-w-[700px]" title={selectedPopupItem.description}>{selectedPopupItem.description}</p>
                             </div>
                             <button onClick={() => setSelectedPopupItem(null)} className="p-1 hover:bg-indigo-100 rounded-full text-indigo-900"><X className="w-5 h-5" /></button>
                         </div>
@@ -721,15 +751,20 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                                             <th className="p-2 text-right">Qty</th>
                                             <th className="p-2 text-right">Value (₹)</th>
                                             <th className="p-2 text-right">Consumption %</th>
+                                            <th className="p-2 text-center">Trend %</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y">
                                         {popupData.groups.length === 0 && (
-                                            <tr><td colSpan={6} className="p-4 text-center text-gray-500 italic">No sales found in the last 12 months.</td></tr>
+                                            <tr><td colSpan={7} className="p-4 text-center text-gray-500 italic">No sales found in the selected period.</td></tr>
                                         )}
                                         {popupData.groups.map(g => {
                                             const isExpanded = expandedGroups.has(g.groupName);
                                             const groupConsumption = popupData.totalItemQty > 0 ? (g.totalQty / popupData.totalItemQty) * 100 : 0;
+                                            
+                                            // Group growth vs previous period
+                                            const groupGrowth = g.prevTotalQty > 0 ? ((g.totalQty - g.prevTotalQty) / g.prevTotalQty) * 100 : (g.totalQty > 0 ? 100 : 0);
+
                                             return (
                                                 <React.Fragment key={g.groupName}>
                                                     <tr className="bg-slate-50 hover:bg-slate-100 cursor-pointer font-bold border-b-[1px] border-slate-200" onClick={() => toggleGroup(g.groupName)}>
@@ -744,15 +779,32 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                                                         <td className="p-2 text-right text-indigo-700">{g.totalQty.toLocaleString()}</td>
                                                         <td className="p-2 text-right text-gray-700">{Math.round(g.totalVal).toLocaleString()}</td>
                                                         <td className="p-2 text-right text-emerald-700">{groupConsumption.toFixed(1)}%</td>
+                                                        <td className="p-2 text-center">
+                                                            {(g.totalQty > 0 || g.prevTotalQty > 0) && (
+                                                                <div className={`flex items-center justify-center gap-0.5 text-[10px] ${groupGrowth >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                                    {groupGrowth >= 0 ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />}
+                                                                    <span>{Math.abs(Math.round(groupGrowth))}%</span>
+                                                                </div>
+                                                            )}
+                                                        </td>
                                                     </tr>
                                                     {isExpanded && g.customers.map((c, i) => (
-                                                        <tr key={`${g.groupName}-${c.name}-${i}`} className="hover:bg-indigo-50/30 bg-white">
+                                                        <tr key={`${g.groupName}-${c.name}-${i}`} className={`hover:bg-indigo-50/30 ${c.qty === 0 ? 'bg-red-50/20' : 'bg-white'}`}>
                                                             <td className="p-2"></td>
-                                                            <td className="p-2 pl-4 border-l-2 border-indigo-200 text-gray-700 font-medium truncate max-w-[300px]" title={c.name}>{c.name}</td>
+                                                            <td className="p-2 pl-4 border-l-2 border-indigo-200 text-gray-700 font-medium truncate max-w-[300px]" title={c.name}>
+                                                                {c.name}
+                                                                {c.qty === 0 && <span className="ml-2 text-[8px] bg-red-100 text-red-600 px-1 py-px rounded font-bold uppercase">Stopped</span>}
+                                                            </td>
                                                             <td className="p-2 text-center font-bold text-gray-600">{c.billedMonths}</td>
                                                             <td className="p-2 text-right font-bold">{c.qty.toLocaleString()}</td>
                                                             <td className="p-2 text-right text-gray-600">{Math.round(c.val).toLocaleString()}</td>
                                                             <td className="p-2 text-right font-bold text-emerald-600">{c.consumptionPct.toFixed(1)}%</td>
+                                                            <td className="p-2 text-center">
+                                                                <div className={`flex items-center justify-center gap-0.5 text-[9px] font-black ${c.growthPct >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                                    {c.growthPct >= 0 ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />}
+                                                                    <span>{Math.abs(Math.round(c.growthPct))}%</span>
+                                                                </div>
+                                                            </td>
                                                         </tr>
                                                     ))}
                                                 </React.Fragment>
@@ -762,10 +814,16 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
                                     {popupData.groups.length > 0 && (
                                         <tfoot className="bg-gray-800 text-white font-bold text-xs">
                                             <tr>
-                                                <td colSpan={3} className="p-2 text-right">TOTAL (LAST 12 MONTHS):</td>
+                                                <td colSpan={3} className="p-2 text-right uppercase">TOTAL (LAST {popupPeriod}):</td>
                                                 <td className="p-2 text-right text-blue-300">{popupData.totalItemQty.toLocaleString()}</td>
                                                 <td className="p-2 text-right text-gray-300">{Math.round(popupData.totalItemVal).toLocaleString()}</td>
                                                 <td className="p-2 text-right text-green-400">100%</td>
+                                                <td className="p-2 text-center">
+                                                    <div className={`flex items-center justify-center gap-0.5 ${popupData.totalGrowthPct >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                                        {popupData.totalGrowthPct >= 0 ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
+                                                        <span>{Math.abs(Math.round(popupData.totalGrowthPct))}%</span>
+                                                    </div>
+                                                </td>
                                             </tr>
                                         </tfoot>
                                     )}
