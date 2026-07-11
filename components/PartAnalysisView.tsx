@@ -270,23 +270,46 @@ const PartAnalysisView: React.FC<PartAnalysisViewProps> = ({
         if (!salesData || !stockMetrics) return null;
         
         // 1. Stock Projection Line Chart
+        const pt1 = stockMetrics.currentStock;
+        const pt2 = pt1 + stockMetrics.totalOpenPO;
+        const shortfall = stockMetrics.max - pt2;
+        const pt3 = shortfall > 0 ? stockMetrics.max : null;
+
         const stockChart: ApexCharts.ApexOptions = {
             chart: { type: 'line', toolbar: { show: false }, background: 'transparent' },
-            stroke: { width: 4, curve: 'smooth' },
-            colors: [stockMetrics.statusColor.includes('rose') ? '#E11D48' : stockMetrics.statusColor.includes('amber') ? '#D97706' : '#059669'],
+            stroke: { width: [4, 4, 4], curve: 'straight', dashArray: [0, 5, 5] },
+            colors: ['#3B82F6', '#10B981', '#EF4444'],
+            markers: { size: 5 },
             annotations: {
                 yaxis: [
-                    { y: stockMetrics.max, borderColor: '#3B82F6', strokeDashArray: 4, label: { text: 'Max Stock', style: { color: '#fff', background: '#3B82F6' } } },
-                    { y: stockMetrics.re, borderColor: '#F59E0B', strokeDashArray: 4, label: { text: 'Reorder Level', style: { color: '#fff', background: '#F59E0B' } } },
-                    { y: stockMetrics.min, borderColor: '#EF4444', strokeDashArray: 4, label: { text: 'Min Stock', style: { color: '#fff', background: '#EF4444' } } }
+                    { y: stockMetrics.totalOpenSO, borderColor: '#8B5CF6', strokeDashArray: 2, label: { text: 'Open SO', style: { color: '#fff', background: '#8B5CF6' } } },
+                    { y: stockMetrics.max, borderColor: '#3B82F6', strokeDashArray: 4, label: { text: 'Max', style: { color: '#fff', background: '#3B82F6' } } },
+                    { y: stockMetrics.re, borderColor: '#F59E0B', strokeDashArray: 4, label: { text: 'Reorder', style: { color: '#fff', background: '#F59E0B' } } },
+                    { y: stockMetrics.min, borderColor: '#EF4444', strokeDashArray: 4, label: { text: 'Min', style: { color: '#fff', background: '#EF4444' } } }
                 ]
             },
-            xaxis: { categories: ['Current'] },
-            yaxis: { min: 0, title: { text: 'Quantity' } },
+            xaxis: { categories: ['Current', 'w/ PO', 'Target Max'] },
+            yaxis: { min: 0, title: { text: 'Quantity' }, labels: { formatter: (val: number) => formatLargeValue(val, true) } },
             grid: { borderColor: '#f1f5f9' },
-            dataLabels: { enabled: true, offsetY: -10, style: { fontSize: '14px', fontWeight: 'bold' } }
+            dataLabels: { 
+                enabled: true, 
+                enabledOnSeries: [0, 1, 2],
+                formatter: (val: number, opts: any) => {
+                    if (opts.seriesIndex === 0 && opts.dataPointIndex === 0) return formatLargeValue(val, true);
+                    if (opts.seriesIndex === 1 && opts.dataPointIndex === 1) return formatLargeValue(val, true);
+                    if (opts.seriesIndex === 2 && opts.dataPointIndex === 2 && val !== null) return formatLargeValue(val, true);
+                    return '';
+                },
+                offsetY: -5, 
+                style: { fontSize: '10px', fontWeight: 'bold', colors: ['#475569'] },
+                background: { enabled: true, foreColor: '#fff', borderRadius: 2, padding: 2, borderWidth: 0 }
+            }
         };
-        const stockSeries = [{ name: 'Stock Level', data: [stockMetrics.currentStock, stockMetrics.currentStock] }]; // Fake second point to draw line
+        const stockSeries = [
+            { name: 'Current Stock', data: [pt1, null, null] },
+            { name: 'PO Projection', data: [pt1, pt2, null] },
+            { name: 'Shortfall', data: [null, pt2, pt3] }
+        ];
 
         // 2. YoY Sales Bar Chart
         const yoyCategories = salesData.years;
