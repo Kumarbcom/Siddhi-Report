@@ -15,6 +15,7 @@ const PivotReportView = lazy(() => import('./components/PivotReportView'));
 const MOMView = lazy(() => import('./components/MOMView'));
 const AttendeeMasterView = lazy(() => import('./components/AttendeeMasterView'));
 const UserManagementView = lazy(() => import('./components/UserManagementView'));
+const PartAnalysisView = lazy(() => import('./components/PartAnalysisView'));
 import CustomerFYAnalysisView from './components/CustomerFYAnalysisView';
 const ConfirmationModal = lazy(() => import('./components/ConfirmationModal'));
 
@@ -52,7 +53,8 @@ import {
   Upload,
   Download,
   PlusCircle,
-  ArrowLeft
+  ArrowLeft,
+  Sparkles
 } from 'lucide-react';
 import { authService, User } from './services/authService';
 import { LoginView } from './components/LoginView';
@@ -88,7 +90,7 @@ const LoadingFallback = () => (
   </div>
 );
 
-type ActiveTab = 'dashboard' | 'master' | 'customerMaster' | 'closingStock' | 'pendingSO' | 'pendingPO' | 'salesReport' | 'pivotReport' | 'customerFYAnalysis' | 'mom' | 'attendees' | 'userManagement' | 'changePass';
+type ActiveTab = 'dashboard' | 'master' | 'customerMaster' | 'closingStock' | 'pendingSO' | 'pendingPO' | 'salesReport' | 'pivotReport' | 'customerFYAnalysis' | 'mom' | 'attendees' | 'userManagement' | 'changePass' | 'partAnalysis';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(authService.getCurrentUser());
@@ -112,6 +114,7 @@ const App: React.FC = () => {
     attendees: 'Attendee Master',
     userManagement: 'User Management',
     changePass: 'Change Password',
+    partAnalysis: 'AI Part Analysis',
   };
 
   const [materials, setMaterials] = useState<Material[]>([]);
@@ -979,6 +982,17 @@ const App: React.FC = () => {
                 <span className="text-[9px] font-black text-gray-500 uppercase">Local Only</span>
               </div>
             )}
+            <button
+              onClick={() => setActiveTab('partAnalysis')}
+              className={`p-2 rounded-xl transition-all shadow-sm border ${
+                activeTab === 'partAnalysis' 
+                ? 'bg-indigo-600 text-white border-indigo-700 shadow-indigo-200' 
+                : 'bg-white text-indigo-500 hover:bg-indigo-50 hover:text-indigo-600 border-indigo-100'
+              }`}
+              title="AI Part Analysis"
+            >
+              <Sparkles className="w-5 h-5 animate-pulse" />
+            </button>
             <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-black text-xs shadow-lg shadow-indigo-100">
               {currentUser.username.charAt(0).toUpperCase()}
             </div>
@@ -997,6 +1011,19 @@ const App: React.FC = () => {
             {activeTab === 'pivotReport' && (
               <Suspense fallback={<LoadingFallback />}>
                 <PivotReportView isAdmin={isAdmin} materials={materials} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} salesReportItems={salesReportItems} customers={customerMasterItems} />
+              </Suspense>
+            )}
+
+            {activeTab === 'partAnalysis' && (
+              <Suspense fallback={<LoadingFallback />}>
+                <PartAnalysisView 
+                  materials={materials} 
+                  closingStock={closingStockItems} 
+                  pendingSO={pendingSOItems} 
+                  pendingPO={pendingPOItems} 
+                  salesReportItems={salesReportItems} 
+                  customers={customerMasterItems} 
+                />
               </Suspense>
             )}
 
