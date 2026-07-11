@@ -282,10 +282,10 @@ const PartAnalysisView: React.FC<PartAnalysisViewProps> = ({
             markers: { size: 5 },
             annotations: {
                 yaxis: [
-                    { y: stockMetrics.totalOpenSO, borderColor: '#8B5CF6', strokeDashArray: 2, label: { text: 'Open SO', style: { color: '#fff', background: '#8B5CF6' } } },
-                    { y: stockMetrics.max, borderColor: '#3B82F6', strokeDashArray: 4, label: { text: 'Max', style: { color: '#fff', background: '#3B82F6' } } },
-                    { y: stockMetrics.re, borderColor: '#F59E0B', strokeDashArray: 4, label: { text: 'Reorder', style: { color: '#fff', background: '#F59E0B' } } },
-                    { y: stockMetrics.min, borderColor: '#EF4444', strokeDashArray: 4, label: { text: 'Min', style: { color: '#fff', background: '#EF4444' } } }
+                    { y: stockMetrics.totalOpenSO, borderColor: '#8B5CF6', strokeDashArray: 2, label: { text: `Open SO: ${stockMetrics.totalOpenSO.toLocaleString()}`, style: { color: '#fff', background: '#8B5CF6' }, position: 'left', offsetX: 10, offsetY: -10 } },
+                    { y: stockMetrics.max, borderColor: '#3B82F6', strokeDashArray: 4, label: { text: `Max: ${stockMetrics.max.toLocaleString()}`, style: { color: '#fff', background: '#3B82F6' }, position: 'right', offsetX: -10, offsetY: -10 } },
+                    { y: stockMetrics.re, borderColor: '#F59E0B', strokeDashArray: 4, label: { text: `Reorder: ${stockMetrics.re.toLocaleString()}`, style: { color: '#fff', background: '#F59E0B' }, position: 'left', offsetX: 10, offsetY: -10 } },
+                    { y: stockMetrics.min, borderColor: '#EF4444', strokeDashArray: 4, label: { text: `Min: ${stockMetrics.min.toLocaleString()}`, style: { color: '#fff', background: '#EF4444' }, position: 'right', offsetX: -10, offsetY: -10 } }
                 ]
             },
             xaxis: { categories: ['Current', 'w/ PO', 'Target Max'] },
