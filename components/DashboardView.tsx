@@ -1603,7 +1603,7 @@ const DashboardView: React.FC<DashboardViewProps> = React.memo(({
             {/* SO Detail Modal */}
             {selectedSoItem && (
                 <div className="fixed inset-0 z-[200] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 transition-all duration-500">
-                    <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-white/50 animate-in zoom-in-95 duration-300">
+                    <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-white/50 animate-scale-in">
                         <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-5 flex justify-between items-center text-white shadow-inner">
                             <div className="flex items-center gap-3">
                                 <div className="p-2 bg-white/20 rounded-xl backdrop-blur-md">
@@ -1734,8 +1734,8 @@ const DashboardView: React.FC<DashboardViewProps> = React.memo(({
                     </div>
                 )}
             </div>
-            <div className="flex-1 p-2 overflow-y-auto custom-scrollbar bg-gray-50/50">
-                <div key={activeSubTab} className="h-full animate-in fade-in zoom-in duration-500 ease-out">
+            <div className="flex-1 p-4 overflow-y-auto custom-scrollbar bg-transparent">
+                <div key={activeSubTab} className="h-full animate-fade-in-up">
                     {activeSubTab === 'sales' ? (
                         <div className="flex flex-col gap-2">
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">

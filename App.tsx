@@ -985,7 +985,7 @@ const App: React.FC = () => {
           </div>
         </header>
 
-        <main className="flex-1 overflow-hidden p-4 relative">
+        <main className={`flex-1 overflow-hidden relative ${activeTab === 'dashboard' ? 'p-0' : 'p-4'}`}>
           <div className="h-full w-full">
             {/* Critical Dashboard Views - Use Suspense for lazy loading */}
             {activeTab === 'dashboard' && (
