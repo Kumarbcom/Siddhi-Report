@@ -1599,19 +1599,21 @@ const DashboardView: React.FC<DashboardViewProps> = React.memo(({
     };
 
     return (
-        <div className="h-full w-full flex flex-col bg-gray-50/50 overflow-hidden relative">
+        <div className="h-full w-full flex flex-col bg-gradient-to-br from-slate-50 via-white to-blue-50/30 overflow-hidden relative">
             {/* SO Detail Modal */}
             {selectedSoItem && (
-                <div className="fixed inset-0 z-[200] bg-black/40 backdrop-blur-md flex items-center justify-center p-4 transition-all duration-500">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-100 animate-scale-in">
-                        <div className="bg-purple-600 px-6 py-4 flex justify-between items-center text-white">
-                            <div className="flex items-center gap-2">
-                                <ClipboardList className="w-5 h-5" />
-                                <h3 className="font-bold text-lg uppercase tracking-tight">Sales Order Details</h3>
+                <div className="fixed inset-0 z-[200] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 transition-all duration-500">
+                    <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-white/50 animate-in zoom-in-95 duration-300">
+                        <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-5 flex justify-between items-center text-white shadow-inner">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-white/20 rounded-xl backdrop-blur-md">
+                                    <ClipboardList className="w-5 h-5 text-white" />
+                                </div>
+                                <h3 className="font-bold text-lg uppercase tracking-wider">Sales Order Details</h3>
                             </div>
-                            <button onClick={() => setSelectedSoItem(null)} className="p-1 hover:bg-white/20 rounded-full transition-colors"><X className="w-5 h-5" /></button>
+                            <button onClick={() => setSelectedSoItem(null)} className="p-2 hover:bg-white/20 rounded-full transition-all duration-200 active:scale-90"><X className="w-5 h-5" /></button>
                         </div>
-                        <div className="p-6 space-y-4">
+                        <div className="p-6 space-y-5">
                             <div className="grid grid-cols-2 gap-4">
                                 <div><p className="text-[10px] font-bold text-gray-400 uppercase">Order Number</p><p className="text-sm font-black text-gray-900">{selectedSoItem.orderNo}</p></div>
                                 <div><p className="text-[10px] font-bold text-gray-400 uppercase">Order Date</p><p className="text-sm font-bold text-gray-700">{selectedSoItem.date}</p></div>
@@ -1646,30 +1648,18 @@ const DashboardView: React.FC<DashboardViewProps> = React.memo(({
                 </div>
             )}
 
-            <div className="bg-white border-b border-gray-200 px-4 py-3 flex flex-col lg:flex-row gap-4 items-center justify-between flex-shrink-0 shadow-sm z-10 sticky top-0 bg-white/90 backdrop-blur-md">
-                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2 p-1 rounded-xl w-full xl:flex-1">
+            <div className="bg-white/70 backdrop-blur-xl border-b border-white/50 px-4 py-3 flex flex-col lg:flex-row gap-4 items-center justify-between flex-shrink-0 shadow-[0_4px_30px_rgba(0,0,0,0.03)] z-10 sticky top-0">
+                <div className="flex p-1.5 bg-slate-100/80 backdrop-blur-md rounded-2xl gap-1 w-full lg:w-auto overflow-x-auto custom-scrollbar shadow-inner">
                     {(['sales', 'inventory', 'so', 'po', 'weekly', 'customerAnalysis'] as const).map(tab => {
-                        const vibrantColors: Record<string, string> = {
-                            sales: 'bg-red-100 text-red-700 border-2 border-red-300',
-                            inventory: 'bg-cyan-100 text-cyan-700 border-2 border-cyan-300',
-                            so: 'bg-amber-100 text-amber-700 border-2 border-amber-300',
-                            po: 'bg-emerald-100 text-emerald-700 border-2 border-emerald-300',
-                            weekly: 'bg-purple-100 text-purple-700 border-2 border-purple-300',
-                            customerAnalysis: 'bg-pink-100 text-pink-700 border-2 border-pink-300'
-                        };
-                        const activeColors: Record<string, string> = {
-                            sales: 'bg-red-600 text-white border-2 border-red-800 shadow-lg',
-                            inventory: 'bg-cyan-600 text-white border-2 border-cyan-800 shadow-lg',
-                            so: 'bg-amber-600 text-white border-2 border-amber-800 shadow-lg',
-                            po: 'bg-emerald-600 text-white border-2 border-emerald-800 shadow-lg',
-                            weekly: 'bg-purple-600 text-white border-2 border-purple-800 shadow-lg',
-                            customerAnalysis: 'bg-pink-600 text-white border-2 border-pink-800 shadow-lg'
-                        };
                         return (
                             <button
                                 key={tab}
                                 onClick={() => setActiveSubTab(tab)}
-                                className={`w-full py-2.5 rounded-lg text-[10px] xl:text-xs font-black uppercase tracking-wider transition-all duration-300 transform active:scale-95 flex items-center justify-center ${activeSubTab === tab ? activeColors[tab] + ' scale-[1.03]' : vibrantColors[tab] + ' hover:scale-[1.02]'}`}
+                                className={`px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-300 whitespace-nowrap ${
+                                    activeSubTab === tab 
+                                    ? 'bg-white text-indigo-600 shadow-[0_2px_10px_rgba(0,0,0,0.08)] scale-100' 
+                                    : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50 scale-95 hover:scale-100'
+                                }`}
                             >
                                 {tab === 'so' ? 'Pending SO' : tab === 'po' ? 'Pending PO' : tab === 'weekly' ? 'Weekly Report' : tab === 'customerAnalysis' ? 'Cust Analysis' : tab}
                             </button>
@@ -1762,7 +1752,7 @@ const DashboardView: React.FC<DashboardViewProps> = React.memo(({
                                     const yoyPct = (k.yoy || 0) > 0 ? (yoyDiff / k.yoy!) * 100 : 0;
 
                                     return (
-                                        <div key={i} className={`relative overflow-hidden bg-white border ${k.border} p-4 rounded-xl shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 group`}>
+                                        <div key={i} className={`relative overflow-hidden bg-white/70 backdrop-blur-xl border border-white/60 p-5 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-500 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:-translate-y-1.5 group`}>
                                             <div className="flex flex-col h-full justify-between gap-3">
                                                 <div>
                                                     <div className="flex items-center gap-2 mb-2">
