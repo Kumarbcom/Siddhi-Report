@@ -14,9 +14,7 @@ const DashboardView = lazy(() => import('./components/DashboardView'));
 const PivotReportView = lazy(() => import('./components/PivotReportView'));
 const MOMView = lazy(() => import('./components/MOMView'));
 const AttendeeMasterView = lazy(() => import('./components/AttendeeMasterView'));
-const ChatView = lazy(() => import('./components/ChatView'));
 const UserManagementView = lazy(() => import('./components/UserManagementView'));
-const SupplyChainAnalyticsView = lazy(() => import('./components/SupplyChainAnalyticsView'));
 import CustomerFYAnalysisView from './components/CustomerFYAnalysisView';
 const ConfirmationModal = lazy(() => import('./components/ConfirmationModal'));
 
@@ -90,7 +88,7 @@ const LoadingFallback = () => (
   </div>
 );
 
-type ActiveTab = 'dashboard' | 'chat' | 'master' | 'customerMaster' | 'closingStock' | 'pendingSO' | 'pendingPO' | 'salesReport' | 'pivotReport' | 'customerFYAnalysis' | 'mom' | 'attendees' | 'userManagement' | 'supplyChain' | 'changePass';
+type ActiveTab = 'dashboard' | 'master' | 'customerMaster' | 'closingStock' | 'pendingSO' | 'pendingPO' | 'salesReport' | 'pivotReport' | 'customerFYAnalysis' | 'mom' | 'attendees' | 'userManagement' | 'changePass';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(authService.getCurrentUser());
@@ -102,7 +100,6 @@ const App: React.FC = () => {
 
   const TAB_LABELS: Record<ActiveTab, string> = {
     dashboard: 'Dashboard',
-    chat: 'AI Analyst',
     master: 'Material Master',
     customerMaster: 'Customer Master',
     closingStock: 'Closing Stock',
@@ -114,7 +111,6 @@ const App: React.FC = () => {
     mom: 'Weekly MOM',
     attendees: 'Attendee Master',
     userManagement: 'User Management',
-    supplyChain: 'Supply Chain Planning',
     changePass: 'Change Password',
   };
 
@@ -884,7 +880,6 @@ const App: React.FC = () => {
               <div className="space-y-1">
                 <SidebarItem id="dashboard" label="Dashboard" icon={LayoutDashboard} onClick={setActiveTab} />
                 <SidebarItem id="pivotReport" label="Strategy Report" icon={Table} onClick={setActiveTab} />
-                <SidebarItem id="chat" label="AI Analyst" icon={MessageSquare} onClick={setActiveTab} />
               </div>
             </div>
 
@@ -899,7 +894,6 @@ const App: React.FC = () => {
             <div className="px-3">
               {isSidebarOpen && <div className="mb-1.5 px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider animate-fade-in">Analytics</div>}
               <div className="space-y-1">
-                <SidebarItem id="supplyChain" label="SC Planning" icon={LineChart} onClick={setActiveTab} />
                 <SidebarItem id="closingStock" label="Closing Stock" icon={Package} count={closingStockItems.length} onClick={setActiveTab} />
                 <SidebarItem id="pendingSO" label="Pending SO" icon={ClipboardList} count={pendingSOItems.length} onClick={setActiveTab} />
                 <SidebarItem id="pendingPO" label="Pending PO" icon={ShoppingCart} count={pendingPOItems.length} onClick={setActiveTab} />
@@ -1005,21 +999,8 @@ const App: React.FC = () => {
                 <PivotReportView isAdmin={isAdmin} materials={materials} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} salesReportItems={salesReportItems} customers={customerMasterItems} />
               </Suspense>
             )}
-            
-            {activeTab === 'supplyChain' && (
-              <Suspense fallback={<LoadingFallback />}>
-                <SupplyChainAnalyticsView materials={materials} salesReportItems={salesReportItems} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} />
-              </Suspense>
-            )}
 
             {/* Other lazy-loaded views with Suspense boundaries */}
-            {activeTab === 'chat' && (
-              <Suspense fallback={<LoadingFallback />}>
-                <div className="h-full w-full max-w-4xl mx-auto flex flex-col gap-4">
-                  <ChatView isAdmin={isAdmin} materials={materials} closingStock={closingStockItems} pendingSO={pendingSOItems} pendingPO={pendingPOItems} salesReportItems={salesReportItems} customers={customerMasterItems} />
-                </div>
-              </Suspense>
-            )}
             
             {activeTab === 'master' && (
               <div className="flex flex-col h-full gap-4">
