@@ -54,16 +54,32 @@ const PartAnalysisView: React.FC<PartAnalysisViewProps> = ({
         });
     };
 
-    // Filter matched materials based on exact part no (case insensitive)
-    const activeMaterial = useMemo(() => {
+    // Find matched data based on part no or description
+    const activeData = useMemo(() => {
         if (!partSearch.trim()) return null;
         const search = partSearch.toLowerCase().trim();
-        return materials.find(m => (m.partNo || '').toLowerCase() === search || (m.materialCode || '').toLowerCase() === search) || null;
-    }, [partSearch, materials]);
+
+        let mat = materials.find(m => (m.partNo || '').toLowerCase() === search || (m.materialCode || '').toLowerCase() === search);
+        if (mat) return { partNo: mat.partNo || '', description: mat.description || '' };
+
+        let so = pendingSO.find(s => (s.partNo || '').toLowerCase() === search);
+        if (so) return { partNo: so.partNo || '', description: so.itemName || '' };
+
+        let po = pendingPO.find(p => (p.partNo || '').toLowerCase() === search);
+        if (po) return { partNo: po.partNo || '', description: po.itemName || '' };
+
+        let st = closingStock.find(s => (s.description || '').toLowerCase().includes(search));
+        if (st) return { partNo: search, description: st.description || '' };
+
+        let sa = salesReportItems.find(s => (s.particulars || '').toLowerCase().includes(search));
+        if (sa) return { partNo: search, description: sa.particulars || '' };
+
+        return { partNo: search, description: `Search: ${partSearch}` };
+    }, [partSearch, materials, pendingSO, pendingPO, closingStock, salesReportItems]);
 
     // Data for active material
-    const matKey = activeMaterial ? (activeMaterial.partNo || '').toLowerCase().trim() : '';
-    const descKey = activeMaterial ? (activeMaterial.description || '').toLowerCase().trim() : '';
+    const matKey = activeData ? activeData.partNo.toLowerCase().trim() : '';
+    const descKey = activeData ? activeData.description.toLowerCase().trim() : '';
     
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -166,7 +182,7 @@ const PartAnalysisView: React.FC<PartAnalysisViewProps> = ({
             currentStock, soDue, soSch, poDue, poSch, netQty, stockCalculated, avg12mQty, min, re, max,
             exStock, exPO, poNeed, expQty, status, statusColor, totalOpenSO, totalOpenPO
         };
-    }, [activeMaterial, closingStock, pendingSO, pendingPO, salesReportItems]);
+    }, [activeData, closingStock, pendingSO, pendingPO, salesReportItems]);
 
     // Calculate Sales Metrics
     const salesData = useMemo(() => {
@@ -247,7 +263,7 @@ const PartAnalysisView: React.FC<PartAnalysisViewProps> = ({
         }).sort((a, b) => b.groupVal - a.groupVal);
 
         return { grouped, years, monthsOrder, totalVal };
-    }, [activeMaterial, salesReportItems, customers]);
+    }, [activeData, salesReportItems, customers]);
 
     // Compute Chart Data
     const chartData = useMemo(() => {
@@ -397,7 +413,7 @@ const PartAnalysisView: React.FC<PartAnalysisViewProps> = ({
 
             {/* Content Area */}
             <div className="flex-1 overflow-y-auto custom-scrollbar p-4">
-                {!activeMaterial ? (
+                {!activeData ? (
                     <div className="flex flex-col items-center justify-center h-full text-center max-w-md mx-auto animate-fade-in-up opacity-50">
                         <Search className="w-16 h-16 text-gray-300 mb-4" />
                         <h3 className="text-lg font-black text-gray-500 uppercase tracking-widest">Awaiting Part Number</h3>
@@ -410,7 +426,7 @@ const PartAnalysisView: React.FC<PartAnalysisViewProps> = ({
                             <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
                                 <div>
                                     <h3 className="text-sm font-black text-gray-800 uppercase tracking-widest">{activeTab === 'sales' ? 'Sales Matrix' : 'Stock Status'}</h3>
-                                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">{activeMaterial.description}</p>
+                                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">{activeData.description}</p>
                                 </div>
                             </div>
                             
