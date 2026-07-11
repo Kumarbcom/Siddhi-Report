@@ -282,7 +282,7 @@ const PartAnalysisView: React.FC<PartAnalysisViewProps> = ({
                 ]
             },
             xaxis: { categories: ['Current'] },
-            yaxis: { title: { text: 'Quantity' } },
+            yaxis: { min: 0, title: { text: 'Quantity' } },
             grid: { borderColor: '#f1f5f9' },
             dataLabels: { enabled: true, offsetY: -10, style: { fontSize: '14px', fontWeight: 'bold' } }
         };
@@ -316,8 +316,9 @@ const PartAnalysisView: React.FC<PartAnalysisViewProps> = ({
         const pieChart: ApexCharts.ApexOptions = {
             chart: { type: 'donut' },
             labels: pieLabels,
-            legend: { position: 'bottom' },
-            dataLabels: { enabled: false },
+            legend: { show: false },
+            dataLabels: { enabled: true, formatter: (val: number) => val.toFixed(1) + '%' },
+            tooltip: { enabled: true, y: { formatter: (val: number) => formatLargeValue(val) } },
             plotOptions: { pie: { donut: { size: '65%' } } }
         };
         const pieSeries = pieVals;
@@ -344,21 +345,23 @@ const PartAnalysisView: React.FC<PartAnalysisViewProps> = ({
             stroke: { curve: 'smooth', width: 2 },
             fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0.05, stops: [0, 90, 100] } },
             colors: ['#10B981'],
-            xaxis: { categories: areaLabels, labels: { show: false } },
+            xaxis: { categories: areaLabels, labels: { show: true, style: { fontSize: '10px' } } },
             yaxis: { labels: { formatter: (val: number) => formatLargeValue(val, true) } },
-            dataLabels: { enabled: false }
+            dataLabels: { enabled: true, offsetY: -5, style: { fontSize: '9px', fontWeight: 'normal', colors: ['#475569'] }, background: { enabled: true, foreColor: '#fff', borderRadius: 2, padding: 2, borderWidth: 0 } }
         };
+        // Fix for dataLabels formatter in ApexCharts options
+        areaChart.dataLabels = { ...areaChart.dataLabels, formatter: (val: number) => formatLargeValue(val, true) };
         const areaSeries = [{ name: 'Consumption', data: areaVals }];
 
-        // 5. Top 5 Customers (All time for this part)
-        const allCusts: {name: string, val: number}[] = [];
-        salesData.grouped.forEach(g => g.names.forEach(n => allCusts.push({name: n.name, val: n.nameVal})));
-        allCusts.sort((a, b) => b.val - a.val);
-        const top5 = allCusts.slice(0, 5);
+        // 5. Top 5 Customer Groups
+        const allGroups: {name: string, val: number}[] = [];
+        salesData.grouped.forEach(g => allGroups.push({name: g.groupName.toLowerCase(), val: g.groupVal}));
+        allGroups.sort((a, b) => b.val - a.val);
+        const top5 = allGroups.slice(0, 5);
         
         const top5Chart: ApexCharts.ApexOptions = {
             chart: { type: 'bar', toolbar: { show: false } },
-            plotOptions: { bar: { horizontal: true, borderRadius: 4 } },
+            plotOptions: { bar: { horizontal: true, borderRadius: 4, barHeight: '40%' } },
             colors: ['#F59E0B'],
             xaxis: { categories: top5.map(c => c.name), labels: { formatter: (val: number) => formatLargeValue(val, true) } },
             dataLabels: { enabled: false }
@@ -601,33 +604,33 @@ const PartAnalysisView: React.FC<PartAnalysisViewProps> = ({
                         <div className="w-full xl:w-[45%] flex flex-col gap-4 overflow-y-auto custom-scrollbar pr-2">
                             {activeTab === 'stock' && chartData && stockMetrics ? (
                                 <>
-                                    <div className="bg-white border border-gray-200 rounded-3xl shadow-sm flex flex-col overflow-hidden p-5 flex-shrink-0">
-                                       <h3 className="text-sm font-black text-gray-800 uppercase tracking-widest mb-2 flex items-center gap-2"><Activity className="w-4 h-4 text-indigo-500"/> Stock Projection</h3>
-                                       <div className="h-[280px] w-full">
+                                    <div className="bg-white border border-gray-200 rounded-3xl shadow-sm flex flex-col overflow-hidden p-4 flex-shrink-0">
+                                       <h3 className="text-sm font-black text-gray-800 uppercase tracking-widest mb-1 flex items-center gap-2"><Activity className="w-4 h-4 text-indigo-500"/> Stock Projection</h3>
+                                       <div className="h-[200px] w-full">
                                            <Chart options={chartData.stockChart} series={chartData.stockSeries} type="line" height="100%" />
                                        </div>
                                        {stockMetrics.currentStock < stockMetrics.min && (
-                                            <div className="mt-4 p-3 bg-rose-50 rounded-xl border border-rose-200 flex items-start gap-3 animate-pulse">
-                                                <AlertTriangle className="w-5 h-5 text-rose-600 flex-shrink-0 mt-0.5" />
+                                            <div className="mt-4 p-4 bg-rose-500 rounded-2xl border-2 border-rose-600 flex items-center justify-center gap-4 animate-pulse shadow-lg shadow-rose-200">
+                                                <AlertTriangle className="w-8 h-8 text-white flex-shrink-0 animate-bounce" />
                                                 <div>
-                                                    <p className="text-xs font-black text-rose-700 uppercase tracking-widest">Emergency To Book</p>
-                                                    <p className="text-xs text-rose-600 font-medium">Stock is critically below minimum levels. Immediate procurement required. Qty to book: <b>{(stockMetrics.max - stockMetrics.netQty).toLocaleString()}</b></p>
+                                                    <p className="text-sm font-black text-white uppercase tracking-widest drop-shadow-sm">EMERGENCY TO BOOK</p>
+                                                    <p className="text-sm text-rose-100 font-medium mt-1 drop-shadow-sm">Stock is critically below minimum levels. Qty to book: <b className="text-white text-lg bg-rose-600/50 px-2 py-0.5 rounded ml-1">{(stockMetrics.max - stockMetrics.netQty).toLocaleString()}</b></p>
                                                 </div>
                                             </div>
                                        )}
                                        {stockMetrics.currentStock >= stockMetrics.min && stockMetrics.currentStock < stockMetrics.re && (
-                                            <div className="mt-4 p-3 bg-amber-50 rounded-xl border border-amber-200 flex items-start gap-3">
-                                                <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                                            <div className="mt-4 p-4 bg-amber-500 rounded-2xl border-2 border-amber-600 flex items-center justify-center gap-4 shadow-lg shadow-amber-200">
+                                                <AlertCircle className="w-8 h-8 text-white flex-shrink-0 animate-bounce" />
                                                 <div>
-                                                    <p className="text-xs font-black text-amber-700 uppercase tracking-widest">Indication To Book</p>
-                                                    <p className="text-xs text-amber-600 font-medium">Stock has fallen below reorder level. Suggested Qty to book: <b>{(stockMetrics.max - stockMetrics.netQty).toLocaleString()}</b></p>
+                                                    <p className="text-sm font-black text-white uppercase tracking-widest drop-shadow-sm">INDICATION TO BOOK</p>
+                                                    <p className="text-sm text-amber-100 font-medium mt-1 drop-shadow-sm">Stock has fallen below reorder level. Suggested Qty: <b className="text-white text-lg bg-amber-600/50 px-2 py-0.5 rounded ml-1">{(stockMetrics.max - stockMetrics.netQty).toLocaleString()}</b></p>
                                                 </div>
                                             </div>
                                        )}
                                     </div>
-                                    <div className="bg-white border border-gray-200 rounded-3xl shadow-sm flex flex-col overflow-hidden p-5 flex-shrink-0">
-                                       <h3 className="text-sm font-black text-gray-800 uppercase tracking-widest mb-2 flex items-center gap-2"><TrendingUp className="w-4 h-4 text-emerald-500"/> YoY Sales Value</h3>
-                                       <div className="h-[250px] w-full">
+                                    <div className="bg-white border border-gray-200 rounded-3xl shadow-sm flex flex-col overflow-hidden p-4 flex-shrink-0">
+                                       <h3 className="text-sm font-black text-gray-800 uppercase tracking-widest mb-1 flex items-center gap-2"><TrendingUp className="w-4 h-4 text-emerald-500"/> YoY Sales Value</h3>
+                                       <div className="h-[180px] w-full">
                                            <Chart options={chartData.yoyChart} series={chartData.yoySeries} type="bar" height="100%" />
                                        </div>
                                     </div>
@@ -642,7 +645,7 @@ const PartAnalysisView: React.FC<PartAnalysisViewProps> = ({
                                             </div>
                                         </div>
                                         <div className="bg-white border border-gray-200 rounded-3xl shadow-sm p-4">
-                                            <h3 className="text-xs font-black text-gray-800 uppercase tracking-widest mb-2 text-center">Top 5 Customers</h3>
+                                            <h3 className="text-xs font-black text-gray-800 uppercase tracking-widest mb-2 text-center">Top 5 Customer Groups</h3>
                                             <div className="h-[220px]">
                                                 <Chart options={chartData.top5Chart} series={chartData.top5Series} type="bar" height="100%" />
                                             </div>
