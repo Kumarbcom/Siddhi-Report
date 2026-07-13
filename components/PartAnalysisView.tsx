@@ -212,7 +212,8 @@ const PartAnalysisView: React.FC<PartAnalysisViewProps> = ({
 
             const cName = (s.customerName || 'Unknown').trim();
             const custMatch = customers.find(c => c.customerName.toLowerCase().trim() === cName.toLowerCase());
-            const cGroup = custMatch ? (custMatch.customerGroup || custMatch.group || 'UNASSIGNED') : 'UNASSIGNED';
+            let cGroup = custMatch ? (custMatch.customerGroup || 'UNASSIGNED') : 'UNASSIGNED';
+            if (cGroup === 'Group -1') cGroup = 'UNASSIGNED';
 
             if (!tree[cGroup]) tree[cGroup] = {};
             if (!tree[cGroup][cName]) tree[cGroup][cName] = {};
@@ -478,7 +479,8 @@ const PartAnalysisView: React.FC<PartAnalysisViewProps> = ({
                                             <thead>
                                                 <tr>
                                                     <th className="p-3 bg-indigo-50 border-b border-r border-indigo-100 font-black text-indigo-900 text-xs uppercase sticky left-0 z-10 w-64 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Customer / Group</th>
-                                                    {salesData.years.map(y => (
+                                                    <th colSpan={4} className="p-3 bg-emerald-50 border-b border-emerald-100 font-black text-emerald-900 text-xs uppercase text-center">Total Summary</th>
+                                                    {['2026', '2025'].map(y => (
                                                         <React.Fragment key={y}>
                                                             <th colSpan={expandedCols.has(y) ? 14 : 2} className="p-3 bg-indigo-50 border-b border-r border-indigo-100 font-black text-indigo-900 text-xs uppercase text-center">
                                                                 <button onClick={() => toggleCol(y)} className="flex items-center justify-center gap-1 w-full hover:text-indigo-600">
@@ -487,11 +489,14 @@ const PartAnalysisView: React.FC<PartAnalysisViewProps> = ({
                                                             </th>
                                                         </React.Fragment>
                                                     ))}
-                                                    <th colSpan={4} className="p-3 bg-emerald-50 border-b border-emerald-100 font-black text-emerald-900 text-xs uppercase text-center">Total Summary</th>
                                                 </tr>
                                                 <tr>
                                                     <th className="p-2 bg-indigo-50/50 border-b border-r border-indigo-100 sticky left-0 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"></th>
-                                                    {salesData.years.map(y => (
+                                                    <th className="p-2 bg-emerald-50/30 border-b border-r border-emerald-100 text-[10px] font-bold text-emerald-700 text-right">Total Qty</th>
+                                                    <th className="p-2 bg-emerald-50/30 border-b border-r border-emerald-100 text-[10px] font-bold text-emerald-700 text-right">Total Value</th>
+                                                    <th className="p-2 bg-emerald-50/30 border-b border-r border-emerald-100 text-[10px] font-bold text-emerald-700 text-right">% Sales</th>
+                                                    <th className="p-2 bg-emerald-50/30 border-b border-r border-emerald-100 text-[10px] font-bold text-emerald-700 text-right">YoY %</th>
+                                                    {['2026', '2025'].map(y => (
                                                         <React.Fragment key={`${y}-sub`}>
                                                             {expandedCols.has(y) && salesData.monthsOrder.map(m => (
                                                                 <th key={m} className="p-2 bg-gray-50 border-b border-r border-gray-100 text-[10px] font-bold text-gray-500 text-center min-w-[80px]">{m}</th>
@@ -500,10 +505,6 @@ const PartAnalysisView: React.FC<PartAnalysisViewProps> = ({
                                                             <th className="p-2 bg-indigo-50/30 border-b border-r border-indigo-100 text-[10px] font-bold text-indigo-700 text-right min-w-[100px]">Value</th>
                                                         </React.Fragment>
                                                     ))}
-                                                    <th className="p-2 bg-emerald-50/30 border-b border-r border-emerald-100 text-[10px] font-bold text-emerald-700 text-right">Total Qty</th>
-                                                    <th className="p-2 bg-emerald-50/30 border-b border-r border-emerald-100 text-[10px] font-bold text-emerald-700 text-right">Total Value</th>
-                                                    <th className="p-2 bg-emerald-50/30 border-b border-r border-emerald-100 text-[10px] font-bold text-emerald-700 text-right">% Sales</th>
-                                                    <th className="p-2 bg-emerald-50/30 border-b border-emerald-100 text-[10px] font-bold text-emerald-700 text-right">YoY %</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -527,7 +528,13 @@ const PartAnalysisView: React.FC<PartAnalysisViewProps> = ({
                                                                         {g.groupName}
                                                                     </button>
                                                                 </td>
-                                                                {salesData.years.map(y => (
+                                                                <td className="p-2 border-b border-r border-gray-100 text-xs font-black text-right text-gray-800 bg-emerald-50/10">{g.groupQty.toLocaleString()}</td>
+                                                                <td className="p-2 border-b border-r border-gray-100 text-xs font-black text-right text-emerald-700 bg-emerald-50/10">{formatLargeValue(g.groupVal)}</td>
+                                                                <td className="p-2 border-b border-r border-gray-100 text-xs font-bold text-right text-gray-600 bg-emerald-50/10">{((g.groupVal / salesData.totalVal) * 100).toFixed(1)}%</td>
+                                                                <td className={`p-2 border-b border-r border-gray-100 text-xs font-bold text-right bg-emerald-50/10 ${yoy > 0 ? 'text-emerald-600' : yoy < 0 ? 'text-rose-600' : 'text-gray-500'}`}>
+                                                                    {yoy !== 0 ? `${yoy > 0 ? '+' : ''}${yoy.toFixed(1)}%` : '-'}
+                                                                </td>
+                                                                {['2026', '2025'].map(y => (
                                                                     <React.Fragment key={`${g.groupName}-${y}`}>
                                                                         {expandedCols.has(y) && salesData.monthsOrder.map(m => {
                                                                             let mQty = 0; let mVal = 0;
@@ -542,12 +549,6 @@ const PartAnalysisView: React.FC<PartAnalysisViewProps> = ({
                                                                         <td className="p-2 border-b border-r border-gray-100 text-xs font-bold text-right text-indigo-700 bg-indigo-50/10">{formatLargeValue(g.groupYears[y]?.val)}</td>
                                                                     </React.Fragment>
                                                                 ))}
-                                                                <td className="p-2 border-b border-r border-gray-100 text-xs font-black text-right text-gray-800 bg-emerald-50/10">{g.groupQty.toLocaleString()}</td>
-                                                                <td className="p-2 border-b border-r border-gray-100 text-xs font-black text-right text-emerald-700 bg-emerald-50/10">{formatLargeValue(g.groupVal)}</td>
-                                                                <td className="p-2 border-b border-r border-gray-100 text-xs font-bold text-right text-gray-600 bg-emerald-50/10">{((g.groupVal / salesData.totalVal) * 100).toFixed(1)}%</td>
-                                                                <td className={`p-2 border-b border-gray-100 text-xs font-bold text-right bg-emerald-50/10 ${yoy > 0 ? 'text-emerald-600' : yoy < 0 ? 'text-rose-600' : 'text-gray-500'}`}>
-                                                                    {yoy !== 0 ? `${yoy > 0 ? '+' : ''}${yoy.toFixed(1)}%` : '-'}
-                                                                </td>
                                                             </tr>
                                                             {/* Expanded Customer Rows */}
                                                             {isExpanded && g.names.map(n => {
@@ -560,7 +561,13 @@ const PartAnalysisView: React.FC<PartAnalysisViewProps> = ({
                                                                         <td className="p-2 border-b border-r border-gray-50 bg-white sticky left-0 z-10 pl-8 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] group-hover:bg-slate-50">
                                                                             <span className="text-xs text-gray-600 truncate block max-w-[200px]" title={n.name}>{n.name}</span>
                                                                         </td>
-                                                                        {salesData.years.map(y => (
+                                                                        <td className="p-2 border-b border-r border-gray-50 text-[11px] font-medium text-right text-gray-700">{n.nameQty.toLocaleString()}</td>
+                                                                        <td className="p-2 border-b border-r border-gray-50 text-[11px] font-medium text-right text-gray-700">{formatLargeValue(n.nameVal)}</td>
+                                                                        <td className="p-2 border-b border-r border-gray-50 text-[10px] font-medium text-right text-gray-500">{((n.nameVal / salesData.totalVal) * 100).toFixed(1)}%</td>
+                                                                        <td className={`p-2 border-b border-r border-gray-50 text-[10px] font-medium text-right ${nYoy > 0 ? 'text-emerald-500' : nYoy < 0 ? 'text-rose-500' : 'text-gray-400'}`}>
+                                                                            {nYoy !== 0 ? `${nYoy > 0 ? '+' : ''}${nYoy.toFixed(1)}%` : '-'}
+                                                                        </td>
+                                                                        {['2026', '2025'].map(y => (
                                                                             <React.Fragment key={`${n.name}-${y}`}>
                                                                                 {expandedCols.has(y) && salesData.monthsOrder.map(m => {
                                                                                     const cell = n.years[y]?.[m];
@@ -574,12 +581,6 @@ const PartAnalysisView: React.FC<PartAnalysisViewProps> = ({
                                                                                 <td className="p-2 border-b border-r border-gray-50 text-[11px] text-right text-gray-600">{formatLargeValue(n.nameYears[y]?.val)}</td>
                                                                             </React.Fragment>
                                                                         ))}
-                                                                        <td className="p-2 border-b border-r border-gray-50 text-[11px] font-medium text-right text-gray-700">{n.nameQty.toLocaleString()}</td>
-                                                                        <td className="p-2 border-b border-r border-gray-50 text-[11px] font-medium text-right text-gray-700">{formatLargeValue(n.nameVal)}</td>
-                                                                        <td className="p-2 border-b border-r border-gray-50 text-[10px] font-medium text-right text-gray-500">{((n.nameVal / salesData.totalVal) * 100).toFixed(1)}%</td>
-                                                                        <td className={`p-2 border-b border-gray-50 text-[10px] font-medium text-right ${nYoy > 0 ? 'text-emerald-500' : nYoy < 0 ? 'text-rose-500' : 'text-gray-400'}`}>
-                                                                            {nYoy !== 0 ? `${nYoy > 0 ? '+' : ''}${nYoy.toFixed(1)}%` : '-'}
-                                                                        </td>
                                                                     </tr>
                                                                 );
                                                             })}
