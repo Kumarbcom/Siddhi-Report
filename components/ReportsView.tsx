@@ -452,25 +452,26 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             </div>
 
             {/* Table Area */}
-            <div className="flex-1 overflow-auto custom-scrollbar p-6">
-                <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
-                    {activeTab === 'pendingSO' ? (
-                        <table className="w-full text-left border-collapse">
-                            <thead>
-                                <tr className="bg-slate-50 text-[11px] font-black text-slate-500 uppercase tracking-wider">
-                                    <th className="p-3 border-b border-gray-100">SO Date</th>
-                                    <th className="p-3 border-b border-gray-100">Category</th>
-                                    <th className="p-3 border-b border-gray-100">SO No</th>
-                                    <th className="p-3 border-b border-gray-100">Customer Name</th>
-                                    <th className="p-3 border-b border-gray-100">Item Description</th>
-                                    <th className="p-3 border-b border-gray-100 text-right">Order Qty</th>
-                                    <th className="p-3 border-b border-gray-100 text-right">Balance Qty</th>
-                                    <th className="p-3 border-b border-gray-100 text-center">Due Date</th>
-                                    <th className="p-3 border-b border-gray-100 text-center text-rose-600">Overdue Days</th>
-                                    <th className="p-3 border-b border-gray-100 text-right bg-blue-50/50">Total Stock</th>
-                                    <th className="p-3 border-b border-gray-100 text-right bg-emerald-50/50">Allocated (FIFO)</th>
-                                </tr>
-                            </thead>
+            <div className="flex-1 p-4 sm:p-6 flex flex-col min-h-0">
+                <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden flex-1 flex flex-col min-h-0">
+                    <div className="overflow-auto flex-1 custom-scrollbar w-full">
+                        {activeTab === 'pendingSO' ? (
+                            <table className="w-full text-left border-collapse whitespace-nowrap">
+                                <thead className="sticky top-0 z-10">
+                                    <tr className="bg-slate-50 text-[11px] font-black text-slate-500 uppercase tracking-wider border-b border-gray-200">
+                                        <th className="p-3 bg-slate-50">SO Date</th>
+                                        <th className="p-3 bg-slate-50">Category</th>
+                                        <th className="p-3 bg-slate-50">SO No</th>
+                                        <th className="p-3 bg-slate-50">Customer Name</th>
+                                        <th className="p-3 bg-slate-50">Item Description</th>
+                                        <th className="p-3 text-right bg-slate-50">Order Qty</th>
+                                        <th className="p-3 text-right bg-slate-50">Balance Qty</th>
+                                        <th className="p-3 text-center bg-slate-50">Due Date</th>
+                                        <th className="p-3 text-center text-rose-600 bg-slate-50">Overdue Days</th>
+                                        <th className="p-3 text-right bg-blue-50/90">Total Stock</th>
+                                        <th className="p-3 text-right bg-emerald-50/90">Allocated (FIFO)</th>
+                                    </tr>
+                                </thead>
                             <tbody>
                                 {allocatedSOData.map((row, i) => (
                                     <tr key={`${row.id}-${i}`} className="hover:bg-slate-50 border-b border-gray-50 transition-colors">
@@ -501,18 +502,18 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                             </tbody>
                         </table>
                     ) : (
-                        <table className="w-full text-left border-collapse">
-                            <thead>
-                                <tr className="bg-slate-50 text-[11px] font-black text-slate-500 uppercase tracking-wider">
-                                    <th className="p-3 border-b border-gray-100">Description</th>
-                                    <th className="p-3 border-b border-gray-100 text-center">Fast Runner</th>
-                                    <th className="p-3 border-b border-gray-100 text-center">Lapp Category</th>
-                                    <th className="p-3 border-b border-gray-100 text-right text-blue-600">Stock</th>
-                                    <th className="p-3 border-b border-gray-100 text-right text-amber-600">Pending SO</th>
-                                    <th className="p-3 border-b border-gray-100 text-right text-indigo-600">Pending PO</th>
-                                    <th className="p-3 border-b border-gray-100 text-right text-rose-600">Need (SO)</th>
-                                    <th className="p-3 border-b border-gray-100 text-right text-gray-500 bg-gray-100/50">Max Stock</th>
-                                    <th className="p-3 border-b border-gray-100 text-right text-emerald-600 bg-emerald-50/30">Need (Max)</th>
+                        <table className="w-full text-left border-collapse whitespace-nowrap">
+                            <thead className="sticky top-0 z-10">
+                                <tr className="bg-slate-50 text-[11px] font-black text-slate-500 uppercase tracking-wider border-b border-gray-200">
+                                    <th className="p-3 bg-slate-50">Description</th>
+                                    <th className="p-3 text-center bg-slate-50">Fast Runner</th>
+                                    <th className="p-3 text-center bg-slate-50">Lapp Category</th>
+                                    <th className="p-3 text-right text-blue-600 bg-slate-50">Stock</th>
+                                    <th className="p-3 text-right text-amber-600 bg-slate-50">Pending SO</th>
+                                    <th className="p-3 text-right text-indigo-600 bg-slate-50">Pending PO</th>
+                                    <th className="p-3 text-right text-rose-600 bg-slate-50">Need (SO)</th>
+                                    <th className="p-3 text-right text-gray-500 bg-gray-100/90">Max Stock</th>
+                                    <th className="p-3 text-right text-emerald-600 bg-emerald-50/90">Need (Max)</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -556,6 +557,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                             </tbody>
                         </table>
                     )}
+                    </div>
                 </div>
             </div>
         </div>
