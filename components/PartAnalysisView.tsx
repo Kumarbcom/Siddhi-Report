@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useDeferredValue } from 'react';
 import { Material, ClosingStockItem, PendingSOItem, PendingPOItem, SalesReportItem, CustomerMasterItem } from '../types';
 import { Search, Package, TrendingUp, DollarSign, Activity, FileBarChart, PieChart as PieIcon, Factory, Calendar, Clock, ArrowUpRight, ArrowDownRight, Layers, BarChart3, TrendingDown, CheckCircle2, AlertTriangle, AlertCircle, Plus, Minus, ChevronDown, ChevronRight } from 'lucide-react';
 import Chart from 'react-apexcharts';
@@ -32,6 +32,7 @@ const PartAnalysisView: React.FC<PartAnalysisViewProps> = ({
     materials, closingStock, pendingSO, pendingPO, salesReportItems, customers
 }) => {
     const [partSearch, setPartSearch] = useState('');
+    const deferredSearch = useDeferredValue(partSearch);
     const [activeTab, setActiveTab] = useState<'sales' | 'stock'>('sales');
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
     const [expandedCols, setExpandedCols] = useState<Set<string>>(new Set());
@@ -56,8 +57,8 @@ const PartAnalysisView: React.FC<PartAnalysisViewProps> = ({
 
     // Find matched data based on part no or description
     const activeData = useMemo(() => {
-        if (!partSearch.trim()) return null;
-        const search = partSearch.toLowerCase().trim();
+        if (!deferredSearch.trim()) return null;
+        const search = deferredSearch.toLowerCase().trim();
 
         let mat = materials.find(m => (m.partNo || '').toLowerCase() === search || (m.materialCode || '').toLowerCase() === search);
         if (mat) return { partNo: mat.partNo || '', description: mat.description || '' };
@@ -74,8 +75,8 @@ const PartAnalysisView: React.FC<PartAnalysisViewProps> = ({
         let sa = salesReportItems.find(s => (s.particulars || '').toLowerCase().includes(search));
         if (sa) return { partNo: search, description: sa.particulars || '' };
 
-        return { partNo: search, description: `Search: ${partSearch}` };
-    }, [partSearch, materials, pendingSO, pendingPO, closingStock, salesReportItems]);
+        return { partNo: search, description: `Search: ${deferredSearch}` };
+    }, [deferredSearch, materials, pendingSO, pendingPO, closingStock, salesReportItems]);
 
     // Data for active material
     const matKey = activeData ? activeData.partNo.toLowerCase().trim() : '';
