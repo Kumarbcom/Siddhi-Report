@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import * as XLSX from 'xlsx-js-style';
 import { Material, ClosingStockItem, PendingSOItem, PendingPOItem, SalesReportItem } from '../types';
 import { Download, Search, Filter, ArrowUpDown, FileSpreadsheet, AlertTriangle, PackageOpen } from 'lucide-react';
+import { fastSalesService } from '../services/fastSalesService';
 
 interface ReportsViewProps {
     materials: Material[];
@@ -71,7 +72,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     const [criticalOnly, setCriticalOnly] = useState(false);
 
     // Build optimized lookup maps
-    const { materialMap, stockMap, poMap, soMap, avgSalesMap, rateMap } = useMemo(() => {
+    const { materialMap, stockMap, poMap, soMap, rateMap } = useMemo(() => {
         const matMap = new Map<string, Material>();
         materials.forEach(m => {
             if (m.description) matMap.set(m.description.toLowerCase().trim(), m);
@@ -83,41 +84,37 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         closingStock.forEach(s => {
             const key = (s.description || '').toLowerCase().trim();
             sMap.set(key, (sMap.get(key) || 0) + s.quantity);
-            if (s.rate) rMap.set(key, s.rate);
+            if (s.quantity > 0 && s.value > 0 && !rMap.has(key)) rMap.set(key, s.value / s.quantity);
+            else if (s.rate && !rMap.has(key)) rMap.set(key, s.rate);
         });
 
         const pMap = new Map<string, number>();
         pendingPO.forEach(p => {
             const key = (p.itemName || '').toLowerCase().trim();
             pMap.set(key, (pMap.get(key) || 0) + p.balanceQty);
-            if (p.rate && !rMap.has(key)) rMap.set(key, p.rate);
+            if (p.balanceQty > 0 && p.value > 0 && !rMap.has(key)) rMap.set(key, p.value / p.balanceQty);
+            else if (p.rate && !rMap.has(key)) rMap.set(key, p.rate);
         });
 
         const oMap = new Map<string, number>();
         pendingSO.forEach(s => {
             const key = (s.itemName || '').toLowerCase().trim();
             oMap.set(key, (oMap.get(key) || 0) + s.balanceQty);
-            if (s.rate && !rMap.has(key)) rMap.set(key, s.rate);
+            if (s.balanceQty > 0 && s.value > 0 && !rMap.has(key)) rMap.set(key, s.value / s.balanceQty);
+            else if (s.rate && !rMap.has(key)) rMap.set(key, s.rate);
         });
 
-        const aMap = new Map<string, number>();
-        const oneYearAgo = new Date();
-        oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-        const oneYearAgoTime = oneYearAgo.getTime();
-        
         salesReportItems.forEach(s => {
-            const t = parseDateString(s.date);
-            if (t >= oneYearAgoTime) {
-                const key = (s.particulars || '').toLowerCase().trim();
-                aMap.set(key, (aMap.get(key) || 0) + s.quantity);
-                if (s.quantity > 0 && s.value > 0 && !rMap.has(key)) {
-                    rMap.set(key, s.value / s.quantity);
-                }
+            const key = (s.particulars || '').toLowerCase().trim();
+            if (s.quantity > 0 && s.value > 0 && !rMap.has(key)) {
+                rMap.set(key, s.value / s.quantity);
             }
         });
 
-        return { materialMap: matMap, stockMap: sMap, poMap: pMap, soMap: oMap, avgSalesMap: aMap, rateMap: rMap };
+        return { materialMap: matMap, stockMap: sMap, poMap: pMap, soMap: oMap, rateMap: rMap };
     }, [materials, closingStock, pendingPO, pendingSO, salesReportItems]);
+
+    const salesSummaries = useMemo(() => fastSalesService.getSummaries(salesReportItems), [salesReportItems]);
 
     // Calculate FIFO Allocation for Pending SO
     const allocatedSOData = useMemo(() => {
@@ -201,8 +198,14 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             const openPO = poMap.get(key) || 0;
             const rate = rateMap.get(key) || 0;
 
-            const avg12mQty = avgSalesMap.get(key) || 0;
-            const a1q = avg12mQty / 12;
+            const dKey = mat?.description?.toLowerCase().trim() || key;
+            const pKey = mat?.partNo?.toLowerCase().trim() || key;
+            
+            const sD = salesSummaries.get(dKey);
+            const sP = pKey ? salesSummaries.get(pKey) : null;
+            const s1q = (sD?.qty1y || 0) + (sP && sP !== sD ? sP.qty1y : 0);
+
+            const a1q = s1q / 12;
 
             let isApplicable = false;
             const mk = mat ? getMergedMakeName(mat.make || '').toUpperCase() : 'UNSPECIFIED';
@@ -234,8 +237,11 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 fastRunner,
                 lappGroup,
                 stockQty,
+                stockVal: stockQty * rate,
                 openSO,
+                openSOVal: openSO * rate,
                 openPO,
+                openPOVal: openPO * rate,
                 expediteQty,
                 expediteVal,
                 maxStock,
@@ -249,7 +255,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         }
 
         return result.sort((a, b) => b.openSO - a.openSO); // Default sort by highest demand
-    }, [pendingSO, pendingPO, materialMap, stockMap, soMap, poMap, avgSalesMap, rateMap, criticalOnly]);
+    }, [pendingSO, pendingPO, materialMap, stockMap, soMap, poMap, salesSummaries, rateMap, criticalOnly]);
 
     const styleExcelSheet = (ws: XLSX.WorkSheet, dataLength: number, colCount: number) => {
         const headerStyle = {
@@ -298,7 +304,6 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 'Lapp Category': r.lappCategory,
                 'SO Date': formatDisplayDate(r.date),
                 'SO No': (r.orderNo || '').split('/')[0]?.trim() || '',
-                'PO Ref': (r.orderNo || '').split('/').slice(1).join('/')?.trim() || '',
                 'Customer Name': r.partyName,
                 'Item Description': r.itemName,
                 'Order Qty': r.orderedQty,
@@ -317,7 +322,6 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 { wch: 15 }, // Lapp Category
                 { wch: 12 }, // SO Date
                 { wch: 15 }, // SO No
-                { wch: 15 }, // PO Ref
                 { wch: 25 }, // Customer Name
                 { wch: 40 }, // Item Description
                 { wch: 10 }, // Order Qty
@@ -330,7 +334,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 { wch: 12 }  // Shortfall
             ];
 
-            styleExcelSheet(ws, data.length, 14);
+            styleExcelSheet(ws, data.length, 13);
 
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "Pending_SO_Report");
@@ -341,13 +345,16 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 'Fast Runner (ABC)': r.fastRunner,
                 'Lapp Category': r.lappGroup,
                 'Stock Qty': r.stockQty,
+                'Stock Amount': r.stockVal,
                 'Pending SO Qty': r.openSO,
+                'Pending SO Amount': r.openSOVal,
                 'Pending PO Qty': r.openPO,
+                'Pending PO Amount': r.openPOVal,
                 'PO Need (SO Shortfall) Qty': r.expediteQty,
-                'PO Need (SO Shortfall) Value': r.expediteVal,
+                'PO Need (SO Shortfall) Amount': r.expediteVal,
                 'Target Max Stock': r.maxStock,
                 'PO Need (Max Target) Qty': r.poNeededForMax,
-                'PO Need (Max Target) Value': r.poNeededForMaxVal
+                'PO Need (Max Target) Amount': r.poNeededForMaxVal
             }));
             const ws = XLSX.utils.json_to_sheet(data);
             
@@ -357,16 +364,19 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 { wch: 18 }, // Fast Runner
                 { wch: 15 }, // Lapp Category
                 { wch: 12 }, // Stock Qty
+                { wch: 15 }, // Stock Amount
                 { wch: 15 }, // Pending SO Qty
+                { wch: 18 }, // Pending SO Amount
                 { wch: 15 }, // Pending PO Qty
+                { wch: 18 }, // Pending PO Amount
                 { wch: 25 }, // PO Need (SO Shortfall) Qty
-                { wch: 25 }, // PO Need (SO Shortfall) Value
+                { wch: 28 }, // PO Need (SO Shortfall) Amount
                 { wch: 18 }, // Target Max Stock
                 { wch: 25 }, // PO Need (Max Target) Qty
-                { wch: 25 }  // PO Need (Max Target) Value
+                { wch: 28 }  // PO Need (Max Target) Amount
             ];
 
-            styleExcelSheet(ws, data.length, 11);
+            styleExcelSheet(ws, data.length, 14);
 
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "Purchase_Report");
@@ -451,7 +461,6 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                                     <th className="p-3 border-b border-gray-100">SO Date</th>
                                     <th className="p-3 border-b border-gray-100">Category</th>
                                     <th className="p-3 border-b border-gray-100">SO No</th>
-                                    <th className="p-3 border-b border-gray-100">PO Ref</th>
                                     <th className="p-3 border-b border-gray-100">Customer Name</th>
                                     <th className="p-3 border-b border-gray-100">Item Description</th>
                                     <th className="p-3 border-b border-gray-100 text-right">Order Qty</th>
@@ -468,7 +477,6 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                                         <td className="p-3 text-xs text-slate-600 whitespace-nowrap">{formatDisplayDate(row.date)}</td>
                                         <td className="p-3 text-[10px] font-bold text-indigo-600 uppercase tracking-widest">{row.lappCategory}</td>
                                         <td className="p-3 text-xs font-bold text-slate-700">{(row.orderNo || '').split('/')[0]?.trim() || ''}</td>
-                                        <td className="p-3 text-xs font-bold text-slate-500">{(row.orderNo || '').split('/').slice(1).join('/')?.trim() || ''}</td>
                                         <td className="p-3 text-xs text-slate-600 max-w-[150px] truncate" title={row.partyName}>{row.partyName}</td>
                                         <td className="p-3 text-xs font-bold text-slate-800 max-w-[200px] truncate" title={row.itemName}>{row.itemName}</td>
                                         <td className="p-3 text-xs font-medium text-slate-600 text-right">{row.orderedQty.toLocaleString()}</td>
@@ -499,7 +507,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                                     <th className="p-3 border-b border-gray-100">Description</th>
                                     <th className="p-3 border-b border-gray-100 text-center">Fast Runner</th>
                                     <th className="p-3 border-b border-gray-100 text-center">Lapp Category</th>
-                                    <th className="p-3 border-b border-gray-100 text-right text-blue-600">Stock Qty</th>
+                                    <th className="p-3 border-b border-gray-100 text-right text-blue-600">Stock</th>
                                     <th className="p-3 border-b border-gray-100 text-right text-amber-600">Pending SO</th>
                                     <th className="p-3 border-b border-gray-100 text-right text-indigo-600">Pending PO</th>
                                     <th className="p-3 border-b border-gray-100 text-right text-rose-600">Need (SO)</th>
@@ -513,9 +521,21 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                                         <td className="p-3 text-xs font-bold text-slate-800 max-w-[250px] truncate" title={row.description}>{row.description}</td>
                                         <td className="p-3 text-xs text-center"><span className="px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-bold">{row.fastRunner}</span></td>
                                         <td className="p-3 text-[10px] font-bold text-indigo-600 text-center tracking-widest uppercase">{row.lappGroup}</td>
-                                        <td className="p-3 text-xs font-black text-blue-600 text-right bg-blue-50/20">{row.stockQty.toLocaleString()}</td>
-                                        <td className="p-3 text-xs font-black text-amber-600 text-right bg-amber-50/20">{row.openSO.toLocaleString()}</td>
-                                        <td className="p-3 text-xs font-black text-indigo-600 text-right bg-indigo-50/20">{row.openPO.toLocaleString()}</td>
+                                        
+                                        <td className="p-3 text-xs font-black text-right bg-blue-50/20">
+                                            <div className="text-blue-700">{row.stockQty.toLocaleString()}</div>
+                                            {row.stockVal > 0 && <div className="text-[10px] font-bold text-blue-400 mt-0.5">₹{Math.round(row.stockVal).toLocaleString('en-IN')}</div>}
+                                        </td>
+                                        
+                                        <td className="p-3 text-xs font-black text-right bg-amber-50/20">
+                                            <div className="text-amber-700">{row.openSO.toLocaleString()}</div>
+                                            {row.openSOVal > 0 && <div className="text-[10px] font-bold text-amber-400 mt-0.5">₹{Math.round(row.openSOVal).toLocaleString('en-IN')}</div>}
+                                        </td>
+                                        
+                                        <td className="p-3 text-xs font-black text-right bg-indigo-50/20">
+                                            <div className="text-indigo-700">{row.openPO.toLocaleString()}</div>
+                                            {row.openPOVal > 0 && <div className="text-[10px] font-bold text-indigo-400 mt-0.5">₹{Math.round(row.openPOVal).toLocaleString('en-IN')}</div>}
+                                        </td>
                                         
                                         <td className={`p-3 text-xs font-black text-right bg-rose-50/10 ${row.expediteQty > 0 ? 'text-rose-600' : 'text-slate-300'}`}>
                                             <div>{row.expediteQty > 0 ? row.expediteQty.toLocaleString() : '-'}</div>
