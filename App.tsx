@@ -16,6 +16,7 @@ const MOMView = lazy(() => import('./components/MOMView'));
 const AttendeeMasterView = lazy(() => import('./components/AttendeeMasterView'));
 const UserManagementView = lazy(() => import('./components/UserManagementView'));
 const PartAnalysisView = lazy(() => import('./components/PartAnalysisView'));
+const ReportsView = lazy(() => import('./components/ReportsView').then(m => ({ default: m.ReportsView })));
 import CustomerFYAnalysisView from './components/CustomerFYAnalysisView';
 const ConfirmationModal = lazy(() => import('./components/ConfirmationModal'));
 
@@ -90,7 +91,7 @@ const LoadingFallback = () => (
   </div>
 );
 
-type ActiveTab = 'dashboard' | 'master' | 'customerMaster' | 'closingStock' | 'pendingSO' | 'pendingPO' | 'salesReport' | 'pivotReport' | 'customerFYAnalysis' | 'mom' | 'attendees' | 'userManagement' | 'changePass' | 'partAnalysis';
+type ActiveTab = 'dashboard' | 'master' | 'customerMaster' | 'closingStock' | 'pendingSO' | 'pendingPO' | 'salesReport' | 'pivotReport' | 'reports' | 'customerFYAnalysis' | 'mom' | 'attendees' | 'userManagement' | 'changePass' | 'partAnalysis';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(authService.getCurrentUser());
@@ -115,6 +116,7 @@ const App: React.FC = () => {
     userManagement: 'User Management',
     changePass: 'Change Password',
     partAnalysis: 'AI Part Analysis',
+    reports: 'Reports',
   };
 
   const [materials, setMaterials] = useState<Material[]>([]);
@@ -983,6 +985,17 @@ const App: React.FC = () => {
               </div>
             )}
             <button
+              onClick={() => setActiveTab('reports')}
+              className={`p-2 rounded-xl transition-all shadow-sm border ${
+                activeTab === 'reports' 
+                ? 'bg-emerald-600 text-white border-emerald-700 shadow-emerald-200' 
+                : 'bg-white text-emerald-500 hover:bg-emerald-50 hover:text-emerald-600 border-emerald-100'
+              }`}
+              title="Advanced Reports"
+            >
+              <FileBarChart className="w-5 h-5" />
+            </button>
+            <button
               onClick={() => setActiveTab('partAnalysis')}
               className={`p-2 rounded-xl transition-all shadow-sm border ${
                 activeTab === 'partAnalysis' 
@@ -1023,6 +1036,18 @@ const App: React.FC = () => {
                   pendingPO={pendingPOItems} 
                   salesReportItems={salesReportItems} 
                   customers={customerMasterItems} 
+                />
+              </Suspense>
+            )}
+
+            {activeTab === 'reports' && (
+              <Suspense fallback={<LoadingFallback />}>
+                <ReportsView 
+                  materials={materials} 
+                  closingStock={closingStockItems} 
+                  pendingSO={pendingSOItems} 
+                  pendingPO={pendingPOItems} 
+                  salesReportItems={salesReportItems} 
                 />
               </Suspense>
             )}
