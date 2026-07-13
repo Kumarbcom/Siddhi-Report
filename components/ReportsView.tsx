@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import * as XLSX from 'xlsx';
+import * as XLSX from 'xlsx-js-style';
 import { Material, ClosingStockItem, PendingSOItem, PendingPOItem, SalesReportItem } from '../types';
 import { Download, Search, Filter, ArrowUpDown, FileSpreadsheet, AlertTriangle, PackageOpen } from 'lucide-react';
 
@@ -71,7 +71,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     const [criticalOnly, setCriticalOnly] = useState(false);
 
     // Build optimized lookup maps
-    const { materialMap, stockMap, poMap, soMap, avgSalesMap } = useMemo(() => {
+    const { materialMap, stockMap, poMap, soMap, avgSalesMap, rateMap } = useMemo(() => {
         const matMap = new Map<string, Material>();
         materials.forEach(m => {
             if (m.description) matMap.set(m.description.toLowerCase().trim(), m);
@@ -79,21 +79,25 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         });
 
         const sMap = new Map<string, number>();
+        const rMap = new Map<string, number>();
         closingStock.forEach(s => {
             const key = (s.description || '').toLowerCase().trim();
             sMap.set(key, (sMap.get(key) || 0) + s.quantity);
+            if (s.rate) rMap.set(key, s.rate);
         });
 
         const pMap = new Map<string, number>();
         pendingPO.forEach(p => {
             const key = (p.itemName || '').toLowerCase().trim();
             pMap.set(key, (pMap.get(key) || 0) + p.balanceQty);
+            if (p.rate && !rMap.has(key)) rMap.set(key, p.rate);
         });
 
         const oMap = new Map<string, number>();
         pendingSO.forEach(s => {
             const key = (s.itemName || '').toLowerCase().trim();
             oMap.set(key, (oMap.get(key) || 0) + s.balanceQty);
+            if (s.rate && !rMap.has(key)) rMap.set(key, s.rate);
         });
 
         const aMap = new Map<string, number>();
@@ -106,10 +110,13 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             if (t >= oneYearAgoTime) {
                 const key = (s.particulars || '').toLowerCase().trim();
                 aMap.set(key, (aMap.get(key) || 0) + s.quantity);
+                if (s.quantity > 0 && s.value > 0 && !rMap.has(key)) {
+                    rMap.set(key, s.value / s.quantity);
+                }
             }
         });
 
-        return { materialMap: matMap, stockMap: sMap, poMap: pMap, soMap: oMap, avgSalesMap: aMap };
+        return { materialMap: matMap, stockMap: sMap, poMap: pMap, soMap: oMap, avgSalesMap: aMap, rateMap: rMap };
     }, [materials, closingStock, pendingPO, pendingSO, salesReportItems]);
 
     // Calculate FIFO Allocation for Pending SO
@@ -192,6 +199,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             const stockQty = stockMap.get(key) || 0;
             const openSO = soMap.get(key) || 0;
             const openPO = poMap.get(key) || 0;
+            const rate = rateMap.get(key) || 0;
 
             const avg12mQty = avgSalesMap.get(key) || 0;
             const a1q = avg12mQty / 12;
@@ -215,9 +223,11 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             }
 
             const expediteQty = Math.max(0, openSO - stockQty); // PO needed to cover SO shortfall immediately
+            const expediteVal = expediteQty * rate;
             
             const netQty = stockQty + openPO - openSO;
             const poNeededForMax = Math.max(0, maxStock - netQty); // PO needed to reach Max Stock
+            const poNeededForMaxVal = poNeededForMax * rate;
 
             return {
                 description,
@@ -227,8 +237,10 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 openSO,
                 openPO,
                 expediteQty,
+                expediteVal,
                 maxStock,
-                poNeededForMax
+                poNeededForMax,
+                poNeededForMaxVal
             };
         }).filter(Boolean) as any[];
 
@@ -237,7 +249,48 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         }
 
         return result.sort((a, b) => b.openSO - a.openSO); // Default sort by highest demand
-    }, [pendingSO, pendingPO, materialMap, stockMap, soMap, poMap, avgSalesMap, criticalOnly]);
+    }, [pendingSO, pendingPO, materialMap, stockMap, soMap, poMap, avgSalesMap, rateMap, criticalOnly]);
+
+    const styleExcelSheet = (ws: XLSX.WorkSheet, dataLength: number, colCount: number) => {
+        const headerStyle = {
+            font: { name: 'Cambria', sz: 10, bold: true, color: { rgb: "FFFFFF" } },
+            fill: { fgColor: { rgb: "4F46E5" } }, // Indigo-600
+            alignment: { vertical: "center", horizontal: "center", wrapText: true },
+            border: {
+                top: { style: "thin", color: { rgb: "CCCCCC" } },
+                bottom: { style: "thin", color: { rgb: "CCCCCC" } },
+                left: { style: "thin", color: { rgb: "CCCCCC" } },
+                right: { style: "thin", color: { rgb: "CCCCCC" } }
+            }
+        };
+
+        const cellStyle = {
+            font: { name: 'Cambria', sz: 10 },
+            alignment: { vertical: "center" },
+            border: {
+                top: { style: "thin", color: { rgb: "EEEEEE" } },
+                bottom: { style: "thin", color: { rgb: "EEEEEE" } },
+                left: { style: "thin", color: { rgb: "EEEEEE" } },
+                right: { style: "thin", color: { rgb: "EEEEEE" } }
+            }
+        };
+
+        const range = XLSX.utils.decode_range(ws['!ref'] || "A1:A1");
+        
+        for (let R = range.s.r; R <= range.e.r; ++R) {
+            for (let C = range.s.c; C <= range.e.c; ++C) {
+                const cell_address = { c: C, r: R };
+                const cell_ref = XLSX.utils.encode_cell(cell_address);
+                if (!ws[cell_ref]) continue;
+
+                if (R === 0) {
+                    ws[cell_ref].s = headerStyle;
+                } else {
+                    ws[cell_ref].s = cellStyle;
+                }
+            }
+        }
+    };
 
     const exportToExcel = () => {
         if (activeTab === 'pendingSO') {
@@ -258,6 +311,27 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 'Shortfall': Math.max(0, r.balanceQty - r.allocatedQty)
             }));
             const ws = XLSX.utils.json_to_sheet(data);
+            
+            // Set Column Widths
+            ws['!cols'] = [
+                { wch: 15 }, // Lapp Category
+                { wch: 12 }, // SO Date
+                { wch: 15 }, // SO No
+                { wch: 15 }, // PO Ref
+                { wch: 25 }, // Customer Name
+                { wch: 40 }, // Item Description
+                { wch: 10 }, // Order Qty
+                { wch: 12 }, // Balance Qty
+                { wch: 12 }, // Amount
+                { wch: 12 }, // Due Date
+                { wch: 12 }, // Overdue Days
+                { wch: 12 }, // Total Stock
+                { wch: 18 }, // Allocated Qty (FIFO)
+                { wch: 12 }  // Shortfall
+            ];
+
+            styleExcelSheet(ws, data.length, 14);
+
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "Pending_SO_Report");
             XLSX.writeFile(wb, "Pending_SO_Report.xlsx");
@@ -267,13 +341,33 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 'Fast Runner (ABC)': r.fastRunner,
                 'Lapp Category': r.lappGroup,
                 'Stock Qty': r.stockQty,
-                'Pending SO': r.openSO,
-                'Pending PO': r.openPO,
-                'PO Need for SO Shortfall': r.expediteQty,
+                'Pending SO Qty': r.openSO,
+                'Pending PO Qty': r.openPO,
+                'PO Need (SO Shortfall) Qty': r.expediteQty,
+                'PO Need (SO Shortfall) Value': r.expediteVal,
                 'Target Max Stock': r.maxStock,
-                'PO Need for Max Target': r.poNeededForMax
+                'PO Need (Max Target) Qty': r.poNeededForMax,
+                'PO Need (Max Target) Value': r.poNeededForMaxVal
             }));
             const ws = XLSX.utils.json_to_sheet(data);
+            
+            // Set Column Widths
+            ws['!cols'] = [
+                { wch: 40 }, // Description
+                { wch: 18 }, // Fast Runner
+                { wch: 15 }, // Lapp Category
+                { wch: 12 }, // Stock Qty
+                { wch: 15 }, // Pending SO Qty
+                { wch: 15 }, // Pending PO Qty
+                { wch: 25 }, // PO Need (SO Shortfall) Qty
+                { wch: 25 }, // PO Need (SO Shortfall) Value
+                { wch: 18 }, // Target Max Stock
+                { wch: 25 }, // PO Need (Max Target) Qty
+                { wch: 25 }  // PO Need (Max Target) Value
+            ];
+
+            styleExcelSheet(ws, data.length, 11);
+
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "Purchase_Report");
             XLSX.writeFile(wb, "Purchase_Report.xlsx");
@@ -408,9 +502,9 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                                     <th className="p-3 border-b border-gray-100 text-right text-blue-600">Stock Qty</th>
                                     <th className="p-3 border-b border-gray-100 text-right text-amber-600">Pending SO</th>
                                     <th className="p-3 border-b border-gray-100 text-right text-indigo-600">Pending PO</th>
-                                    <th className="p-3 border-b border-gray-100 text-right text-rose-600">PO Need (SO Shortfall)</th>
-                                    <th className="p-3 border-b border-gray-100 text-right text-gray-500 bg-gray-100/50">Target Max Stock</th>
-                                    <th className="p-3 border-b border-gray-100 text-right text-emerald-600 bg-emerald-50/30">PO Need (Max Target)</th>
+                                    <th className="p-3 border-b border-gray-100 text-right text-rose-600">Need (SO)</th>
+                                    <th className="p-3 border-b border-gray-100 text-right text-gray-500 bg-gray-100/50">Max Stock</th>
+                                    <th className="p-3 border-b border-gray-100 text-right text-emerald-600 bg-emerald-50/30">Need (Max)</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -422,12 +516,17 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                                         <td className="p-3 text-xs font-black text-blue-600 text-right bg-blue-50/20">{row.stockQty.toLocaleString()}</td>
                                         <td className="p-3 text-xs font-black text-amber-600 text-right bg-amber-50/20">{row.openSO.toLocaleString()}</td>
                                         <td className="p-3 text-xs font-black text-indigo-600 text-right bg-indigo-50/20">{row.openPO.toLocaleString()}</td>
+                                        
                                         <td className={`p-3 text-xs font-black text-right bg-rose-50/10 ${row.expediteQty > 0 ? 'text-rose-600' : 'text-slate-300'}`}>
-                                            {row.expediteQty > 0 ? row.expediteQty.toLocaleString() : '-'}
+                                            <div>{row.expediteQty > 0 ? row.expediteQty.toLocaleString() : '-'}</div>
+                                            {row.expediteVal > 0 && <div className="text-[10px] font-bold text-rose-400 mt-0.5" title="Value needed">₹{Math.round(row.expediteVal).toLocaleString('en-IN')}</div>}
                                         </td>
+                                        
                                         <td className="p-3 text-xs font-bold text-gray-500 text-right bg-gray-100/30">{row.maxStock.toLocaleString()}</td>
+                                        
                                         <td className={`p-3 text-xs font-black text-right bg-emerald-50/30 ${row.poNeededForMax > 0 ? 'text-emerald-600' : 'text-emerald-200'}`}>
-                                            {row.poNeededForMax > 0 ? row.poNeededForMax.toLocaleString() : '-'}
+                                            <div>{row.poNeededForMax > 0 ? row.poNeededForMax.toLocaleString() : '-'}</div>
+                                            {row.poNeededForMaxVal > 0 && <div className="text-[10px] font-bold text-emerald-500 mt-0.5" title="Value needed">₹{Math.round(row.poNeededForMaxVal).toLocaleString('en-IN')}</div>}
                                         </td>
                                     </tr>
                                 ))}
