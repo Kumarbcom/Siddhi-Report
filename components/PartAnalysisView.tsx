@@ -282,10 +282,10 @@ const PartAnalysisView: React.FC<PartAnalysisViewProps> = ({
             markers: { size: 5 },
             annotations: {
                 yaxis: [
-                    { y: stockMetrics.totalOpenSO, borderColor: '#8B5CF6', strokeDashArray: 2, label: { text: `Open SO: ${stockMetrics.totalOpenSO.toLocaleString()}`, style: { color: '#fff', background: '#8B5CF6' }, position: 'left', offsetX: 10, offsetY: -10 } },
-                    { y: stockMetrics.max, borderColor: '#3B82F6', strokeDashArray: 4, label: { text: `Max: ${stockMetrics.max.toLocaleString()}`, style: { color: '#fff', background: '#3B82F6' }, position: 'right', offsetX: -10, offsetY: -10 } },
-                    { y: stockMetrics.re, borderColor: '#F59E0B', strokeDashArray: 4, label: { text: `Reorder: ${stockMetrics.re.toLocaleString()}`, style: { color: '#fff', background: '#F59E0B' }, position: 'left', offsetX: 10, offsetY: -10 } },
-                    { y: stockMetrics.min, borderColor: '#EF4444', strokeDashArray: 4, label: { text: `Min: ${stockMetrics.min.toLocaleString()}`, style: { color: '#fff', background: '#EF4444' }, position: 'right', offsetX: -10, offsetY: -10 } }
+                    { y: stockMetrics.totalOpenSO, borderColor: '#8B5CF6', strokeDashArray: 2, label: { text: `Open SO: ${formatLargeValue(stockMetrics.totalOpenSO, true)}`, style: { color: '#fff', background: '#8B5CF6' }, position: 'left', offsetX: 10, offsetY: 0 } },
+                    { y: stockMetrics.max, borderColor: '#3B82F6', strokeDashArray: 4, label: { text: `Max: ${formatLargeValue(stockMetrics.max, true)}`, style: { color: '#fff', background: '#3B82F6', padding: { left: 4, right: 4, top: 2, bottom: 2 } }, position: 'right', textAnchor: 'end', offsetX: -5, offsetY: 0 } },
+                    { y: stockMetrics.re, borderColor: '#F59E0B', strokeDashArray: 4, label: { text: `Reorder: ${formatLargeValue(stockMetrics.re, true)}`, style: { color: '#fff', background: '#F59E0B', padding: { left: 4, right: 4, top: 2, bottom: 2 } }, position: 'right', textAnchor: 'end', offsetX: -5, offsetY: 0 } },
+                    { y: stockMetrics.min, borderColor: '#EF4444', strokeDashArray: 4, label: { text: `Min: ${formatLargeValue(stockMetrics.min, true)}`, style: { color: '#fff', background: '#EF4444', padding: { left: 4, right: 4, top: 2, bottom: 2 } }, position: 'right', textAnchor: 'end', offsetX: -5, offsetY: 0 } }
                 ]
             },
             xaxis: { categories: ['Current', 'w/ PO', 'Target Max'] },
@@ -324,7 +324,7 @@ const PartAnalysisView: React.FC<PartAnalysisViewProps> = ({
             colors: ['#6366F1'],
             xaxis: { categories: yoyCategories },
             yaxis: { labels: { formatter: (val: number) => formatLargeValue(val, true) } },
-            dataLabels: { enabled: false }
+            dataLabels: { enabled: true, formatter: (val: number) => formatLargeValue(val, true), style: { fontSize: '10px', colors: ['#fff'] } }
         };
         const yoySeries = [{ name: 'Sales Value', data: yoyVals }];
 
