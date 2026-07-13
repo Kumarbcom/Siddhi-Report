@@ -606,16 +606,30 @@ const PartAnalysisView: React.FC<PartAnalysisViewProps> = ({
                                             <p className="text-2xl font-black text-gray-700">{stockMetrics.avg12mQty.toLocaleString(undefined, {maximumFractionDigits:1})}</p>
                                         </div>
                                         
-                                        <div className="col-span-2 bg-slate-50 p-4 rounded-2xl border border-slate-200 flex justify-between items-center">
-                                            <div>
-                                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Thresholds (Min / Reorder / Max)</p>
-                                                <p className="text-xl font-black text-slate-700">
-                                                    {stockMetrics.min.toLocaleString()} / <span className="text-amber-600">{stockMetrics.re.toLocaleString()}</span> / {stockMetrics.max.toLocaleString()}
-                                                </p>
+                                        <div className="col-span-2 bg-slate-50 p-4 rounded-2xl border border-slate-200 flex flex-col gap-3">
+                                            <div className="flex justify-between items-start">
+                                                <div>
+                                                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Thresholds (Min / Reorder / Max)</p>
+                                                    <p className="text-xl font-black text-slate-700">
+                                                        {stockMetrics.min.toLocaleString()} / <span className="text-amber-600">{stockMetrics.re.toLocaleString()}</span> / {stockMetrics.max.toLocaleString()}
+                                                    </p>
+                                                </div>
+                                                <div className={`px-4 py-2 rounded-xl border ${stockMetrics.statusColor}`}>
+                                                    <p className="text-[10px] font-bold uppercase tracking-widest mb-1">System Status</p>
+                                                    <p className="text-sm font-black">{stockMetrics.status}</p>
+                                                </div>
                                             </div>
-                                            <div className={`px-4 py-2 rounded-xl border ${stockMetrics.statusColor}`}>
-                                                <p className="text-[10px] font-bold uppercase tracking-widest mb-1">System Status</p>
-                                                <p className="text-sm font-black">{stockMetrics.status}</p>
+                                            <div className="flex justify-between items-center pt-3 border-t border-slate-200">
+                                                <div>
+                                                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Req. for Max Stock</p>
+                                                    <p className="text-lg font-bold text-slate-600">{Math.max(0, stockMetrics.max - stockMetrics.netQty).toLocaleString()}</p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-[10px] font-bold text-rose-500 uppercase tracking-widest mb-1">Balance to Book (vs PO)</p>
+                                                    <p className={`text-lg font-black ${Math.max(0, (stockMetrics.max - stockMetrics.netQty) - stockMetrics.totalOpenPO) > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                                                        {Math.max(0, (stockMetrics.max - stockMetrics.netQty) - stockMetrics.totalOpenPO).toLocaleString()}
+                                                    </p>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
