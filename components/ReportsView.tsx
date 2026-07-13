@@ -29,19 +29,28 @@ const parseDateString = (dateStr: string): number => {
     return new Date(dateStr).getTime();
 };
 
+const getLappCategory = (desc: string, make: string): string => {
+    if (make !== 'LAPP') return 'Other Make';
+    const d = (desc || '').toUpperCase();
+    if (d.includes('UNIPLUS')) return 'Uniplus';
+    if (d.includes('OLFLEX') || d.includes('ÖLFLEX')) return 'Olflex';
+    if (d.includes('UNITRONIC')) return 'UNITRONIC';
+    return 'Other LAPP';
+};
+
 export const ReportsView: React.FC<ReportsViewProps> = ({
     materials, closingStock, pendingSO, pendingPO, salesReportItems
 }) => {
     const [activeTab, setActiveTab] = useState<'pendingSO' | 'purchase'>('pendingSO');
-    const [soSortBy, setSoSortBy] = useState<'default' | 'item' | 'po'>('default'); // default = Customer -> Due -> Item
+    const [soSortBy, setSoSortBy] = useState<'dueDate' | 'lapp' | 'item' | 'po'>('dueDate');
     const [criticalOnly, setCriticalOnly] = useState(false);
 
     // Build optimized lookup maps
     const { materialMap, stockMap, poMap, soMap, avgSalesMap } = useMemo(() => {
         const matMap = new Map<string, Material>();
         materials.forEach(m => {
+            if (m.description) matMap.set(m.description.toLowerCase().trim(), m);
             if (m.partNo) matMap.set(m.partNo.toLowerCase().trim(), m);
-            if (m.materialCode) matMap.set(m.materialCode.toLowerCase().trim(), m);
         });
 
         const sMap = new Map<string, number>();
@@ -52,13 +61,13 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
 
         const pMap = new Map<string, number>();
         pendingPO.forEach(p => {
-            const key = (p.partNo || '').toLowerCase().trim();
+            const key = (p.itemName || '').toLowerCase().trim();
             pMap.set(key, (pMap.get(key) || 0) + p.balanceQty);
         });
 
         const oMap = new Map<string, number>();
         pendingSO.forEach(s => {
-            const key = (s.partNo || '').toLowerCase().trim();
+            const key = (s.itemName || '').toLowerCase().trim();
             oMap.set(key, (oMap.get(key) || 0) + s.balanceQty);
         });
 
@@ -80,57 +89,62 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
 
     // Calculate FIFO Allocation for Pending SO
     const allocatedSOData = useMemo(() => {
-        // Group SOs by item to do FIFO allocation
         const soByItem = new Map<string, PendingSOItem[]>();
         pendingSO.forEach(so => {
-            const key = (so.partNo || so.itemName || '').toLowerCase().trim();
+            const key = (so.itemName || '').toLowerCase().trim();
             if (!soByItem.has(key)) soByItem.set(key, []);
             soByItem.get(key)!.push(so);
         });
 
-        const result: (PendingSOItem & { allocatedQty: number, totalStock: number })[] = [];
+        const result: (PendingSOItem & { allocatedQty: number, totalStock: number, lappCategory: string, overdueDays: number })[] = [];
+        const todayT = new Date().setHours(0,0,0,0);
 
         soByItem.forEach((orders, itemKey) => {
             // Sort by Due Date for FIFO
             orders.sort((a, b) => parseDateString(a.dueDate) - parseDateString(b.dueDate));
             
-            // Try matching stock via material code or exact description
             let totalStock = stockMap.get(itemKey) || 0;
-            if (totalStock === 0) {
-                const mat = materialMap.get(itemKey);
-                if (mat && mat.description) {
-                    totalStock = stockMap.get(mat.description.toLowerCase().trim()) || 0;
-                }
-            }
-
             let availableStock = totalStock;
+
+            const mat = materialMap.get(itemKey);
+            const lappCategory = mat ? getLappCategory(mat.description, mat.make) : 'Unknown';
 
             orders.forEach(so => {
                 const allocated = Math.max(0, Math.min(availableStock, so.balanceQty));
                 availableStock -= allocated;
                 
+                const dueT = parseDateString(so.dueDate);
+                let overdueDays = 0;
+                if (dueT < todayT && dueT !== Number.MAX_SAFE_INTEGER) {
+                    overdueDays = Math.floor((todayT - dueT) / (1000 * 60 * 60 * 24));
+                }
+                
                 result.push({
                     ...so,
                     allocatedQty: allocated,
-                    totalStock: totalStock
+                    totalStock: totalStock,
+                    lappCategory,
+                    overdueDays
                 });
             });
         });
 
         // Apply View Sorting
         result.sort((a, b) => {
-            if (soSortBy === 'item') {
-                return (a.itemName || '').localeCompare(b.itemName || '');
-            } else if (soSortBy === 'po') {
-                return (a.orderNo || '').localeCompare(b.orderNo || ''); // Assuming orderNo acts as PO
-            } else {
-                // Default: Customer -> Due Date -> Item
-                const partyCmp = (a.partyName || '').localeCompare(b.partyName || '');
-                if (partyCmp !== 0) return partyCmp;
+            if (soSortBy === 'dueDate') {
                 const dateCmp = parseDateString(a.dueDate) - parseDateString(b.dueDate);
                 if (dateCmp !== 0) return dateCmp;
                 return (a.itemName || '').localeCompare(b.itemName || '');
+            } else if (soSortBy === 'lapp') {
+                const lCmp = (a.lappCategory || '').localeCompare(b.lappCategory || '');
+                if (lCmp !== 0) return lCmp;
+                return (a.itemName || '').localeCompare(b.itemName || '');
+            } else if (soSortBy === 'item') {
+                return (a.itemName || '').localeCompare(b.itemName || '');
+            } else if (soSortBy === 'po') {
+                return (a.orderNo || '').localeCompare(b.orderNo || '');
             }
+            return 0;
         });
 
         return result;
@@ -138,40 +152,31 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
 
     // Calculate Purchase Report Data
     const purchaseReportData = useMemo(() => {
-        // Gather unique items from SO, PO, and Stock
         const uniqueItems = new Set<string>();
-        pendingSO.forEach(s => uniqueItems.add((s.partNo || '').toLowerCase().trim()));
-        pendingPO.forEach(p => uniqueItems.add((p.partNo || '').toLowerCase().trim()));
+        pendingSO.forEach(s => uniqueItems.add((s.itemName || '').toLowerCase().trim()));
+        pendingPO.forEach(p => uniqueItems.add((p.itemName || '').toLowerCase().trim()));
         
         const result = Array.from(uniqueItems).map(key => {
             if (!key) return null;
             
-            let description = key;
-            let fastRunner = 'C';
-            let lappGroup = 'UNKNOWN';
-            
             const mat = materialMap.get(key);
-            if (mat) {
-                description = mat.description || key;
-                fastRunner = (mat as any).abcIndicator || 'C'; // assuming it might be in raw data
-                lappGroup = mat.materialGroup || 'UNKNOWN';
-            }
+            const description = mat?.description || key;
+            const fastRunner = mat ? ((mat as any).abcIndicator || 'C') : 'C';
+            const lappGroup = mat ? getLappCategory(mat.description, mat.make) : 'Unknown';
 
-            const stockQty = stockMap.get(description.toLowerCase().trim()) || stockMap.get(key) || 0;
+            const stockQty = stockMap.get(key) || 0;
             const openSO = soMap.get(key) || 0;
             const openPO = poMap.get(key) || 0;
 
-            const avg12mQty = avgSalesMap.get(description.toLowerCase().trim()) || avgSalesMap.get(key) || 0;
+            const avg12mQty = avgSalesMap.get(key) || 0;
             const maxStock = Math.ceil(avg12mQty / 6); // 2 months max stock
 
-            const netQty = stockQty - openSO;
-            const calculatedStock = stockQty + openPO - openSO;
+            const expediteQty = Math.max(0, openSO - stockQty); // PO needed to cover SO shortfall immediately
             
-            const expediteQty = Math.max(0, openSO - stockQty);
-            const poNeeded = Math.max(0, maxStock - calculatedStock);
+            const netQty = stockQty + openPO - openSO;
+            const poNeededForMax = Math.max(0, maxStock - netQty); // PO needed to reach Max Stock
 
             return {
-                partNo: key,
                 description,
                 fastRunner,
                 lappGroup,
@@ -179,7 +184,8 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 openSO,
                 openPO,
                 expediteQty,
-                poNeeded
+                maxStock,
+                poNeededForMax
             };
         }).filter(Boolean) as any[];
 
@@ -193,15 +199,17 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     const exportToExcel = () => {
         if (activeTab === 'pendingSO') {
             const data = allocatedSOData.map(r => ({
+                'Lapp Category': r.lappCategory,
                 'Date': r.date,
-                'Customer PO No / SO No': r.orderNo, // we don't have separate customer po in data
+                'SO No': (r.orderNo || '').split('/')[0]?.trim() || '',
+                'Customer PO No': (r.orderNo || '').split('/').slice(1).join('/')?.trim() || '',
                 'Customer Name': r.partyName,
                 'Item Description': r.itemName,
-                'Part No': r.partNo,
                 'Order Qty': r.orderedQty,
                 'Balance Qty': r.balanceQty,
                 'Amount': r.value,
                 'Due Date': r.dueDate,
+                'Overdue Days': r.overdueDays,
                 'Total Stock': r.totalStock,
                 'Allocated Qty (FIFO)': r.allocatedQty,
                 'Shortfall': Math.max(0, r.balanceQty - r.allocatedQty)
@@ -212,15 +220,15 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             XLSX.writeFile(wb, "Pending_SO_Report.xlsx");
         } else {
             const data = purchaseReportData.map(r => ({
-                'Part No': r.partNo?.toUpperCase(),
                 'Description': r.description,
                 'Fast Runner (ABC)': r.fastRunner,
-                'Lapp Group': r.lappGroup,
+                'Lapp Category': r.lappGroup,
                 'Stock Qty': r.stockQty,
                 'Pending SO': r.openSO,
                 'Pending PO': r.openPO,
-                'Qty to Expedite': r.expediteQty,
-                'PO Needed to Place': r.poNeeded
+                'PO Need for SO Shortfall': r.expediteQty,
+                'Target Max Stock': r.maxStock,
+                'PO Need for Max Target': r.poNeededForMax
             }));
             const ws = XLSX.utils.json_to_sheet(data);
             const wb = XLSX.utils.book_new();
@@ -277,7 +285,8 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                             value={soSortBy}
                             onChange={(e) => setSoSortBy(e.target.value as any)}
                         >
-                            <option value="default">Customer &rarr; Due Date</option>
+                            <option value="dueDate">Due Date &rarr; Item</option>
+                            <option value="lapp">Lapp Category &rarr; Item</option>
                             <option value="item">Item Wise</option>
                             <option value="po">Customer PO / SO No</option>
                         </select>
@@ -302,13 +311,15 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="bg-slate-50 text-[11px] font-black text-slate-500 uppercase tracking-wider">
-                                    <th className="p-3 border-b border-gray-100">Date</th>
-                                    <th className="p-3 border-b border-gray-100">SO / PO No</th>
+                                    <th className="p-3 border-b border-gray-100">Category</th>
+                                    <th className="p-3 border-b border-gray-100">SO No</th>
+                                    <th className="p-3 border-b border-gray-100">PO No</th>
                                     <th className="p-3 border-b border-gray-100">Customer Name</th>
                                     <th className="p-3 border-b border-gray-100">Item Description</th>
                                     <th className="p-3 border-b border-gray-100 text-right">Order Qty</th>
                                     <th className="p-3 border-b border-gray-100 text-right">Balance Qty</th>
-                                    <th className="p-3 border-b border-gray-100">Due Date</th>
+                                    <th className="p-3 border-b border-gray-100 text-center">Due Date</th>
+                                    <th className="p-3 border-b border-gray-100 text-center text-rose-600">Overdue Days</th>
                                     <th className="p-3 border-b border-gray-100 text-right bg-blue-50/50">Total Stock</th>
                                     <th className="p-3 border-b border-gray-100 text-right bg-emerald-50/50">Allocated (FIFO)</th>
                                 </tr>
@@ -316,13 +327,21 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                             <tbody>
                                 {allocatedSOData.map((row, i) => (
                                     <tr key={`${row.id}-${i}`} className="hover:bg-slate-50 border-b border-gray-50 transition-colors">
-                                        <td className="p-3 text-xs text-slate-600 whitespace-nowrap">{row.date}</td>
-                                        <td className="p-3 text-xs font-bold text-slate-700">{row.orderNo}</td>
+                                        <td className="p-3 text-[10px] font-bold text-indigo-600 uppercase tracking-widest">{row.lappCategory}</td>
+                                        <td className="p-3 text-xs font-bold text-slate-700">{(row.orderNo || '').split('/')[0]?.trim() || ''}</td>
+                                        <td className="p-3 text-xs font-bold text-slate-500">{(row.orderNo || '').split('/').slice(1).join('/')?.trim() || ''}</td>
                                         <td className="p-3 text-xs text-slate-600 max-w-[150px] truncate" title={row.partyName}>{row.partyName}</td>
-                                        <td className="p-3 text-xs text-slate-600 max-w-[200px] truncate" title={row.itemName}>{row.itemName}</td>
+                                        <td className="p-3 text-xs font-bold text-slate-800 max-w-[200px] truncate" title={row.itemName}>{row.itemName}</td>
                                         <td className="p-3 text-xs font-medium text-slate-600 text-right">{row.orderedQty.toLocaleString()}</td>
-                                        <td className="p-3 text-xs font-bold text-indigo-600 text-right">{row.balanceQty.toLocaleString()}</td>
-                                        <td className="p-3 text-xs text-slate-600 whitespace-nowrap">{row.dueDate}</td>
+                                        <td className="p-3 text-xs font-black text-indigo-600 text-right">{row.balanceQty.toLocaleString()}</td>
+                                        <td className="p-3 text-xs text-slate-600 text-center whitespace-nowrap">{row.dueDate}</td>
+                                        <td className="p-3 text-xs font-black text-center">
+                                            {row.overdueDays > 0 ? (
+                                                <span className="bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full">{row.overdueDays}</span>
+                                            ) : (
+                                                <span className="text-slate-300">-</span>
+                                            )}
+                                        </td>
                                         <td className="p-3 text-xs font-bold text-blue-600 text-right bg-blue-50/30">{row.totalStock.toLocaleString()}</td>
                                         <td className={`p-3 text-xs font-black text-right bg-emerald-50/30 ${row.allocatedQty > 0 ? 'text-emerald-600' : 'text-slate-300'}`}>
                                             {row.allocatedQty > 0 ? row.allocatedQty.toLocaleString() : '-'}
@@ -338,32 +357,32 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="bg-slate-50 text-[11px] font-black text-slate-500 uppercase tracking-wider">
-                                    <th className="p-3 border-b border-gray-100">Part No</th>
                                     <th className="p-3 border-b border-gray-100">Description</th>
                                     <th className="p-3 border-b border-gray-100 text-center">Fast Runner</th>
-                                    <th className="p-3 border-b border-gray-100 text-center">Lapp Group</th>
+                                    <th className="p-3 border-b border-gray-100 text-center">Lapp Category</th>
                                     <th className="p-3 border-b border-gray-100 text-right text-blue-600">Stock Qty</th>
                                     <th className="p-3 border-b border-gray-100 text-right text-amber-600">Pending SO</th>
                                     <th className="p-3 border-b border-gray-100 text-right text-indigo-600">Pending PO</th>
-                                    <th className="p-3 border-b border-gray-100 text-right text-rose-600">Qty to Expedite</th>
-                                    <th className="p-3 border-b border-gray-100 text-right text-emerald-600">PO Needed</th>
+                                    <th className="p-3 border-b border-gray-100 text-right text-rose-600">PO Need (SO Shortfall)</th>
+                                    <th className="p-3 border-b border-gray-100 text-right text-gray-500 bg-gray-100/50">Target Max Stock</th>
+                                    <th className="p-3 border-b border-gray-100 text-right text-emerald-600 bg-emerald-50/30">PO Need (Max Target)</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {purchaseReportData.map((row, i) => (
-                                    <tr key={`${row.partNo}-${i}`} className="hover:bg-slate-50 border-b border-gray-50 transition-colors">
-                                        <td className="p-3 text-xs font-bold text-slate-700">{row.partNo?.toUpperCase()}</td>
-                                        <td className="p-3 text-xs text-slate-600 max-w-[200px] truncate" title={row.description}>{row.description}</td>
+                                    <tr key={`${row.description}-${i}`} className="hover:bg-slate-50 border-b border-gray-50 transition-colors">
+                                        <td className="p-3 text-xs font-bold text-slate-800 max-w-[250px] truncate" title={row.description}>{row.description}</td>
                                         <td className="p-3 text-xs text-center"><span className="px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-bold">{row.fastRunner}</span></td>
-                                        <td className="p-3 text-xs text-slate-500 text-center">{row.lappGroup}</td>
+                                        <td className="p-3 text-[10px] font-bold text-indigo-600 text-center tracking-widest uppercase">{row.lappGroup}</td>
                                         <td className="p-3 text-xs font-black text-blue-600 text-right bg-blue-50/20">{row.stockQty.toLocaleString()}</td>
                                         <td className="p-3 text-xs font-black text-amber-600 text-right bg-amber-50/20">{row.openSO.toLocaleString()}</td>
                                         <td className="p-3 text-xs font-black text-indigo-600 text-right bg-indigo-50/20">{row.openPO.toLocaleString()}</td>
                                         <td className={`p-3 text-xs font-black text-right bg-rose-50/10 ${row.expediteQty > 0 ? 'text-rose-600' : 'text-slate-300'}`}>
                                             {row.expediteQty > 0 ? row.expediteQty.toLocaleString() : '-'}
                                         </td>
-                                        <td className={`p-3 text-xs font-black text-right bg-emerald-50/10 ${row.poNeeded > 0 ? 'text-emerald-600' : 'text-slate-300'}`}>
-                                            {row.poNeeded > 0 ? row.poNeeded.toLocaleString() : '-'}
+                                        <td className="p-3 text-xs font-bold text-gray-500 text-right bg-gray-100/30">{row.maxStock.toLocaleString()}</td>
+                                        <td className={`p-3 text-xs font-black text-right bg-emerald-50/30 ${row.poNeededForMax > 0 ? 'text-emerald-600' : 'text-emerald-200'}`}>
+                                            {row.poNeededForMax > 0 ? row.poNeededForMax.toLocaleString() : '-'}
                                         </td>
                                     </tr>
                                 ))}
