@@ -271,14 +271,14 @@ const PartAnalysisView: React.FC<PartAnalysisViewProps> = ({
         
         // 1. Stock Projection Line Chart
         const pt1 = stockMetrics.currentStock;
-        const pt2 = pt1 + stockMetrics.totalOpenPO;
-        const shortfall = stockMetrics.max - pt2;
-        const pt3 = shortfall > 0 ? stockMetrics.max : null;
+        const pt2 = stockMetrics.currentStock - stockMetrics.totalOpenSO;
+        const pt3 = pt2 + stockMetrics.totalOpenPO;
+        const pt4 = stockMetrics.max;
 
         const stockChart: ApexCharts.ApexOptions = {
             chart: { type: 'line', toolbar: { show: false }, background: 'transparent' },
             stroke: { width: [4, 4, 4], curve: 'straight', dashArray: [0, 5, 5] },
-            colors: ['#3B82F6', '#10B981', '#EF4444'],
+            colors: ['#F59E0B', '#10B981', '#EF4444'],
             markers: { size: 5 },
             annotations: {
                 yaxis: [
@@ -288,27 +288,29 @@ const PartAnalysisView: React.FC<PartAnalysisViewProps> = ({
                     { y: stockMetrics.min, borderColor: '#EF4444', strokeDashArray: 4, label: { text: `Min: ${formatLargeValue(stockMetrics.min, true)}`, style: { color: '#fff', background: '#EF4444', padding: { left: 4, right: 4, top: 2, bottom: 2 } }, position: 'right', textAnchor: 'end', offsetX: -5, offsetY: 0 } }
                 ]
             },
-            xaxis: { categories: ['Current', 'w/ PO', 'Target Max'] },
-            yaxis: { min: 0, title: { text: 'Quantity' }, labels: { formatter: (val: number) => formatLargeValue(val, true) } },
+            xaxis: { categories: ['Current', 'After SO', 'w/ PO', 'Target Max'] },
+            yaxis: { title: { text: 'Quantity' }, labels: { formatter: (val: number) => formatLargeValue(val, true) } },
             grid: { borderColor: '#f1f5f9' },
             dataLabels: { 
                 enabled: true, 
                 enabledOnSeries: [0, 1, 2],
                 formatter: (val: number, opts: any) => {
                     if (opts.seriesIndex === 0 && opts.dataPointIndex === 0) return formatLargeValue(val, true);
-                    if (opts.seriesIndex === 1 && opts.dataPointIndex === 1) return formatLargeValue(val, true);
-                    if (opts.seriesIndex === 2 && opts.dataPointIndex === 2 && val !== null) return formatLargeValue(val, true);
+                    if (opts.seriesIndex === 0 && opts.dataPointIndex === 1) return formatLargeValue(val, true);
+                    if (opts.seriesIndex === 1 && opts.dataPointIndex === 2) return formatLargeValue(val, true);
+                    if (opts.seriesIndex === 2 && opts.dataPointIndex === 3) return formatLargeValue(val, true);
                     return '';
                 },
                 offsetY: -5, 
                 style: { fontSize: '10px', fontWeight: 'bold', colors: ['#475569'] },
                 background: { enabled: true, foreColor: '#fff', borderRadius: 2, padding: 2, borderWidth: 0 }
-            }
+            },
+            tooltip: { shared: false, intersect: true }
         };
         const stockSeries = [
-            { name: 'Current Stock', data: [pt1, null, null] },
-            { name: 'PO Projection', data: [pt1, pt2, null] },
-            { name: 'Shortfall', data: [null, pt2, pt3] }
+            { name: 'Sales Impact', data: [pt1, pt2, null, null] },
+            { name: 'PO Projection', data: [null, pt2, pt3, null] },
+            { name: 'Gap to Max', data: [null, null, pt3, pt4] }
         ];
 
         // 2. YoY Sales Bar Chart
