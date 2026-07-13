@@ -276,19 +276,22 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
         f2_val: acc.f2_val + (comparisonMode === 'full' ? curr.f2.value : curr.ytdF2.value),
         f3_qty: acc.f3_qty + (comparisonMode === 'full' ? curr.f3.qty : curr.ytdF3.qty),
         f3_val: acc.f3_val + (comparisonMode === 'full' ? curr.f3.value : curr.ytdF3.value),
+        tot_qty: acc.tot_qty + curr.f1.qty + (comparisonMode === 'full' ? curr.f2.qty : curr.ytdF2.qty) + (comparisonMode === 'full' ? curr.f3.qty : curr.ytdF3.qty),
+        tot_val: acc.tot_val + curr.f1.value + (comparisonMode === 'full' ? curr.f2.value : curr.ytdF2.value) + (comparisonMode === 'full' ? curr.f3.value : curr.ytdF3.value),
         countF2: acc.countF2 + ((comparisonMode === 'full' ? curr.f2.value : curr.ytdF2.value) > 0 ? 1 : 0),
         countF3: acc.countF3 + ((comparisonMode === 'full' ? curr.f3.value : curr.ytdF3.value) > 0 ? 1 : 0),
-    }), { f1_qty: 0, f1_val: 0, f2_qty: 0, f2_val: 0, f3_qty: 0, f3_val: 0, countF2: 0, countF3: 0 });
+    }), { f1_qty: 0, f1_val: 0, f2_qty: 0, f2_val: 0, f3_qty: 0, f3_val: 0, tot_qty: 0, tot_val: 0, countF2: 0, countF3: 0 });
 
     const handleSort = (key: string) => setSortConfig(prev => ({ key, direction: prev?.key === key && prev.direction === 'asc' ? 'desc' : 'asc' }));
 
     const handleExportToExcel = () => {
         const dataToExport = filteredData.map(c => ({
             'Group': c.group, 'Customer Group': c.customerGroup, 'Customer Name': c.customerName,
-            [`FY ${fyInfo.f1} Qty`]: c.f1.qty, [`Value ${fyInfo.f1}`]: c.f1.value,
-            [`FY ${fyInfo.f2} Qty`]: c.f2.qty, [`Value ${fyInfo.f2}`]: c.f2.value,
+            [`Total Qty`]: c.f1.qty + c.f2.qty + c.f3.qty, [`Total Value`]: c.f1.value + c.f2.value + c.f3.value,
             [`FY ${fyInfo.f3} Qty`]: c.f3.qty, [`Value ${fyInfo.f3}`]: c.f3.value,
-            [`YTD ${fyInfo.f2} Value`]: c.ytdF2.value, [`YTD ${fyInfo.f3} Value`]: c.ytdF3.value,
+            [`FY ${fyInfo.f2} Qty`]: c.f2.qty, [`Value ${fyInfo.f2}`]: c.f2.value,
+            [`FY ${fyInfo.f1} Qty`]: c.f1.qty, [`Value ${fyInfo.f1}`]: c.f1.value,
+            [`YTD ${fyInfo.f3} Value`]: c.ytdF3.value, [`YTD ${fyInfo.f2} Value`]: c.ytdF2.value,
         }));
         const ws = utils.json_to_sheet(dataToExport);
         const wb = utils.book_new(); utils.book_append_sheet(wb, ws, "Customer Analysis");
@@ -426,17 +429,19 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
                                     <th className="sticky left-0 z-50 py-1 px-4 text-left border-r border-gray-300 bg-gray-100 w-[300px]">
                                         <div className="flex items-center gap-2"><Layers className="w-3 h-3 text-gray-400" />{pivotBy === 'group' ? 'Group / Customer Group / Customer' : 'Customer Group / Group / Customer'}</div>
                                     </th>
-                                    <th colSpan={2} className="py-1 px-2 text-center border-r border-gray-300 bg-blue-50/50">FY {fyInfo.f1} (Full)</th>
-                                    <th colSpan={2} className="py-1 px-2 text-center border-r border-gray-300 bg-indigo-50/50">FY {fyInfo.f2} {comparisonMode === 'ytd' ? '(YTD)' : '(Full)'}</th>
+                                    <th colSpan={2} className="py-1 px-2 text-center border-r border-gray-300 bg-slate-200/50">Total</th>
                                     <th colSpan={2} className="py-1 px-2 text-center border-r border-gray-300 bg-purple-50/50">FY {fyInfo.f3} {comparisonMode === 'ytd' ? '(YTD)' : '(Full)'}</th>
+                                    <th colSpan={2} className="py-1 px-2 text-center border-r border-gray-300 bg-indigo-50/50">FY {fyInfo.f2} {comparisonMode === 'ytd' ? '(YTD)' : '(Full)'}</th>
+                                    <th colSpan={2} className="py-1 px-2 text-center border-r border-gray-300 bg-blue-50/50">FY {fyInfo.f1} (Full)</th>
                                     <th className="py-1 px-2 text-center bg-gray-200 whitespace-nowrap">Growth vs {lyLabel}</th>
                                     <th className="py-1 px-2 text-center bg-yellow-50/50 text-yellow-800">Share %</th>
                                 </tr>
                                 <tr className="border-b border-gray-200">
                                     <th className="sticky left-0 z-50 py-2 px-4 border-r whitespace-nowrap bg-gray-50">Hierarchy</th>
-                                    <th className="py-2 px-2 text-right bg-blue-50/30">Qty</th><th className="py-2 px-2 text-right border-r bg-blue-50/30">Value</th>
-                                    <th className="py-2 px-2 text-right bg-indigo-50/30">Qty</th><th className="py-2 px-2 text-right border-r bg-indigo-50/30">Value</th>
+                                    <th className="py-2 px-2 text-right bg-slate-100/30">Qty</th><th className="py-2 px-2 text-right border-r bg-slate-100/30">Value</th>
                                     <th className="py-2 px-2 text-right bg-purple-50/30">Qty</th><th className="py-2 px-2 text-right border-r bg-purple-50/30">Value</th>
+                                    <th className="py-2 px-2 text-right bg-indigo-50/30">Qty</th><th className="py-2 px-2 text-right border-r bg-indigo-50/30">Value</th>
+                                    <th className="py-2 px-2 text-right bg-blue-50/30">Qty</th><th className="py-2 px-2 text-right border-r bg-blue-50/30">Value</th>
                                     <th className="py-2 px-2 text-center bg-gray-100">Growth %</th>
                                     <th className="py-2 px-2 text-center bg-yellow-50/30">Share %</th>
                                 </tr>
@@ -460,12 +465,14 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
                                                             </span>
                                                         </div>
                                                     </td>
-                                                    <td className="py-2 px-2 text-right font-bold">{fmt(gTotal.f1_qty)}</td>
-                                                    <td className="py-2 px-2 text-right border-r font-bold">{fmt(gTotal.f1_val)}</td>
-                                                    <td className="py-2 px-2 text-right font-bold">{fmt(gTotal.f2_qty)}</td>
-                                                    <td className="py-2 px-2 text-right border-r font-bold">{fmt(gTotal.f2_val)}</td>
+                                                    <td className="py-2 px-2 text-right font-black bg-slate-50/50">{fmt(gTotal.tot_qty)}</td>
+                                                    <td className="py-2 px-2 text-right border-r font-black bg-slate-50/50">{fmt(gTotal.tot_val)}</td>
                                                     <td className="py-2 px-2 text-right font-black">{fmt(gTotal.f3_qty)}</td>
                                                     <td className="py-2 px-2 text-right border-r font-black">{fmt(gTotal.f3_val)}</td>
+                                                    <td className="py-2 px-2 text-right font-bold">{fmt(gTotal.f2_qty)}</td>
+                                                    <td className="py-2 px-2 text-right border-r font-bold">{fmt(gTotal.f2_val)}</td>
+                                                    <td className="py-2 px-2 text-right font-bold">{fmt(gTotal.f1_qty)}</td>
+                                                    <td className="py-2 px-2 text-right border-r font-bold">{fmt(gTotal.f1_val)}</td>
                                                     <td className="py-2 px-2 text-center font-bold">
                                                         <GrowthBadge curr={gTotal.f3_val} prev={gTotal.f2_val} />
                                                     </td>
@@ -489,12 +496,14 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
                                                                         </span>
                                                                     </div>
                                                                 </td>
-                                                                <td className="py-1.5 px-2 text-right text-gray-500">{fmt(sgTotal.f1_qty)}</td>
-                                                                <td className="py-1.5 px-2 text-right border-r text-gray-500">{fmt(sgTotal.f1_val)}</td>
-                                                                <td className="py-1.5 px-2 text-right text-indigo-600">{fmt(sgTotal.f2_qty)}</td>
-                                                                <td className="py-1.5 px-2 text-right border-r text-indigo-600">{fmt(sgTotal.f2_val)}</td>
+                                                                <td className="py-1.5 px-2 text-right text-gray-700 font-bold bg-slate-50">{fmt(sgTotal.tot_qty)}</td>
+                                                                <td className="py-1.5 px-2 text-right border-r text-gray-700 font-bold bg-slate-50">{fmt(sgTotal.tot_val)}</td>
                                                                 <td className="py-1.5 px-2 text-right text-purple-700 font-bold">{fmt(sgTotal.f3_qty)}</td>
                                                                 <td className="py-1.5 px-2 text-right border-r text-purple-700 font-bold">{fmt(sgTotal.f3_val)}</td>
+                                                                <td className="py-1.5 px-2 text-right text-indigo-600">{fmt(sgTotal.f2_qty)}</td>
+                                                                <td className="py-1.5 px-2 text-right border-r text-indigo-600">{fmt(sgTotal.f2_val)}</td>
+                                                                <td className="py-1.5 px-2 text-right text-gray-500">{fmt(sgTotal.f1_qty)}</td>
+                                                                <td className="py-1.5 px-2 text-right border-r text-gray-500">{fmt(sgTotal.f1_val)}</td>
                                                                 <td className="py-1.5 px-2 text-center font-bold">
                                                                     <GrowthBadge curr={sgTotal.f3_val} prev={sgTotal.f2_val} />
                                                                 </td>
@@ -512,12 +521,14 @@ const CustomerFYAnalysisView: React.FC<CustomerFYAnalysisViewProps> = ({
                                                                         <td className="sticky left-0 z-10 py-1 px-4 pl-12 border-r truncate text-gray-600 bg-white max-w-[260px]" title={cust.customerName}>
                                                                             {cust.customerName}
                                                                         </td>
-                                                                        <td className="py-1 px-2 text-right text-gray-400">{fmt(cust.f1.qty)}</td>
-                                                                        <td className="py-1 px-2 text-right border-r text-gray-400">{fmt(cust.f1.value)}</td>
-                                                                        <td className="py-1 px-2 text-right text-indigo-600/70">{fmt(qtyPrev)}</td>
-                                                                        <td className="py-1 px-2 text-right border-r text-indigo-600/70">{fmt(valPrev)}</td>
+                                                                        <td className="py-1 px-2 text-right text-gray-600 font-medium bg-slate-50/30">{fmt(cust.f1.qty + qtyPrev + qtyCurr)}</td>
+                                                                        <td className="py-1 px-2 text-right border-r text-gray-600 font-bold bg-slate-50/30">{fmt(cust.f1.value + valPrev + valCurr)}</td>
                                                                         <td className="py-1 px-2 text-right text-purple-700 font-bold">{fmt(qtyCurr)}</td>
                                                                         <td className="py-1 px-2 text-right border-r text-purple-700 font-black">{fmt(valCurr)}</td>
+                                                                        <td className="py-1 px-2 text-right text-indigo-600/70">{fmt(qtyPrev)}</td>
+                                                                        <td className="py-1 px-2 text-right border-r text-indigo-600/70">{fmt(valPrev)}</td>
+                                                                        <td className="py-1 px-2 text-right text-gray-400">{fmt(cust.f1.qty)}</td>
+                                                                        <td className="py-1 px-2 text-right border-r text-gray-400">{fmt(cust.f1.value)}</td>
                                                                         <td className="py-1 px-2 text-center font-medium">
                                                                             <GrowthBadge curr={valCurr} prev={valPrev} />
                                                                         </td>
