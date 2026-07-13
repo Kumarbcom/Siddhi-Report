@@ -257,7 +257,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         return result.sort((a, b) => b.openSO - a.openSO); // Default sort by highest demand
     }, [pendingSO, pendingPO, materialMap, stockMap, soMap, poMap, salesSummaries, rateMap, criticalOnly]);
 
-    const styleExcelSheet = (ws: XLSX.WorkSheet, dataLength: number, colCount: number) => {
+    const styleExcelSheet = (ws: XLSX.WorkSheet, headerRowIndex: number = 0) => {
         const headerStyle = {
             font: { name: 'Cambria', sz: 10, bold: true, color: { rgb: "FFFFFF" } },
             fill: { fgColor: { rgb: "4F46E5" } }, // Indigo-600
@@ -267,6 +267,15 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 bottom: { style: "thin", color: { rgb: "CCCCCC" } },
                 left: { style: "thin", color: { rgb: "CCCCCC" } },
                 right: { style: "thin", color: { rgb: "CCCCCC" } }
+            }
+        };
+
+        const subtotalStyle = {
+            font: { name: 'Cambria', sz: 11, bold: true, color: { rgb: "1E1B4B" } },
+            fill: { fgColor: { rgb: "E0E7FF" } },
+            alignment: { vertical: "center", horizontal: "right" },
+            border: {
+                bottom: { style: "medium", color: { rgb: "4F46E5" } }
             }
         };
 
@@ -289,8 +298,10 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 const cell_ref = XLSX.utils.encode_cell(cell_address);
                 if (!ws[cell_ref]) continue;
 
-                if (R === 0) {
+                if (R === headerRowIndex) {
                     ws[cell_ref].s = headerStyle;
+                } else if (R < headerRowIndex) {
+                    ws[cell_ref].s = subtotalStyle;
                 } else {
                     ws[cell_ref].s = cellStyle;
                 }
@@ -308,14 +319,26 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 'Item Description': r.itemName,
                 'Order Qty': r.orderedQty,
                 'Balance Qty': r.balanceQty,
-                'Amount': r.value,
+                'Amount': Math.round(r.value || 0),
                 'Due Date': formatDisplayDate(r.dueDate),
                 'Overdue Days': r.overdueDays,
                 'Total Stock': r.totalStock,
                 'Allocated Qty (FIFO)': r.allocatedQty,
                 'Shortfall': Math.max(0, r.balanceQty - r.allocatedQty)
             }));
-            const ws = XLSX.utils.json_to_sheet(data);
+            const ws = XLSX.utils.json_to_sheet(data, { origin: "A2" } as any);
+            
+            const endRow = data.length + 2;
+            ws['A1'] = { t: 's', v: 'SUBTOTALS' };
+            ws['F1'] = { t: 'n', f: `SUBTOTAL(9, F3:F${endRow})` };
+            ws['G1'] = { t: 'n', f: `SUBTOTAL(9, G3:G${endRow})` };
+            ws['H1'] = { t: 'n', f: `SUBTOTAL(9, H3:H${endRow})` };
+            ws['K1'] = { t: 'n', f: `SUBTOTAL(9, K3:K${endRow})` };
+            ws['L1'] = { t: 'n', f: `SUBTOTAL(9, L3:L${endRow})` };
+            ws['M1'] = { t: 'n', f: `SUBTOTAL(9, M3:M${endRow})` };
+
+            ws['!ref'] = `A1:M${endRow}`;
+            ws['!autofilter'] = { ref: `A2:M${endRow}` };
             
             // Set Column Widths
             ws['!cols'] = [
@@ -334,7 +357,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 { wch: 12 }  // Shortfall
             ];
 
-            styleExcelSheet(ws, data.length, 13);
+            styleExcelSheet(ws, 1);
 
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "Pending_SO_Report");
@@ -342,26 +365,33 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         } else {
             const data = purchaseReportData.map(r => ({
                 'Description': r.description,
-                'Fast Runner (ABC)': r.fastRunner,
                 'Lapp Category': r.lappGroup,
                 'Stock Qty': r.stockQty,
-                'Stock Amount': r.stockVal,
+                'Stock Amount': Math.round(r.stockVal || 0),
                 'Pending SO Qty': r.openSO,
-                'Pending SO Amount': r.openSOVal,
+                'Pending SO Amount': Math.round(r.openSOVal || 0),
                 'Pending PO Qty': r.openPO,
-                'Pending PO Amount': r.openPOVal,
+                'Pending PO Amount': Math.round(r.openPOVal || 0),
                 'PO Need (SO Shortfall) Qty': r.expediteQty,
-                'PO Need (SO Shortfall) Amount': r.expediteVal,
+                'PO Need (SO Shortfall) Amount': Math.round(r.expediteVal || 0),
                 'Target Max Stock': r.maxStock,
                 'PO Need (Max Target) Qty': r.poNeededForMax,
-                'PO Need (Max Target) Amount': r.poNeededForMaxVal
+                'PO Need (Max Target) Amount': Math.round(r.poNeededForMaxVal || 0)
             }));
-            const ws = XLSX.utils.json_to_sheet(data);
+            const ws = XLSX.utils.json_to_sheet(data, { origin: "A2" } as any);
+            
+            const endRow = data.length + 2;
+            ws['A1'] = { t: 's', v: 'SUBTOTALS' };
+            ['C','D','E','F','G','H','I','J','K','L','M'].forEach(col => {
+                ws[`${col}1`] = { t: 'n', f: `SUBTOTAL(9, ${col}3:${col}${endRow})` };
+            });
+
+            ws['!ref'] = `A1:M${endRow}`;
+            ws['!autofilter'] = { ref: `A2:M${endRow}` };
             
             // Set Column Widths
             ws['!cols'] = [
                 { wch: 40 }, // Description
-                { wch: 18 }, // Fast Runner
                 { wch: 15 }, // Lapp Category
                 { wch: 12 }, // Stock Qty
                 { wch: 15 }, // Stock Amount
@@ -376,7 +406,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 { wch: 28 }  // PO Need (Max Target) Amount
             ];
 
-            styleExcelSheet(ws, data.length, 14);
+            styleExcelSheet(ws, 1);
 
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "Purchase_Report");
