@@ -385,7 +385,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     };
 
     return (
-        <div className="flex-1 flex flex-col min-h-0 bg-slate-50">
+        <div className="h-full flex flex-col min-h-0 bg-slate-50">
             {/* Header */}
             <div className="bg-white border-b border-gray-200 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 z-20">
                 <div className="flex items-center gap-4">
