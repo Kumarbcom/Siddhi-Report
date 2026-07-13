@@ -320,15 +320,27 @@ const PartAnalysisView: React.FC<PartAnalysisViewProps> = ({
             salesData.grouped.forEach(g => sum += g.groupYears[y]?.val || 0);
             return sum;
         });
+        const yoyQtys = salesData.years.map(y => {
+            let sum = 0;
+            salesData.grouped.forEach(g => sum += g.groupYears[y]?.qty || 0);
+            return sum;
+        });
+
         const yoyChart: ApexCharts.ApexOptions = {
             chart: { type: 'bar', toolbar: { show: false } },
-            plotOptions: { bar: { borderRadius: 4, columnWidth: '50%', dataLabels: { position: 'top' } } },
-            colors: ['#6366F1'],
+            plotOptions: { bar: { borderRadius: 2, columnWidth: '70%', dataLabels: { position: 'top' } } },
+            colors: ['#6366F1', '#10B981'],
             xaxis: { categories: yoyCategories },
-            yaxis: { labels: { formatter: (val: number) => formatLargeValue(val, true) } },
-            dataLabels: { enabled: true, formatter: (val: number) => formatLargeValue(val, true), offsetY: -20, style: { fontSize: '10px', fontWeight: 'bold', colors: ['#475569'] } }
+            yaxis: [
+                { title: { text: 'Sales Value', style: { color: '#6366F1', fontWeight: 600 } }, labels: { formatter: (val: number) => formatLargeValue(val, true) } },
+                { opposite: true, title: { text: 'Quantity', style: { color: '#10B981', fontWeight: 600 } }, labels: { formatter: (val: number) => formatLargeValue(val, true) } }
+            ],
+            dataLabels: { enabled: true, formatter: (val: number) => formatLargeValue(val, true), offsetY: -15, style: { fontSize: '9px', fontWeight: 'bold', colors: ['#475569'] } }
         };
-        const yoySeries = [{ name: 'Sales Value', data: yoyVals }];
+        const yoySeries = [
+            { name: 'Sales Value', data: yoyVals },
+            { name: 'Quantity', data: yoyQtys }
+        ];
 
         // 3. Customer Group Pie Chart (Current Year)
         const currYear = salesData.years[salesData.years.length - 1];
