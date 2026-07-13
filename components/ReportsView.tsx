@@ -38,6 +38,31 @@ const getLappCategory = (desc: string, make: string): string => {
     return 'Other LAPP';
 };
 
+const getMergedMakeName = (makeName: string) => {
+    const m = String(makeName || 'Unspecified').trim();
+    const lowerM = m.toLowerCase();
+    if (lowerM.includes('lapp')) return 'LAPP';
+    if (lowerM.includes('luker')) return 'Luker';
+    return m;
+};
+
+const roundToTen = (num: number) => {
+    if (num <= 0) return 0;
+    return Math.ceil(num / 10) * 10;
+};
+
+const formatDisplayDate = (dateStr: string): string => {
+    if (!dateStr) return '';
+    const t = parseDateString(dateStr);
+    if (t === Number.MAX_SAFE_INTEGER) return dateStr;
+    const d = new Date(t);
+    if (isNaN(d.getTime())) return dateStr;
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+};
+
 export const ReportsView: React.FC<ReportsViewProps> = ({
     materials, closingStock, pendingSO, pendingPO, salesReportItems
 }) => {
@@ -169,7 +194,25 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             const openPO = poMap.get(key) || 0;
 
             const avg12mQty = avgSalesMap.get(key) || 0;
-            const maxStock = Math.ceil(avg12mQty / 6); // 2 months max stock
+            const a1q = avg12mQty / 12;
+
+            let isApplicable = false;
+            const mk = mat ? getMergedMakeName(mat.make || '').toUpperCase() : 'UNSPECIFIED';
+            const grp = String(mat?.materialGroup || '').trim().toLowerCase();
+            
+            if (mk === 'LAPP') {
+                const excluded = ["lapp-planned stock specific customer", "lapp-non moving stocks", "lapp-against customer po", "lapp infra"];
+                isApplicable = !excluded.some(ex => grp.includes(ex.toLowerCase()));
+            } else if (mk === 'EATON') {
+                const excluded = ["eaton-non moving stock", "eaton-planned stock specific customer"];
+                isApplicable = !excluded.some(ex => grp.includes(ex.toLowerCase()));
+            }
+
+            let maxStock = 0;
+            if (isApplicable && a1q > 0) {
+                const min = roundToTen(a1q);
+                maxStock = min * 2;
+            }
 
             const expediteQty = Math.max(0, openSO - stockQty); // PO needed to cover SO shortfall immediately
             
@@ -200,15 +243,15 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         if (activeTab === 'pendingSO') {
             const data = allocatedSOData.map(r => ({
                 'Lapp Category': r.lappCategory,
-                'Date': r.date,
+                'SO Date': formatDisplayDate(r.date),
                 'SO No': (r.orderNo || '').split('/')[0]?.trim() || '',
-                'Customer PO No': (r.orderNo || '').split('/').slice(1).join('/')?.trim() || '',
+                'PO Ref': (r.orderNo || '').split('/').slice(1).join('/')?.trim() || '',
                 'Customer Name': r.partyName,
                 'Item Description': r.itemName,
                 'Order Qty': r.orderedQty,
                 'Balance Qty': r.balanceQty,
                 'Amount': r.value,
-                'Due Date': r.dueDate,
+                'Due Date': formatDisplayDate(r.dueDate),
                 'Overdue Days': r.overdueDays,
                 'Total Stock': r.totalStock,
                 'Allocated Qty (FIFO)': r.allocatedQty,
@@ -311,9 +354,10 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="bg-slate-50 text-[11px] font-black text-slate-500 uppercase tracking-wider">
+                                    <th className="p-3 border-b border-gray-100">SO Date</th>
                                     <th className="p-3 border-b border-gray-100">Category</th>
                                     <th className="p-3 border-b border-gray-100">SO No</th>
-                                    <th className="p-3 border-b border-gray-100">PO No</th>
+                                    <th className="p-3 border-b border-gray-100">PO Ref</th>
                                     <th className="p-3 border-b border-gray-100">Customer Name</th>
                                     <th className="p-3 border-b border-gray-100">Item Description</th>
                                     <th className="p-3 border-b border-gray-100 text-right">Order Qty</th>
@@ -327,6 +371,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                             <tbody>
                                 {allocatedSOData.map((row, i) => (
                                     <tr key={`${row.id}-${i}`} className="hover:bg-slate-50 border-b border-gray-50 transition-colors">
+                                        <td className="p-3 text-xs text-slate-600 whitespace-nowrap">{formatDisplayDate(row.date)}</td>
                                         <td className="p-3 text-[10px] font-bold text-indigo-600 uppercase tracking-widest">{row.lappCategory}</td>
                                         <td className="p-3 text-xs font-bold text-slate-700">{(row.orderNo || '').split('/')[0]?.trim() || ''}</td>
                                         <td className="p-3 text-xs font-bold text-slate-500">{(row.orderNo || '').split('/').slice(1).join('/')?.trim() || ''}</td>
@@ -334,7 +379,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                                         <td className="p-3 text-xs font-bold text-slate-800 max-w-[200px] truncate" title={row.itemName}>{row.itemName}</td>
                                         <td className="p-3 text-xs font-medium text-slate-600 text-right">{row.orderedQty.toLocaleString()}</td>
                                         <td className="p-3 text-xs font-black text-indigo-600 text-right">{row.balanceQty.toLocaleString()}</td>
-                                        <td className="p-3 text-xs text-slate-600 text-center whitespace-nowrap">{row.dueDate}</td>
+                                        <td className="p-3 text-xs text-slate-600 text-center whitespace-nowrap">{formatDisplayDate(row.dueDate)}</td>
                                         <td className="p-3 text-xs font-black text-center">
                                             {row.overdueDays > 0 ? (
                                                 <span className="bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full">{row.overdueDays}</span>
