@@ -71,6 +71,29 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     const [soSortBy, setSoSortBy] = useState<'dueDate' | 'lapp' | 'item' | 'po'>('dueDate');
     const [criticalOnly, setCriticalOnly] = useState(false);
 
+    // Slicer States
+    const [slicerMake, setSlicerMake] = useState<string>('ALL');
+    const [slicerGroup, setSlicerGroup] = useState<string>('ALL');
+    const [slicerLappCategory, setSlicerLappCategory] = useState<string>('ALL');
+
+    const slicerOptions = useMemo(() => {
+        const makes = new Set<string>();
+        const groups = new Set<string>();
+        const lappCategories = new Set<string>();
+
+        materials.forEach(m => {
+            if (m.make) makes.add(getMergedMakeName(m.make));
+            if (m.materialGroup) groups.add(m.materialGroup);
+            lappCategories.add(getLappCategory(m.description, m.make));
+        });
+
+        return {
+            makes: ['ALL', ...Array.from(makes).sort()],
+            groups: ['ALL', ...Array.from(groups).sort()],
+            lappCategories: ['ALL', ...Array.from(lappCategories).sort()]
+        };
+    }, [materials]);
+
     // Build optimized lookup maps
     const { materialMap, stockMap, poMap, soMap, rateMap } = useMemo(() => {
         const matMap = new Map<string, Material>();
@@ -125,7 +148,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             soByItem.get(key)!.push(so);
         });
 
-        const result: (PendingSOItem & { allocatedQty: number, totalStock: number, lappCategory: string, overdueDays: number })[] = [];
+        const result: (PendingSOItem & { allocatedQty: number, totalStock: number, lappCategory: string, overdueDays: number, make: string, group: string })[] = [];
         const todayT = new Date().setHours(0,0,0,0);
 
         soByItem.forEach((orders, itemKey) => {
@@ -153,13 +176,21 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                     allocatedQty: allocated,
                     totalStock: totalStock,
                     lappCategory,
-                    overdueDays
+                    overdueDays,
+                    make: getMergedMakeName(mat?.make || ''),
+                    group: mat?.materialGroup || ''
                 });
             });
         });
 
+        // Apply Slicers
+        let filtered = result;
+        if (slicerMake !== 'ALL') filtered = filtered.filter(r => r.make === slicerMake);
+        if (slicerGroup !== 'ALL') filtered = filtered.filter(r => r.group === slicerGroup);
+        if (slicerLappCategory !== 'ALL') filtered = filtered.filter(r => r.lappCategory === slicerLappCategory);
+
         // Apply View Sorting
-        result.sort((a, b) => {
+        filtered.sort((a, b) => {
             if (soSortBy === 'dueDate') {
                 const dateCmp = parseDateString(a.dueDate) - parseDateString(b.dueDate);
                 if (dateCmp !== 0) return dateCmp;
@@ -176,8 +207,8 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             return 0;
         });
 
-        return result;
-    }, [pendingSO, stockMap, materialMap, soSortBy]);
+        return filtered;
+    }, [pendingSO, stockMap, materialMap, soSortBy, slicerMake, slicerGroup, slicerLappCategory]);
 
     // Calculate Purchase Report Data
     const purchaseReportData = useMemo(() => {
@@ -185,7 +216,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         pendingSO.forEach(s => uniqueItems.add((s.itemName || '').toLowerCase().trim()));
         pendingPO.forEach(p => uniqueItems.add((p.itemName || '').toLowerCase().trim()));
         
-        const result = Array.from(uniqueItems).map(key => {
+        let result = Array.from(uniqueItems).map(key => {
             if (!key) return null;
             
             const mat = materialMap.get(key);
@@ -246,16 +277,22 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 expediteVal,
                 maxStock,
                 poNeededForMax,
-                poNeededForMaxVal
+                poNeededForMaxVal,
+                make: getMergedMakeName(mat?.make || ''),
+                group: mat?.materialGroup || ''
             };
         }).filter(Boolean) as any[];
 
         if (criticalOnly) {
-            return result.filter(r => r.openSO > 0 && r.openPO === 0 && r.stockQty < r.openSO);
+            result = result.filter(r => r.openSO > 0 && r.openPO === 0 && r.stockQty < r.openSO);
         }
 
+        if (slicerMake !== 'ALL') result = result.filter(r => r.make === slicerMake);
+        if (slicerGroup !== 'ALL') result = result.filter(r => r.group === slicerGroup);
+        if (slicerLappCategory !== 'ALL') result = result.filter(r => r.lappGroup === slicerLappCategory);
+
         return result.sort((a, b) => b.openSO - a.openSO); // Default sort by highest demand
-    }, [pendingSO, pendingPO, materialMap, stockMap, soMap, poMap, salesSummaries, rateMap, criticalOnly]);
+    }, [pendingSO, pendingPO, materialMap, stockMap, soMap, poMap, salesSummaries, rateMap, criticalOnly, slicerMake, slicerGroup, slicerLappCategory]);
 
     const styleExcelSheet = (ws: XLSX.WorkSheet, headerRowIndex: number = 0) => {
         const headerStyle = {
@@ -453,7 +490,21 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             </div>
 
             {/* Controls */}
-            <div className="px-6 py-4 flex items-center justify-between bg-white border-b border-slate-200 z-10 sticky top-[80px]">
+            <div className="px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border-b border-slate-200 z-10 sticky top-[80px]">
+                <div className="flex flex-wrap items-center gap-2 bg-slate-50 p-1.5 rounded-lg border border-slate-200">
+                    <select value={slicerMake} onChange={e => { setSlicerMake(e.target.value); setSlicerGroup('ALL'); setSlicerLappCategory('ALL'); }} className="bg-transparent text-xs font-bold outline-none cursor-pointer">
+                        {slicerOptions.makes.map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                    <div className="w-px h-4 bg-slate-300"></div>
+                    <select value={slicerGroup} onChange={e => setSlicerGroup(e.target.value)} className="bg-transparent text-xs font-bold outline-none cursor-pointer max-w-[150px] truncate">
+                        {slicerOptions.groups.map(g => <option key={g} value={g}>{g}</option>)}
+                    </select>
+                    <div className="w-px h-4 bg-slate-300"></div>
+                    <select value={slicerLappCategory} onChange={e => setSlicerLappCategory(e.target.value)} className="bg-transparent text-xs font-bold outline-none text-indigo-700 cursor-pointer max-w-[150px] truncate">
+                        {slicerOptions.lappCategories.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                </div>
+
                 {activeTab === 'pendingSO' ? (
                     <div className="flex items-center gap-4">
                         <span className="text-sm font-bold text-slate-500">Sort By:</span>
