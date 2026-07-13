@@ -642,25 +642,25 @@ const PartAnalysisView: React.FC<PartAnalysisViewProps> = ({
                             {activeTab === 'stock' && chartData && stockMetrics ? (
                                 <>
                                     <div className="bg-white border border-gray-200 rounded-3xl shadow-sm flex flex-col overflow-hidden p-4 flex-shrink-0">
-                                       <h3 className="text-sm font-black text-gray-800 uppercase tracking-widest mb-1 flex items-center gap-2"><Activity className="w-4 h-4 text-indigo-500"/> Stock Projection</h3>
-                                       <div className="h-[200px] w-full">
+                                       <h3 className="text-xs font-black text-gray-800 uppercase tracking-widest mb-0 flex items-center gap-1.5"><Activity className="w-3.5 h-3.5 text-indigo-500"/> Stock Projection</h3>
+                                       <div className="h-[250px] w-full mt-1">
                                            <Chart options={chartData.stockChart} series={chartData.stockSeries} type="line" height="100%" />
                                        </div>
                                        {stockMetrics.currentStock < stockMetrics.min && (
-                                            <div className="mt-4 p-4 bg-rose-500 rounded-2xl border-2 border-rose-600 flex items-center justify-center gap-4 animate-pulse shadow-lg shadow-rose-200">
-                                                <AlertTriangle className="w-8 h-8 text-white flex-shrink-0 animate-bounce" />
-                                                <div>
-                                                    <p className="text-sm font-black text-white uppercase tracking-widest drop-shadow-sm">EMERGENCY TO BOOK</p>
-                                                    <p className="text-sm text-rose-100 font-medium mt-1 drop-shadow-sm">Stock is critically below minimum levels. Qty to book: <b className="text-white text-lg bg-rose-600/50 px-2 py-0.5 rounded ml-1">{(stockMetrics.max - stockMetrics.netQty).toLocaleString()}</b></p>
+                                            <div className="mt-2 p-2 bg-rose-500 rounded-xl border border-rose-600 flex items-center justify-center gap-3 animate-pulse shadow-sm">
+                                                <AlertTriangle className="w-5 h-5 text-white flex-shrink-0 animate-bounce" />
+                                                <div className="flex items-center gap-3">
+                                                    <p className="text-xs font-black text-white uppercase tracking-widest drop-shadow-sm">EMERGENCY TO BOOK</p>
+                                                    <p className="text-[10px] text-rose-100 font-medium drop-shadow-sm">Qty to book: <b className="text-white text-xs bg-rose-600/50 px-1.5 py-0.5 rounded ml-1">{(stockMetrics.max - stockMetrics.netQty).toLocaleString()}</b></p>
                                                 </div>
                                             </div>
                                        )}
                                        {stockMetrics.currentStock >= stockMetrics.min && stockMetrics.currentStock < stockMetrics.re && (
-                                            <div className="mt-4 p-4 bg-amber-500 rounded-2xl border-2 border-amber-600 flex items-center justify-center gap-4 shadow-lg shadow-amber-200">
-                                                <AlertCircle className="w-8 h-8 text-white flex-shrink-0 animate-bounce" />
-                                                <div>
-                                                    <p className="text-sm font-black text-white uppercase tracking-widest drop-shadow-sm">INDICATION TO BOOK</p>
-                                                    <p className="text-sm text-amber-100 font-medium mt-1 drop-shadow-sm">Stock has fallen below reorder level. Suggested Qty: <b className="text-white text-lg bg-amber-600/50 px-2 py-0.5 rounded ml-1">{(stockMetrics.max - stockMetrics.netQty).toLocaleString()}</b></p>
+                                            <div className="mt-2 p-2 bg-amber-500 rounded-xl border border-amber-600 flex items-center justify-center gap-3 shadow-sm">
+                                                <AlertCircle className="w-5 h-5 text-white flex-shrink-0 animate-bounce" />
+                                                <div className="flex items-center gap-3">
+                                                    <p className="text-xs font-black text-white uppercase tracking-widest drop-shadow-sm">INDICATION TO BOOK</p>
+                                                    <p className="text-[10px] text-amber-100 font-medium drop-shadow-sm">Suggested Qty: <b className="text-white text-xs bg-amber-600/50 px-1.5 py-0.5 rounded ml-1">{(stockMetrics.max - stockMetrics.netQty).toLocaleString()}</b></p>
                                                 </div>
                                             </div>
                                        )}
