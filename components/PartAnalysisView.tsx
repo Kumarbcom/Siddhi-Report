@@ -320,11 +320,11 @@ const PartAnalysisView: React.FC<PartAnalysisViewProps> = ({
         });
         const yoyChart: ApexCharts.ApexOptions = {
             chart: { type: 'bar', toolbar: { show: false } },
-            plotOptions: { bar: { borderRadius: 4, columnWidth: '50%' } },
+            plotOptions: { bar: { borderRadius: 4, columnWidth: '50%', dataLabels: { position: 'top' } } },
             colors: ['#6366F1'],
             xaxis: { categories: yoyCategories },
             yaxis: { labels: { formatter: (val: number) => formatLargeValue(val, true) } },
-            dataLabels: { enabled: true, formatter: (val: number) => formatLargeValue(val, true), style: { fontSize: '10px', colors: ['#fff'] } }
+            dataLabels: { enabled: true, formatter: (val: number) => formatLargeValue(val, true), offsetY: -20, style: { fontSize: '10px', fontWeight: 'bold', colors: ['#475569'] } }
         };
         const yoySeries = [{ name: 'Sales Value', data: yoyVals }];
 
