@@ -359,7 +359,8 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
                                 <th className="py-2 px-3 font-semibold">Order</th>
                                 <th className="py-2 px-3 font-semibold">Vendor</th>
                                 <th className="py-2 px-3 font-semibold w-56">Item</th>
-                                <th className="py-2 px-3 font-semibold text-right">Qty</th>
+                                <th className="py-2 px-3 font-semibold text-right text-red-600 bg-red-50/50">Due Qty</th>
+                                <th className="py-2 px-3 font-semibold text-right text-blue-600 bg-blue-50/50">Sch Qty</th>
                                 <th className="py-2 px-3 font-semibold text-right">Value</th>
                                 <th className="py-2 px-3 font-semibold">Due on</th>
                                 <th className="py-2 px-3 font-semibold text-center">Status</th>
@@ -370,6 +371,7 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
                             {processedItems.length === 0 ? (<tr><td colSpan={isAdmin ? 9 : 8} className="py-8 text-center text-gray-500 text-xs">No records found.</td></tr>) : (
                                 processedItems.map(item => {
                                     const strat = supplyMap.get(item.itemName.toLowerCase().trim());
+                                    const isDue = item.dueDate && parseDate(item.dueDate).getTime() <= new Date().setHours(0,0,0,0);
                                     return (
                                         <tr key={item.id} className="hover:bg-orange-50/20 transition-colors">
                                             <td className="py-2 px-3 whitespace-nowrap">{formatDateDisplay(item.date)}</td>
@@ -385,7 +387,8 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className="py-2 px-3 text-right font-medium text-blue-600">{item.balanceQty}</td>
+                                            <td className="py-2 px-3 text-right font-black text-red-700 bg-red-50/20 border-r border-red-100">{isDue ? item.balanceQty : '-'}</td>
+                                            <td className="py-2 px-3 text-right font-black text-blue-700 bg-blue-50/20">{!isDue ? item.balanceQty : '-'}</td>
                                             <td className="py-2 px-3 text-right font-bold text-emerald-700">{formatCurrency(item.value)}</td>
                                             <td className="py-2 px-3 whitespace-nowrap">{formatDateDisplay(item.dueDate)}</td>
                                             <td className="py-2 px-3 text-center">

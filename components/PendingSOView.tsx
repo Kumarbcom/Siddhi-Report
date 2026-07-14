@@ -342,7 +342,8 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
             "Party's Name": i.partyName,
             "Name of Item": i.itemName,
             "Ordered": i.orderedQty,
-            "Balance": i.balanceQty,
+            "Due Qty": i.deliveryClass === 'due' ? i.balanceQty : 0,
+            "Sch Qty": i.deliveryClass === 'scheduled' ? i.balanceQty : 0,
             "Allocated": i.allocated,
             "Shortage": i.shortage,
             "Type": i.deliveryClass.toUpperCase(),
@@ -518,7 +519,8 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
                                 <th className="py-2 px-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('orderNo')}>Order {renderSortIcon('orderNo')}</th>
                                 <th className="py-2 px-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('partyName')}>Party's Name {renderSortIcon('partyName')}</th>
                                 <th className="py-2 px-3 cursor-pointer hover:bg-gray-100 w-56" onClick={() => handleSort('itemName')}>Name of Item {renderSortIcon('itemName')}</th>
-                                <th className="py-2 px-3 text-right">Bal Qty</th>
+                                <th className="py-2 px-3 text-right text-red-600 bg-red-50/50">Due Qty</th>
+                                <th className="py-2 px-3 text-right text-blue-600 bg-blue-50/50">Sch Qty</th>
                                 <th className="py-2 px-3 text-right cursor-pointer hover:bg-gray-100" onClick={() => handleSort('dueDate')}>Due On {renderSortIcon('dueDate')}</th>
                                 <th className="py-2 px-3 text-center">Status</th>
                                 <th className="py-2 px-3 text-center bg-gray-50 border-l border-gray-100">Stock</th>
@@ -539,7 +541,8 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
                                                     <td className="py-2 px-3"><input type="text" className="w-full border border-purple-300 rounded px-1.5 py-0.5 text-xs focus:outline-none" value={editForm?.orderNo || ''} onChange={e => handleInputChange('orderNo', e.target.value)} /></td>
                                                     <td className="py-2 px-3"><input type="text" className="w-full border border-purple-300 rounded px-1.5 py-0.5 text-xs focus:outline-none" value={editForm?.partyName || ''} onChange={e => handleInputChange('partyName', e.target.value)} /></td>
                                                     <td className="py-2 px-3"><input type="text" className="w-full border border-purple-300 rounded px-1.5 py-0.5 text-xs focus:outline-none" value={editForm?.itemName || ''} onChange={e => handleInputChange('itemName', e.target.value)} /></td>
-                                                    <td className="py-2 px-3"><input type="number" className="w-full border border-purple-300 rounded px-1.5 py-0.5 text-xs text-right focus:outline-none" value={editForm?.balanceQty || 0} onChange={e => handleInputChange('balanceQty', parseFloat(e.target.value))} /></td>
+                                                    <td className="py-2 px-3 text-right font-black text-red-700 bg-red-50/20">{editForm?.deliveryClass === 'due' ? editForm?.balanceQty : '-'}</td>
+                                                    <td className="py-2 px-3 text-right font-black text-blue-700 bg-blue-50/20">{editForm?.deliveryClass === 'scheduled' ? editForm?.balanceQty : '-'}</td>
                                                     <td className="py-2 px-3"><input type="date" className="w-full border border-purple-300 rounded px-1.5 py-0.5 text-xs focus:outline-none" value={formatInputDate(editForm?.dueDate || '')} onChange={e => handleInputChange('dueDate', e.target.value)} /></td>
                                                     <td colSpan={4} className="py-2 px-3 text-center text-[10px] text-gray-400 italic">Classification dynamic</td>
                                                     <td className="py-2 px-3 text-right">
@@ -560,7 +563,8 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
                                                             {!inMaster && <span className="inline-flex items-center gap-0.5 mt-0.5 text-[8px] text-red-600 bg-red-50 px-1 py-px rounded border border-red-100 w-fit whitespace-nowrap font-bold"><AlertTriangle className="w-2 h-2" /> Missing in Master</span>}
                                                         </div>
                                                     </td>
-                                                    <td className="py-2 px-3 text-right font-black text-gray-900">{item.balanceQty}</td>
+                                                    <td className="py-2 px-3 text-right font-black text-red-700 bg-red-50/20 border-r border-red-100">{item.deliveryClass === 'due' ? item.balanceQty : '-'}</td>
+                                                    <td className="py-2 px-3 text-right font-black text-blue-700 bg-blue-50/20">{item.deliveryClass === 'scheduled' ? item.balanceQty : '-'}</td>
                                                     <td className="py-2 px-3 whitespace-nowrap">
                                                         <div className="flex flex-col">
                                                             <span className="text-gray-600">{formatDateDisplay(item.dueDate)}</span>
