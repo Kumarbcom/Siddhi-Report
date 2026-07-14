@@ -256,12 +256,13 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 maxStock = min * 2;
             }
 
-            const expediteQty = Math.max(0, openSO - stockQty); // PO needed to cover SO shortfall immediately
-            const expediteVal = expediteQty * rate;
+            const currentDeficiency = Math.max(0, maxStock + openSO - stockQty);
+            const poExpediteQty = Math.min(openPO, currentDeficiency);
+            const poExpediteVal = poExpediteQty * rate;
             
             const netQty = stockQty + openPO - openSO;
-            const poNeededForMax = Math.max(0, maxStock - netQty); // PO needed to reach Max Stock
-            const poNeededForMaxVal = poNeededForMax * rate;
+            const poCreateQty = Math.max(0, maxStock - netQty);
+            const poCreateVal = poCreateQty * rate;
 
             return {
                 description,
@@ -273,11 +274,13 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 openSOVal: openSO * rate,
                 openPO,
                 openPOVal: openPO * rate,
-                expediteQty,
-                expediteVal,
+                currentDeficiency,
+                currentDeficiencyVal: currentDeficiency * rate,
+                poExpediteQty,
+                poExpediteVal,
                 maxStock,
-                poNeededForMax,
-                poNeededForMaxVal,
+                poCreateQty,
+                poCreateVal,
                 make: getMergedMakeName(mat?.make || ''),
                 group: mat?.materialGroup || ''
             };
@@ -409,22 +412,24 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 'Pending SO Amount': Math.round(r.openSOVal || 0),
                 'Pending PO Qty': r.openPO,
                 'Pending PO Amount': Math.round(r.openPOVal || 0),
-                'PO Need (SO Shortfall) Qty': r.expediteQty,
-                'PO Need (SO Shortfall) Amount': Math.round(r.expediteVal || 0),
                 'Target Max Stock': r.maxStock,
-                'PO Need (Max Target) Qty': r.poNeededForMax,
-                'PO Need (Max Target) Amount': Math.round(r.poNeededForMaxVal || 0)
+                'Current Deficiency Qty': r.currentDeficiency,
+                'Current Deficiency Amount': Math.round(r.currentDeficiencyVal || 0),
+                'PO Expedite Qty': r.poExpediteQty,
+                'PO Expedite Amount': Math.round(r.poExpediteVal || 0),
+                'PO Create Qty': r.poCreateQty,
+                'PO Create Amount': Math.round(r.poCreateVal || 0)
             }));
             const ws = XLSX.utils.json_to_sheet(data, { origin: "A2" } as any);
             
             const endRow = data.length + 2;
             ws['A1'] = { t: 's', v: 'SUBTOTALS' };
-            ['C','D','E','F','G','H','I','J','K','L','M'].forEach(col => {
+            ['C','D','E','F','G','H','I','J','K','L','M','N','O'].forEach(col => {
                 ws[`${col}1`] = { t: 'n', f: `SUBTOTAL(9, ${col}3:${col}${endRow})` };
             });
 
-            ws['!ref'] = `A1:M${endRow}`;
-            ws['!autofilter'] = { ref: `A2:M${endRow}` };
+            ws['!ref'] = `A1:O${endRow}`;
+            ws['!autofilter'] = { ref: `A2:O${endRow}` };
             
             // Set Column Widths
             ws['!cols'] = [
@@ -436,11 +441,13 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 { wch: 18 }, // Pending SO Amount
                 { wch: 15 }, // Pending PO Qty
                 { wch: 18 }, // Pending PO Amount
-                { wch: 25 }, // PO Need (SO Shortfall) Qty
-                { wch: 28 }, // PO Need (SO Shortfall) Amount
                 { wch: 18 }, // Target Max Stock
-                { wch: 25 }, // PO Need (Max Target) Qty
-                { wch: 28 }  // PO Need (Max Target) Amount
+                { wch: 22 }, // Current Deficiency Qty
+                { wch: 25 }, // Current Deficiency Amount
+                { wch: 18 }, // PO Expedite Qty
+                { wch: 20 }, // PO Expedite Amount
+                { wch: 18 }, // PO Create Qty
+                { wch: 20 }  // PO Create Amount
             ];
 
             styleExcelSheet(ws, 1);
@@ -592,9 +599,10 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                                     <th className="p-3 text-right text-blue-600 bg-slate-50">Stock</th>
                                     <th className="p-3 text-right text-amber-600 bg-slate-50">Pending SO</th>
                                     <th className="p-3 text-right text-indigo-600 bg-slate-50">Pending PO</th>
-                                    <th className="p-3 text-right text-rose-600 bg-slate-50">Need (SO)</th>
                                     <th className="p-3 text-right text-gray-500 bg-gray-100">Max Stock</th>
-                                    <th className="p-3 text-right text-emerald-600 bg-emerald-50">Need (Max)</th>
+                                    <th className="p-3 text-right text-orange-600 bg-orange-50">Deficiency</th>
+                                    <th className="p-3 text-right text-rose-600 bg-rose-50">PO Expedite</th>
+                                    <th className="p-3 text-right text-emerald-600 bg-emerald-50">PO Create</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -619,16 +627,21 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                                             {row.openPOVal > 0 && <div className="text-[10px] font-bold text-indigo-400 mt-0.5">₹{Math.round(row.openPOVal).toLocaleString('en-IN')}</div>}
                                         </td>
                                         
-                                        <td className={`p-3 text-xs font-black text-right bg-rose-50/10 ${row.expediteQty > 0 ? 'text-rose-600' : 'text-slate-300'}`}>
-                                            <div>{row.expediteQty > 0 ? row.expediteQty.toLocaleString() : '-'}</div>
-                                            {row.expediteVal > 0 && <div className="text-[10px] font-bold text-rose-400 mt-0.5" title="Value needed">₹{Math.round(row.expediteVal).toLocaleString('en-IN')}</div>}
-                                        </td>
-                                        
                                         <td className="p-3 text-xs font-bold text-gray-500 text-right bg-gray-100/30">{row.maxStock.toLocaleString()}</td>
                                         
-                                        <td className={`p-3 text-xs font-black text-right bg-emerald-50/30 ${row.poNeededForMax > 0 ? 'text-emerald-600' : 'text-emerald-200'}`}>
-                                            <div>{row.poNeededForMax > 0 ? row.poNeededForMax.toLocaleString() : '-'}</div>
-                                            {row.poNeededForMaxVal > 0 && <div className="text-[10px] font-bold text-emerald-500 mt-0.5" title="Value needed">₹{Math.round(row.poNeededForMaxVal).toLocaleString('en-IN')}</div>}
+                                        <td className={`p-3 text-xs font-black text-right bg-orange-50/10 ${row.currentDeficiency > 0 ? 'text-orange-600' : 'text-slate-300'}`}>
+                                            <div>{row.currentDeficiency > 0 ? row.currentDeficiency.toLocaleString() : '-'}</div>
+                                            {row.currentDeficiencyVal > 0 && <div className="text-[10px] font-bold text-orange-400 mt-0.5">₹{Math.round(row.currentDeficiencyVal).toLocaleString('en-IN')}</div>}
+                                        </td>
+                                        
+                                        <td className={`p-3 text-xs font-black text-right bg-rose-50/10 ${row.poExpediteQty > 0 ? 'text-rose-600' : 'text-slate-300'}`}>
+                                            <div>{row.poExpediteQty > 0 ? row.poExpediteQty.toLocaleString() : '-'}</div>
+                                            {row.poExpediteVal > 0 && <div className="text-[10px] font-bold text-rose-400 mt-0.5">₹{Math.round(row.poExpediteVal).toLocaleString('en-IN')}</div>}
+                                        </td>
+                                        
+                                        <td className={`p-3 text-xs font-black text-right bg-emerald-50/30 ${row.poCreateQty > 0 ? 'text-emerald-600' : 'text-emerald-200'}`}>
+                                            <div>{row.poCreateQty > 0 ? row.poCreateQty.toLocaleString() : '-'}</div>
+                                            {row.poCreateVal > 0 && <div className="text-[10px] font-bold text-emerald-500 mt-0.5">₹{Math.round(row.poCreateVal).toLocaleString('en-IN')}</div>}
                                         </td>
                                     </tr>
                                 ))}
