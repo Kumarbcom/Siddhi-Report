@@ -278,6 +278,12 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             const poCreateQty = Math.max(0, maxStock - netQty);
             const poCreateVal = poCreateQty * rate;
 
+            const poCreateImmediate = Math.max(0, (maxStock + openSODue) - (stockQty + openPO));
+            const poCreateImmediateVal = poCreateImmediate * rate;
+
+            const poCreateSchedule = Math.max(0, poCreateQty - poCreateImmediate);
+            const poCreateScheduleVal = poCreateSchedule * rate;
+
             return {
                 description,
                 fastRunner,
@@ -299,6 +305,10 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 maxStock,
                 poCreateQty,
                 poCreateVal,
+                poCreateImmediate,
+                poCreateImmediateVal,
+                poCreateSchedule,
+                poCreateScheduleVal,
                 make: getMergedMakeName(mat?.make || ''),
                 group: mat?.materialGroup || ''
             };
@@ -428,28 +438,32 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 'Stock Amount': Math.round(r.stockVal || 0),
                 'SO Due Qty': r.openSODue,
                 'SO Sch Qty': r.openSOSch,
+                'Total SO Qty': r.openSO,
                 'Pending SO Amount': Math.round(r.openSOVal || 0),
                 'PO Due Qty': r.openPODue,
                 'PO Sch Qty': r.openPOSch,
+                'Total PO Qty': r.openPO,
                 'Pending PO Amount': Math.round(r.openPOVal || 0),
                 'Target Max Stock': r.maxStock,
                 'Current Deficiency Qty': r.currentDeficiency,
                 'Current Deficiency Amount': Math.round(r.currentDeficiencyVal || 0),
                 'PO Expedite Qty': r.poExpediteQty,
                 'PO Expedite Amount': Math.round(r.poExpediteVal || 0),
-                'PO Create Qty': r.poCreateQty,
-                'PO Create Amount': Math.round(r.poCreateVal || 0)
+                'PO Need (Immediate)': r.poCreateImmediate,
+                'PO Need (Scheduled)': r.poCreateSchedule,
+                'PO Need (Total)': r.poCreateQty,
+                'PO Need Amount': Math.round(r.poCreateVal || 0)
             }));
             const ws = XLSX.utils.json_to_sheet(data, { origin: "A2" } as any);
             
             const endRow = data.length + 2;
             ws['A1'] = { t: 's', v: 'SUBTOTALS' };
-            ['C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q'].forEach(col => {
+            ['C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U'].forEach(col => {
                 ws[`${col}1`] = { t: 'n', f: `SUBTOTAL(9, ${col}3:${col}${endRow})` };
             });
 
-            ws['!ref'] = `A1:Q${endRow}`;
-            ws['!autofilter'] = { ref: `A2:Q${endRow}` };
+            ws['!ref'] = `A1:U${endRow}`;
+            ws['!autofilter'] = { ref: `A2:U${endRow}` };
             
             // Set Column Widths
             ws['!cols'] = [
@@ -459,17 +473,21 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 { wch: 15 }, // Stock Amount
                 { wch: 15 }, // SO Due Qty
                 { wch: 15 }, // SO Sch Qty
+                { wch: 15 }, // Total SO Qty
                 { wch: 18 }, // Pending SO Amount
                 { wch: 15 }, // PO Due Qty
                 { wch: 15 }, // PO Sch Qty
+                { wch: 15 }, // Total PO Qty
                 { wch: 18 }, // Pending PO Amount
                 { wch: 18 }, // Target Max Stock
                 { wch: 22 }, // Current Deficiency Qty
                 { wch: 25 }, // Current Deficiency Amount
                 { wch: 18 }, // PO Expedite Qty
                 { wch: 20 }, // PO Expedite Amount
-                { wch: 18 }, // PO Create Qty
-                { wch: 20 }  // PO Create Amount
+                { wch: 22 }, // PO Need (Immediate)
+                { wch: 22 }, // PO Need (Scheduled)
+                { wch: 18 }, // PO Need (Total)
+                { wch: 20 }  // PO Need Amount
             ];
 
             styleExcelSheet(ws, 1);
@@ -621,12 +639,16 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                                     <th className="p-3 text-right text-blue-600 bg-slate-50">Stock</th>
                                     <th className="p-3 text-right text-amber-600 bg-slate-50" title="Sales Order Due">SO (Due)</th>
                                     <th className="p-3 text-right text-amber-600 bg-amber-50/50" title="Sales Order Scheduled">SO (Sch)</th>
+                                    <th className="p-3 text-right text-amber-700 bg-amber-100/50">Total SO</th>
                                     <th className="p-3 text-right text-indigo-600 bg-slate-50" title="Purchase Order Due">PO (Due)</th>
                                     <th className="p-3 text-right text-indigo-600 bg-indigo-50/50" title="Purchase Order Scheduled">PO (Sch)</th>
+                                    <th className="p-3 text-right text-indigo-700 bg-indigo-100/50">Total PO</th>
                                     <th className="p-3 text-right text-gray-500 bg-gray-100">Max Stock</th>
                                     <th className="p-3 text-right text-orange-600 bg-orange-50">Deficiency</th>
                                     <th className="p-3 text-right text-rose-600 bg-rose-50">PO Expedite</th>
-                                    <th className="p-3 text-right text-emerald-600 bg-emerald-50">PO Create</th>
+                                    <th className="p-3 text-right text-emerald-600 bg-emerald-50" title="Immediate Requirement">Need (Imm)</th>
+                                    <th className="p-3 text-right text-emerald-600 bg-emerald-50/50" title="Scheduled Requirement">Need (Sch)</th>
+                                    <th className="p-3 text-right text-emerald-700 bg-emerald-100/50" title="Total Requirement">Need (Total)</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -643,18 +665,24 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                                         
                                         <td className="p-3 text-xs font-black text-right bg-amber-50/20 border-r border-amber-100/50">
                                             <div className="text-amber-700">{row.openSODue > 0 ? row.openSODue.toLocaleString() : '-'}</div>
-                                            {row.openSOVal > 0 && <div className="text-[9px] font-bold text-amber-400/70 mt-0.5">₹{Math.round(row.openSOVal).toLocaleString('en-IN')}</div>}
                                         </td>
                                         <td className="p-3 text-xs font-black text-right bg-amber-50/20">
                                             <div className="text-amber-600/80">{row.openSOSch > 0 ? row.openSOSch.toLocaleString() : '-'}</div>
                                         </td>
+                                        <td className="p-3 text-xs font-black text-right bg-amber-100/30">
+                                            <div className="text-amber-800">{row.openSO > 0 ? row.openSO.toLocaleString() : '-'}</div>
+                                            {row.openSOVal > 0 && <div className="text-[9px] font-bold text-amber-500/70 mt-0.5">₹{Math.round(row.openSOVal).toLocaleString('en-IN')}</div>}
+                                        </td>
                                         
                                         <td className="p-3 text-xs font-black text-right bg-indigo-50/20 border-r border-indigo-100/50">
                                             <div className="text-indigo-700">{row.openPODue > 0 ? row.openPODue.toLocaleString() : '-'}</div>
-                                            {row.openPOVal > 0 && <div className="text-[9px] font-bold text-indigo-400/70 mt-0.5">₹{Math.round(row.openPOVal).toLocaleString('en-IN')}</div>}
                                         </td>
                                         <td className="p-3 text-xs font-black text-right bg-indigo-50/20">
                                             <div className="text-indigo-600/80">{row.openPOSch > 0 ? row.openPOSch.toLocaleString() : '-'}</div>
+                                        </td>
+                                        <td className="p-3 text-xs font-black text-right bg-indigo-100/30">
+                                            <div className="text-indigo-800">{row.openPO > 0 ? row.openPO.toLocaleString() : '-'}</div>
+                                            {row.openPOVal > 0 && <div className="text-[9px] font-bold text-indigo-500/70 mt-0.5">₹{Math.round(row.openPOVal).toLocaleString('en-IN')}</div>}
                                         </td>
                                         
                                         <td className="p-3 text-xs font-bold text-gray-500 text-right bg-gray-100/30">{row.maxStock.toLocaleString()}</td>
@@ -669,7 +697,13 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                                             {row.poExpediteVal > 0 && <div className="text-[10px] font-bold text-rose-400 mt-0.5">₹{Math.round(row.poExpediteVal).toLocaleString('en-IN')}</div>}
                                         </td>
                                         
-                                        <td className={`p-3 text-xs font-black text-right bg-emerald-50/30 ${row.poCreateQty > 0 ? 'text-emerald-600' : 'text-emerald-200'}`}>
+                                        <td className={`p-3 text-xs font-black text-right bg-emerald-50/20 ${row.poCreateImmediate > 0 ? 'text-emerald-700' : 'text-emerald-300'}`}>
+                                            <div>{row.poCreateImmediate > 0 ? row.poCreateImmediate.toLocaleString() : '-'}</div>
+                                        </td>
+                                        <td className={`p-3 text-xs font-black text-right bg-emerald-50/30 ${row.poCreateSchedule > 0 ? 'text-emerald-600' : 'text-emerald-300'}`}>
+                                            <div>{row.poCreateSchedule > 0 ? row.poCreateSchedule.toLocaleString() : '-'}</div>
+                                        </td>
+                                        <td className={`p-3 text-xs font-black text-right bg-emerald-100/50 ${row.poCreateQty > 0 ? 'text-emerald-800' : 'text-emerald-400'}`}>
                                             <div>{row.poCreateQty > 0 ? row.poCreateQty.toLocaleString() : '-'}</div>
                                             {row.poCreateVal > 0 && <div className="text-[10px] font-bold text-emerald-500 mt-0.5">₹{Math.round(row.poCreateVal).toLocaleString('en-IN')}</div>}
                                         </td>
