@@ -408,10 +408,11 @@ const App: React.FC = () => {
       onConfirm: async () => {
         setConfirmModal((prev: { isOpen: boolean; title: string; message: string; onConfirm: () => void; onCancel?: () => void; onConfirmLabel?: string; onCancelLabel?: string; isDanger?: boolean; isLoading?: boolean; }) => ({ ...prev, isLoading: true }));
         try {
-          // Delete in batches to avoid overwhelming the API
-          const BATCH = 20;
+          // Delete in batches using bulk delete
+          const BATCH = 100;
           for (let i = 0; i < toDelete.length; i += BATCH) {
-            await Promise.all(toDelete.slice(i, i + BATCH).map((m: Material) => materialService.delete(m.id)));
+            const batchIds = toDelete.slice(i, i + BATCH).map((m: Material) => m.id);
+            await materialService.deleteBulk(batchIds);
           }
           const deletedIds = new Set(toDelete.map((m: Material) => m.id));
           setMaterials((prev: Material[]) => prev.filter((m: Material) => !deletedIds.has(m.id)));

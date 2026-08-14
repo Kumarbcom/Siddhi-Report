@@ -200,6 +200,27 @@ export const materialService = {
     await dbService.delete(STORES.MATERIALS, id);
   },
 
+  async deleteBulk(ids: string[]): Promise<void> {
+    if (!ids || ids.length === 0) return;
+    if (isSupabaseConfigured) {
+      try {
+        // Supabase limits the number of items in an 'in' clause, so we should still chunk it if it's huge, 
+        // but since we'll call this in batches of 100 from the UI, it's fine.
+        const { error } = await supabase
+          .from('material_master')
+          .delete()
+          .in('id', ids);
+        if (error) throw new Error(error.message);
+      } catch (e: any) {
+        console.error("Material Master: Cloud bulk delete failed:", e?.message || e);
+        throw e;
+      }
+    }
+    for (const id of ids) {
+      await dbService.delete(STORES.MATERIALS, id);
+    }
+  },
+
   async clearAll(): Promise<void> {
     if (isSupabaseConfigured) {
       try {
