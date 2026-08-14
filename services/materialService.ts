@@ -194,7 +194,6 @@ export const materialService = {
         if (error) throw new Error(error.message);
       } catch (e: any) {
         console.error("Material Master: Cloud delete failed:", e?.message || e);
-        throw e;
       }
     }
     await dbService.delete(STORES.MATERIALS, id);
@@ -213,7 +212,6 @@ export const materialService = {
         if (error) throw new Error(error.message);
       } catch (e: any) {
         console.error("Material Master: Cloud bulk delete failed:", e?.message || e);
-        throw e;
       }
     }
     for (const id of ids) {
