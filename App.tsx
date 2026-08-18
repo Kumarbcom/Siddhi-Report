@@ -232,26 +232,46 @@ const App: React.FC = () => {
   const loadAllData = async () => {
     try {
       setIsDbLoading(true);
-      console.log('🔄 Starting data load process (Optimized)...');
+      console.log('🔄 Starting data load process...');
 
-      // 1. Load local data immediately
-      console.log('📂 Loading local data from IndexedDB...');
-      const [localMats, localCusts, localStock, localSO, localPO, localSales] = await Promise.all([
-        dbService.getAll<Material>(STORES.MATERIALS),
-        dbService.getAll<CustomerMasterItem>(STORES.CUSTOMERS),
-        dbService.getAll<ClosingStockItem>(STORES.STOCK),
-        dbService.getAll<PendingPOItem>(STORES.PO),
-        dbService.getAll<PendingSOItem>(STORES.SO),
-        dbService.getAll<SalesReportItem>(STORES.SALES)
-      ]);
+      // 1. First, attempt to sync from Supabase if configured
+      if (isSupabaseConfigured) {
+        console.log('☁️ Supabase configured, fetching fresh data from cloud...');
+        setDbStatus('connected');
+        setIsSyncing(true);
 
-      // 2. Render immediately with local data
-      setMaterials(localMats);
-      setCustomerMasterItems(localCusts);
-      setClosingStockItems(localStock);
-      setPendingSOItems(localSO);
-      setPendingPOItems(localPO);
-      setSalesReportItems(localSales);
+        try {
+          const [syncedMats, syncedCusts, syncedStock, syncedSO, syncedPO, syncedSales] = await Promise.all([
+            materialService.getAll().catch((e: any) => { console.warn("Sync Error (Materials):", e); return null; }),
+            customerService.getAll().catch((e: any) => { console.warn("Sync Error (Customers):", e); return null; }),
+            stockService.getAll().catch((e: any) => { console.warn("Sync Error (Stock):", e); return null; }),
+            soService.getAll().catch((e: any) => { console.warn("Sync Error (SO):", e); return null; }),
+            poService.getAll().catch((e: any) => { console.warn("Sync Error (PO):", e); return null; }),
+            salesService.getAll().catch((e: any) => { console.warn("Sync Error (Sales):", e); return null; })
+          ]);
+
+          // Update state with fetched data (if null, fallback to local DB)
+          if (syncedMats) setMaterials(syncedMats); else setMaterials(await dbService.getAll<Material>(STORES.MATERIALS));
+          if (syncedCusts) setCustomerMasterItems(syncedCusts); else setCustomerMasterItems(await dbService.getAll<CustomerMasterItem>(STORES.CUSTOMERS));
+          if (syncedStock) setClosingStockItems(syncedStock); else setClosingStockItems(await dbService.getAll<ClosingStockItem>(STORES.STOCK));
+          if (syncedSO) setPendingSOItems(syncedSO); else setPendingSOItems(await dbService.getAll<PendingSOItem>(STORES.SO));
+          if (syncedPO) setPendingPOItems(syncedPO); else setPendingPOItems(await dbService.getAll<PendingPOItem>(STORES.PO));
+          if (syncedSales) setSalesReportItems(syncedSales); else setSalesReportItems(await dbService.getAll<SalesReportItem>(STORES.SALES));
+
+          console.log('✅ Cloud sync complete.');
+        } catch (e: any) {
+          console.error("Cloud sync failed, falling back to local:", e);
+          setDbStatus('partial');
+          await loadLocalDataOnly();
+        } finally {
+          setIsSyncing(false);
+        }
+      } else {
+        // 2. If no Supabase, just load local
+        console.log('📂 Supabase not configured, loading local data from IndexedDB...');
+        setDbStatus('unlinked');
+        await loadLocalDataOnly();
+      }
 
       // Load stored charts data
       try {
@@ -261,56 +281,33 @@ const App: React.FC = () => {
         if (storedS3M) setSales3Months(JSON.parse(storedS3M));
       } catch (e: any) { console.error("Parse Error:", e); }
 
-      // 3. Mark app as loaded so user sees UI immediately
       setIsDataLoaded(true);
       setIsDbLoading(false);
-      console.log('🚀 UI Unblocked - Local data rendered');
+      console.log('🚀 UI Unblocked - Data rendered');
 
-      // 4. Start Cloud Sync in Background
-      if (isSupabaseConfigured) {
-        console.log('☁️ Starting background cloud sync...');
-        setDbStatus('connected');
-        setIsSyncing(true);
-
-        try {
-          // Sync all data from Supabase
-          const [syncedMats, syncedCusts, syncedStock, syncedSO, syncedPO, syncedSales] = await Promise.all([
-            materialService.getAll().catch((e: any) => { console.warn("Background Sync Error (Materials):", e); return localMats; }),
-            customerService.getAll().catch((e: any) => { console.warn("Background Sync Error (Customers):", e); return localCusts; }),
-            stockService.getAll().catch((e: any) => { console.warn("Background Sync Error (Stock):", e); return localStock; }),
-            soService.getAll().catch((e: any) => { console.warn("Background Sync Error (SO):", e); return localSO; }),
-            poService.getAll().catch((e: any) => { console.warn("Background Sync Error (PO):", e); return localPO; }),
-            salesService.getAll().catch((e: any) => {
-              console.error("Background Sync Error (Sales):", e);
-              return localSales;
-            })
-          ]);
-
-          // Update state with fresh data
-          console.log('🔄 Updating state with synced cloud data...');
-          setMaterials(syncedMats);
-          setCustomerMasterItems(syncedCusts);
-          setClosingStockItems(syncedStock);
-          setPendingSOItems(syncedSO);
-          setPendingPOItems(syncedPO);
-          setSalesReportItems(syncedSales);
-
-          console.log('✅ Background sync complete.');
-        } catch (e: any) {
-          console.error("Background sync failed:", e);
-          setDbStatus('partial');
-        } finally {
-          setIsSyncing(false);
-        }
-      } else {
-        setDbStatus('unlinked');
-      }
     } catch (e: any) {
       console.error("Critical Load Error:", e);
       setDbStatus('error');
       setIsDataLoaded(true);
       setIsDbLoading(false);
     }
+  };
+
+  const loadLocalDataOnly = async () => {
+    const [localMats, localCusts, localStock, localSO, localPO, localSales] = await Promise.all([
+      dbService.getAll<Material>(STORES.MATERIALS),
+      dbService.getAll<CustomerMasterItem>(STORES.CUSTOMERS),
+      dbService.getAll<ClosingStockItem>(STORES.STOCK),
+      dbService.getAll<PendingPOItem>(STORES.PO),
+      dbService.getAll<PendingSOItem>(STORES.SO),
+      dbService.getAll<SalesReportItem>(STORES.SALES)
+    ]);
+    setMaterials(localMats);
+    setCustomerMasterItems(localCusts);
+    setClosingStockItems(localStock);
+    setPendingSOItems(localSO);
+    setPendingPOItems(localPO);
+    setSalesReportItems(localSales);
   };
 
   useEffect(() => { loadAllData(); }, []);
