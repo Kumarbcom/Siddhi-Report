@@ -237,72 +237,79 @@ const InventoryCalculatorView: React.FC<InventoryCalculatorViewProps> = ({
       {/* Table Area */}
       <div className="flex-1 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
         <div className="overflow-x-auto flex-1 custom-scrollbar">
-          <table className="min-w-full text-sm text-left">
-            <thead className="bg-slate-50 sticky top-0 z-10 text-xs text-slate-500 uppercase font-semibold">
+          <table className="min-w-full text-[11px] text-right border-collapse border border-gray-300">
+            <thead className="bg-slate-100 sticky top-0 z-10 text-slate-700 font-bold shadow-sm">
               <tr>
-                <th className="px-4 py-3 border-b">Part Number / Description</th>
-                <th className="px-4 py-3 border-b text-center">Class</th>
-                <th className="px-4 py-3 border-b text-right">Cons. (Wk)<br/><span className="text-[9px]">Max/Avg/Min</span></th>
-                <th className="px-4 py-3 border-b text-right">LT (Wks)<br/><span className="text-[9px]">Max/Avg/Min</span></th>
-                <th className="px-4 py-3 border-b text-right">ROL</th>
-                <th className="px-4 py-3 border-b text-right">Levels<br/><span className="text-[9px]">Min/Max/Avg</span></th>
-                <th className="px-4 py-3 border-b text-right text-red-500">Danger</th>
-                <th className="px-4 py-3 border-b text-right">EOQ</th>
-                <th className="px-4 py-3 border-b text-right bg-blue-50">Stock<br/><span className="text-[9px]">Cur/PO/SO</span></th>
-                <th className="px-4 py-3 border-b text-right bg-blue-50 font-bold">Effective</th>
-                <th className="px-4 py-3 border-b text-center">Status</th>
+                <th className="px-2 py-1.5 border border-gray-300 text-left w-24">Part No</th>
+                <th className="px-2 py-1.5 border border-gray-300 text-left min-w-[150px]">Description</th>
+                <th className="px-2 py-1.5 border border-gray-300 text-center">Class</th>
+                <th className="px-2 py-1.5 border border-gray-300 bg-amber-50" title="Max Weekly Consumption">Max<br/>Cons.</th>
+                <th className="px-2 py-1.5 border border-gray-300 bg-amber-50" title="Avg Weekly Consumption">Avg<br/>Cons.</th>
+                <th className="px-2 py-1.5 border border-gray-300 bg-amber-50" title="Min Weekly Consumption">Min<br/>Cons.</th>
+                <th className="px-2 py-1.5 border border-gray-300" title="Max Lead Time (Weeks)">Max<br/>LT</th>
+                <th className="px-2 py-1.5 border border-gray-300" title="Avg Lead Time (Weeks)">Avg<br/>LT</th>
+                <th className="px-2 py-1.5 border border-gray-300" title="Min Lead Time (Weeks)">Min<br/>LT</th>
+                <th className="px-2 py-1.5 border border-gray-300 bg-green-50 text-green-800">ROL</th>
+                <th className="px-2 py-1.5 border border-gray-300 bg-blue-50">Min<br/>Level</th>
+                <th className="px-2 py-1.5 border border-gray-300 bg-blue-50">Max<br/>Level</th>
+                <th className="px-2 py-1.5 border border-gray-300 bg-blue-50">Avg<br/>Level</th>
+                <th className="px-2 py-1.5 border border-gray-300 bg-red-50 text-red-800">Danger<br/>Level</th>
+                <th className="px-2 py-1.5 border border-gray-300 text-indigo-700">EOQ</th>
+                <th className="px-2 py-1.5 border border-gray-300">Current<br/>Stock</th>
+                <th className="px-2 py-1.5 border border-gray-300">Open<br/>SO</th>
+                <th className="px-2 py-1.5 border border-gray-300">Open<br/>PO</th>
+                <th className="px-2 py-1.5 border border-gray-300 bg-indigo-50 font-black">Effective<br/>Stock</th>
+                <th className="px-2 py-1.5 border border-gray-300 text-center">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-gray-200">
               {filteredData.map((row) => (
                 <React.Fragment key={row.material.id}>
                   <tr 
-                    className="hover:bg-gray-50 transition-colors cursor-pointer"
+                    className="hover:bg-blue-50 transition-colors cursor-pointer bg-white"
                     onClick={() => setExpandedRow(expandedRow === row.material.id ? null : row.material.id)}
                   >
-                    <td className="px-4 py-2">
-                      <div className="font-bold text-gray-800">{row.material.partNo || '-'}</div>
-                      <div className="text-xs text-gray-500 truncate max-w-[200px]" title={row.material.description}>{row.material.description}</div>
+                    <td className="px-2 py-1.5 border border-gray-200 text-left font-bold text-slate-800 whitespace-nowrap">{row.material.partNo || '-'}</td>
+                    <td className="px-2 py-1.5 border border-gray-200 text-left text-slate-600 truncate max-w-[200px]" title={row.material.description}>{row.material.description}</td>
+                    <td className="px-2 py-1.5 border border-gray-200 text-center whitespace-nowrap">
+                      <span className={`inline-block px-1 py-0.5 rounded text-[9px] font-bold ${row.abcClass==='A'?'bg-green-100 text-green-700':row.abcClass==='B'?'bg-blue-100 text-blue-700':'bg-gray-100 text-gray-600'}`}>{row.abcClass}</span>
+                      <span className={`ml-0.5 inline-block px-1 py-0.5 rounded text-[9px] font-bold ${row.xyzClass==='X'?'bg-emerald-100 text-emerald-700':row.xyzClass==='Y'?'bg-amber-100 text-amber-700':'bg-red-100 text-red-700'}`}>{row.xyzClass}</span>
                     </td>
-                    <td className="px-4 py-2 text-center">
-                      <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${row.abcClass==='A'?'bg-green-100 text-green-700':row.abcClass==='B'?'bg-blue-100 text-blue-700':'bg-gray-100 text-gray-600'}`}>{row.abcClass}</span>
-                      <span className={`ml-1 inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${row.xyzClass==='X'?'bg-emerald-100 text-emerald-700':row.xyzClass==='Y'?'bg-amber-100 text-amber-700':'bg-red-100 text-red-700'}`}>{row.xyzClass}</span>
-                    </td>
-                    <td className="px-4 py-2 text-right text-xs">
-                      <div className="font-medium">{row.maxConsumption} / {row.avgConsumption} / {row.minConsumption}</div>
-                    </td>
-                    <td className="px-4 py-2 text-right text-xs">
-                      <div className="font-medium text-slate-500">{row.leadTimes.max} / {row.leadTimes.avg} / {row.leadTimes.min}</div>
-                    </td>
-                    <td className="px-4 py-2 text-right font-bold text-indigo-600">
-                      {row.rol}
-                    </td>
-                    <td className="px-4 py-2 text-right text-xs">
-                      <div className="font-medium">{row.minStock} / {row.maxStock} / {row.averageStock}</div>
-                    </td>
-                    <td className="px-4 py-2 text-right font-bold text-red-500">
-                      {row.dangerLevel}
-                    </td>
-                    <td className="px-4 py-2 text-right font-bold text-blue-600">
-                      {row.eoq}
-                    </td>
-                    <td className="px-4 py-2 text-right text-xs bg-blue-50/30">
-                      <div className="font-medium">{row.currentStock} / {row.pendingPO} / {row.pendingSO}</div>
-                    </td>
-                    <td className="px-4 py-2 text-right font-black text-blue-700 bg-blue-50/50">
-                      {row.effectiveStock}
-                    </td>
-                    <td className="px-4 py-2 text-center">
-                      {row.status === 'Critical' && <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-red-100 text-red-700 px-2 py-1 rounded-full"><AlertTriangle className="w-3 h-3"/> Critical</span>}
-                      {row.status === 'Reorder Required' && <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-1 rounded-full"><AlertTriangle className="w-3 h-3"/> Reorder</span>}
-                      {row.status === 'Healthy' && <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-green-100 text-green-700 px-2 py-1 rounded-full"><CheckCircle className="w-3 h-3"/> Healthy</span>}
-                      {row.status === 'Overstock' && <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-purple-100 text-purple-700 px-2 py-1 rounded-full"><TrendingUp className="w-3 h-3"/> Overstock</span>}
-                      {row.status === 'No Data' && <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-gray-100 text-gray-500 px-2 py-1 rounded-full">No Data</span>}
+                    <td className="px-2 py-1.5 border border-gray-200 bg-amber-50/30 font-medium">{row.maxConsumption}</td>
+                    <td className="px-2 py-1.5 border border-gray-200 bg-amber-50/30 font-medium">{row.avgConsumption}</td>
+                    <td className="px-2 py-1.5 border border-gray-200 bg-amber-50/30 font-medium">{row.minConsumption}</td>
+                    
+                    <td className="px-2 py-1.5 border border-gray-200 text-slate-500">{row.leadTimes.max}</td>
+                    <td className="px-2 py-1.5 border border-gray-200 text-slate-500">{row.leadTimes.avg}</td>
+                    <td className="px-2 py-1.5 border border-gray-200 text-slate-500">{row.leadTimes.min}</td>
+                    
+                    <td className="px-2 py-1.5 border border-gray-200 font-bold text-green-700 bg-green-50/50">{row.rol}</td>
+                    
+                    <td className="px-2 py-1.5 border border-gray-200 bg-blue-50/30">{row.minStock}</td>
+                    <td className="px-2 py-1.5 border border-gray-200 bg-blue-50/30">{row.maxStock}</td>
+                    <td className="px-2 py-1.5 border border-gray-200 bg-blue-50/30">{row.averageStock}</td>
+                    
+                    <td className="px-2 py-1.5 border border-gray-200 font-bold text-red-600 bg-red-50/30">{row.dangerLevel}</td>
+                    
+                    <td className="px-2 py-1.5 border border-gray-200 font-bold text-indigo-600">{row.eoq}</td>
+                    
+                    <td className="px-2 py-1.5 border border-gray-200 font-medium text-slate-700">{row.currentStock}</td>
+                    <td className="px-2 py-1.5 border border-gray-200 font-medium text-slate-700">{row.pendingSO}</td>
+                    <td className="px-2 py-1.5 border border-gray-200 font-medium text-slate-700">{row.pendingPO}</td>
+                    
+                    <td className="px-2 py-1.5 border border-gray-200 font-black text-indigo-800 bg-indigo-50/50">{row.effectiveStock}</td>
+                    
+                    <td className="px-2 py-1.5 border border-gray-200 text-center whitespace-nowrap">
+                      {row.status === 'Critical' && <span className="inline-flex items-center gap-1 text-[9px] font-bold bg-red-100 text-red-700 px-1.5 py-0.5 rounded-sm uppercase"><AlertTriangle className="w-2.5 h-2.5"/> Critical</span>}
+                      {row.status === 'Reorder Required' && <span className="inline-flex items-center gap-1 text-[9px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-sm uppercase"><AlertTriangle className="w-2.5 h-2.5"/> Reorder</span>}
+                      {row.status === 'Healthy' && <span className="inline-flex items-center gap-1 text-[9px] font-bold bg-green-100 text-green-700 px-1.5 py-0.5 rounded-sm uppercase"><CheckCircle className="w-2.5 h-2.5"/> Healthy</span>}
+                      {row.status === 'Overstock' && <span className="inline-flex items-center gap-1 text-[9px] font-bold bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-sm uppercase"><TrendingUp className="w-2.5 h-2.5"/> Overstock</span>}
+                      {row.status === 'No Data' && <span className="inline-flex items-center gap-1 text-[9px] font-bold bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-sm uppercase">No Data</span>}
                     </td>
                   </tr>
                   {expandedRow === row.material.id && (
                     <tr>
-                      <td colSpan={11} className="bg-slate-50 p-4 border-b border-slate-200 shadow-inner">
+                      <td colSpan={20} className="bg-slate-50 p-6 border-b border-gray-300 shadow-inner">
                         <SawtoothGraph 
                           maxStock={row.maxStock} 
                           minStock={row.minStock} 
@@ -317,7 +324,7 @@ const InventoryCalculatorView: React.FC<InventoryCalculatorViewProps> = ({
                 </React.Fragment>
               ))}
               {filteredData.length === 0 && (
-                <tr><td colSpan={11} className="p-8 text-center text-gray-400">No Lapp products found.</td></tr>
+                <tr><td colSpan={20} className="p-8 text-center text-gray-400 border border-gray-200">No Lapp products found.</td></tr>
               )}
             </tbody>
           </table>
