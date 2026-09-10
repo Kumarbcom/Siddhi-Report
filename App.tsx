@@ -17,6 +17,7 @@ const AttendeeMasterView = lazy(() => import('./components/AttendeeMasterView'))
 const UserManagementView = lazy(() => import('./components/UserManagementView'));
 const PartAnalysisView = lazy(() => import('./components/PartAnalysisView'));
 const ReportsView = lazy(() => import('./components/ReportsView').then(m => ({ default: m.ReportsView })));
+const InventoryCalculatorView = lazy(() => import('./components/InventoryCalculatorView'));
 import CustomerFYAnalysisView from './components/CustomerFYAnalysisView';
 const ConfirmationModal = lazy(() => import('./components/ConfirmationModal'));
 
@@ -55,7 +56,8 @@ import {
   Download,
   PlusCircle,
   ArrowLeft,
-  Sparkles
+  Sparkles,
+  Calculator
 } from 'lucide-react';
 import { authService, User } from './services/authService';
 import { LoginView } from './components/LoginView';
@@ -91,7 +93,7 @@ const LoadingFallback = () => (
   </div>
 );
 
-type ActiveTab = 'dashboard' | 'master' | 'customerMaster' | 'closingStock' | 'pendingSO' | 'pendingPO' | 'salesReport' | 'pivotReport' | 'reports' | 'customerFYAnalysis' | 'mom' | 'attendees' | 'userManagement' | 'changePass' | 'partAnalysis';
+type ActiveTab = 'dashboard' | 'master' | 'customerMaster' | 'closingStock' | 'pendingSO' | 'pendingPO' | 'salesReport' | 'pivotReport' | 'reports' | 'customerFYAnalysis' | 'mom' | 'attendees' | 'userManagement' | 'changePass' | 'partAnalysis' | 'inventoryCalculator';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(authService.getCurrentUser());
@@ -902,6 +904,7 @@ const App: React.FC = () => {
                 <SidebarItem id="pendingPO" label="Pending PO" icon={ShoppingCart} count={pendingPOItems.length} onClick={setActiveTab} />
                 <SidebarItem id="salesReport" label="Sales Report" icon={FileBarChart} count={salesReportItems.length} onClick={setActiveTab} />
                 <SidebarItem id="customerFYAnalysis" label="Customer Analysis" icon={TrendingUp} onClick={setActiveTab} />
+                <SidebarItem id="inventoryCalculator" label="Inventory Calc" icon={Calculator} onClick={setActiveTab} />
                 <SidebarItem id="mom" label="Weekly MOM" icon={ClipboardList} onClick={setActiveTab} />
                 <SidebarItem id="attendees" label="Attendee Master" icon={UserCircle} onClick={setActiveTab} />
               </div>
@@ -1041,6 +1044,18 @@ const App: React.FC = () => {
             {activeTab === 'reports' && (
               <Suspense fallback={<LoadingFallback />}>
                 <ReportsView 
+                  materials={materials} 
+                  closingStock={closingStockItems} 
+                  pendingSO={pendingSOItems} 
+                  pendingPO={pendingPOItems} 
+                  salesReportItems={salesReportItems} 
+                />
+              </Suspense>
+            )}
+
+            {activeTab === 'inventoryCalculator' && (
+              <Suspense fallback={<LoadingFallback />}>
+                <InventoryCalculatorView 
                   materials={materials} 
                   closingStock={closingStockItems} 
                   pendingSO={pendingSOItems} 
