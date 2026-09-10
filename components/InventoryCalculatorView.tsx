@@ -53,7 +53,14 @@ const InventoryCalculatorView: React.FC<InventoryCalculatorViewProps> = ({
       let totalAnnualQty = 0;
       let totalAnnualValue = 0;
 
-      const matSales = recentSales.filter(s => s.particulars === mat.description);
+      const descKey = (mat.description || '').toLowerCase().trim();
+      const partKey = (mat.partNo || '').toLowerCase().trim();
+
+      const matSales = recentSales.filter(s => {
+        const pk = (s.particulars || '').toLowerCase().trim();
+        return pk === descKey || (partKey && pk.includes(partKey));
+      });
+
       matSales.forEach(sale => {
         const d = new Date(sale.date);
         const getWeek = (date: Date) => {
@@ -114,9 +121,17 @@ const InventoryCalculatorView: React.FC<InventoryCalculatorViewProps> = ({
       const dangerLevel = avgConsumption * leadTimes.emg;
 
       // Current Situation
-      const currentStock = closingStock.filter(c => c.description === mat.description).reduce((acc, c) => acc + c.quantity, 0);
-      const poQty = pendingPO.filter(p => p.itemName === mat.description).reduce((acc, p) => acc + p.balanceQty, 0);
-      const soQty = pendingSO.filter(s => s.itemName === mat.description).reduce((acc, s) => acc + s.balanceQty, 0);
+      const currentStock = closingStock.filter(c => (c.description || '').toLowerCase().trim() === descKey).reduce((acc, c) => acc + c.quantity, 0);
+      const poQty = pendingPO.filter(p => {
+        const pk = (p.partNo || '').toLowerCase().trim();
+        const dk = (p.itemName || '').toLowerCase().trim();
+        return pk === partKey || dk === descKey;
+      }).reduce((acc, p) => acc + p.balanceQty, 0);
+      const soQty = pendingSO.filter(s => {
+        const pk = (s.partNo || '').toLowerCase().trim();
+        const dk = (s.itemName || '').toLowerCase().trim();
+        return pk === partKey || dk === descKey;
+      }).reduce((acc, s) => acc + s.balanceQty, 0);
       
       const effectiveStock = currentStock + poQty - soQty;
 
