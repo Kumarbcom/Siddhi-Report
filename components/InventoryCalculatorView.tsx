@@ -166,15 +166,15 @@ const InventoryCalculatorView: React.FC<InventoryCalculatorViewProps> = ({
     });
 
     // ABC Classification
-    items.sort((a, b) => b.annualValue - a.annualValue);
-    const totalValueAll = items.reduce((acc, i) => acc + i.annualValue, 0);
-    let cumulativeValue = 0;
+    items.sort((a, b) => b.annualDemand - a.annualDemand);
+    const totalQtyAll = items.reduce((acc, i) => acc + i.annualDemand, 0);
+    let cumulativeQty = 0;
 
     items = items.map(item => {
-      cumulativeValue += item.annualValue;
-      const pct = totalValueAll > 0 ? (cumulativeValue / totalValueAll) : 0;
+      cumulativeQty += item.annualDemand;
+      const pct = totalQtyAll > 0 ? (cumulativeQty / totalQtyAll) : 0;
       let abcClass = 'C';
-      if (item.annualValue === 0) abcClass = 'N/A';
+      if (item.annualDemand === 0) abcClass = 'N/A';
       else if (pct <= 0.80) abcClass = 'A';
       else if (pct <= 0.95) abcClass = 'B';
       
@@ -317,6 +317,9 @@ const InventoryCalculatorView: React.FC<InventoryCalculatorViewProps> = ({
                           eoq={row.eoq} 
                           leadTimeAvg={row.leadTimes.avg} 
                           avgConsumption={row.avgConsumption} 
+                          currentStock={row.effectiveStock}
+                          averageStock={row.averageStock}
+                          status={row.status}
                         />
                       </td>
                     </tr>
