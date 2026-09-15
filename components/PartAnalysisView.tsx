@@ -595,57 +595,55 @@ const PartAnalysisView: React.FC<PartAnalysisViewProps> = ({
                                     </div>
                                 )}
                                 {activeTab === 'stock' && stockMetrics && (
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                        <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100">
-                                            <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest mb-1">Current Stock</p>
-                                            <p className="text-2xl font-black text-blue-700">{stockMetrics.currentStock.toLocaleString()}</p>
-                                        </div>
-                                        <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100">
-                                            <p className="text-[10px] font-bold text-amber-500 uppercase tracking-widest mb-1">Open SO (Due + Sch)</p>
-                                            <p className="text-2xl font-black text-amber-700">{stockMetrics.soDue.toLocaleString()} <span className="text-sm text-amber-500">+ {stockMetrics.soSch.toLocaleString()}</span></p>
-                                        </div>
-                                        <div className="bg-purple-50 p-4 rounded-2xl border border-purple-100">
-                                            <p className="text-[10px] font-bold text-purple-500 uppercase tracking-widest mb-1">Open PO (Due + Sch)</p>
-                                            <p className="text-2xl font-black text-purple-700">{stockMetrics.poDue.toLocaleString()} <span className="text-sm text-purple-500">+ {stockMetrics.poSch.toLocaleString()}</span></p>
-                                        </div>
-                                        <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100">
-                                            <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest mb-1">Calculated Stock</p>
-                                            <p className="text-2xl font-black text-emerald-700">{stockMetrics.stockCalculated.toLocaleString()}</p>
+                                    <div className="flex flex-col gap-4">
+                                        {/* Status Banner */}
+                                        <div className={`p-4 rounded-2xl border ${stockMetrics.statusColor} flex justify-between items-center shadow-sm`}>
+                                            <div>
+                                                <p className="text-[10px] font-bold uppercase tracking-widest mb-1 opacity-80">System Status</p>
+                                                <p className="text-xl font-black">{stockMetrics.status}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-[10px] font-bold uppercase tracking-widest mb-1 opacity-80">Balance to Book (Vs PO)</p>
+                                                <p className="text-2xl font-black">{Math.max(0, (stockMetrics.max - stockMetrics.netQty) - stockMetrics.totalOpenPO).toLocaleString()}</p>
+                                            </div>
                                         </div>
 
-                                        <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Net Qty (Stock - Due SO)</p>
-                                            <p className="text-2xl font-black text-gray-700">{stockMetrics.netQty.toLocaleString()}</p>
-                                        </div>
-                                        <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Avg 12M Sales</p>
-                                            <p className="text-2xl font-black text-gray-700">{stockMetrics.avg12mQty.toLocaleString(undefined, {maximumFractionDigits:1})}</p>
-                                        </div>
-                                        
-                                        <div className="col-span-2 bg-slate-50 p-4 rounded-2xl border border-slate-200 flex flex-col gap-3">
-                                            <div className="flex justify-between items-start">
-                                                <div>
-                                                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Thresholds (Min / Reorder / Max)</p>
-                                                    <p className="text-xl font-black text-slate-700">
-                                                        {stockMetrics.min.toLocaleString()} / <span className="text-amber-600">{stockMetrics.re.toLocaleString()}</span> / {stockMetrics.max.toLocaleString()}
-                                                    </p>
-                                                </div>
-                                                <div className={`px-4 py-2 rounded-xl border ${stockMetrics.statusColor}`}>
-                                                    <p className="text-[10px] font-bold uppercase tracking-widest mb-1">System Status</p>
-                                                    <p className="text-sm font-black">{stockMetrics.status}</p>
-                                                </div>
+                                        {/* Metrics Grid */}
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                            <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 flex flex-col justify-center">
+                                                <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest mb-1">Current Stock</p>
+                                                <p className="text-2xl font-black text-blue-700">{stockMetrics.currentStock.toLocaleString()}</p>
                                             </div>
-                                            <div className="flex justify-between items-center pt-3 border-t border-slate-200">
-                                                <div>
-                                                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Req. for Max Stock</p>
-                                                    <p className="text-lg font-bold text-slate-600">{Math.max(0, stockMetrics.max - stockMetrics.netQty).toLocaleString()}</p>
-                                                </div>
-                                                <div className="text-right">
-                                                    <p className="text-[10px] font-bold text-rose-500 uppercase tracking-widest mb-1">Balance to Book (vs PO)</p>
-                                                    <p className={`text-lg font-black ${Math.max(0, (stockMetrics.max - stockMetrics.netQty) - stockMetrics.totalOpenPO) > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
-                                                        {Math.max(0, (stockMetrics.max - stockMetrics.netQty) - stockMetrics.totalOpenPO).toLocaleString()}
-                                                    </p>
-                                                </div>
+                                            <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100 flex flex-col justify-center">
+                                                <p className="text-[10px] font-bold text-amber-500 uppercase tracking-widest mb-1">Open SO (Due+Sch)</p>
+                                                <p className="text-2xl font-black text-amber-700">{stockMetrics.soDue.toLocaleString()} <span className="text-sm text-amber-500">+ {stockMetrics.soSch.toLocaleString()}</span></p>
+                                            </div>
+                                            <div className="bg-purple-50 p-4 rounded-2xl border border-purple-100 flex flex-col justify-center">
+                                                <p className="text-[10px] font-bold text-purple-500 uppercase tracking-widest mb-1">Open PO (Due+Sch)</p>
+                                                <p className="text-2xl font-black text-purple-700">{stockMetrics.poDue.toLocaleString()} <span className="text-sm text-purple-500">+ {stockMetrics.poSch.toLocaleString()}</span></p>
+                                            </div>
+                                            <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100 flex flex-col justify-center">
+                                                <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest mb-1">Calculated Stock</p>
+                                                <p className="text-2xl font-black text-emerald-700">{stockMetrics.stockCalculated.toLocaleString()}</p>
+                                            </div>
+
+                                            <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100 flex flex-col justify-center">
+                                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Net Qty (Stk-Due)</p>
+                                                <p className="text-2xl font-black text-gray-700">{stockMetrics.netQty.toLocaleString()}</p>
+                                            </div>
+                                            <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100 flex flex-col justify-center">
+                                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Avg 12M Sales</p>
+                                                <p className="text-2xl font-black text-gray-700">{stockMetrics.avg12mQty.toLocaleString(undefined, {maximumFractionDigits:1})}</p>
+                                            </div>
+                                            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex flex-col justify-center">
+                                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Min / ROL / Max</p>
+                                                <p className="text-lg font-black text-slate-700">
+                                                    {stockMetrics.min.toLocaleString()} <span className="text-slate-400 font-normal">/</span> <span className="text-amber-600">{stockMetrics.re.toLocaleString()}</span> <span className="text-slate-400 font-normal">/</span> {stockMetrics.max.toLocaleString()}
+                                                </p>
+                                            </div>
+                                            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex flex-col justify-center">
+                                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Req. for Max Stock</p>
+                                                <p className="text-2xl font-black text-slate-700">{Math.max(0, stockMetrics.max - stockMetrics.netQty).toLocaleString()}</p>
                                             </div>
                                         </div>
                                     </div>
