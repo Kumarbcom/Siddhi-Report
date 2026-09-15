@@ -84,6 +84,7 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
     const [searchTerm, setSearchTerm] = useState('');
     const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' } | null>(null);
     const [actionFilter, setActionFilter] = useState<PlanningActionFilter>('ALL');
+    const [targetDate, setTargetDate] = useState<string>(new Date().toISOString().split('T')[0]);
     const [quickAddModal, setQuickAddModal] = useState<{ isOpen: boolean; item: PendingPOItem | null }>({ isOpen: false, item: null });
     const [quickAddForm, setQuickAddForm] = useState<{ description: string; partNo: string; make: string; materialGroup: string; materialCode: string }>({ description: '', partNo: '', make: '', materialGroup: '', materialCode: '' });
     const [isAddingMaster, setIsAddingMaster] = useState(false);
@@ -223,17 +224,18 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
 
     const optimizationStats = useMemo(() => {
         let eVal = 0, eCount = 0, nVal = 0, nCount = 0, xVal = 0, xCount = 0, dueVal = 0;
-        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const targetDateObj = new Date(targetDate);
+        targetDateObj.setHours(23, 59, 59, 999);
 
         supplyMap.forEach((v) => {
             if (v.poNeed > 0) { nVal += v.poNeed * v.rate; nCount++; }
             if (v.expedite > 0) { eVal += v.expedite * v.rate; eCount++; }
             if (v.excessPO > 0) { xVal += v.excessPO * v.rate; xCount++; }
         });
-        items.forEach(i => { if (i.dueDate && parseDate(i.dueDate) < today) dueVal += i.value; });
+        items.forEach(i => { if (i.dueDate && parseDate(i.dueDate).getTime() <= targetDateObj.getTime()) dueVal += i.value; });
 
         return { excess: { val: xVal, count: xCount }, need: { val: nVal, count: nCount }, expedite: { val: eVal, count: eCount }, overdue: { val: dueVal } };
-    }, [items, supplyMap]);
+    }, [items, supplyMap, targetDate]);
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]; if (!file) return;
@@ -281,12 +283,14 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
 
     const processedItems = useMemo(() => {
         let data = [...itemsWithSearch];
-        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const targetDateObj = new Date(targetDate);
+        targetDateObj.setHours(23, 59, 59, 999);
+        
         if (actionFilter !== 'ALL') {
             if (actionFilter === 'NEED_PLACE') data = data.filter(i => (supplyMap.get(i.itemName.toLowerCase().trim())?.poNeed || 0) > 0);
             else if (actionFilter === 'EXPEDITE') data = data.filter(i => (supplyMap.get(i.itemName.toLowerCase().trim())?.expedite || 0) > 0);
             else if (actionFilter === 'EXCESS') data = data.filter(i => (supplyMap.get(i.itemName.toLowerCase().trim())?.excessPO || 0) > 0);
-            else if (actionFilter === 'OVERDUE') data = data.filter(i => i.dueDate && parseDate(i.dueDate) < today);
+            else if (actionFilter === 'OVERDUE') data = data.filter(i => i.dueDate && parseDate(i.dueDate).getTime() <= targetDateObj.getTime());
         }
         if (deferredSearchTerm) {
             const words = deferredSearchTerm.toLowerCase().split(/\s+/).filter(Boolean);
@@ -347,7 +351,13 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
                         )}
                     </div>
                 </div>
-                <div className="relative"><div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Search className="h-3.5 w-3.5 text-gray-400" /></div><input type="text" placeholder="Search POs..." className="pl-9 pr-3 py-1.5 w-full border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-orange-500 outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div>
+                <div className="flex items-center gap-2">
+                    <div className="relative flex-1"><div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Search className="h-3.5 w-3.5 text-gray-400" /></div><input type="text" placeholder="Search POs..." className="pl-9 pr-3 py-1.5 w-full border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-orange-500 outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div>
+                    <div className="flex items-center gap-1.5 bg-gray-50 px-2 py-1.5 rounded-lg border border-gray-200">
+                        <span className="text-[10px] font-bold text-gray-500 uppercase">Due Cutoff:</span>
+                        <input type="date" className="border-none bg-transparent text-xs font-semibold text-gray-700 focus:outline-none" value={targetDate} onChange={(e) => setTargetDate(e.target.value)} />
+                    </div>
+                </div>
             </div>
 
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col flex-1 min-h-0">
@@ -371,7 +381,9 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
                             {processedItems.length === 0 ? (<tr><td colSpan={isAdmin ? 9 : 8} className="py-8 text-center text-gray-500 text-xs">No records found.</td></tr>) : (
                                 processedItems.map(item => {
                                     const strat = supplyMap.get(item.itemName.toLowerCase().trim());
-                                    const isDue = item.dueDate && parseDate(item.dueDate).getTime() <= new Date().setHours(0,0,0,0);
+                                    const targetDateObj = new Date(targetDate);
+                                    targetDateObj.setHours(23, 59, 59, 999);
+                                    const isDue = item.dueDate && parseDate(item.dueDate).getTime() <= targetDateObj.getTime();
                                     return (
                                         <tr key={item.id} className="hover:bg-orange-50/20 transition-colors">
                                             <td className="py-2 px-3 whitespace-nowrap">{formatDateDisplay(item.date)}</td>

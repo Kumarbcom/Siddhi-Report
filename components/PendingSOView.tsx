@@ -35,6 +35,7 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
     const [searchTerm, setSearchTerm] = useState('');
     const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' } | null>(null);
     const [supplyFilter, setSupplyFilter] = useState<SupplyStatusFilter>('ALL');
+    const [targetDate, setTargetDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
     // Edit State
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -142,8 +143,8 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
     const formatCurrency = (val: number) => `Rs. ${Math.round(val).toLocaleString('en-IN')}`;
 
     const itemsWithStockLogic = useMemo(() => {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        const targetDateObj = new Date(targetDate);
+        targetDateObj.setHours(23, 59, 59, 999);
 
         const safeItems = items || [];
         const safeMaterials = materials || [];
@@ -199,7 +200,7 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
             let runningStock = totalOnShelf;
             groupOrders.forEach(order => {
                 const dueDate = parseDate(order.dueDate);
-                const isDue = (dueDate.getTime() > 0 && dueDate <= today) || (order.overDueDays || 0) > 0;
+                const isDue = (dueDate.getTime() > 0 && dueDate.getTime() <= targetDateObj.getTime());
                 const deliveryClass = isDue ? 'due' : 'scheduled';
 
                 const needed = order.balanceQty || 0;
@@ -219,7 +220,7 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
             const logic = stockResults.get(item.id) || { totalStock: 0, allocated: 0, shortage: item.balanceQty, supplyStatus: 'none', deliveryClass: 'scheduled' };
             return { ...item, ...logic };
         });
-    }, [items, closingStockItems, materials]);
+    }, [items, closingStockItems, materials, targetDate]);
 
     const handleSort = (key: SortKey) => { let direction: 'asc' | 'desc' = 'asc'; if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc'; setSortConfig({ key, direction }); };
 
@@ -486,15 +487,21 @@ const PendingSOView: React.FC<PendingSOViewProps> = ({
                 </div>
 
                 <div className="flex flex-col lg:flex-row gap-3">
-                    <div className="relative flex-1">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Search className="h-3.5 w-3.5 text-gray-400" /></div>
-                        <input type="text" placeholder="Search orders..." className="pl-9 pr-24 py-1.5 w-full border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-                        {deferredSearchTerm !== searchTerm && (
-                            <div className="absolute inset-y-0 right-3 flex items-center gap-1.5 text-[10px] text-blue-500 font-bold animate-pulse">
-                                <Loader2 className="w-3 h-3 animate-spin" />
-                                <span>Filtering...</span>
-                            </div>
-                        )}
+                    <div className="relative flex-1 flex gap-2">
+                        <div className="relative flex-1">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Search className="h-3.5 w-3.5 text-gray-400" /></div>
+                            <input type="text" placeholder="Search orders..." className="pl-9 pr-24 py-1.5 w-full border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                            {deferredSearchTerm !== searchTerm && (
+                                <div className="absolute inset-y-0 right-3 flex items-center gap-1.5 text-[10px] text-blue-500 font-bold animate-pulse">
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                    <span>Filtering...</span>
+                                </div>
+                            )}
+                        </div>
+                        <div className="flex items-center gap-1.5 bg-gray-50 px-2 py-1.5 rounded-lg border border-gray-200 shrink-0">
+                            <span className="text-[10px] font-bold text-gray-500 uppercase">Due Cutoff:</span>
+                            <input type="date" className="border-none bg-transparent text-xs font-semibold text-gray-700 focus:outline-none" value={targetDate} onChange={(e) => setTargetDate(e.target.value)} />
+                        </div>
                     </div>
                     <div className="flex bg-gray-100 p-1 rounded-lg border border-gray-200 overflow-x-auto">
                         {(['ALL', 'DUE', 'SCHEDULED', 'READY', 'SHORTAGE'] as SupplyStatusFilter[]).map(f => (
