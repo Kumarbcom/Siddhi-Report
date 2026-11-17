@@ -68,20 +68,17 @@ export const salesService = {
       console.log('☁️ Supabase is configured, fetching from cloud...');
       try {
         const PAGE_SIZE = 1000;
-        console.log(`📄 Fetching first page (PAGE_SIZE: ${PAGE_SIZE})...`);
+        const SELECT_FIELDS = 'id, date, customer_name, particulars, consignee, voucher_no, voucher_ref_no, quantity, value, created_at';
 
-        // Fetch first page. Note: We don't strictly rely on 'count' as it can be blocked by RLS.
-        const { data: firstPage, error: firstError } = await supabase
+        // Fetch first page and get total count simultaneously
+        const { data: firstPage, error: firstError, count } = await supabase
           .from('sales_report')
-          .select('*')
-          .order('date', { ascending: false })
-          .order('voucher_no', { ascending: false })
+          .select(SELECT_FIELDS, { count: 'exact' })
           .order('id', { ascending: true })
           .range(0, PAGE_SIZE - 1);
 
         if (firstError) {
           console.error('❌ Error fetching first page:', firstError);
-          // If permission denied (RLS), we should know
           if (firstError.code === '42501') {
             console.error('⛔ PERMISSION DENIED: Check Supabase RLS policies for sales_report table.');
             alert("Sync Error: Permission Denied. Please check database access rights.");
@@ -90,46 +87,51 @@ export const salesService = {
         }
 
         const initialData = firstPage || [];
-        console.log(`✅ First page fetched. Items: ${initialData.length}`);
-
         const allData: any[] = [...initialData];
+        const totalItems = count || 0;
+        console.log(`✅ First page fetched (${initialData.length} items). Total count: ${totalItems}`);
 
-        // If we got a full page, there might be more. Fetch simply by iterating.
-        if (initialData.length === PAGE_SIZE) {
-          console.log(`📚 Full page detected. Fetching remaining pages...`);
+        if (totalItems > PAGE_SIZE) {
+          const totalPages = Math.ceil(totalItems / PAGE_SIZE);
+          const pageIndices: number[] = [];
+          for (let p = 1; p < totalPages; p++) {
+            pageIndices.push(p);
+          }
+
+          // Fetch remaining pages in parallel chunks of 15 requests for ultra-fast loading
+          const CONCURRENCY = 15;
+          for (let i = 0; i < pageIndices.length; i += CONCURRENCY) {
+            const chunk = pageIndices.slice(i, i + CONCURRENCY);
+            const results = await Promise.all(
+              chunk.map(p =>
+                supabase
+                  .from('sales_report')
+                  .select(SELECT_FIELDS)
+                  .order('id', { ascending: true })
+                  .range(p * PAGE_SIZE, (p + 1) * PAGE_SIZE - 1)
+              )
+            );
+
+            for (const res of results) {
+              if (res.error) throw new Error(res.error.message);
+              if (res.data) allData.push(...res.data);
+            }
+          }
+        } else if (!totalItems && initialData.length === PAGE_SIZE) {
+          // Fallback if count wasn't returned by RLS
           let page = 1;
           let hasMore = true;
-
-          while (hasMore) {
-            console.log(`🔄 Fetching page ${page + 1}...`);
+          while (hasMore && page < 100) {
             const { data: nextPage, error: nextError } = await supabase
               .from('sales_report')
-              .select('*')
-              .order('date', { ascending: false })
-              .order('voucher_no', { ascending: false })
+              .select(SELECT_FIELDS)
               .order('id', { ascending: true })
               .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
-            if (nextError) {
-              console.error(`❌ Error fetching page ${page + 1}:`, nextError);
-              break; // Stop fetching but save what we have
-            }
-
-            if (nextPage && nextPage.length > 0) {
-              allData.push(...nextPage);
-              console.log(`✅ Page ${page + 1} fetched. Items: ${nextPage.length}`);
-              page++;
-              // If this page is partially full, it's the last one
-              if (nextPage.length < PAGE_SIZE) hasMore = false;
-            } else {
-              hasMore = false;
-            }
-
-            // Safety break for extremely large datasets (limit to 100k for now to prevent loops)
-            if (page > 100) {
-              console.warn("⚠️ Reached 100 pages limit. Stopping fetch.");
-              hasMore = false;
-            }
+            if (nextError || !nextPage || nextPage.length === 0) break;
+            allData.push(...nextPage);
+            if (nextPage.length < PAGE_SIZE) hasMore = false;
+            page++;
           }
         }
 
@@ -151,6 +153,14 @@ export const salesService = {
             value: Number(row.value) || 0,
             createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now()
           }));
+
+          // Sort in-memory by date descending, then voucherNo descending
+          synced.sort((a, b) => {
+            const dA = a.date || '';
+            const dB = b.date || '';
+            if (dA !== dB) return dB.localeCompare(dA);
+            return (b.voucherNo || '').localeCompare(a.voucherNo || '');
+          });
 
           // Clear local cache completely to remove any stale or duplicate local records
           await dbService.clear(STORES.SALES);

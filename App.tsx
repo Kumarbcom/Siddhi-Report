@@ -133,6 +133,7 @@ const App: React.FC = () => {
 
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [isDbLoading, setIsDbLoading] = useState(true);
+  const [dbLoadMessage, setDbLoadMessage] = useState('Starting System...');
   const [dbStatus, setDbStatus] = useState<'connected' | 'partial' | 'error' | 'unlinked'>(
     isSupabaseConfigured ? 'connected' : 'unlinked'
   );
@@ -246,6 +247,7 @@ const App: React.FC = () => {
         console.log('☁️ Supabase configured, fetching fresh data from cloud...');
         setDbStatus('connected');
         setIsSyncing(true);
+        setDbLoadMessage('Loading cloud data...');
 
         try {
           const [syncedMats, syncedCusts, syncedStock, syncedSO, syncedPO, syncedSales] = await Promise.all([
@@ -856,7 +858,7 @@ const App: React.FC = () => {
           <div className="absolute inset-0 flex items-center justify-center"><Database className="w-8 h-8 text-blue-600 animate-pulse" /></div>
         </div>
         <h2 className="mt-8 text-2xl font-black text-gray-900 uppercase tracking-tighter">Siddhi Kabel</h2>
-        <div className="mt-2 flex items-center gap-2 text-sm text-gray-500 font-bold uppercase tracking-widest"><Loader2 className="w-4 h-4 animate-spin" /><span>Starting System...</span></div>
+        <div className="mt-2 flex items-center gap-2 text-sm text-gray-500 font-bold uppercase tracking-widest"><Loader2 className="w-4 h-4 animate-spin" /><span>{dbLoadMessage}</span></div>
       </div>
     );
   }
