@@ -130,11 +130,13 @@ export const customerService = {
           if (error) throw new Error(error.message);
         }
       } catch (e: any) {
-        console.error("Customer Master: Sync failed:", e?.message || e);
+        console.error("Customer Master: Supabase upload failed:", e?.message || e);
+        throw e;
       }
+    } else {
+      throw new Error("Supabase is not configured. Cannot save to cloud database.");
     }
 
-    await dbService.putBatch(STORES.CUSTOMERS, newItems);
     return newItems;
   },
 

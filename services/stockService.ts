@@ -85,9 +85,9 @@ export const stockService = {
         const rows = newItems.map(i => ({
           id: i.id,
           description: i.description,
-          quantity: i.quantity,
-          rate: i.rate,
-          value: i.value,
+          quantity: Number(i.quantity) || 0,
+          rate: Number(i.rate) || 0,
+          value: Number(i.value) || 0,
           created_at: new Date(i.createdAt).toISOString()
         }));
         const CHUNK_SIZE = 500;
@@ -96,11 +96,13 @@ export const stockService = {
           if (error) throw new Error(error.message);
         }
       } catch (e: any) {
-        console.error("Closing Stock: Sync failed:", e?.message || e);
+        console.error("Closing Stock: Supabase upload failed:", e?.message || e);
+        throw e;
       }
+    } else {
+      throw new Error("Supabase is not configured. Cannot save to cloud database.");
     }
 
-    await dbService.putBatch(STORES.STOCK, newItems);
     return newItems;
   },
 

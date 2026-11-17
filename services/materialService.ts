@@ -151,11 +151,13 @@ export const materialService = {
           if (error) throw new Error(error.message);
         }
       } catch (e: any) {
-        console.error("Material Master: Sync to Supabase failed:", e?.message || e);
+        console.error("Material Master: Supabase upload failed:", e?.message || e);
+        throw e;
       }
+    } else if (newItems.length > 0) {
+      throw new Error("Supabase is not configured. Cannot save to cloud database.");
     }
 
-    await dbService.putBatch(STORES.MATERIALS, newItems);
     return newItems;
   },
 

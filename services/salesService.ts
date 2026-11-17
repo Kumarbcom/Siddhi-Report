@@ -227,53 +227,49 @@ export const salesService = {
     return localData;
   },
 
-  async createBulk(items: Omit<SalesReportItem, 'id' | 'createdAt'>[]): Promise<SalesReportItem[]> {
+  async createBulk(items: Omit<SalesReportItem, 'id' | 'createdAt'>[], onProgress?: (pct: number, msg: string) => void): Promise<SalesReportItem[]> {
     const timestamp = Date.now();
     const newItems = items.map(i => ({
       ...i,
       id: getUuid(),
-      date: normalizeToISODate(i.date) || i.date,
+      date: normalizeToISODate(i.date),
       quantity: Number(i.quantity) || 0,
       value: Number(i.value) || 0,
       createdAt: timestamp
     }));
 
-    if (isSupabaseConfigured) {
-      try {
-        const CHUNK_SIZE = 500;
-        for (let i = 0; i < newItems.length; i += CHUNK_SIZE) {
-          const chunk = newItems.slice(i, i + CHUNK_SIZE).map(r => ({
-            id: r.id,
-            date: normalizeToISODate(r.date),
-            customer_name: r.customerName || '',
-            particulars: r.particulars || '',
-            consignee: r.consignee || '',
-            voucher_no: r.voucherNo || '',
-            voucher_ref_no: r.voucherRefNo || '',
-            quantity: Number(r.quantity) || 0,
-            value: Number(r.value) || 0,
-            created_at: new Date(r.createdAt).toISOString()
-          }));
-
-          const { error } = await supabase.from('sales_report').insert(chunk);
-          if (error) {
-            console.error(`❌ Cloud insert failed at chunk ${Math.floor(i / CHUNK_SIZE) + 1}:`, error);
-            throw new Error(`Cloud upload failed: ${error.message}`);
-          }
-          console.log(`☁️ Uploaded chunk ${i / CHUNK_SIZE + 1} of ${Math.ceil(newItems.length / CHUNK_SIZE)}`);
-        }
-      } catch (e: any) {
-        console.error("Sales Report: Sync to Supabase failed:", e?.message || e);
-        // Throw so caller knows cloud upload failed!
-        throw e;
-      }
+    if (!isSupabaseConfigured) {
+      throw new Error("Supabase Cloud Database is not configured. Cannot save records.");
     }
 
-    // Save to local DB in chunks too
-    const DB_CHUNK_SIZE = 2000;
-    for (let i = 0; i < newItems.length; i += DB_CHUNK_SIZE) {
-      await dbService.putBatch(STORES.SALES, newItems.slice(i, i + DB_CHUNK_SIZE) as SalesReportItem[]);
-      await new Promise(resolve => setTimeout(resolve, 0));
+    const CHUNK_SIZE = 500;
+    const totalChunks = Math.ceil(newItems.length / CHUNK_SIZE);
+    
+    for (let i = 0; i < newItems.length; i += CHUNK_SIZE) {
+      const chunk = newItems.slice(i, i + CHUNK_SIZE).map(r => ({
+        id: r.id,
+        date: normalizeToISODate(r.date),
+        customer_name: r.customerName || '',
+        particulars: r.particulars || '',
+        consignee: r.consignee || '',
+        voucher_no: r.voucherNo || '',
+        voucher_ref_no: r.voucherRefNo || '',
+        quantity: Number(r.quantity) || 0,
+        value: Number(r.value) || 0,
+        created_at: new Date(r.createdAt).toISOString()
+      }));
+
+      const chunkIndex = Math.floor(i / CHUNK_SIZE) + 1;
+      if (onProgress) {
+        onProgress(Math.round((chunkIndex / totalChunks) * 100), `Uploading batch ${chunkIndex} of ${totalChunks} directly to Supabase...`);
+      }
+
+      const { error } = await supabase.from('sales_report').insert(chunk);
+      if (error) {
+        console.error(`❌ Cloud insert failed at batch ${chunkIndex}:`, error);
+        throw new Error(`Supabase Cloud upload failed at batch ${chunkIndex}: ${error.message}`);
+      }
+      console.log(`☁️ Uploaded batch ${chunkIndex} of ${totalChunks} directly to Supabase`);
     }
 
     return newItems as SalesReportItem[];

@@ -116,11 +116,13 @@ export const soService = {
           if (error) throw new Error(error.message);
         }
       } catch (e: any) {
-        console.error("Sales Orders: Sync failed:", e?.message || e);
+        console.error("Sales Orders: Supabase upload failed:", e?.message || e);
+        throw e;
       }
+    } else {
+      throw new Error("Supabase is not configured. Cannot save to cloud database.");
     }
 
-    await dbService.putBatch(STORES.SO, newItems);
     return newItems;
   },
 
