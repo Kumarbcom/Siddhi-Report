@@ -135,76 +135,27 @@ export const salesService = {
 
         console.log(`✅ All data fetched from cloud. Total items: ${allData.length}`);
         const data = allData;
-        const synced: SalesReportItem[] = [];
 
         if (data && data.length > 0) {
-          console.log(`🔄 Transforming and Saving ${data.length} records in chunks...`);
+          console.log(`🔄 Transforming ${data.length} records from Supabase...`);
 
-          // PRESERVATION CHECK: Check if local storage has records that are NEWER or MISSING from cloud
-          const existingLocal = await dbService.getAll<SalesReportItem>(STORES.SALES);
-          let unsyncedLocal: SalesReportItem[] = [];
+          const synced: SalesReportItem[] = data.map((row: any) => ({
+            id: row.id,
+            date: row.date,
+            customerName: String(row.customer_name || ''),
+            particulars: String(row.particulars || ''),
+            consignee: String(row.consignee || ''),
+            voucherNo: String(row.voucher_no || ''),
+            voucherRefNo: String(row.voucher_ref_no || ''),
+            quantity: Number(row.quantity) || 0,
+            value: Number(row.value) || 0,
+            createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now()
+          }));
 
-          if (existingLocal && existingLocal.length > 0) {
-            // Find latest date in cloud data
-            const latestCloudDate = data.reduce((max: string, r: any) => (r.date && r.date > max ? r.date : max), '');
-            
-            // Check if local has records strictly newer than cloud's newest date
-            if (latestCloudDate) {
-              unsyncedLocal = existingLocal.filter(l => {
-                const iso = normalizeToISODate(l.date);
-                return iso ? iso > latestCloudDate : false;
-              });
-            }
-            // If local count is significantly higher, also preserve records from August 2026 onwards if cloud ends in July
-            if (unsyncedLocal.length === 0 && existingLocal.length > data.length) {
-              unsyncedLocal = existingLocal.filter(l => {
-                const iso = normalizeToISODate(l.date);
-                return iso ? iso >= '2026-08-01' : false;
-              });
-            }
-            // Fallback: If still 0 but local has more records, preserve the excess records
-            if (unsyncedLocal.length === 0 && existingLocal.length > data.length) {
-              unsyncedLocal = existingLocal.slice(data.length);
-            }
-
-            if (unsyncedLocal.length > 0) {
-              console.warn(`🛡️ Preserving ${unsyncedLocal.length} local records newer than cloud (latest cloud date: ${latestCloudDate}). They will NOT be wiped!`);
-            }
-          }
-
-          // Clear local sales store to prevent duplication of cloud records
+          // Clear local cache completely to remove any stale or duplicate local records
           await dbService.clear(STORES.SALES);
 
-          // Process in chunks to avoid blocking UI
-          const PROCESS_CHUNK_SIZE = 2000;
-          for (let i = 0; i < data.length; i += PROCESS_CHUNK_SIZE) {
-            const chunk = data.slice(i, i + PROCESS_CHUNK_SIZE).map((row: any) => ({
-              id: row.id,
-              date: row.date,
-              customerName: String(row.customer_name || ''),
-              particulars: String(row.particulars || ''),
-              consignee: String(row.consignee || ''),
-              voucherNo: String(row.voucher_no || ''),
-              voucherRefNo: String(row.voucher_ref_no || ''),
-              quantity: Number(row.quantity) || 0,
-              value: Number(row.value) || 0,
-              createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now()
-            }));
-
-            synced.push(...chunk);
-            await dbService.putBatch(STORES.SALES, chunk);
-            // Yield to main thread
-            await new Promise(resolve => setTimeout(resolve, 0));
-          }
-
-          // Re-insert preserved unsynced local records so user NEVER loses their locally updated data
-          if (unsyncedLocal.length > 0) {
-            console.log(`💾 Restoring ${unsyncedLocal.length} preserved local records to IndexedDB...`);
-            await dbService.putBatch(STORES.SALES, unsyncedLocal);
-            synced.push(...unsyncedLocal);
-          }
-
-          console.log(`✅ Sales data saved to IndexedDB successfully. Total active records: ${synced.length}`);
+          console.log(`✅ Loaded ${synced.length} records directly from Supabase Cloud`);
           return synced;
         } else {
           console.warn('⚠️ No data returned from Supabase [Empty Table or RLS Restriction]');
@@ -219,12 +170,10 @@ export const salesService = {
       }
     } else {
       console.log('📴 Supabase not configured, using local data');
+      return dbService.getAll<SalesReportItem>(STORES.SALES);
     }
 
-    console.log('📂 Fetching from IndexedDB...');
-    const localData = await dbService.getAll<SalesReportItem>(STORES.SALES);
-    console.log(`📊 Returning ${localData.length} records from IndexedDB`);
-    return localData;
+    return [];
   },
 
   async createBulk(items: Omit<SalesReportItem, 'id' | 'createdAt'>[], onProgress?: (pct: number, msg: string) => void): Promise<SalesReportItem[]> {

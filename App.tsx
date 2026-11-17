@@ -994,7 +994,7 @@ const App: React.FC = () => {
                 isSyncing 
                   ? 'bg-blue-50 border-blue-200 text-blue-700'
                   : dbStatus === 'connected' 
-                  ? (salesReportItems.length > 89365 ? 'bg-amber-500 border-amber-600 text-white animate-bounce' : 'bg-green-50 border-green-200 text-green-700')
+                  ? 'bg-green-50 border-green-200 text-green-700'
                   : dbStatus === 'partial' 
                   ? 'bg-yellow-50 border-yellow-200 text-yellow-700'
                   : dbStatus === 'error'
@@ -1005,11 +1005,11 @@ const App: React.FC = () => {
             >
               <div className={`w-2 h-2 rounded-full ${
                 isSyncing ? 'bg-blue-500 animate-pulse' : 
-                dbStatus === 'connected' ? (salesReportItems.length > 89365 ? 'bg-white' : 'bg-green-500') : 
+                dbStatus === 'connected' ? 'bg-green-500' : 
                 dbStatus === 'partial' ? 'bg-yellow-500' : 
                 dbStatus === 'error' ? 'bg-red-500' : 'bg-gray-400'
               }`} />
-              <span>{isSyncing ? 'Syncing...' : dbStatus === 'connected' ? (salesReportItems.length > 89365 ? '⚠️ Sync Needed' : 'Cloud Synced') : dbStatus === 'partial' ? 'Partial Sync' : dbStatus === 'error' ? 'Sync Error' : 'Local Only'}</span>
+              <span>{isSyncing ? 'Syncing...' : dbStatus === 'connected' ? 'Cloud Synced' : dbStatus === 'partial' ? 'Partial Sync' : dbStatus === 'error' ? 'Sync Error' : 'Local Only'}</span>
               <CloudUpload className="w-3.5 h-3.5 ml-0.5" />
             </button>
             <button
@@ -1039,25 +1039,6 @@ const App: React.FC = () => {
             </div>
           </div>
         </header>
-
-        {/* Unsynced Cloud Banner */}
-        {salesReportItems.length > 89365 && (
-          <div className="bg-amber-600 text-white px-4 py-2.5 flex flex-col sm:flex-row items-center justify-between text-xs font-bold shadow-md flex-shrink-0 animate-in fade-in gap-2 z-20">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-200 animate-pulse flex-shrink-0" />
-              <span>
-                ⚠️ Cloud Sync Alert: Your browser has {salesReportItems.length.toLocaleString('en-IN')} updated sales records (₹59.39 Cr). Cloud only has 89,365 records (₹30.52 Cr). Other users will see ₹30.52 Cr until you push to cloud!
-              </span>
-            </div>
-            <button
-              onClick={() => setShowCloudSyncModal(true)}
-              className="px-3 py-1 bg-white text-amber-700 hover:bg-amber-50 rounded-lg text-xs font-black shadow flex items-center gap-1.5 flex-shrink-0 transition-all cursor-pointer"
-            >
-              <CloudUpload className="w-3.5 h-3.5" />
-              <span>Push to Cloud Now</span>
-            </button>
-          </div>
-        )}
 
         <main className={`flex-1 overflow-hidden relative ${activeTab === 'dashboard' ? 'p-0' : 'p-4'}`}>
           <div className="h-full w-full">
