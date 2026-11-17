@@ -123,7 +123,9 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
             if (!item.description) return;
             const key = item.description.toLowerCase().trim();
             const existing = stockMap.get(key) || { qty: 0, val: 0 };
-            stockMap.set(key, { qty: existing.qty + (item.quantity || 0), val: existing.val + (item.value || 0) });
+            const q = Number(item.quantity) || 0;
+            const v = Number(item.value) || 0;
+            stockMap.set(key, { qty: existing.qty + q, val: existing.val + v });
         });
 
         const soMap = new Map<string, any>();
@@ -134,12 +136,14 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
             if (!item.itemName) return;
             const key = item.itemName.toLowerCase().trim();
             const ex = soMap.get(key) || { qty: 0, val: 0, curQty: 0, curVal: 0, schQty: 0, schVal: 0 };
-            const v = (item.balanceQty || 0) * (item.rate || 0);
+            const bQty = Number(item.balanceQty) || 0;
+            const rate = Number(item.rate) || 0;
+            const v = (item.amount != null && !isNaN(Number(item.amount))) ? Number(item.amount) : bQty * rate;
             const due = item.dueDate ? parseDate(item.dueDate).getTime() : 0;
             const isCur = due <= todayT;
-            ex.qty += (item.balanceQty || 0); ex.val += v;
-            if (isCur) { ex.curQty += (item.balanceQty || 0); ex.curVal += v; }
-            else { ex.schQty += (item.balanceQty || 0); ex.schVal += v; }
+            ex.qty += bQty; ex.val += v;
+            if (isCur) { ex.curQty += bQty; ex.curVal += v; }
+            else { ex.schQty += bQty; ex.schVal += v; }
             soMap.set(key, ex);
         });
 
@@ -147,12 +151,14 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
             if (!item.itemName) return;
             const key = item.itemName.toLowerCase().trim();
             const ex = poMap.get(key) || { qty: 0, val: 0, curQty: 0, curVal: 0, schQty: 0, schVal: 0 };
-            const v = (item.balanceQty || 0) * (item.rate || 0);
+            const bQty = Number(item.balanceQty) || 0;
+            const rate = Number(item.rate) || 0;
+            const v = (item.amount != null && !isNaN(Number(item.amount))) ? Number(item.amount) : bQty * rate;
             const due = item.dueDate ? parseDate(item.dueDate).getTime() : 0;
             const isCur = due <= todayT;
-            ex.qty += (item.balanceQty || 0); ex.val += v;
-            if (isCur) { ex.curQty += (item.balanceQty || 0); ex.curVal += v; }
-            else { ex.schQty += (item.balanceQty || 0); ex.schVal += v; }
+            ex.qty += bQty; ex.val += v;
+            if (isCur) { ex.curQty += bQty; ex.curVal += v; }
+            else { ex.schQty += bQty; ex.schVal += v; }
             poMap.set(key, ex);
         });
 
@@ -365,20 +371,46 @@ const PivotReportView: React.FC<PivotReportViewProps> = ({
             });
         }
 
+        const TEXT_SORT_KEYS = new Set(['description', 'make', 'materialGroup', 'partNo', 'lappCategory', 'lappSubCategory', 'itemCategory']);
+
+        const parseNumeric = (val: any): number => {
+            if (val === null || val === undefined || val === '' || val === '-') return 0;
+            if (typeof val === 'number') return isNaN(val) ? 0 : val;
+            if (typeof val === 'string') {
+                const cleaned = val.replace(/,/g, '').trim();
+                if (!cleaned || cleaned === '-') return 0;
+                const n = parseFloat(cleaned);
+                return isNaN(n) ? 0 : n;
+            }
+            return 0;
+        };
+
         const keys = sortConfig.key.split('.');
+        const isTextCol = TEXT_SORT_KEYS.has(sortConfig.key) || TEXT_SORT_KEYS.has(keys[0]);
+
         return [...d].sort((a, b) => {
             let vA: any = a, vB: any = b;
             keys.forEach(k => { vA = vA?.[k]; vB = vB?.[k]; });
-            
-            // Handle null/undef
-            vA = vA ?? 0; vB = vB ?? 0;
 
-            if (typeof vA === 'string' && typeof vB === 'string') {
-                return sortConfig.direction === 'asc' ? vA.localeCompare(vB) : vB.localeCompare(vA);
+            if (isTextCol) {
+                const sA = String(vA ?? '').trim();
+                const sB = String(vB ?? '').trim();
+                const cmp = sA.localeCompare(sB, undefined, { numeric: true, sensitivity: 'base' });
+                return sortConfig.direction === 'asc' ? cmp : -cmp;
             }
-            const nA = Number(vA); const nB = Number(vB);
-            if (isNaN(nA) || isNaN(nB)) return 0;
-            return sortConfig.direction === 'asc' ? (nA - nB) : (nB - nA);
+
+            // Numeric column sorting: strictly compare by numerical value
+            const nA = parseNumeric(vA);
+            const nB = parseNumeric(vB);
+
+            if (nA !== nB) {
+                return sortConfig.direction === 'asc' ? nA - nB : nB - nA;
+            }
+
+            // Secondary tie-breaker by description
+            const descA = String(a.description || '');
+            const descB = String(b.description || '');
+            return descA.localeCompare(descB, undefined, { numeric: true, sensitivity: 'base' });
         });
     }, [pivotData, searchTerm, slicerMake, slicerGroup, slicerItemCategory, slicerLappCategory, slicerLappSubCategory, filterDescription, showExcessStock, showExcessPO, showPONeed, showExpedite, sortConfig]);
 

@@ -282,7 +282,22 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
                 return words.every(word => i.searchText.includes(word));
             });
         }
-        if (sortConfig) { data.sort((a, b) => { const valA = String(a[sortConfig.key] || '').toLowerCase(); const valB = String(b[sortConfig.key] || '').toLowerCase(); if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1; if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1; return 0; }); }
+        if (sortConfig) {
+            const numericKeys = new Set(['orderQty', 'balanceQty', 'rate', 'amount']);
+            const isNum = numericKeys.has(sortConfig.key as string);
+
+            data.sort((a, b) => {
+                if (isNum) {
+                    const nA = Number(a[sortConfig.key]) || 0;
+                    const nB = Number(b[sortConfig.key]) || 0;
+                    return sortConfig.direction === 'asc' ? nA - nB : nB - nA;
+                }
+                const valA = String(a[sortConfig.key] || '').toLowerCase();
+                const valB = String(b[sortConfig.key] || '').toLowerCase();
+                const cmp = valA.localeCompare(valB, undefined, { numeric: true, sensitivity: 'base' });
+                return sortConfig.direction === 'asc' ? cmp : -cmp;
+            });
+        }
         return data;
     }, [itemsWithSearch, deferredSearchTerm, sortConfig, actionFilter, supplyMap]);
 

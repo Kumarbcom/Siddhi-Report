@@ -316,6 +316,12 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                 const valA = a[sortConfig.key] as any;
                 const valB = b[sortConfig.key] as any;
 
+                if (sortConfig.key === 'quantity' || sortConfig.key === 'value') {
+                    const nA = Number(valA) || 0;
+                    const nB = Number(valB) || 0;
+                    return sortConfig.direction === 'asc' ? nA - nB : nB - nA;
+                }
+
                 if (sortConfig.key === 'voucherNo') {
                     const cmp = String(valA || '').localeCompare(String(valB || ''), undefined, { numeric: true, sensitivity: 'base' });
                     return sortConfig.direction === 'asc' ? cmp : -cmp;
