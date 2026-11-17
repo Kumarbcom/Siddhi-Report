@@ -3,6 +3,54 @@ import { supabase, isSupabaseConfigured } from './supabase';
 import { dbService, STORES } from './db';
 import { SalesReportItem } from '../types';
 
+export const normalizeToISODate = (val: any): string | null => {
+  if (!val) return null;
+  if (val instanceof Date) {
+    if (isNaN(val.getTime())) return null;
+    const y = val.getFullYear();
+    const m = String(val.getMonth() + 1).padStart(2, '0');
+    const d = String(val.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+  if (typeof val === 'number') {
+    const d = new Date((Math.round(val) - 25568) * 86400 * 1000);
+    if (isNaN(d.getTime())) return null;
+    const y = d.getUTCFullYear();
+    const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(d.getUTCDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+  const s = String(val).trim();
+  if (!s || s === 'null' || s === 'undefined' || s === '-') return null;
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+
+  const dmyMatch = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})$/);
+  if (dmyMatch) {
+    let day = parseInt(dmyMatch[1], 10);
+    let month = parseInt(dmyMatch[2], 10);
+    let year = parseInt(dmyMatch[3], 10);
+    if (year < 100) year += 2000;
+    if (month > 12 && day <= 12) {
+      const temp = day;
+      day = month;
+      month = temp;
+    }
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  }
+
+  const parsed = Date.parse(s);
+  if (!isNaN(parsed)) {
+    const d = new Date(parsed);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
+  return null;
+};
+
 const getUuid = () => {
   if (typeof window !== 'undefined' && window.crypto && window.crypto.randomUUID) {
     return window.crypto.randomUUID();
@@ -92,7 +140,29 @@ export const salesService = {
         if (data && data.length > 0) {
           console.log(`🔄 Transforming and Saving ${data.length} records in chunks...`);
 
-          // CRITICAL FIX: Clear old local data before syncing fresh cloud data
+          // PRESERVATION CHECK: Check if local storage has records that are NEWER or MISSING from cloud
+          const existingLocal = await dbService.getAll<SalesReportItem>(STORES.SALES);
+          let unsyncedLocal: SalesReportItem[] = [];
+
+          if (existingLocal && existingLocal.length > 0) {
+            // Find latest date in cloud data
+            const latestCloudDate = data.reduce((max: string, r: any) => (r.date && r.date > max ? r.date : max), '');
+            
+            // Check if local has records strictly newer than cloud's newest date
+            if (latestCloudDate) {
+              unsyncedLocal = existingLocal.filter(l => l.date && l.date > latestCloudDate);
+            }
+            // If local count is significantly higher, also preserve records from August 2026 onwards if cloud ends in July
+            if (unsyncedLocal.length === 0 && existingLocal.length > data.length) {
+              unsyncedLocal = existingLocal.filter(l => l.date && l.date >= '2026-08-01');
+            }
+
+            if (unsyncedLocal.length > 0) {
+              console.warn(`🛡️ Preserving ${unsyncedLocal.length} local records newer than cloud (latest cloud date: ${latestCloudDate}). They will NOT be wiped!`);
+            }
+          }
+
+          // Clear local sales store to prevent duplication of cloud records
           await dbService.clear(STORES.SALES);
 
           // Process in chunks to avoid blocking UI
@@ -117,8 +187,14 @@ export const salesService = {
             await new Promise(resolve => setTimeout(resolve, 0));
           }
 
-          console.log(`✅ Sales data saved to IndexedDB successfully`);
-          console.log(`📊 Returning ${synced.length} sales records`);
+          // Re-insert preserved unsynced local records so user NEVER loses their locally updated data
+          if (unsyncedLocal.length > 0) {
+            console.log(`💾 Restoring ${unsyncedLocal.length} preserved local records to IndexedDB...`);
+            await dbService.putBatch(STORES.SALES, unsyncedLocal);
+            synced.push(...unsyncedLocal);
+          }
+
+          console.log(`✅ Sales data saved to IndexedDB successfully. Total active records: ${synced.length}`);
           return synced;
         } else {
           console.warn('⚠️ No data returned from Supabase [Empty Table or RLS Restriction]');
@@ -143,7 +219,14 @@ export const salesService = {
 
   async createBulk(items: Omit<SalesReportItem, 'id' | 'createdAt'>[]): Promise<SalesReportItem[]> {
     const timestamp = Date.now();
-    const newItems = items.map(i => ({ ...i, id: getUuid(), createdAt: timestamp }));
+    const newItems = items.map(i => ({
+      ...i,
+      id: getUuid(),
+      date: normalizeToISODate(i.date) || i.date,
+      quantity: Number(i.quantity) || 0,
+      value: Number(i.value) || 0,
+      createdAt: timestamp
+    }));
 
     if (isSupabaseConfigured) {
       try {
@@ -151,23 +234,28 @@ export const salesService = {
         for (let i = 0; i < newItems.length; i += CHUNK_SIZE) {
           const chunk = newItems.slice(i, i + CHUNK_SIZE).map(r => ({
             id: r.id,
-            date: r.date,
-            customer_name: r.customerName,
-            particulars: r.particulars,
-            consignee: r.consignee,
-            voucher_no: r.voucherNo,
-            voucher_ref_no: r.voucherRefNo,
-            quantity: r.quantity,
-            value: r.value,
+            date: normalizeToISODate(r.date),
+            customer_name: r.customerName || '',
+            particulars: r.particulars || '',
+            consignee: r.consignee || '',
+            voucher_no: r.voucherNo || '',
+            voucher_ref_no: r.voucherRefNo || '',
+            quantity: Number(r.quantity) || 0,
+            value: Number(r.value) || 0,
             created_at: new Date(r.createdAt).toISOString()
           }));
 
           const { error } = await supabase.from('sales_report').insert(chunk);
-          if (error) throw new Error(error.message);
-          console.log(`☁️ Uploaded chunk ${i / CHUNK_SIZE + 1}`);
+          if (error) {
+            console.error(`❌ Cloud insert failed at chunk ${Math.floor(i / CHUNK_SIZE) + 1}:`, error);
+            throw new Error(`Cloud upload failed: ${error.message}`);
+          }
+          console.log(`☁️ Uploaded chunk ${i / CHUNK_SIZE + 1} of ${Math.ceil(newItems.length / CHUNK_SIZE)}`);
         }
       } catch (e: any) {
         console.error("Sales Report: Sync to Supabase failed:", e?.message || e);
+        // Throw so caller knows cloud upload failed!
+        throw e;
       }
     }
 
@@ -179,6 +267,94 @@ export const salesService = {
     }
 
     return newItems as SalesReportItem[];
+  },
+
+  /**
+   * Pushes local IndexedDB sales records to Supabase Cloud so other users can see them.
+   */
+  async syncLocalToCloud(
+    onProgress?: (pct: number, msg: string) => void
+  ): Promise<{ success: boolean; message: string; count?: number }> {
+    if (!isSupabaseConfigured) {
+      return { success: false, message: "Supabase cloud link is not configured." };
+    }
+
+    try {
+      if (onProgress) onProgress(5, "Checking local records...");
+      const localData = await dbService.getAll<SalesReportItem>(STORES.SALES);
+      if (!localData || localData.length === 0) {
+        return { success: false, message: "No local sales records found to sync." };
+      }
+
+      if (onProgress) onProgress(10, `Found ${localData.length.toLocaleString('en-IN')} local records. Checking cloud database...`);
+
+      // 1. Get latest date from Supabase
+      const { data: latestRows, error: queryErr } = await supabase
+        .from('sales_report')
+        .select('date')
+        .order('date', { ascending: false })
+        .limit(1);
+
+      if (queryErr) throw new Error(queryErr.message);
+
+      const latestCloudDate = latestRows && latestRows.length > 0 ? latestRows[0].date : null;
+      console.log('Latest cloud date:', latestCloudDate);
+
+      // 2. Identify which local records are missing from cloud
+      let toUpload: SalesReportItem[] = [];
+
+      if (latestCloudDate) {
+        // Records newer than latest cloud date
+        toUpload = localData.filter(r => r.date && r.date > latestCloudDate);
+      }
+
+      // If no records strictly newer, check if local has more records or check from 2026-08-01
+      if (toUpload.length === 0) {
+        toUpload = localData.filter(r => r.date && r.date >= '2026-08-01');
+      }
+
+      if (toUpload.length === 0) {
+        return { success: true, count: 0, message: "All local records appear to be synced with the cloud already!" };
+      }
+
+      if (onProgress) onProgress(20, `Identified ${toUpload.length.toLocaleString('en-IN')} unsynced records. Uploading to cloud...`);
+
+      const CHUNK_SIZE = 500;
+      let uploadedCount = 0;
+      for (let i = 0; i < toUpload.length; i += CHUNK_SIZE) {
+        const batch = toUpload.slice(i, i + CHUNK_SIZE).map(r => ({
+          id: r.id || getUuid(),
+          date: normalizeToISODate(r.date),
+          customer_name: String(r.customerName || ''),
+          particulars: String(r.particulars || ''),
+          consignee: String(r.consignee || ''),
+          voucher_no: String(r.voucherNo || ''),
+          voucher_ref_no: String(r.voucherRefNo || ''),
+          quantity: Number(r.quantity) || 0,
+          value: Number(r.value) || 0,
+          created_at: new Date(r.createdAt || Date.now()).toISOString()
+        }));
+
+        const { error: insertErr } = await supabase.from('sales_report').insert(batch);
+        if (insertErr) {
+          throw new Error(`Upload failed at chunk ${Math.floor(i / CHUNK_SIZE) + 1}: ${insertErr.message}`);
+        }
+
+        uploadedCount += batch.length;
+        const pct = Math.min(95, 20 + Math.round((uploadedCount / toUpload.length) * 75));
+        if (onProgress) onProgress(pct, `Uploaded ${uploadedCount.toLocaleString('en-IN')} / ${toUpload.length.toLocaleString('en-IN')} records...`);
+      }
+
+      if (onProgress) onProgress(100, `Successfully synced ${uploadedCount.toLocaleString('en-IN')} records to cloud!`);
+      return {
+        success: true,
+        count: uploadedCount,
+        message: `Successfully uploaded ${uploadedCount.toLocaleString('en-IN')} sales records to cloud database! All other users will now see the updated data.`
+      };
+    } catch (e: any) {
+      console.error("Cloud push failed:", e);
+      return { success: false, message: e.message || "Failed to push records to cloud." };
+    }
   },
 
   async update(item: SalesReportItem): Promise<void> {

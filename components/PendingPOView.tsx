@@ -3,6 +3,7 @@ import React, { useRef, useMemo, useState, useDeferredValue } from 'react';
 import { PendingPOItem, Material, ClosingStockItem, PendingSOItem, SalesReportItem } from '../types';
 import { Trash2, Download, Upload, ShoppingCart, Search, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, Package, FileDown, Pencil, Save, X, Calendar, PieChart, BarChart3, AlertOctagon, CheckCircle2, Filter, Plus, Layers, Loader2 } from 'lucide-react';
 import { read, utils, writeFile } from 'xlsx';
+import { normalizeToISODate } from '../services/salesService';
 
 interface PendingPOViewProps {
     items: PendingPOItem[];
@@ -242,24 +243,7 @@ const PendingPOView: React.FC<PendingPOViewProps> = ({
         try {
             // Fixed: Moved cellDates and dateNF to read options to avoid Sheet2JSONOpts type errors
             const arrayBuffer = await file.arrayBuffer(); const wb = read(arrayBuffer, { cellDates: true, dateNF: 'yyyy-mm-dd' }); const ws = wb.Sheets[wb.SheetNames[0]]; const data = utils.sheet_to_json<any>(ws); const newItems: Omit<PendingPOItem, 'id' | 'createdAt'>[] = [];
-            const formatExcelDate = (val: any) => {
-                let d: Date;
-                if (val instanceof Date) {
-                    // Nudge by 12 hours to handle dates that are at 23:59:50 due to floating point error
-                    d = new Date(val.getTime() + (12 * 60 * 60 * 1000));
-                } else if (typeof val === 'number') {
-                    d = new Date((Math.round(val) - 25568) * 86400 * 1000);
-                } else {
-                    return String(val || '');
-                }
-
-                if (isNaN(d.getTime())) return String(val || '');
-
-                const year = d.getFullYear();
-                const month = String(d.getMonth() + 1).padStart(2, '0');
-                const day = String(d.getDate()).padStart(2, '0');
-                return `${year}-${month}-${day}`;
-            };
+            const formatExcelDate = (val: any) => normalizeToISODate(val) || '';
             data.forEach((row) => {
                 const getVal = (keys: string[]) => { for (const k of keys) { const foundKey = Object.keys(row).find(rk => rk.toLowerCase() === k.toLowerCase()); if (foundKey) return row[foundKey]; } return ''; };
                 const date = formatExcelDate(getVal(['date', 'dt'])); const orderNo = String(getVal(['order', 'order no', 'po no']) || ''); const partyName = String(getVal(['party\'s name', 'party name', 'vendor']) || ''); const itemName = String(getVal(['name of item', 'item name', 'description']) || ''); const materialCode = String(getVal(['material code']) || ''); const partNo = String(getVal(['part no']) || ''); const ordered = parseFloat(getVal(['ordered', 'ordered qty'])) || 0; const balance = parseFloat(getVal(['balance', 'bal qty'])) || 0; const rate = parseFloat(getVal(['rate', 'price'])) || 0; let value = parseFloat(getVal(['value', 'val', 'amount'])) || 0; if (value === 0 && balance !== 0 && rate !== 0) value = balance * rate; const due = formatExcelDate(getVal(['due on', 'due date', 'due']));

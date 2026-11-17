@@ -1,8 +1,9 @@
 
 import React, { useRef, useState, useMemo, useEffect, useDeferredValue } from 'react';
 import { SalesReportItem, Material, CustomerMasterItem } from '../types';
-import { Trash2, Download, Upload, Search, ArrowUpDown, ArrowUp, ArrowDown, FileBarChart, AlertTriangle, UserX, PackageX, Users, Package, FileWarning, FileDown, Loader2, ChevronLeft, ChevronRight, Filter, Calendar, CalendarRange, Layers, TrendingUp, TrendingDown, Minus, UserCheck, Target, BarChart2, AlertOctagon, DollarSign, Pencil, Save, X, Database, Plus, UserPlus, RefreshCw } from 'lucide-react';
+import { Trash2, Download, Upload, Search, ArrowUpDown, ArrowUp, ArrowDown, FileBarChart, AlertTriangle, UserX, PackageX, Users, Package, FileWarning, FileDown, Loader2, ChevronLeft, ChevronRight, Filter, Calendar, CalendarRange, Layers, TrendingUp, TrendingDown, Minus, UserCheck, Target, BarChart2, AlertOctagon, DollarSign, Pencil, Save, X, Database, Plus, UserPlus, RefreshCw, CloudUpload } from 'lucide-react';
 import { read, utils, writeFile } from 'xlsx';
+import { salesService, normalizeToISODate } from '../services/salesService';
 
 interface SalesReportViewProps {
     items: SalesReportItem[];
@@ -415,18 +416,6 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                 const allNewItems: any[] = [];
                 let currentIndex = 0;
 
-                const formatExcelDate = (val: any) => {
-                    let d: Date;
-                    if (val instanceof Date) { d = new Date(val.getTime() + (12 * 60 * 60 * 1000)); }
-                    else if (typeof val === 'number') { d = new Date((Math.round(val) - 25568) * 86400 * 1000); }
-                    else { return String(val || ''); }
-                    if (isNaN(d.getTime())) return String(val || '');
-                    const year = d.getFullYear();
-                    const month = String(d.getMonth() + 1).padStart(2, '0');
-                    const day = String(d.getDate()).padStart(2, '0');
-                    return `${year}-${month}-${day}`;
-                };
-
                 const processChunk = () => {
                     const end = Math.min(currentIndex + CHUNK_SIZE, totalRows);
                     for (let i = currentIndex; i < end; i++) {
@@ -463,7 +452,7 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                                 quantity = parseFloat(row[key]);
                             }
                             else if (lowerKey.includes('date') || lowerKey === 'dt') {
-                                date = formatExcelDate(row[key]);
+                                date = normalizeToISODate(row[key]);
                             }
                         });
                         if (customerName) allNewItems.push({
@@ -483,10 +472,18 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                     setStatusMessage(`Processing... ${progress}%`);
                     if (currentIndex < totalRows) { setTimeout(processChunk, 0); }
                     else {
-                        setStatusMessage("Finalizing...");
-                        setTimeout(() => {
-                            if (allNewItems.length > 0) onBulkAdd(allNewItems);
-                            else alert("No valid records.");
+                        setStatusMessage("Saving records to cloud and local database...");
+                        setTimeout(async () => {
+                            if (allNewItems.length > 0) {
+                                try {
+                                    await onBulkAdd(allNewItems);
+                                    alert(`Successfully imported and synced ${allNewItems.length.toLocaleString('en-IN')} records!`);
+                                } catch (err: any) {
+                                    alert(`Notice: Imported locally, but cloud sync encountered an issue: ${err.message || 'Please use Push to Cloud'}`);
+                                }
+                            } else {
+                                alert("No valid records found in file.");
+                            }
                             setIsProcessing(false);
                             setUploadProgress(null);
                             if (fileInputRef.current) fileInputRef.current.value = '';
@@ -496,6 +493,33 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
                 processChunk();
             } catch (e) { alert("Error parsing file."); setIsProcessing(false); }
         }, 100);
+    };
+
+    const handlePushToCloud = async () => {
+        if (!confirm("Push Local Sales to Cloud?\n\nThis will scan your local browser records and upload all new/unsynced records (e.g. August-November sales) to Supabase so that all other users will see the exact same values.")) {
+            return;
+        }
+        setIsProcessing(true);
+        setStatusMessage("Preparing cloud sync...");
+        setUploadProgress(0);
+        try {
+            const res = await salesService.syncLocalToCloud((pct, msg) => {
+                setUploadProgress(pct);
+                setStatusMessage(msg);
+            });
+            setIsProcessing(false);
+            setUploadProgress(null);
+            if (res.success) {
+                alert(`✅ Sync Complete: ${res.message}`);
+                if (onRefresh) await onRefresh();
+            } else {
+                alert(`Notice: ${res.message}`);
+            }
+        } catch (err: any) {
+            setIsProcessing(false);
+            setUploadProgress(null);
+            alert(`❌ Sync failed: ${err.message || 'Unknown error'}`);
+        }
     };
 
     const handleRefresh = async () => {
@@ -552,17 +576,28 @@ const SalesReportView: React.FC<SalesReportViewProps> = ({
 
             <div className="flex items-center justify-between bg-white p-2 rounded-xl shadow-sm border border-gray-200 flex-shrink-0">
                 <div className="flex items-center gap-4 pl-2"><div className="flex flex-col"><span className="text-[10px] text-gray-500 font-bold uppercase">Qty</span><span className="text-sm font-black text-blue-600">{totals.qty.toLocaleString()}</span></div><div className="w-px h-6 bg-gray-200"></div><div className="flex flex-col"><span className="text-[10px] text-gray-500 font-bold uppercase">Total Value</span><span className="text-sm font-black text-emerald-600">{formatCurrency(totals.val)}</span></div></div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center flex-wrap">
                     <input type="file" ref={fileInputRef} className="hidden" accept=".xlsx, .xls" onChange={handleFileUpload} />
+                    {isAdmin && (
+                        <button
+                            onClick={handlePushToCloud}
+                            disabled={isProcessing || isRefreshing}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-sm disabled:opacity-50 transition-all"
+                            title="Upload local updated records to cloud database so other users can see them"
+                        >
+                            <CloudUpload className="w-3.5 h-3.5" />
+                            <span>Push to Cloud</span>
+                        </button>
+                    )}
                     {onRefresh && (
                         <button
                             onClick={handleRefresh}
-                            disabled={isRefreshing}
+                            disabled={isRefreshing || isProcessing}
                             className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-bold border border-indigo-100 hover:bg-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                            title="Sync data from cloud"
+                            title="Download latest data from cloud"
                         >
                             <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
-                            {isRefreshing ? 'Syncing...' : 'Sync'}
+                            {isRefreshing ? 'Syncing...' : 'Pull Cloud'}
                         </button>
                     )}
                     <button onClick={handleExportToExcel} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-xs font-bold border border-emerald-100 hover:bg-emerald-100"><Download className="w-3.5 h-3.5" /> Export</button>

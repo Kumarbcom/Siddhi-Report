@@ -2,6 +2,7 @@
 import { supabase, isSupabaseConfigured } from './supabase';
 import { dbService, STORES } from './db';
 import { PendingSOItem } from '../types';
+import { normalizeToISODate } from './salesService';
 
 const getUuid = () => {
   if (typeof window !== 'undefined' && window.crypto && window.crypto.randomUUID) {
@@ -93,19 +94,19 @@ export const soService = {
       try {
         const rows = newItems.map(i => ({
           id: i.id,
-          date: i.date,
+          date: normalizeToISODate(i.date),
           order_no: i.orderNo,
           party_name: i.partyName,
           item_name: i.itemName,
           material_code: i.materialCode,
           part_no: i.partNo,
-          ordered_qty: i.orderedQty,
-          balance_qty: i.balanceQty,
-          rate: i.rate,
-          discount: i.discount,
-          value: i.value,
-          due_on: i.dueDate,
-          overdue_days: i.overDueDays,
+          ordered_qty: Number(i.orderedQty) || 0,
+          balance_qty: Number(i.balanceQty) || 0,
+          rate: Number(i.rate) || 0,
+          discount: Number(i.discount) || 0,
+          value: Number(i.value) || 0,
+          due_on: normalizeToISODate(i.dueDate),
+          overdue_days: Number(i.overDueDays) || 0,
           created_at: new Date(i.createdAt).toISOString()
         }));
 

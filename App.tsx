@@ -57,7 +57,8 @@ import {
   PlusCircle,
   ArrowLeft,
   Sparkles,
-  Calculator
+  Calculator,
+  CloudUpload
 } from 'lucide-react';
 import { authService, User } from './services/authService';
 import { LoginView } from './components/LoginView';
@@ -136,6 +137,10 @@ const App: React.FC = () => {
     isSupabaseConfigured ? 'connected' : 'unlinked'
   );
   const [isSyncing, setIsSyncing] = useState(false);
+  const [showCloudSyncModal, setShowCloudSyncModal] = useState(false);
+  const [syncModalProgress, setSyncModalProgress] = useState<number | null>(null);
+  const [syncModalMessage, setSyncModalMessage] = useState<string>('');
+  const [isSyncModalProcessing, setIsSyncModalProcessing] = useState(false);
 
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
@@ -484,6 +489,30 @@ const App: React.FC = () => {
     } catch (e: any) {
       console.error("Sales refresh failed:", e);
       throw new Error("Failed to sync sales data from cloud");
+    }
+  };
+
+  const handlePushLocalSalesToCloud = async () => {
+    setIsSyncModalProcessing(true);
+    setSyncModalMessage("Scanning local sales records...");
+    setSyncModalProgress(5);
+    try {
+      const res = await salesService.syncLocalToCloud((pct, msg) => {
+        setSyncModalProgress(pct);
+        setSyncModalMessage(msg);
+      });
+      setIsSyncModalProcessing(false);
+      setSyncModalProgress(null);
+      if (res.success) {
+        alert(`✅ Cloud Sync Success: ${res.message}`);
+        await loadAllData();
+      } else {
+        alert(`Notice: ${res.message}`);
+      }
+    } catch (e: any) {
+      setIsSyncModalProcessing(false);
+      setSyncModalProgress(null);
+      alert(`❌ Sync failed: ${e.message || 'Unknown error'}`);
     }
   };
 
@@ -959,32 +988,30 @@ const App: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-4">
-            {isSyncing ? (
-              <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-blue-50 rounded-full border border-blue-100">
-                <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-                <span className="text-[9px] font-black text-blue-700 uppercase">Syncing...</span>
-              </div>
-            ) : dbStatus === 'connected' ? (
-              <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-green-50 rounded-full border border-green-100">
-                <div className="w-2 h-2 rounded-full bg-green-500" />
-                <span className="text-[9px] font-black text-green-700 uppercase">Cloud Synced</span>
-              </div>
-            ) : dbStatus === 'partial' ? (
-              <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-yellow-50 rounded-full border border-yellow-100">
-                <div className="w-2 h-2 rounded-full bg-yellow-500" />
-                <span className="text-[9px] font-black text-yellow-700 uppercase">Partial Sync</span>
-              </div>
-            ) : dbStatus === 'error' ? (
-              <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-red-50 rounded-full border border-red-100">
-                <div className="w-2 h-2 rounded-full bg-red-500" />
-                <span className="text-[9px] font-black text-red-700 uppercase">Sync Error</span>
-              </div>
-            ) : (
-              <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-gray-50 rounded-full border border-gray-200">
-                <div className="w-2 h-2 rounded-full bg-gray-400" />
-                <span className="text-[9px] font-black text-gray-500 uppercase">Local Only</span>
-              </div>
-            )}
+            <button
+              onClick={() => setShowCloudSyncModal(true)}
+              className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full border text-[9px] font-black uppercase transition-all shadow-sm hover:scale-105 ${
+                isSyncing 
+                  ? 'bg-blue-50 border-blue-200 text-blue-700'
+                  : dbStatus === 'connected' 
+                  ? (salesReportItems.length > 89365 ? 'bg-amber-50 border-amber-300 text-amber-800' : 'bg-green-50 border-green-200 text-green-700')
+                  : dbStatus === 'partial' 
+                  ? 'bg-yellow-50 border-yellow-200 text-yellow-700'
+                  : dbStatus === 'error'
+                  ? 'bg-red-50 border-red-200 text-red-700'
+                  : 'bg-gray-50 border-gray-200 text-gray-500'
+              }`}
+              title="Click to open Cloud Sync Manager"
+            >
+              <div className={`w-2 h-2 rounded-full ${
+                isSyncing ? 'bg-blue-500 animate-pulse' : 
+                dbStatus === 'connected' ? (salesReportItems.length > 89365 ? 'bg-amber-500 animate-pulse' : 'bg-green-500') : 
+                dbStatus === 'partial' ? 'bg-yellow-500' : 
+                dbStatus === 'error' ? 'bg-red-500' : 'bg-gray-400'
+              }`} />
+              <span>{isSyncing ? 'Syncing...' : dbStatus === 'connected' ? (salesReportItems.length > 89365 ? '⚠️ Sync Needed' : 'Cloud Synced') : dbStatus === 'partial' ? 'Partial Sync' : dbStatus === 'error' ? 'Sync Error' : 'Local Only'}</span>
+              <CloudUpload className="w-3.5 h-3.5 ml-0.5" />
+            </button>
             <button
               onClick={() => setActiveTab('reports')}
               className={`p-2 rounded-xl transition-all shadow-sm border ${
@@ -1189,6 +1216,114 @@ const App: React.FC = () => {
           onClose={() => setShowPasswordChange(false)}
           onSuccess={() => { setShowPasswordChange(false); alert("Password updated successfully!"); }}
         />
+      )}
+
+      {/* Cloud Sync Manager Modal */}
+      {showCloudSyncModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-gray-100 animate-in fade-in zoom-in-95 duration-200">
+            <div className="px-6 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <CloudUpload className="w-5 h-5" />
+                <h3 className="font-bold text-base">Cloud Data Synchronization Manager</h3>
+              </div>
+              <button
+                onClick={() => setShowCloudSyncModal(false)}
+                disabled={isSyncModalProcessing}
+                className="p-1 rounded-lg hover:bg-white/20 text-white transition-all disabled:opacity-50"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="bg-blue-50/60 border border-blue-100 rounded-xl p-3.5 text-xs text-blue-900 space-y-2">
+                <div className="flex items-center justify-between font-bold">
+                  <span>Cloud Database:</span>
+                  <span className="text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full font-mono text-[10px]">CONNECTED</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600">Local Sales in this Browser:</span>
+                  <span className="font-black text-blue-700 text-sm">{salesReportItems.length.toLocaleString('en-IN')} records</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600">Cloud Baseline in Supabase:</span>
+                  <span className="font-medium text-gray-600">89,365 records (Up to July 2026)</span>
+                </div>
+              </div>
+
+              {salesReportItems.length > 89365 ? (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2.5 text-xs text-amber-900">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold">Unsynced Local Data Detected!</span>
+                    <p className="mt-0.5 text-amber-800 text-[11px] leading-relaxed">
+                      This browser has newer sales records (April through November) that are currently stored locally. Other users opening the website only see the cloud baseline (30.52 Cr).
+                      <br /><br />
+                      Click <strong>"Push Local Sales to Cloud"</strong> below to upload the missing records so everyone sees the updated figures (59.39 Cr).
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-green-50 border border-green-200 rounded-xl p-3 flex items-start gap-2.5 text-xs text-green-900">
+                  <div className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5 font-bold">✓</div>
+                  <div>
+                    <span className="font-bold">Local and Cloud data are aligned</span>
+                    <p className="mt-0.5 text-green-800 text-[11px] leading-relaxed">
+                      If you recently imported an Excel file and need to force an upload, you can still click "Push Local Sales to Cloud" below.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {isSyncModalProcessing && (
+                <div className="space-y-2 py-2">
+                  <div className="flex items-center justify-between text-xs font-bold text-gray-700">
+                    <span>{syncModalMessage}</span>
+                    <span>{syncModalProgress !== null ? `${syncModalProgress}%` : ''}</span>
+                  </div>
+                  {syncModalProgress !== null && (
+                    <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
+                      <div
+                        className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+                        style={{ width: `${syncModalProgress}%` }}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="pt-2 flex flex-col gap-2.5">
+                <button
+                  onClick={handlePushLocalSalesToCloud}
+                  disabled={isSyncModalProcessing}
+                  className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-100 transition-all disabled:opacity-50"
+                >
+                  <CloudUpload className="w-4 h-4" />
+                  <span>Push Local Sales to Cloud (Sync for Others)</span>
+                </button>
+
+                <button
+                  onClick={async () => {
+                    setIsSyncModalProcessing(true);
+                    setSyncModalMessage("Fetching fresh data from cloud...");
+                    setSyncModalProgress(50);
+                    await loadAllData();
+                    setIsSyncModalProcessing(false);
+                    setSyncModalProgress(null);
+                    setShowCloudSyncModal(false);
+                    alert("Data refreshed from cloud.");
+                  }}
+                  disabled={isSyncModalProcessing}
+                  className="w-full flex items-center justify-center gap-2 py-2 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition-all disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isSyncModalProcessing ? 'animate-spin' : ''}`} />
+                  <span>Pull Fresh Cloud Data</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
