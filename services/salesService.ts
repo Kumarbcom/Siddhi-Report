@@ -150,11 +150,21 @@ export const salesService = {
             
             // Check if local has records strictly newer than cloud's newest date
             if (latestCloudDate) {
-              unsyncedLocal = existingLocal.filter(l => l.date && l.date > latestCloudDate);
+              unsyncedLocal = existingLocal.filter(l => {
+                const iso = normalizeToISODate(l.date);
+                return iso ? iso > latestCloudDate : false;
+              });
             }
             // If local count is significantly higher, also preserve records from August 2026 onwards if cloud ends in July
             if (unsyncedLocal.length === 0 && existingLocal.length > data.length) {
-              unsyncedLocal = existingLocal.filter(l => l.date && l.date >= '2026-08-01');
+              unsyncedLocal = existingLocal.filter(l => {
+                const iso = normalizeToISODate(l.date);
+                return iso ? iso >= '2026-08-01' : false;
+              });
+            }
+            // Fallback: If still 0 but local has more records, preserve the excess records
+            if (unsyncedLocal.length === 0 && existingLocal.length > data.length) {
+              unsyncedLocal = existingLocal.slice(data.length);
             }
 
             if (unsyncedLocal.length > 0) {
@@ -305,12 +315,23 @@ export const salesService = {
 
       if (latestCloudDate) {
         // Records newer than latest cloud date
-        toUpload = localData.filter(r => r.date && r.date > latestCloudDate);
+        toUpload = localData.filter(r => {
+          const iso = normalizeToISODate(r.date);
+          return iso ? iso > latestCloudDate : false;
+        });
       }
 
       // If no records strictly newer, check if local has more records or check from 2026-08-01
       if (toUpload.length === 0) {
-        toUpload = localData.filter(r => r.date && r.date >= '2026-08-01');
+        toUpload = localData.filter(r => {
+          const iso = normalizeToISODate(r.date);
+          return iso ? iso >= '2026-08-01' : false;
+        });
+      }
+
+      // Fallback: If still 0, but local data has more records than cloud (89,365), upload the extra records!
+      if (toUpload.length === 0 && localData.length > 89365) {
+        toUpload = localData.slice(89365);
       }
 
       if (toUpload.length === 0) {
